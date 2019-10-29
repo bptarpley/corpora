@@ -1,0 +1,931 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+    <link href="https://unpkg.com/filepond/dist/filepond.css" rel="stylesheet">
+{% endblock %}
+
+{% block modals %}
+    <!-- Import Pages Modal -->
+    <div class="modal fade" id="import-pages-modal" tabindex="-1" role="dialog" aria-labelledby="import-pages-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="import-pages-form" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" id="import-pages-files" name="import-pages-files" value="[]" />
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="import-pages-modal-label">Import Pages</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="import-pages-type" id="import-pages-type-pdf" value="pdf" checked>
+                            <label class="form-check-label" for="new-document-import-type">Import pages from PDF file</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="import-pages-type" id="import-pages-type-images" value="images">
+                            <label class="form-check-label" for="new-document-import-type">Import pages from multiple image files</label>
+                        </div>
+                        <div id="import-pages-pdf-options" class="mt-1">
+                            <div class="form-group">
+                                <label for="import-pages-pdf-options-dpi">Image DPI</label>
+                                <select id="image-pages-pdf-options-dpi" class="form-control" name="import-pages-image-dpi">
+                                    <option value="300">300</option>
+                                    <option value="150">150</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="import-pages-pdf-options-split">Split Images in Half Vertically</label>
+                                <select id="import-pages-pdf-options-split" class="form-control" name="import-pages-split">
+                                    <option value="No">No</option>
+                                    <option value="Yes">Yes</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <input id="import-pages-filepond" class="filepond" type="file">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="import-pages-submit-button" onclick="import_pages();" disabled>Import</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- OCR Modal -->
+    <div class="modal fade" id="ocr-modal" tabindex="-1" role="dialog" aria-labelledby="ocr-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="ocr-form" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="ocr-modal-label">Perform OCR</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="ocr-jobsite-selector">Jobsite</label>
+                            <select id="ocr-jobsite-selector" class="form-control" name="jobsite">
+                            </select>
+                        </div>
+                        <div id="ocr-task-selector-div" class="form-group">
+                            <label for="ocr-task-selector">Task</label>
+                            <select id="ocr-task-selector" class="form-control" name="task">
+                            </select>
+                        </div>
+                        <div id="ocr-task-parameters-div">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="ocr-submit-button" onclick="perform_ocr();" disabled>Perform OCR</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analyze Modal -->
+    <div class="modal fade" id="analyze-modal" tabindex="-1" role="dialog" aria-labelledby="analyze-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="analyze-form" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="analyze-modal-label">Analyze</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="analyze-jobsite-selector">Jobsite</label>
+                            <select id="analyze-jobsite-selector" class="form-control" name="jobsite">
+                            </select>
+                        </div>
+                        <div id="analyze-task-selector-div" class="form-group">
+                            <label for="analyze-task-selector">Task</label>
+                            <select id="analyze-task-selector" class="form-control" name="task">
+                            </select>
+                        </div>
+                        <div id="analyze-task-parameters-div">
+
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="analyze-submit-button" onclick="analyze();" disabled>Analyze</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Job Finished Modal -->
+    <div class="modal fade" id="job-finished-modal" tabindex="-1" role="dialog" aria-labelledby="job-finished-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="job-finished-modal-label">Job Completed</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-success">
+                        One or more jobs have completed for this document. Click the "Refresh" button below to view results.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="window.location = window.location.href;">Refresh</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block main %}
+    <div class="container-fluid mt-4">
+        <div class="row">
+
+            <!-- METADATA -->
+            <div class="col-sm-12 col-md-6">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4>Metadata</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="list-group">
+                                    {% for core_field in core_fields %}
+                                        {% if document|get_field:core_field %}
+                                            <div class="list-group-item">
+                                                <h5>{{ core_field|title }}</h5>
+                                                {{ document|get_field:core_field }}
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% for key, value in document.kvp.items %}
+                                        {% if not key|startswith:'_' %}
+                                            <div class="list-group-item">
+                                                <h5>{{ key }}</h5>
+                                                {{ value }}
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- JOBS -->
+            <div class="col-sm-12 col-md-6">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h4>Running Jobs</h4>
+                            </div>
+                            <div class="card-body">
+                                <div id="running-jobs-div">
+                                    <div id="no-running-jobs-div" class="alert alert-info">
+                                        There are currently no jobs running for this document.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h4>Completed Jobs</h4>
+                            </div>
+                            <div class="card-body">
+                                <div id="completed-jobs-div">
+                                    <div id="no-completed-jobs-div" class="alert alert-info">
+                                        There have been no jobs completed for this document.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="row">
+
+            <!-- DOCUMENT FILES -->
+            <div class="col-12">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4>Document Files</h4>
+                    </div>
+                    <div class="card-body">
+                        {% if document.files %}
+                            <table class="table table-striped">
+                                <thead class="thead-dark">
+                                    <th scope="col">
+                                        File
+                                    </th>
+                                    <th scope="col">
+                                        Description
+                                    </th>
+                                    <th scope="col">
+                                        Extension
+                                    </th>
+                                    <th scope="col">
+                                        Size (bytes)
+                                    </th>
+                                </thead>
+                                {% for file in document.files %}
+                                    <tr>
+                                        <td>
+                                            {% if file.basename|lower|endswith:".png" or file.basename|lower|endswith:".gif" or file.basename|lower|endswith:".jpg" or file.basename|lower|endswith:".jpeg" or file.basename|lower|endswith:".tiff" or file.basename|lower|endswith:".tif" %}
+                                                <a href="/get-image?path={{ file.path }}" target="_blank">{{ file.basename }}</a>
+                                            {% elif file.basename|lower|endswith:".zip" %}
+                                                <a href="/get-file?path={{ file.path }}" download="{{ file.basename }}">{{ file.basename }}</a>
+                                            {% else %}
+                                                <a href="/get-file?path={{ file.path }}" target="_blank">{{ file.basename }}</a>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {{ file.description }}
+                                        </td>
+                                        <td>
+                                            {{ file.extension }}
+                                        </td>
+                                        <td>
+                                            {{ file.byte_size }}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </table>
+                        {% else %}
+                            <div class="alert alert-info">
+                                There are currently no files for this document.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="row">
+
+            <!-- PAGE FILE COLLECTIONS -->
+            <div class="col-12">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4>Page File Collections</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group" id="page-file-collection-group">
+                            {% if document.page_file_collections %}
+                                {% for key, info in document.page_file_collections.items %}
+                                    <div id="page-file-collection-{{ info.collection_counter }}-container" class="list-group-item">
+                                        <h5>
+                                            <button class="btn btn-link" data-toggle="collapse" data-target="#page-file-collection-{{ info.collection_counter }}" aria-expanded="false" aria-controls="page-file-collection-{{ info.collection_counter }}">
+                                                <span id="page-file-collection-{{ info.collection_counter }}-indicator" class="oi oi-caret-right"></span>
+                                                {{ key }}
+                                            </button>
+                                        </h5>
+                                        <div id="page-file-collection-{{ info.collection_counter }}" class="alert alert-info collapse" aria-labelledby="page-file-collection-{{ info.collection_counter }}-container" data-parent="#page-file-collection-group">
+                                            <div class="mb-2 w-100 form-inline">
+                                                {% if 'Plain Text' in key %}
+                                                    <form method="post">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="collection" value="{{ key }}"/>
+                                                        <input type="hidden" name="consolidate-files" value="y"/>
+                                                        <button type="submit" class="btn btn-primary mr-2">Create a Consolidated Text File</button>
+                                                    </form>
+                                                {% endif %}
+                                                <form method="post">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="collection" value="{{ key }}"/>
+                                                    <input type="hidden" name="jobsite" value="{{ local_jobsite }}"/>
+                                                    <input type="hidden" name="task" class="zip_page_file_task" value=""/>
+                                                    <button type="submit" class="btn btn-primary">Create a .zip File</button>
+                                                </form>
+                                            </div>
+                                            <table class="table table-striped">
+                                                <thead class="thead-dark">
+                                                    <th scope="col">
+                                                        Page #
+                                                    </th>
+                                                    <th scope="col">
+                                                        Link
+                                                    </th>
+                                                    <th scope="col">
+                                                        Size (bytes)
+                                                    </th>
+                                                    <th scope="col">
+                                                        Action
+                                                    </th>
+                                                </thead>
+                                                {% for file in info.files %}
+                                                    <tr>
+                                                        <td>
+                                                            {{ file.page }}
+                                                        </td>
+                                                        <td>
+                                                            {% if 'Image' in key %}
+                                                                <a href="/get-image?path={{ file.path }}" target="_blank">{{ file.basename }}</a>
+                                                            {% elif 'Object' in key %}
+                                                                <a href="/get-file?path={{ file.path }}" download="{{ file.basename }}">{{ file.basename }}</a>
+                                                            {% else %}
+                                                                <a href="/get-file?path={{ file.path }}" target="_blank">{{ file.basename }}</a>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>
+                                                            {{ file.byte_size }}
+                                                        </td>
+                                                        <td>
+                                                            {% if 'HOCR' in key or 'GCV TextAnnotation' in key %}
+                                                                <a id='fix-regions-button' href="/corpus/{{ corpus.id }}/document/{{ document.id }}/draw-page-regions/{{ file.page }}/?ocrfile={{ file.path }}" class="btn btn-primary ml-1">Fix OCR Regions</a>
+                                                            {% endif  %}
+                                                        </td>
+                                                    </tr>
+                                                {% endfor %}
+                                            </table>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-info">
+                                    There are currently no page file collections for this document.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="row">
+
+            <!-- PAGES -->
+            <div class="col-12">
+                <div class="card mb-3">
+                    <div class="card-header" style="border-bottom: none;">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h4>Pages</h4>
+                            <span>
+                                <button id="import-pages-button" class="btn btn-primary rounded" type="button">Import</button>
+                                {% if document.pages %}
+                                    {% if response.scholar.is_admin %}
+                                        <a id="reset-pages-button" class="btn btn-secondary rounded ml-1" role="button" href="?reset-pages">Reset</a>
+                                    {% endif %}
+                                    <button id="perform-ocr-button" class="btn btn-primary rounded ml-1" type="button">Perform OCR</button>
+                                    <button id="analyze-button" class="btn btn-primary rounded ml-1" type="button">Analyze</button>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <div id="page-viewer-control-div" class="d-flex w-100 justify-content-between align-items-center p-3 control-div">
+                        <div class="form-inline">
+                            <button id="go-prev-page-button" type="button" class="btn btn-primary rounded" disabled><span class="oi oi-caret-left"></span></button>
+                            <input id="go-page-box" type="text" class="form-control" style="width: 60px;" value="1">
+                            <button id="go-next-page-button" type="button" class="btn btn-primary rounded"><span class="oi oi-caret-right"></span></button>
+                        </div>
+
+                        <ul id="page-viewer-right-controls" class="nav nav-pills">
+                            <li class="nav-item dropleft">
+                                <a class="nav-link dropdown-toggle active" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Image</a>
+                                <div class="dropdown-menu">
+                                    {% for collection in document.page_file_collections.keys %}
+                                        {% if 'Image' in collection %}
+                                            <a class="dropdown-item" href="javascript: set_collection('left', '{{ collection }}');">{{ collection }}</a>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </li>
+
+                            <li class="nav-item dropleft ml-2">
+                                <a class="nav-link dropdown-toggle active" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Witness</a>
+                                <div class="dropdown-menu">
+                                    <a class="dropdown-item" href="javascript: set_collection('right', '');">None</a>
+                                    {% for collection in document.page_file_collections.keys %}
+                                        {% if 'Plain Text' in collection or 'HTML' in collection %}
+                                            <a class="dropdown-item" href="javascript: set_collection('right', '{{ collection }}');">{{ collection }}</a>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body">
+                        <div id="page-viewer-div">
+                            {% if document.pages %}
+                                <div class="alert alert-info">
+                                    Loading...
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    There are currently no pages for this document. Click the "Import" button above to import pages from image files or a PDF.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="https://unpkg.com/filepond/dist/filepond.js"></script>
+    <script src="{% static 'js/ace/ace.js' %}"></script>
+    <script type="application/javascript">
+        var import_pages_files = [];
+        var check_jobs_timer;
+        var tasks = [];
+        var page_file_collections;
+        var bbox_collections = [];
+        var left_pfc;
+        var right_pfc;
+        var ref_no = 1;
+
+        const pond = FilePond.create(document.querySelector('.filepond'), {
+            allowMultiple: true,
+            allowRevert: false
+        });
+
+        pond.on('processfile', (error, file) => {
+            if(!error) {
+                $("#import-pages-submit-button").attr('disabled', false);
+                import_pages_files.push(file.filename.replace(new RegExp('[^a-zA-Z0-9\\.\\-]', "gm"), '_'));
+            }
+        });
+
+        $('#page-carousel').on('slide.bs.carousel', function(ev) {
+            let lazy;
+            lazy = $(ev.relatedTarget).find("img[data-src]");
+            lazy.attr("src", lazy.data('src'));
+            lazy.removeAttr("data-src");
+        });
+
+        $(document).ready(function() {
+
+            // ------------------------
+            // SETUP COLLAPSIBLE PAGE FILE COLLECTIONS
+            // ------------------------
+            $('.collapse').on('show.bs.collapse', function (event) {
+                let indicator_id = event.target.id + "-indicator";
+                $("#" + indicator_id).removeClass("oi-caret-right");
+                $("#" + indicator_id).addClass("oi-caret-bottom");
+            });
+
+            $('.collapse').on('hidden.bs.collapse', function (event) {
+                let indicator_id = event.target.id + "-indicator";
+                $("#" + indicator_id).removeClass("oi-caret-bottom");
+                $("#" + indicator_id).addClass("oi-caret-right");
+            });
+
+            // ------------------------
+            // SETUP PAGE VIEWER CONTROLS
+            // ------------------------
+            $("#go-prev-page-button").click(function() {
+                ref_no -= 1;
+                show_page();
+            });
+            $("#go-next-page-button").click(function() {
+                ref_no += 1;
+                show_page();
+            });
+            $("#go-page-box").keypress(function(e){
+                let key = e.which;
+                if (key == 13) {
+                    ref_no = parseInt($("#go-page-box").val());
+                    if (isNaN(ref_no)) { ref_no = 1; }
+                    show_page();
+                }
+            });
+
+            // ------------------------
+            // SETUP PAGE VIEWER
+            // ------------------------
+            {% if document.page_file_collections %}
+                $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/page-file-collections/', function(pfc) {
+                    page_file_collections = pfc;
+
+                    for (let pfc in page_file_collections) {
+                        if (pfc.includes('GCV TextAnnotation Object') || pfc.includes('HOCR')) {
+                            bbox_collections.push(pfc);
+                        }
+                    }
+                }).done(function() {
+                    $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/get-kvp/page_viewer_left_collection', function (left) {
+                        left_pfc = left;
+                    }).done(function() {
+                        $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/get-kvp/page_viewer_right_collection', function (right) {
+                            right_pfc = right;
+                        }).done(function () {
+                            $('#page-viewer-control-div').removeClass('d-none');
+                            show_page();
+                        });
+                    })
+                });
+            {% endif %}
+
+            // ------------------------
+            // SETUP IMPORT PAGES MODAL
+            // ------------------------
+            $("#import-pages-button").click(function() {
+                $("#import-pages-submit-button").attr('disabled', true);
+                $("#import-pages-modal").modal();
+            });
+
+            $("input[type=radio][name=import-pages-type]").change(function() {
+                if (this.value == 'pdf') {
+                    $("#import-pages-pdf-options").removeClass("d-none");
+                }
+                else if (this.value == 'images') {
+                    $("#import-pages-pdf-options").addClass("d-none");
+                }
+            });
+
+            $("#import-pages-submit-button").click(function() {
+                $("#import-pages-files").val(JSON.stringify(import_pages_files));
+                $("#import-pages-form").submit();
+            });
+
+            $("#reset-pages-button").click(function() {
+                $("#import-pages-files").val(JSON.stringify(import_pages_files));
+                $("#import-pages-form").submit();
+            });
+
+            // -----------------
+            // SETUP OCR MODAL
+            // -----------------
+            $("#perform-ocr-button").click(function() {
+                load_jobsites("ocr", "OCR");
+                $("#ocr-modal").modal();
+            });
+
+            $("#ocr-jobsite-selector").on("change", function() {
+                load_tasks($('#ocr-jobsite-selector :selected').attr('class'), 'ocr', 'OCR');
+            });
+
+            $("#ocr-task-selector").on("change", function() {
+                load_task_parameters($('#ocr-task-selector').val(), 'ocr');
+            });
+
+            $("#ocr-submit-button").click(function() {
+                $("#ocr-form").submit();
+            });
+
+            // -------------------
+            // SETUP ANALYZE MODAL
+            // -------------------
+            $("#analyze-button").click(function() {
+                load_jobsites("analyze", "Analyze");
+                $("#analyze-modal").modal();
+            });
+
+            $("#analyze-jobsite-selector").on("change", function() {
+                load_tasks($('#analyze-jobsite-selector :selected').attr('class'), 'analyze', 'Analyze');
+            });
+
+            $("#analyze-task-selector").on("change", function() {
+                load_task_parameters($('#analyze-task-selector').val(), 'analyze');
+            });
+
+            $("#analyze-submit-button").click(function() {
+                $("#analyze-form").submit();
+            });
+
+            // LOAD TASKS
+            $.post('/api/tasks/', function(payload) {
+                tasks = payload;
+                let zip_page_file_task_id = '';
+                for (let x = 0; x < tasks.length; x++) {
+                    if (tasks[x].name == "Zip Page File Collection") {
+                        zip_page_file_task_id = tasks[x]['_id']['$oid'];
+                    }
+                }
+
+                $('.zip_page_file_task').each(function() {
+                    $(this).val(zip_page_file_task_id);
+                });
+            });
+
+            FilePond.setOptions({
+                server: {
+                    process: {
+                        url: './',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        }
+                    },
+                    fetch: null,
+                    revert: null
+                }
+            });
+
+            check_jobs(5);
+        });
+
+        function show_page() {
+            $('#page-viewer-div').attr('style', 'min-height: 1000px;');
+            $('#page-viewer-div').html('');
+
+            if (!left_pfc) {
+                for(let page_file_collection in page_file_collections) {
+                    if (page_file_collection.includes('Image')) {
+                        left_pfc = page_file_collection;
+                        break;
+                    }
+                }
+            }
+
+            let num_pages = page_file_collections[left_pfc].files.length;
+            if(ref_no < 1) { ref_no = 1; }
+            if(ref_no > num_pages) { ref_no = num_pages; }
+            if(ref_no == 1) { $('#go-prev-page-button').attr('disabled', true); }
+            if(ref_no == num_pages) { $('#go-next-page-button').attr('disabled', true); }
+            if(ref_no > 1) { $('#go-prev-page-button').attr('disabled', false); }
+            if(ref_no < num_pages) { $('#go-next-page-button').attr('disabled', false); }
+            $('#go-page-box').val(ref_no);
+
+            let left_html = `
+                <img src="/get-image?path={}" class="img-fluid" />
+            `.format(page_file_collections[left_pfc].files[ref_no - 1]['path']);
+
+            if(right_pfc) {
+
+                let viewer_row = $(`
+                    <div class="row">
+                        <div class="col-6">
+                            {}
+                        </div>
+                    </div>
+                `.format(left_html));
+
+                let right_col = $(`<div class="col-6" />`).load("/get-file?path={}".format(
+                    page_file_collections[right_pfc].files[ref_no - 1]['path']
+                ));
+
+                if (right_pfc.includes('OCR') && bbox_collections.length > 0) {
+                    if (!$('#fix-regions-nav').length) {
+                        $('#page-viewer-right-controls').append(`
+                            <li id='fix-regions-nav' class='nav-item ml-1'><a id='fix-regions-button' href="/corpus/{{ corpus.id }}/document/{{ document.id }}/draw-page-regions/{}/" class="btn btn-primary ml-1">Fix OCR Regions</a></li>
+                        `.format(ref_no));
+                    } else {
+                        $('#fix-regions-button').attr('href', '/corpus/{{ corpus.id }}/document/{{ document.id }}/draw-page-regions/{}/'.format(ref_no));
+                    }
+                }
+
+                viewer_row.append(right_col);
+                $('#page-viewer-div').append(viewer_row);
+            } else {
+                $('#page-viewer-div').html(left_html);
+            }
+        }
+
+        function set_collection(side, collection) {
+            if(side == 'left') {
+                $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/set-kvp/page_viewer_left_collection', {value: collection}, function() {
+                    left_pfc = collection;
+                    show_page();
+                });
+            } else {
+                $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/set-kvp/page_viewer_right_collection', {value: collection}, function() {
+                    right_pfc = collection;
+                    show_page();
+                });
+            }
+
+        }
+
+        function load_jobsites(modal, task_filter) {
+            let jobsite_type = "SLURM";
+
+            $.post('/api/jobsites/', function(jobsites) {
+                $("#ocr-jobsite-selector").html('');
+                if (jobsites.length > 0) {
+                    for (let x = 0; x < jobsites.length; x++) {
+                        $("#{}-jobsite-selector".format(modal)).append(`<option value="{}" class="{}">{}</option>`.format(
+                            jobsites[x]["_id"]["$oid"],
+                            jobsites[x]["type"],
+                            jobsites[x]["name"]
+                        ));
+                        if (x === 0) {
+                            jobsite_type = jobsites[x]["type"];
+                            load_tasks(jobsite_type, modal, task_filter);
+                        }
+                    }
+                }
+            });
+        }
+
+        function load_tasks(jobsite_type, modal, task_filter) {
+            $("#{}-task-selector".format(modal)).html('');
+
+                if (tasks.length > 0) {
+                    let tasks_populated = 0;
+
+                    for (let x = 0; x < tasks.length; x++) {
+                        if (tasks[x]["jobsite_type"] == jobsite_type && tasks[x]["name"].includes(task_filter)) {
+                            $("#{}-task-selector".format(modal)).append(`<option value="{}">{}</option>`.format(
+                                tasks[x]["_id"]["$oid"],
+                                tasks[x]["name"]
+                            ));
+                            if (tasks_populated == 0) {
+                                load_task_parameters(tasks[x]["_id"]["$oid"], modal);
+                            }
+                            tasks_populated += 1;
+                        }
+                    }
+
+                    if (tasks_populated > 0) {
+                        $("#{}-task-selector-div".format(modal)).removeClass("d-none");
+                        $("#{}-submit-button".format(modal)).attr('disabled', false);
+                    } else {
+                        $("#{}-task-selector-div".format(modal)).addClass("d-none");
+                        $("#{}-submit-button".format(modal)).attr('disabled', true);
+                    }
+                }
+        }
+
+        function load_task_parameters(task_id, modal) {
+            console.log('load parameters fired');
+            $('#{}-task-parameters-div'.format(modal)).html('');
+
+            for (let x = 0; x < tasks.length; x++) {
+                if (tasks[x]["_id"]["$oid"] == task_id) {
+                    console.log('found task');
+                    let parameters = tasks[x]['configuration']['parameters'];
+                    for (let parameter in parameters) {
+                        if (parameters.hasOwnProperty(parameter)) {
+                            console.log('handling parameter ' + parameter);
+                            let parameter_html = '';
+                            let note_html = '';
+                            if (parameters[parameter].hasOwnProperty('note')) {
+                                note_html = `
+                                    <span class='text-muted'>{}</span>
+                                `.format(parameters[parameter]['note']);
+                            }
+
+                            if (parameters[parameter]['type'] == 'page_file_collection') {
+                                parameter_html = `
+                                    <div class="form-group">
+                                        <label for="{}-collection-selector">{}</label>
+                                        <select id="{}-collection-selector" class="form-control" name="{}">
+                                            {% for collection_name in document.page_file_collections.keys %}
+                                                <option>{{ collection_name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        {}
+                                    </div>
+                                `.format(
+                                    modal,
+                                    parameters[parameter]['label'],
+                                    modal,
+                                    parameter,
+                                    note_html
+                                );
+                            }
+
+                            $('#{}-task-parameters-div'.format(modal)).append(parameter_html);
+                        }
+                    }
+                }
+            }
+        }
+
+        function check_jobs(seconds_to_wait_for_next_check) {
+            $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/jobs/', function(jobs) {
+                let has_running = false;
+                let has_completed = false;
+                let stale_jobs = [];
+                $('.running-job').each(function(index, item) {
+                    stale_jobs.push($(item).attr('id').replace('running-job-', '').replace('-div', ''));
+                });
+
+                for (let x = 0; x < jobs.length; x++) {
+                    if (jobs[x].status == 'running' || jobs[x].status == 'preparing') {
+                        if (!has_running) {
+                            $('#running-jobs-div').html('');
+                            has_running = true;
+                        }
+
+                        let job_id = jobs[x].id['$oid'];
+                        let progress_value = parseInt((jobs[x].processes_completed.length / jobs[x].processes.length) * 100).toString();
+                        if (jobs[x].status == 'preparing') {
+                            progress_value = 0;
+                        }
+                        let label = "{}%".format(progress_value);
+                        if (progress_value < 4) { label = ""; }
+
+                        if ($('#running-job-{}-div'.format(job_id)).length) {
+                            $('#running-job-{}-progress-bar'.format(job_id)).css("width", progress_value);
+                            $('#running-job-{}-progress-bar'.format(job_id)).attr("aria-valuenow", progress_value);
+                            $('#running-job-{}-progress-bar'.format(job_id)).html(progress_value);
+                        } else {
+                            let job_html = `
+                                <div id="running-job-{}-div" class="alert alert-info running-job">
+                                    Task: <b>{}</b>
+                                    <div class="progress">
+                                        <div id="running-job-{}-progress-bar"
+                                             class="progress-bar progress-bar-striped bg-success progress-bar-animated"
+                                             role="progressbar"
+                                             aria-valuenow="{}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100"
+                                             style="width: {}%">
+                                            {}
+                                        </div>
+                                    </div>
+                                </div>
+                            `.format(
+                                job_id,
+                                jobs[x].task.name,
+                                job_id,
+                                progress_value,
+                                progress_value,
+                                label
+                            );
+
+                            $('#running-jobs-div').append(job_html);
+                            stale_jobs = stale_jobs.filter(function(value, index, arr){
+                                return value != job_id;
+                            });
+                        }
+                    } else {
+                        if (!has_completed) {
+                            $('#completed-jobs-div').html('');
+                            has_completed = true;
+                        }
+
+                        let job_id = jobs[x].id['$oid'];
+
+                        if (!$('#completed-job-{}-div'.format(job_id)).length) {
+                            let alert_class = 'success';
+                            let job_msg = 'Completed successfully on {}'.format(parseMongoDate(jobs[x].status_time['$date']));
+
+                            if (jobs[x].status == 'error') {
+                                alert_class = 'danger';
+                                job_msg = 'Completed with errors on {}'.format(parseMongoDate(jobs[x].status_time['$date']));
+                            }
+
+                            let job_html = `
+                                <div id="completed-job-{}-div" class="alert alert-{} completed-job">
+                                    Task: <b>{}</b><br />
+                                    {}
+                                </div>
+                            `.format(
+                                job_id,
+                                alert_class,
+                                jobs[x].task.name,
+                                job_msg
+                            );
+
+                            $('#completed-jobs-div').append(job_html);
+                        }
+                    }
+                }
+
+                for (let x = 0; x < stale_jobs.length; x++) {
+                    $('#running-job-{}-div'.format(stale_jobs[x])).remove();
+                    $('#job-finished-modal').modal();
+                }
+
+                if (!has_running && !$('#no-running-jobs-div').length) {
+                    $('#running-jobs-div').append(`
+                        <div id="no-running-jobs-div" class="alert alert-info">
+                            There are currently no jobs running for this document.
+                        </div>
+                    `);
+                }
+
+                if (!has_completed && !$('#no-completed-jobs-div').length) {
+                    $('#completed-jobs-div').append(`
+                        <div id="no-completed-jobs-div" class="alert alert-info">
+                            There have been no jobs completed for this document.
+                        </div>
+                    `);
+                }
+            });
+
+            check_jobs_timer = setTimeout(function() {
+                check_jobs(10);
+            }, seconds_to_wait_for_next_check * 1000);
+        }
+    </script>
+{% endblock %}

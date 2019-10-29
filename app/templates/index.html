@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block modals %}
+    <!-- New Corpus Modal -->
+    <div class="modal fade" id="new-corpus-modal" tabindex="-1" role="dialog" aria-labelledby="new-corpus-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="new-corpus-form" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="new-corpus-modal-label">New Corpus</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="new-corpus-name-required-msg" class="alert alert-danger d-none">Please provide a name for this corpus.</div>
+                        <div class="form-group">
+                            <label for="new-corpus-name-box">Name</label>
+                            <input type="text" class="form-control" id="new-corpus-name-box" name="new-corpus-name" />
+                        </div>
+                        <div class="form-group">
+                            <label for="new-corpus-desc-box">Description</label>
+                            <input type="text" class="form-control" id="new-corpus-desc-box" name="new-corpus-desc" />
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="new-corpus-open-checkbox" name="new-corpus-open">
+                            <label class="form-check-label" for="new-corpus-open-checkbox">
+                                Open access?
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Create</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block main %}
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4>Available Corpora</h4>
+                    </div>
+                    <div class="card-body">
+                        {% if corpora %}
+                            <table class="table">
+                                <thead class="thead-dark">
+                                    <th scope="col">Corpus</th>
+                                    <th scope="col">Description</th>
+                                    <th scope="col"></th>
+                                </thead>
+                                <tbody>
+                                    {% for corpus in corpora %}
+                                        <tr>
+                                            <td>
+                                                <a href="/corpus/{{ corpus.id }}/">{{ corpus.name }}</a>
+                                            </td>
+                                            <td>
+                                                {{ corpus.description }}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="alert alert-info">
+                                There are no open access corpora available to view at this time. If you are authorized to access certain corpora, please <a href="/scholar">log in</a>.
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% if response.scholar.is_admin %}
+                    <div class="card-footer">
+                        <button type="button" class="btn btn-primary" id="corpus-new-button">New Corpus</button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script type="application/javascript">
+        $(document).ready(function() {
+            $('#corpus-new-button').click(function() {
+                $('#new-corpus-modal').modal();
+            });
+        });
+    </script>
+{% endblock %}

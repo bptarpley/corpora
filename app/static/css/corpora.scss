@@ -1,0 +1,77 @@
+// Your variable overrides
+$body-bg: #FFFFFF;
+$body-color: #091540;
+$card-border-color: #091540;
+$input-border-color: #EF3E36;
+$font-size-base: 0.9rem;
+
+$theme-colors: (
+  "primary": #EF3E36,
+  "secondary": #091540,
+  "success": #17BEBB,
+  "info": #BFC0C0,
+  "warning": #17BEBB,
+  "danger": #EF3E36,
+  "light": #BFC0C0,
+  "dark": #091540
+);
+
+// Bootstrap and its default variables
+@import "scss/bootstrap";
+
+// Custom CSS
+.brand {
+  background-image: url('/static/img/top-books.png');
+  background-repeat: repeat-x;
+}
+
+.logo {
+  height: 60px;
+  margin-top: 40px;
+}
+
+.card-header {
+  padding: 10px !important;
+  border-bottom: solid 4px #091540;
+  background-image: url("/static/img/lines.png");
+  background-repeat: repeat-x;
+}
+
+.card-header h4 {
+  color: #091540;
+  text-shadow: 0 0 10px rgba(245, 245, 245), 0 0 20px rgba(245, 245, 245), 0 0 30px rgba(245, 245, 245), 0 0 40px rgba(245, 245, 245), 0 0 50px rgba(245, 245, 245), 0 0 60px rgba(245, 245, 245), 0 0 70px rgba(245, 245, 245);
+}
+
+.control-div {
+  background-color: #091540;
+}
+
+.table .thead-dark th {
+  border-top: none !important;
+  background-color: #091540;
+  border-bottom: solid 4px #17BEBB;
+}
+
+.table .thead-dark th:first-child {
+  border-top-left-radius: 10px !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 0px;
+  margin-bottom: 0px;
+}
+
+.carousel-control-next-icon, .carousel-control-prev-icon {
+  color: #17BEBB;
+}
+
+#job-box {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  width: 350px;
+  background-color: #17BEBB;
+  border-top-left-radius: 10px !important;
+  padding: 10px;
+  z-index: 10;
+}

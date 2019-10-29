@@ -1,0 +1,490 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+    <style type="text/css">
+        #settings-editor {
+            /* Setting height is important, otherwise editor wont show up */
+            height: 300px;
+        }
+    </style>
+{% endblock %}
+
+{% block modals %}
+    <!-- Field Settings Modal -->
+    <div class="modal fade" id="field-settings-modal" tabindex="-1" role="dialog" aria-labelledby="field-settings-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="settings-form" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="field-settings-modal-label">Document Field Settings</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <!--
+                        <p>These settings determine what fields are displayed and searchable in the Documents table. If
+                        "Display" is checked for a field, that field's label will appear as a header column, and its
+                        value will be displayed for each document.</p>
+                        <p>If "Search" is checked for a field, an index will be created in the database for that field,
+                        and when searching, the contents of that field will be considered relevant. <b>Note:</b> as with
+                        all database indexes, the value in terms of performance gain for searches can decrease with the
+                        existence of too many indexes. As such, be sure to only check "Search" for a field if absolutely
+                        necessary. Also, title and author are <i>always</i> indexed and searchable.</p>
+                        <p>Custom document fields may be added. For example, if you have a custom document field named
+                        "page_count" that you'd like to display and/or search, you'd provide "page_count" as the value
+                        for the "Field" column, and perhaps use "Page Count" as the value for the "Label" column.</p>
+                        -->
+                        <div id="settings-editor"></div>
+                        <input type="hidden" id="settings-value" name="settings" value="" />
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" onclick="save_settings();">Save settings</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Document Modal -->
+    <div class="modal fade" id="new-document-modal" tabindex="-1" role="dialog" aria-labelledby="new-document-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="new-document-form" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="new-document-modal-label">New Document</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="new-document-title-required-msg" class="alert alert-danger d-none">Please provide a title for this document.</div>
+                        <div class="form-group">
+                            <label for="new-document-title-box">Title</label>
+                            <input type="text" class="form-control" id="new-document-title-box" name="new-document-title" />
+                        </div>
+                        <div class="form-group">
+                            <label for="new-document-author-box">Author</label>
+                            <input type="text" class="form-control" id="new-document-author-box" name="new-document-author" />
+                        </div>
+                        <div class="form-group">
+                            <label for="new-document-pubdate-box">Publication Date</label>
+                            <input type="text" class="form-control" id="new-document-pubdate-box" name="new-document-pubdate" />
+                        </div>
+                        <div class="form-group">
+                            <label for="new-document-work-box">Work</label>
+                            <input type="text" class="form-control" id="new-document-work-box" name="new-document-work" />
+                        </div>
+                        <div class="form-group">
+                            <label for="new-document-manifestation-box">Manifestation</label>
+                            <input type="text" class="form-control" id="new-document-manifestation-box" name="new-document-manifestation" />
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" onclick="save_document();">Create</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block main %}
+    <div class="container-fluid mt-4">
+        <div class="row">
+
+            <!-- METADATA -->
+            <div class="col-6">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4>Metadata</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="list-group">
+                                    <div class="list-group-item">
+                                        <h5>Name</h5>
+                                        {{ corpus.name }}
+                                    </div>
+                                    <div class="list-group-item">
+                                        <h5>Description</h5>
+                                        {{ corpus.description }}
+                                    </div>
+                                    <div class="list-group-item">
+                                        <h5>Path</h5>
+                                        {{ corpus.path }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- JOBS -->
+            <div class="col-6">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4>Jobs</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            There are currently no jobs running for this corpus.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="row">
+
+            <!-- DOCUMENTS -->
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h4>Documents</h4>
+                            <div class="input-group ml-4 mr-4">
+                                <input type="text" class="form-control form-control-sm" id="search-box" placeholder="Search" />
+                                <div class="input-group-append">
+                                    <button id="search-setting-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Title/Author</button>
+                                    <div class="dropdown-menu">
+                                        <a class="dropdown-item search-setting" id="search-setting-default" href="#">Title/Author</a>
+                                        {% for setting in corpus.field_settings %}
+                                            {% if setting.search %}
+                                                <a class="dropdown-item search-setting" id="search-setting-{{ setting.field }}" href="#">{{ setting.label }}</a>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                    <button id="search-clear-button" class="btn btn-primary rounded ml-4 d-none" type="button">Clear Search</button>
+                                    <button id="new-document-button" class="btn btn-primary rounded ml-4" type="button">New Document</button>
+                                    <input type="hidden" id="search-setting-value" value="default" />
+                                </div>
+                            </div>
+
+                            <div class="form-inline mr-4">
+                                <select class="form-control btn-primary d-none" id="page-selector">
+                                    {% for page in page_range %}
+                                        <option value="{{ page }}" {% if page == current_page %}selected{% endif %}>Page {{ page }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <a href="javascript: edit_settings();"><h4 class="oi oi-cog mr-4"></h4></a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-striped">
+                            <thead class="thead-dark">
+                                <th scope="col">
+                                    <input type="checkbox" class="checkbox" id="select-all-box" />
+                                </th>
+                                {% for setting in corpus.field_settings %}
+                                    {% if setting.display %}
+                                        <th scope="col" {% if setting.width %}style="width: {{ setting.width }};"{% endif %}>
+                                            <a href="javascript: order_by('{{ setting.field }}');"><h5>{{ setting.label }}</h5></a>
+                                        </th>
+                                    {% endif %}
+                                {% endfor %}
+                            </thead>
+                            <tbody id="document-table-body">
+                                <!-- contents populated via javascript load_documents() function below -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="job-box" class="d-none">
+        <div class="card">
+            <div class="card-header">
+                <h4>Create a Job</h4>
+                <div class="text-muted">
+                    <b><span id="num-selected-docs">0</span></b> document(s) selected
+                </div>
+            </div>
+            <div class="card-body">
+                <form id="job-form" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="selected-docs" />
+                    <div class="form-group">
+                        <label for="jobsite-selector">Select a Job Site:</label>
+                        <select id="jobsite-selector" class="form-control" name="jobsite">
+                        </select>
+                    </div>
+                    <div id="task-selector-div" class="form-group d-none">
+                        <label for="task-selector">Select a Task:</label>
+                        <select id="task-selector" class="form-control" name="task">
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="run_job();">Go</button>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'js/ace/ace.js' %}"></script>
+    <script type="application/javascript">
+        var field_settings = {% if corpus.field_settings %}{{ corpus.field_settings|jsonify|safe }}{% else %}[]{% endif %};
+        var settings_editor;
+        var query = findGetParameter('query');
+        var query_type = findGetParameter('query-type');
+        var page = findGetParameter('page');
+        var order = findGetParameter('order');
+        var query_string = build_query_string();
+        var selected_docs = [];
+        var tasks = [];
+
+        $(document).ready(function() {
+            load_documents();
+            load_jobsites();
+
+            settings_editor = ace.edit("settings-editor");
+            settings_editor.setTheme("ace/theme/monokai");
+            settings_editor.getSession().setMode("ace/mode/json");
+
+            // Fix id's for search types
+            $(".search-setting").each(function() {
+                let id = $(this).attr('id');
+                $(this).attr('id', id.replace('.', '__'));
+            });
+
+            if (query && query_type) {
+                let label = "Title/Author";
+                if (query_type != "default") {
+                    label = $("#search-setting-" + query_type).text();
+                }
+                $("#search-setting-selection").text(label);
+                $("#search-setting-value").val(query_type);
+                $("#search-box").val(query);
+                $("#search-clear-button").removeClass("d-none");
+                $("#search-clear-button").click(function() {
+                    window.location.href = "/corpus/{{ corpus.id }}/";
+                });
+            }
+
+            $("#page-selector").on("change", function() {
+                page = $("#page-selector").val();
+                load_documents();
+            });
+
+            $(".search-setting").click(function(event) {
+                let field = event.target.id.replace('search-setting-', '');
+                let label = $(this).text();
+
+                $("#search-setting-selection").text(label);
+                $("#search-setting-value").val(field);
+            });
+
+            $("#search-box").keypress(function(e){
+                let key = e.which;
+                if (key == 13) {
+                    query = $("#search-box").val();
+                    query_type = $("#search-setting-value").val();
+                    $("#search-clear-button").removeClass('d-none');
+                    load_documents();
+                }
+            });
+
+            $("#search-clear-button").click(function(event) {
+                $("#search-box").val('');
+                query = '';
+                query_type = '';
+                load_documents();
+            });
+
+            $("#new-document-button").click(function(event) {
+                $("#new-document-modal").modal();
+            });
+
+            $("#jobsite-selector").on("change", function() {
+                load_tasks($('#jobsite-selector :selected').attr('class'));
+            });
+
+
+        });
+
+        function build_query_string() {
+            let query_string = '';
+            if ((query && query_type) || page || order) {
+                query_string += '?';
+
+                if (query && query_type) {
+                    query_string += 'query=' + query + '&query-type=' + query_type + '&';
+                }
+                if (page) {
+                    query_string += 'page=' + page + '&';
+                }
+                if (order) {
+                    query_string += 'order=' + order + '&';
+                }
+
+                if (query_string) {
+                    query_string = query_string.slice(0, query_string.length - 1);
+                }
+            }
+
+            return query_string;
+        }
+
+        function load_documents() {
+            $.post('/api/corpus/{{ corpus.id }}/documents/' + build_query_string(), function(payload) {
+                $("#document-table-body").html('');
+                $("#page-selector").html('');
+
+                if (payload['data'].length == 0) {
+                    $("#page-selector").addClass("d-none");
+                } else {
+                    for (let x = 1; x <= payload['num_pages']; x++) {
+                        let option_html = '<option value="{}">Page {}</option>'.format(x, x);
+                        if (x == payload['page']) {
+                            option_html = option_html.replace('">', '" selected>');
+                        }
+                        $("#page-selector").append(option_html);
+                    }
+                    $("#page-selector").removeClass("d-none");
+
+                    for (let x = 0; x < payload['data'].length; x++) {
+                        let checked = '';
+                        if (selected_docs.includes('doc-' + payload['data'][x]['_id']['$oid'])) {
+                            checked = 'checked ';
+                        }
+                        let row_html = `<tr><td>
+                            <input type="checkbox" class="checkbox doc-checkbox" id="doc-{}" {}/>
+                            <a href="/corpus/{{ corpus.id }}/document/{}/" target="_blank"><span class="oi oi-external-link"></span></a>
+                            </td>`.format(
+                            payload['data'][x]['_id']['$oid'],
+                            checked,
+                            payload['data'][x]['_id']['$oid']
+                        );
+                        for (let y = 0; y < field_settings.length; y++) {
+                            if (field_settings[y].hasOwnProperty('display') && field_settings[y]['display']) {
+                                let width = "auto";
+                                if (field_settings[y].hasOwnProperty['width']) {
+                                    width = field_settings[y]['width'];
+                                }
+                                row_html += `<td style="width: {};">{}</td>`.format(
+                                    width,
+                                    resolve(field_settings[y]['field'], payload['data'][x])
+                                );
+                            }
+                        }
+
+                        row_html += "</tr>";
+                        $("#document-table-body").append(row_html);
+                    }
+
+                    $(".doc-checkbox").change(function(event) {
+                        let checkbox_id = event.target.id;
+                        if (this.checked) {
+                            if(!selected_docs.includes(checkbox_id)) {
+                                selected_docs.push(checkbox_id);
+                            }
+                        } else {
+                            selected_docs = selected_docs.filter(function(value, index, arr){
+                                return value != checkbox_id;
+                            });
+                        }
+
+                        if (selected_docs.length > 0) {
+                            $("#num-selected-docs").html(selected_docs.length);
+                            $("#job-box").removeClass("d-none");
+                        } else {
+                            $("#job-box").addClass("d-none");
+                        }
+                    });
+                }
+            });
+        }
+
+        function load_jobsites() {
+            let jobsite_type = "SLURM";
+
+            $.post('/api/jobsites/', function(jobsites) {
+                $("#jobsite-selector").html('');
+                if (jobsites.length > 0) {
+                    for (let x = 0; x < jobsites.length; x++) {
+                        $("#jobsite-selector").append(`<option value="{}" class="{}">{}</option>`.format(
+                            jobsites[x]["_id"]["$oid"],
+                            jobsites[x]["type"],
+                            jobsites[x]["name"]
+                        ));
+                        if (x == 0) {
+                            jobsite_type = jobsites[x]["type"];
+                        }
+                    }
+                }
+            });
+
+            $.post('/api/tasks/', function(payload) {
+                tasks = payload;
+                load_tasks(jobsite_type);
+            });
+        }
+
+        function load_tasks(jobsite_type) {
+            $("#task-selector").html('');
+
+                if (tasks.length > 0) {
+                    let tasks_populated = 0;
+
+                    for (let x = 0; x < tasks.length; x++) {
+                        if (tasks[x]["jobsite_type"] == jobsite_type) {
+                            $("#task-selector").append(`<option value="{}">{}</option>`.format(
+                                tasks[x]["_id"]["$oid"],
+                                tasks[x]["name"]
+                            ));
+                            tasks_populated += 1;
+                        }
+                    }
+
+                    if (tasks_populated > 0) {
+                        $("#task-selector-div").removeClass("d-none");
+                    } else {
+                        $("#task-selector-div").addClass("d-none");
+                    }
+                }
+        }
+
+        function order_by(field) {
+            if (order && '+' + field == order) {
+                    order = "-" + field;
+            }
+            else {
+                    order = "+" + field;
+            }
+            load_documents();
+        }
+
+        function edit_settings() {
+            $("#settings-value").val(JSON.stringify(field_settings));
+            settings_editor.setValue(JSON.stringify(field_settings, null, '\t'));
+            $("#field-settings-modal").modal();
+        }
+
+        function save_settings() {
+            $("#settings-value").val(settings_editor.getValue());
+            $("#settings-form").submit();
+        }
+
+        function save_document() {
+            if ($("#new-document-title-box").val() == '') {
+                $("#new-document-title-required-msg").removeClass("d-none");
+            } else {
+                $("#new-document-title-required-msg").addClass("d-none");
+                $("#new-document-form").submit();
+            }
+        }
+    </script>
+{% endblock %}

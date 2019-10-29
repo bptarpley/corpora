@@ -1,0 +1,31 @@
+version: '3'
+
+services:
+
+  corpora:
+    build: ./app
+    command: ./start.sh
+    environment:
+      CRP_MYSQL_HOST: your.host.com
+      CRP_MYSQL_DB: corpora
+      CRP_MYSQL_USER: corpora
+      CRP_MYSQL_PWD: your.secure.password
+      CRP_MONGO_HOST: your.host.com
+      CRP_MONGO_DB: corpora
+      CRP_MONGO_USER: corpora
+      CRP_MONGO_PWD: your.secure.password
+    ports:
+      - "8000:8000"
+
+  iiif:
+    build: ./iiif/
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+    volumes:
+      - /path/to/images:/images
+      - ./iiif/loris2.wsgi:/var/www/loris2/loris2.wsgi
+      - ./iiif/loris2.conf:/opt/loris/etc/loris2.conf
+    ports:
+      - 127.0.0.1:8183:8888

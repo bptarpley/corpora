@@ -1,0 +1,109 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <link rel="apple-touch-icon" sizes="180x180" href="/static/img/icon/apple-touch-icon.png">
+        <link rel="icon" type="image/png" sizes="32x32" href="/static/img/icon/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/static/img/icon/favicon-16x16.png">
+        <link rel="manifest" href="/static/img/icon/site.webmanifest">
+        <link rel="mask-icon" href="/static/img/icon/safari-pinned-tab.svg" color="#5bbad5">
+        <meta name="msapplication-TileColor" content="#da532c">
+        <meta name="theme-color" content="#ffffff">
+
+        <!-- CSS -->
+        <link href="{% static 'css/open-iconic-bootstrap.css' %}" rel="stylesheet">
+        <link href="{% static 'css/corpora.css' %}" rel="stylesheet">
+        {% block css %}
+        {% endblock %}
+
+        <title>Corpora</title>
+    </head>
+    <body>
+        {% block modals %}
+        {% endblock %}
+
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-12">
+                    <div class="brand align-items-center">
+                        <a href="/"><img src="{% static 'img/logo.png' %}" class="logo" /></a>
+                        <div class="float-right mt-5">
+                            {% if response.scholar %}
+                                Hello, {{ response.scholar.fname }}!
+                                <a href="/scholar" class="btn btn-primary ml-1 mr-1">My Account</a>
+                                <a href="/scholar?logout=y" class="btn btn-secondary">Logout</a>
+                            {% else %}
+                                <a href="/scholar" class="btn btn-primary">Login</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if response.messages or response.errors %}
+            <div class="container-fluid mt-4">
+                {% if response.messages %}
+                    {% for message in response.messages %}
+                        <div class="alert alert-info" role="alert">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                {% if response.errors %}
+                    {% for error in response.errors %}
+                        <div class="alert alert-danger" role="alert">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        {% endif %}
+
+        {% block main %}
+        {% endblock %}
+
+        <!-- Optional JavaScript -->
+        <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+        <script type="application/javascript">
+            function findGetParameter(parameterName, default_value=null) {
+                var result = null,
+                    tmp = [];
+                location.search
+                    .substr(1)
+                    .split("&")
+                    .forEach(function (item) {
+                      tmp = item.split("=");
+                      if (tmp[0] === parameterName) result = decodeURIComponent(tmp[1]);
+                    });
+                if (result) { return result; }
+                else { return default_value; }
+            }
+
+            String.prototype.format = function () {
+                var i = 0, args = arguments;
+                return this.replace(/{}/g, function () {
+                    return typeof args[i] != 'undefined' ? args[i++] : '';
+                });
+            };
+
+            function resolve(path, obj=self, separator='.') {
+                let properties = Array.isArray(path) ? path : path.split(separator);
+                return properties.reduce((prev, curr) => prev && prev[curr], obj);
+            }
+
+            function parseMongoDate(utcMilliseconds) {
+                return new Date(utcMilliseconds).toLocaleDateString();
+            }
+        </script>
+        {% block js %}
+        {% endblock %}
+    </body>
+</html>

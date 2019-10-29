@@ -1,0 +1,692 @@
+from django.shortcuts import render, redirect, HttpResponse
+from django.http import Http404
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.views.decorators.csrf import csrf_exempt
+from html import unescape
+from corpus import *
+from . import _contains, _clean, _get_context
+import logging
+import re
+from .tasks import *
+from .utilities import *
+from .serializers import DHDCorpusSerializer, DHDocumentSerializer
+from rest_framework_mongoengine.viewsets import ModelViewSet
+from rest_framework.authtoken.models import Token
+
+
+@login_required
+def corpora(request):
+    response = _get_context(request)
+    corpora = get_scholar_corpora(response['scholar'])
+
+    if response['scholar'].is_admin and request.method == 'POST' and 'new-corpus-name' in request.POST:
+        c_name = unescape(_clean(request.POST, 'new-corpus-name'))
+        c_desc = unescape(_clean(request.POST, 'new-corpus-desc'))
+        c_open = unescape(_clean(request.POST, 'new-corpus-open'))
+
+        c = Corpus()
+        c.name = c_name
+        c.description = c_desc
+        c.open_access = c_open is not None
+        c.save()
+        c.path = "/corpora/{0}".format(str(c.id))
+        os.makedirs(c.path, exist_ok=True)
+        c.save()
+
+    return render(
+        request,
+        'index.html',
+        {
+            'corpora': corpora,
+            'response': response
+        }
+    )
+
+
+@login_required
+def corpus(request, corpus_id):
+    response = _get_context(request)
+    corpus = get_scholar_corpus(corpus_id, response['scholar'])
+
+    if request.method == 'POST' and _contains(request.POST, [
+        'new-document-title',
+        'new-document-author',
+        'new-document-pubdate',
+        'new-document-work',
+        'new-document-manifestation'
+    ]):
+        try:
+            new_doc = Document()
+            new_doc.corpus = corpus
+            new_doc.path = "/corpora/{0}/temp-{1}".format(corpus_id, ObjectId())
+            new_doc.title = unescape(_clean(request.POST, 'new-document-title'))
+            new_doc.author = unescape(_clean(request.POST, 'new-document-author'))
+            new_doc.pub_date = _clean(request.POST, 'new-document-pubdate')
+            new_doc.work = unescape(_clean(request.POST, 'new-document-work'))
+            new_doc.manifestation = unescape(_clean(request.POST, 'new-document-manifestation'))
+            new_doc.save()
+            new_doc.update(set__path="/corpora/{0}/{1}".format(corpus_id, new_doc.id))
+        except:
+            print(traceback.format_exc())
+            response['errors'].append("Unable to save document!")
+
+    elif request.method == 'POST' and 'settings' in request.POST:
+        try:
+            settings = json.loads(request.POST['settings'])
+        except:
+            response['errors'].append("Unable to parse field settings!")
+            logging.error(traceback.format_exc())
+            settings = []
+
+        if not response['errors'] and settings:
+            existing_indexes = []
+            index_name_map = {}
+            indexes_to_delete = []
+            indexes_to_create = []
+
+            current_indexes = Corpus._get_db()['document'].index_information()
+            for index_name in current_indexes.keys():
+                field = current_indexes[index_name]['key'][0][0]
+                if 'partialFilterExpression' in current_indexes[index_name]:
+                    if current_indexes[index_name]['partialFilterExpression']['corpus'] == ObjectId(corpus_id):
+                        existing_indexes.append(field)
+                        index_name_map[field] = index_name
+
+            for setting in settings:
+                if setting['field'] not in ['title', 'author', 'path']:
+                    if setting['search'] and setting['field'] not in existing_indexes:
+                        indexes_to_create.append(setting['field'])
+                    elif not setting['search'] and setting['field'] in existing_indexes:
+                        indexes_to_delete.append(setting['field'])
+
+            for existing_index in existing_indexes:
+                if existing_index not in [setting['field'] for setting in settings]:
+                    indexes_to_delete.append(existing_index)
+
+            for index_to_delete in indexes_to_delete:
+                Corpus._get_db()['document'].drop_index(index_name_map[index_to_delete])
+
+            for index_to_create in indexes_to_create:
+                Corpus._get_db()['document'].create_index(
+                    [(index_to_create, 1), (corpus.name, 1)],
+                    name="{0}-{1}-1".format(corpus.name, index_to_create),
+                    partialFilterExpression={'corpus': ObjectId(corpus_id)},
+                    background=True
+                )
+
+            corpus.field_settings = settings
+            corpus.save()
+
+            return redirect('/corpus/{0}/?&msg=Document field settings saved.'.format(str(corpus_id)))
+
+    return render(
+        request,
+        'corpus.html',
+        {
+            'corpus': corpus,
+            'response': response,
+        }
+    )
+
+
+@login_required
+def document(request, corpus_id, document_id):
+    response = _get_context(request)
+    corpus = get_scholar_corpus(corpus_id, response['scholar'])
+    local_jobsite = JobSite.objects(name='Local')[0]
+    document = get_document(response['scholar'], corpus_id, document_id)
+    core_fields = [
+        'title',
+        'author',
+        'pub_date',
+        'work',
+        'manifestation',
+        'path'
+    ]
+
+    # HANDLE FILE UPLOADS
+    if 'filepond' in request.FILES:
+        filename = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', request.FILES['filepond'].name)
+        print(filename)
+        upload_path = "{0}/temporary_uploads".format(document.path)
+        file_path = "{0}/{1}".format(upload_path, filename)
+
+        if not os.path.exists(upload_path):
+            os.makedirs(upload_path)
+
+        with open(file_path, 'wb+') as destination:
+            for chunk in request.FILES['filepond'].chunks():
+                destination.write(chunk)
+
+        return HttpResponse(ObjectId(), content_type='text/plain')
+
+    # HANDLE IMPORT PAGES FORM SUBMISSION
+    elif request.method == 'POST' and _contains(request.POST, ['import-pages-type', 'import-pages-files']):
+        files_to_process = []
+        import_type = _clean(request.POST, 'import-pages-type')
+        import_files = json.loads(request.POST['import-pages-files'])
+
+        upload_path = "{0}/temporary_uploads".format(document.path)
+        for import_file in import_files:
+            import_file_path = "{0}/{1}".format(upload_path, import_file)
+            if os.path.exists(import_file_path):
+                files_to_process.append(import_file_path)
+
+        if files_to_process:
+            if import_type == 'pdf':
+                image_dpi = _clean(request.POST, 'import-pages-image-dpi')
+                image_split = _clean(request.POST, 'import-pages-split')
+
+                if '.pdf' in files_to_process[0].lower():
+                    pdf_file_path = files_to_process[0]
+                    pdf_file_basename = os.path.basename(pdf_file_path)
+
+                    doc_files_path = "{0}/files".format(document.path)
+                    new_pdf_path = "{0}/{1}".format(doc_files_path, pdf_file_basename)
+                    if not os.path.exists(doc_files_path):
+                        os.makedirs(doc_files_path)
+
+                    os.rename(pdf_file_path, new_pdf_path)
+                    pdf_file_path = new_pdf_path
+                    document.save_file(process_corpus_file(
+                        pdf_file_path,
+                        "PDF File",
+                        "User Import",
+                        response['scholar']['username'],
+                        False
+                    ))
+
+                    # Get Local JobSite, PDF Import Task, and setup Job
+                    local_jobsite = JobSite.objects(name='Local')[0]
+                    import_task_id = local_jobsite.task_registry['Import Document Pages from PDF']['task_id']
+                    import_task = Task.objects(id=import_task_id)[0]
+
+                    import_job = Job()
+                    import_job.document = document
+                    import_job.task = import_task
+                    import_job.scholar = response['scholar']
+                    import_job.job_site = local_jobsite
+                    import_job.status = "preparing"
+                    import_job.configuration = import_task.configuration
+                    import_job.configuration['parameters']['pdf_file']['value'] = pdf_file_path
+                    import_job.configuration['parameters']['image_dpi']['value'] = image_dpi
+                    import_job.configuration['parameters']['split_images']['value'] = image_split
+
+                    corpus.update(push__jobs=import_job)
+                    corpus.reload()
+                    run_job(corpus.id, import_job.id)
+
+        else:
+            response['errors'].append("Error locating files to import.")
+
+    # HANDLE RESET PAGES BUTTON
+    elif request.method == 'GET' and 'reset-pages' in request.GET:
+        if response['scholar'].is_admin:
+            reset_page_extraction(corpus_id, document_id)
+            return redirect('/corpus/{0}/document/{1}/'.format(corpus_id, document_id))
+
+    # HANDLE TASK FORM SUBMISSION
+    elif request.method == 'POST' and _contains(request.POST, ['jobsite', 'task']):
+        # Get Local JobSite, PDF Import Task, and setup Job
+        jobsite = JobSite.objects(id=_clean(request.POST, 'jobsite'))[0]
+        task = Task.objects(id=_clean(request.POST, 'task'))[0]
+        task_parameters = [key for key in task.configuration['parameters'].keys()]
+        if _contains(request.POST, task_parameters):
+            job = Job()
+            job.document = document
+            job.task = task
+            job.scholar = response['scholar']
+            job.job_site = jobsite
+            job.status = "preparing"
+            job.configuration = task.configuration
+            for parameter in task_parameters:
+                job.configuration['parameters'][parameter]['value'] = _clean(request.POST, parameter)
+
+            corpus.update(push__jobs=job)
+            corpus.reload()
+            run_job(corpus.id, job.id)
+            response['messages'].append("Job successfully submitted.")
+        else:
+            response['errors'].append("Please provide values for all task parameters.")
+
+    elif request.method == 'POST' and _contains(request.POST, ['consolidate-files', 'collection']):
+        collection_key = _clean(request.POST, 'collection')
+        consolidated_file = "{0}/files/{1}_consolidated.txt".format(
+            document.path,
+            slugify(collection_key)
+        )
+
+        consolidated_text = ''
+        for file in document.page_file_collections[collection_key]['files']:
+            if os.path.exists(file['path']):
+                with open(file['path'], 'r') as fin:
+                    consolidated_text += fin.read()
+
+        with open(consolidated_file, 'w') as fout:
+            fout.write(consolidated_text)
+
+        document.save_file(process_corpus_file(
+            consolidated_file,
+            "Plain Text File",
+            "User Created",
+            response['scholar']['username'],
+            False
+        ))
+
+        response['messages'].append("Consolidated file created.")
+
+    else:
+        # if 'corpora_document_checked' not in document.kvp:
+        check_document(corpus_id, document_id)
+
+        # elif request.method == 'POST' and 'check' in request.POST:
+        #    check_document(corpus_id, document_id)
+        #    response['messages'].append('Document check submitted.')
+
+    return render(
+        request,
+        'document.html',
+        {
+            'corpus': corpus,
+            'document': document,
+            'core_fields': core_fields,
+            'response': response,
+            'local_jobsite': str(local_jobsite.id)
+        }
+    )
+
+
+@login_required
+def draw_page_regions(request, corpus_id, document_id, ref_no):
+    response = _get_context(request)
+    document = get_document(response['scholar'], corpus_id, document_id)
+    image_path = ""
+    page_regions = []
+    ocr_file = request.GET.get('ocrfile', None)
+
+    if document:
+        page = document.get_page(ref_no)
+        if page:
+            if ocr_file and os.path.exists(ocr_file):
+                if ocr_file.lower().endswith('.object'):
+                    page_regions = get_page_regions(ocr_file, 'GCV')
+                elif ocr_file.lower().endswith('.hocr'):
+                    page_regions = get_page_regions(ocr_file, 'HOCR')
+
+            for file in page.files:
+                if 'Image' in file.description and file.primary_witness:
+                    image_path = file.path
+                elif not page_regions and 'GCV TextAnnotation Object' in file.description:
+                    ocr_file = file.path
+                    page_regions = get_page_regions(file.path, 'GCV')
+                elif not page_regions and 'HOCR' in file.description:
+                    ocr_file = file.path
+                    page_regions = get_page_regions(file.path, 'HOCR')
+
+    return render(
+        request,
+        'draw_regions.html',
+        {
+            'response': response,
+            'image_path': image_path,
+            'page_regions': page_regions,
+            'corpus_id': corpus_id,
+            'document_id': document_id,
+            'ocr_file': ocr_file,
+            'ref_no': ref_no
+        }
+    )
+
+
+@login_required
+def document_view(request, corpus_id, document_id, view_type, view_name):
+    response = _get_context(request)
+    document = Document(corpus=ObjectId(corpus_id), id=ObjectId(document_id))[0]
+    view_contents = ""
+
+    for view in document.views:
+        if view.type == view_type and view.name == view_name:
+            view_contents = view.contents
+
+    if not view_contents:
+        if view_type == 'iiif_manifest' and view_name == 'primary':
+            # to do: create a default iiif manifest for viewing :/
+            pass
+
+    return redirect('/')
+
+
+def scholar(request):
+    response = _get_context(request)
+    register = False
+
+    if settings.USE_SSL and not response['url'].startswith('https'):
+        secure_url = response['url'].replace('http://', 'https://')
+        return redirect(secure_url)
+
+    if not response['scholar'] and 'register' in request.GET:
+        register = True
+
+    if response['scholar'] and 'logout' in request.GET:
+        logout(request)
+        return redirect('/scholar?msg=You have successfully logged out.')
+
+    if response['scholar'] and 'gen_token' in request.GET:
+        token, created = Token.objects.get_or_create(user=request.user)
+        response['scholar'].auth_token = token.key
+        response['scholar'].save()
+        response = _get_context(request)
+
+    if request.method == 'POST' and _contains(request.POST, ['username', 'password', 'password2', 'fname', 'lname', 'email']):
+        username = _clean(request.POST, 'username')
+        password = _clean(request.POST, 'password')
+        password2 = _clean(request.POST, 'password2')
+        fname = _clean(request.POST, 'fname')
+        lname = _clean(request.POST, 'lname')
+        email = _clean(request.POST, 'email')
+
+        if password and password == password2:
+            if not response['scholar']:
+                user = User.objects.create_user(
+                    username,
+                    email,
+                    password
+                )
+                user.first_name = fname
+                user.last_name = lname
+                user.save()
+
+                response['scholar'] = Scholar()
+                response['scholar'].username = username
+                response['scholar'].fname = fname
+                response['scholar'].lname = lname
+                response['scholar'].email = email
+
+                token, created = Token.objects.get_or_create(user=user)
+                response['scholar'].auth_token = token.key
+                response['scholar'].save()
+
+                return redirect("/scholar?msg=You have successfully registered. Please login below.")
+            else:
+                response['scholar'].fname = fname
+                response['scholar'].lname = lname
+                response['scholar'].email = email
+                response['scholar'].save()
+
+                user = User.objects.get(username=username)
+                user.set_password(password)
+                user.save()
+
+                response['messages'].append("Your account settings have been saved successfully.")
+        else:
+            response['errors'].append('You must provide a password, and passwords must match!')
+
+    elif request.method == 'POST' and _contains(request.POST, ['username', 'password']):
+        username = _clean(request.POST, 'username')
+        password = _clean(request.POST, 'password')
+        user = authenticate(username=username, password=password)
+        if user:
+            if user.is_active:
+                login(request, user)
+
+                if 'next' in request.GET:
+                    return redirect(request.GET['next'])
+                else:
+                    return redirect("/")
+            else:
+                response['errors'].append('Account disabled!')
+        else:
+            response['errors'].append('Invalid credentials provided!')
+
+    return render(
+        request,
+        'scholar.html',
+        {
+            'response': response,
+            'register': register
+        }
+    )
+
+# OLD API
+@csrf_exempt
+def api_corpora(request):
+    response = _get_context(request)
+    corpora = get_scholar_corpora(response['scholar'])
+
+    return HttpResponse(
+        corpora.to_json(),
+        content_type='application/json'
+    )
+
+
+@csrf_exempt
+def api_corpus(request, corpus_id):
+    response = _get_context(request)
+    corpus = get_scholar_corpus(corpus_id, response['scholar'])
+
+    return HttpResponse(
+        corpus.to_json(),
+        content_type='application/json'
+    )
+
+
+@csrf_exempt
+def api_documents(request, corpus_id):
+    response = _get_context(request)
+    documents, count, num_pages = get_documents(corpus_id, request, response)
+    payload = json.dumps({
+        'page': response['page'],
+        'per_page': response['per_page'],
+        'count': count,
+        'num_pages': num_pages
+    })
+
+    payload = '{0}, "data": {1}}}'.format(
+        payload[:-1],
+        documents.to_json()
+    )
+
+    return HttpResponse(
+        payload,
+        content_type='application/json'
+    )
+
+
+@csrf_exempt
+def api_document(request, corpus_id, document_id):
+    response = _get_context(request)
+    document = get_document(response['scholar'], corpus_id, document_id)
+
+    return HttpResponse(
+        document.to_json(),
+        content_type='application/json'
+    )
+
+
+@csrf_exempt
+def api_jobsites(request):
+    response = _get_context(request)
+    jobsites = get_jobsites(response['scholar'])
+
+    return HttpResponse(
+        jobsites.to_json(),
+        content_type='application/json'
+    )
+
+
+@csrf_exempt
+def api_tasks(request):
+    response = _get_context(request)
+    tasks = get_tasks(response['scholar'])
+
+    return HttpResponse(
+        tasks.to_json(),
+        content_type='application/json'
+    )
+
+
+@csrf_exempt
+def api_corpus_jobs(request, corpus_id):
+    response = _get_context(request)
+    jobs = get_corpus_jobs(response['scholar'], corpus_id)
+
+    return HttpResponse(
+        jobs.to_json(),
+        content_type='application/json'
+    )
+
+
+@csrf_exempt
+def api_document_jobs(request, corpus_id, document_id):
+    response = _get_context(request)
+    jobs = get_document_jobs(response['scholar'], corpus_id, document_id)
+
+    return HttpResponse(
+        json.dumps(jobs),
+        content_type='application/json'
+    )
+
+
+@csrf_exempt
+def api_document_get_kvp(request, corpus_id, document_id, key):
+    value = ''
+    response = _get_context(request)
+    corpus = get_scholar_corpus(corpus_id, response['scholar'])
+    if corpus:
+        document = corpus.get_document(document_id)
+        if document:
+            value = document.kvp.get(key, '')
+
+    return HttpResponse(
+        json.dumps(value),
+        content_type='application/json'
+    )
+
+@csrf_exempt
+def api_document_set_kvp(request, corpus_id, document_id, key):
+    if request.method == 'POST' and _contains(request.POST, ['value']):
+        value = _clean(request.POST, 'value')
+        response = _get_context(request)
+        corpus = get_scholar_corpus(corpus_id, response['scholar'])
+        if corpus:
+            document = corpus.get_document(document_id)
+            if document:
+                document.kvp[key] = value
+                document.save()
+                return HttpResponse(status=204)
+    return HttpResponse(status=404)
+
+
+@csrf_exempt
+def api_document_page_file_collections(request, corpus_id, document_id):
+    response = _get_context(request)
+    page_file_collections = get_document_page_file_collections(response['scholar'], corpus_id, document_id)
+
+    return HttpResponse(
+        json.dumps(page_file_collections),
+        content_type='application/json'
+    )
+
+
+@csrf_exempt
+def api_page_region_content(request, corpus_id, document_id, ref_no, x, y, width, height):
+    response = _get_context(request)
+    document = get_document(response['scholar'], corpus_id, document_id)
+    content = ""
+    ocr_file = request.GET.get('ocrfile', None)
+
+    if document:
+        page = document.get_page(ref_no)
+        if page:
+            if ocr_file and os.path.exists(ocr_file):
+                if ocr_file.lower().endswith('.object'):
+                    content = get_page_region_content(ocr_file, 'GCV', x, y, width, height)
+                elif ocr_file.lower().endswith('.hocr'):
+                    content = get_page_region_content(ocr_file, 'HOCR', x, y, width, height)
+
+    return HttpResponse(
+        json.dumps(content),
+        content_type='application/json'
+    )
+
+
+@login_required
+def get_image(request):
+
+    if request.method == 'GET' and 'path' in request.GET:
+        image_path = _clean(request.GET, "path")
+        iiif_parameters = _clean(request.GET, "iiif", "/full/full/0/default.jpg")
+
+        response = HttpResponse()
+        response['X-Accel-Redirect'] = "/media/{0}{1}".format(image_path[1:].replace('/', '$!$'), iiif_parameters)
+        return response
+    raise Http404("Path not specified.")
+
+@login_required
+def get_file(request):
+
+    if request.method == 'GET' and 'path' in request.GET:
+        file_path = _clean(request.GET, "path")
+
+        response = HttpResponse()
+        response['X-Accel-Redirect'] = "/files/{0}".format(file_path.replace('/corpora/', ''))
+        return response
+    raise Http404("Path not specified.")
+
+
+# DJANGO REST FRAMEWORK VIEWS
+class CorpusViewSet(ModelViewSet):
+    queryset = Corpus.objects
+    serializer_class = DHDCorpusSerializer
+
+    def get_queryset(self):
+        qs = []
+        try:
+            if self.request.user.is_authenticated:
+                scholar = Scholar.objects(username=self.request.user.username)[0]
+                qs = get_scholar_corpora(scholar)
+
+                filter = {}
+                if 'name' in self.request.query_params:
+                    filter['name'] = self.request.query_params['name']
+                if filter:
+                    qs = qs.filter(**filter)
+        except:
+            print(traceback.format_exc())
+        return qs
+
+
+class DocumentViewSet(ModelViewSet):
+    queryset = Document.objects
+    serializer_class = DHDocumentSerializer
+    _corpus = None
+
+    def get_queryset(self):
+        qs = []
+        print(self.kwargs)
+        try:
+            if self.request.user.is_authenticated:
+                scholar = Scholar.objects(username=self.request.user.username)[0]
+                corpus_id = self.kwargs['corpus_id']
+                self._corpus = get_scholar_corpus(corpus_id, scholar)
+                if self._corpus:
+                    # username = self.request.query_params.get('username', None)
+
+                    if 'id' in self.kwargs:
+                        qs = Document.objects(corpus=self._corpus)
+                    else:
+                        projection = [setting['field'] for setting in self._corpus.field_settings if setting['display']]
+                        projection.append("id")
+
+                        filter = { 'corpus': self._corpus }
+                        for query_param in self.request.query_params.keys():
+                            if query_param not in ['corpus', 'id'] and query_param in projection:
+                                filter[query_param.replace('.', '__')] = self.request.query_params[query_param]
+
+                        qs = Document.objects(**filter).only(*projection)
+        except:
+            print(traceback.format_exc())
+
+        return qs

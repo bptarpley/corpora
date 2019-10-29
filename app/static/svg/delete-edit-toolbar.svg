@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="77" viewBox="0 0 200 77">
+  <defs>
+    <style>
+      .a {
+        fill: #091540;
+      }
+
+      .b {
+        fill: #ef3e36;
+      }
+
+      .c, .d {
+        fill: #fff;
+      }
+
+      .d {
+        font-size: 14.4px;
+        font-family: HelveticaNeue, Helvetica Neue;
+      }
+    </style>
+  </defs>
+  <title>delete-edit-toolbar</title>
+  <rect class="a" width="200" height="59" rx="4" ry="4"/>
+  <rect class="b" x="8" y="10" width="87" height="38" rx="4" ry="4"/>
+  <path class="c" d="M25.74,18A2.76,2.76,0,0,0,23,20.75H20.24a2.76,2.76,0,0,0-2.75,2.75H36.74A2.76,2.76,0,0,0,34,20.75H31.24A2.76,2.76,0,0,0,28.49,18ZM20.3,26.25V39.48a.52.52,0,0,0,.53.52h12.7a.52.52,0,0,0,.52-.52V26.25H31.3v9.59A1.45,1.45,0,0,1,30,37.27a1.36,1.36,0,0,1-1.48-1.37V26.25H25.8v9.59a1.45,1.45,0,0,1-1.27,1.43,1.36,1.36,0,0,1-1.48-1.37V26.25H20.3Z"/>
+  <text class="d" transform="translate(42.65 33.72)">Delete</text>
+  <rect class="b" x="102" y="10" width="87" height="38" rx="4" ry="4"/>
+  <text class="d" transform="translate(136.65 33.72)">Edit</text>
+  <path class="c" d="M126.34,19.48,124,21.81l4.66,4.66L131,24.14Zm-5,4.54L112,33.34V38h4.66L126,28.68Z"/>
+  <polygon class="a" points="98.33 77 87.94 59 108.73 59 98.33 77"/>
+</svg>
