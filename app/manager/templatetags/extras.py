@@ -1,5 +1,6 @@
-from django import template
 import json
+from django import template
+from manager.utilities import get_field_value_from_path
 
 register = template.Library()
 
@@ -11,16 +12,7 @@ def jsonify(value):
 
 @register.filter(name='get_field')
 def get_field(obj, field):
-    field_parts = field.split('.')
-    value = obj
-
-    for part in field_parts:
-        if hasattr(obj, part):
-            value = getattr(obj, part)
-        elif part in value:
-            value = value[part]
-
-    return value
+    return get_field_value_from_path(obj, field)
 
 
 @register.filter('startswith')

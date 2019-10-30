@@ -245,10 +245,11 @@ def setup_document_directory(corpus_id, document_id):
     if corpus:
         document = corpus.get_document(document_id)
         if document:
-            if not document.path.startswith('/corpora/'):
-                document.path = "/corpora/{0}/{1}".format(corpus_id, document_id)
-                os.makedirs(document.path, exist_ok=True)
-                document.save()
+            document_path = "/corpora/{0}/{1}".format(corpus_id, document_id)
+            os.makedirs(document.path, exist_ok=True)
+            if not document.path or document.path != document_path:
+                document.path = document_path
+                document.update(set__path="/corpora/{0}/{1}".format(corpus_id, document_id))
 
 
 def reset_page_extraction(corpus_id, document_id):
@@ -276,3 +277,16 @@ def reset_page_extraction(corpus_id, document_id):
 
             document.save()
             corpus.save()
+
+
+def get_field_value_from_path(obj, path):
+    path_parts = path.split('.')
+    value = obj
+
+    for part in path_parts:
+        if hasattr(value, part):
+            value = getattr(value, part)
+        elif part in value:
+            value = value[part]
+
+    return value

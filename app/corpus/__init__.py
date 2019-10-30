@@ -1,11 +1,14 @@
 import mongoengine
+import os
+import secrets
+import traceback
 from datetime import datetime
 from bson.objectid import ObjectId
 from PIL import Image
 from django.conf import settings
-import os
-import secrets
-import traceback
+from manager.tasks import index_document
+from elasticsearch_dsl import Index, Mapping, Keyword, Text, Integer, Date, Nested
+from elasticsearch_dsl.connections import get_connection
 
 
 class File(mongoengine.EmbeddedDocument):
@@ -87,17 +90,22 @@ class Corpus(mongoengine.Document):
     jobs = mongoengine.ListField(mongoengine.EmbeddedDocumentField(Job))
     open_access = mongoengine.BooleanField(default=False)
     field_settings = mongoengine.ListField(default=lambda: [
+        # AVAILABLE FIELD SETTING TYPES: keyword, text, integer, date
         {
             "field": "title",
             "label": "Title",
             "display": True,
-            "search": True
+            "type": "text",
+            "search": True,
+            "sort": True,
         },
         {
             "field": "author",
             "label": "Author",
             "display": True,
-            "search": True
+            "type": "text",
+            "search": True,
+            "sort": True
         },
         {
             "field": "path",
@@ -126,8 +134,9 @@ class Corpus(mongoengine.Document):
         {
             "field": "pub_date",
             "label": "Publication Date",
-            "display": False,
-            "search": False
+            "display": True,
+            "type": "date",
+            "search": True
         },
     ])
 
@@ -167,9 +176,47 @@ class Corpus(mongoengine.Document):
         job.status = 'complete'
         job.document.update(push__jobs=job)
 
+    @property
+    def document_index(self):
+        if not hasattr(self, '_document_index'):
+            self._document_index = Index('/corpus/{0}/documents'.format(self.id))
+        return self._document_index
+
+    def get_document_index_mapping(self):
+        mapping = Mapping()
+        mapping.field('document_id', Keyword())
+
+        page_field = Nested(
+            properties={
+                'ref_no': Integer(),
+                'content': Text()
+            }
+        )
+        mapping.field('pages', page_field)
+
+        for field_setting in self.field_settings:
+            if field_setting['search']:
+                field_type = field_setting.get('type', 'keyword')
+                if field_type not in ['keyword', 'text', 'integer', 'date']:
+                    field_type = 'keyword'
+                if field_type == 'keyword':
+                    mapping.field(field_setting['field'], Keyword())
+                elif field_type == 'text':
+                    subfields = {}
+                    if field_setting['sort']:
+                        subfields = { 'raw': Keyword() }
+                    mapping.field(field_setting['field'], Text(), fields=subfields)
+                elif field_type == 'integer':
+                    mapping.field(field_setting['field'], Integer())
+                elif field_type == 'date':
+                    mapping.field(field_setting['field'], Date())
+
+        return mapping
+
     def save(self, **kwargs):
         super().save(**kwargs)
 
+        # Create node in Neo4j for corpus
         run_neo('''
                 MERGE (c:Corpus { key: $corpus_key })
                 SET c.name = $corpus_title
@@ -179,6 +226,27 @@ class Corpus(mongoengine.Document):
                 'corpus_title': self.name
             }
         )
+
+        # Add this corpus to Corpora Elasticsearch index
+        get_connection().index(
+            index='/corpora',
+            id=str(self.id),
+            body={
+                'corpus_id': str(self.id),
+                'name': self.name,
+                'description': self.description,
+                'open_access': self.open_access
+            }
+        )
+
+        # Create Elasticsearch index for documents
+        if not self.document_index.exists():
+            self.document_index.mapping(self.get_document_index_mapping())
+            self.document_index.save()
+        else:
+            # TODO: check if document index mapping has been changed, and if so,
+            # call manager.tasks.rebuild_document_index(corpus_id)
+            pass
 
     meta = {
         'indexes':
@@ -360,9 +428,10 @@ class Document(mongoengine.Document):
         self.pages = sorted(self.pages, key=lambda p: p.ref_no)
         self.save()
 
-    def save(self, **kwargs):
+    def save(self, index=True, **kwargs):
         super().save(**kwargs)
 
+        # Create document node and attach to corpus
         run_neo('''
                 MATCH (c:Corpus { key: $corpus_key })
                 MERGE (d:Document { key: $doc_key })
@@ -377,6 +446,10 @@ class Document(mongoengine.Document):
                 'doc_author': self.author
             }
         )
+
+        # Trigger indexing of document in Elasticsearch
+        if index:
+            index_document(str(self.corpus.id), str(self.id))
 
     meta = {
         'indexes':

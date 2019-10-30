@@ -5,9 +5,10 @@ from bson.objectid import ObjectId
 from django.conf import settings
 from PIL import Image
 from datetime import datetime
+from dateutil import parser
 from subprocess import call
 from PyPDF2 import PdfFileReader
-from .utilities import setup_document_directory
+from .utilities import setup_document_directory, get_field_value_from_path
 from django.utils.text import slugify
 import os
 import importlib
@@ -42,10 +43,13 @@ REGISTRY = {
                     "value": "",
                 },
                 "image_dpi": {
-                    "value": "",
+                    "value": "300",
                 },
                 "split_images": {
-                    "value": "",
+                    "value": "No",
+                },
+                "primary_witness": {
+                    "value": "No"
                 }
             },
         },
@@ -89,6 +93,50 @@ def check_jobs():
                         task_function(str(corpus.id), str(job.id))
                     else:
                         corpus.complete_job(job)
+
+
+@db_task(priority=2)
+def index_document(corpus_id, document_id):
+    document = Document.objects(corpus=ObjectId(corpus_id), id=ObjectId(document_id))[0]
+    default_date = parser.parse('January 1st')
+
+    body = {
+        'document_id': document_id,
+    }
+    for field_setting in document.corpus.field_settings:
+        if field_setting['search']:
+            body[field_setting['field']] = get_field_value_from_path(document, field_setting['field'])
+            if field_setting['type'] == 'date':
+                try:
+                    body[field_setting['field']] = parser.parse(body[field_setting['field']], default=default_date)
+                except:
+                    print("Error parsing date: {0}".format(get_field_value_from_path(document, field_setting['field'])))
+                    body[field_setting['field']] = ""
+
+    body['pages'] = []
+    for page in document.pages:
+        for file in page.files:
+            if file.extension == 'txt' and file.primary_witness and os.path.exists(file.path):
+                contents = ""
+
+                try:
+                    with open(file.path, 'r') as file_in:
+                        contents = file_in.read()
+                except:
+                    print("Error reading file {0} for indexing document {1}:".format(file.path, document_id))
+                    print(traceback.format_exc())
+
+                body['pages'].append({
+                    'ref_no': page.ref_no,
+                    'contents': contents
+                })
+
+    get_connection().index(
+        index='/corpus/{0}/documents'.format(corpus_id),
+        id=document_id,
+        body=body
+    )
+    # TODO: trigger upstream indexing of document if it belongs to a CorpusSet; use to_dict() to pass to task
 
 
 @db_task(priority=2)
@@ -182,6 +230,7 @@ def check_document(corpus_id, document_id):
                                 desc='HOCR',
                                 prov_type='eMOP OCR Job',
                                 prov_id=str(job.id),
+                                primary=True
                             )
                             if xml_file_obj:
                                 job.document.save_page_file(document.pages[pg_index].ref_no, xml_file_obj)
@@ -193,6 +242,7 @@ def check_document(corpus_id, document_id):
                                 desc='Plain Text',
                                 prov_type='eMOP OCR Job',
                                 prov_id=str(job.id),
+                                primary=not emop_page['pg_ground_truth_file']
                             )
                             if text_file_obj:
                                 job.document.save_page_file(document.pages[pg_index].ref_no, text_file_obj)
@@ -204,6 +254,7 @@ def check_document(corpus_id, document_id):
                                 desc='Ground Truth',
                                 prov_type='Import script',
                                 prov_id="eMOP",
+                                primary=True
                             )
                             if gt_file_obj:
                                 job.document.save_page_file(document.pages[pg_index].ref_no, gt_file_obj)
@@ -215,7 +266,7 @@ def check_document(corpus_id, document_id):
             print("Collecting eMOP OCR results took {0}".format(tock))
 
     document.kvp['corpora_document_checked'] = datetime.now()
-    document.save()
+    document.save(index=False)
 
 
 ###############################
@@ -273,6 +324,7 @@ def extract_pdf_pages(corpus_id, job_id):
         pdf_file_path = job.configuration['parameters']['pdf_file']['value']
         image_dpi = job.configuration['parameters']['image_dpi']['value']
         split_images = job.configuration['parameters']['split_images']['value'] == 'Yes'
+        primary_witness = job.configuration['parameters']['primary_witness']['value'] == 'Yes'
 
         if os.path.exists(pdf_file_path):
             with open(pdf_file_path, 'rb') as pdf_in:
@@ -280,12 +332,20 @@ def extract_pdf_pages(corpus_id, job_id):
                 num_pages = pdf_obj.getNumPages()
 
             if num_pages > 0:
-                # Determine whether pages should be primary witness:
-                primary_witness = True
-                if job.document.page_file_collections:
-                    for collection in job.document.page_file_collections.keys():
-                        if collection.startswith('Primary') and 'Image' in collection:
-                            primary_witness = False
+                # Determine whether to remove primary witness designation from existing images
+                if primary_witness:
+                    doc_changed = False
+                    for pg_index in range(0, len(job.document.pages)):
+                        for file_index in range(0, len(job.document.pages[pg_index].files)):
+                            file = job.document.pages[pg_index].files[file_index]
+                            # In case this is a retry, check to make sure existing files aren't from previous job attempt
+                            if file.extension in settings.VALID_IMAGE_EXTENSIONS \
+                                    and file.primary_witness \
+                                    and not (file.provenance_type == 'PDF Page Extraction Job' and file.provenance_id == str(job.id)):
+                                job.document.pages[pg_index].files[file_index].primary_witness = False
+                                doc_changed = True
+                    if doc_changed:
+                        job.document.save(index=False)
 
                 for page_num in range(0, num_pages):
                     huey_task = extract_pdf_page(corpus_id, job_id, pdf_file_path, page_num, image_dpi, split_images, primary_witness)
@@ -336,56 +396,66 @@ def extract_pdf_page(corpus_id, job_id, pdf_file_path, page_num, image_dpi, spli
             page_filename = "{0}_{1}.png".format(file_label, page_suffix)
             page_filepath = "{0}/{1}".format(destination_path, page_filename)
             command.append(page_filepath)
-            call(command)
 
-            if split_images:
-                page_a_output_path = "{0}/{1}_{2}-{3}.png".format(destination_path, file_label, page_suffix, str(page_num))
-                page_b_output_path = "{0}/{1}_{2}-{3}.png".format(destination_path, file_label, page_suffix, str(page_num + 1))
-                page_b_filename = "{0}_{1}.png".format(file_label, page_b_suffix)
-                page_b_filepath = "{0}/{1}".format(destination_b_path, page_b_filename)
+            if not os.path.exists(page_filepath) or split_images:
+                call(command)
 
-                if os.path.exists(page_a_output_path) and os.path.exists(page_b_output_path):
-                    os.rename(page_a_output_path, page_filepath)
-                    os.rename(page_b_output_path, page_b_filepath)
+                if split_images:
+                    page_a_output_path = "{0}/{1}_{2}-{3}.png".format(destination_path, file_label, page_suffix, str(page_num))
+                    page_b_output_path = "{0}/{1}_{2}-{3}.png".format(destination_path, file_label, page_suffix, str(page_num + 1))
+                    page_b_filename = "{0}_{1}.png".format(file_label, page_b_suffix)
+                    page_b_filepath = "{0}/{1}".format(destination_b_path, page_b_filename)
 
-                    # Make page_b file
-                    page_b_fileobj = process_corpus_file(
-                        page_b_filepath,
-                        "PNG Page Image",
-                        "PDF Page Extraction",
-                        job.scholar.username,
-                        primary_witness
+                    if os.path.exists(page_a_output_path) and os.path.exists(page_b_output_path):
+                        os.rename(page_a_output_path, page_filepath)
+                        os.rename(page_b_output_path, page_b_filepath)
+
+                        # Make page_b file
+                        page_b_fileobj = process_corpus_file(
+                            page_b_filepath,
+                            desc="PNG Page Image",
+                            prov_type="PDF Page Extraction Job",
+                            prov_id=str(job.id),
+                            primary=primary_witness
+                        )
+
+                        job.document.reload()
+                        existing_page = job.document.get_page(int(page_b_suffix))
+                        if existing_page:
+                            job.document.save_page_file(existing_page.ref_no, page_b_fileobj)
+                        else:
+                            page_b_obj = Page()
+                            page_b_obj.ref_no = int(page_b_suffix)
+                            page_b_obj.files.append(page_b_fileobj)
+                            job.document.save_page(page_b_obj)
+
+            if os.path.exists(page_filepath):
+                register_file = True
+                existing_page = job.document.get_page(int(page_suffix))
+                if existing_page:
+                    for file in existing_page.files:
+                        if file.path == page_filepath:
+                            register_file = False
+                            break
+
+                if register_file:
+                    # Make page file
+                    page_fileobj = process_corpus_file(
+                        page_filepath,
+                        desc="PNG Page Image",
+                        prov_type="PDF Page Extraction Job",
+                        prov_id=str(job.id),
                     )
 
                     job.document.reload()
-                    existing_page = job.document.get_page(int(page_b_suffix))
+                    existing_page = job.document.get_page(int(page_suffix))
                     if existing_page:
-                        job.document.save_page_file(existing_page.ref_no, page_b_fileobj)
+                        job.document.save_page_file(existing_page.ref_no, page_fileobj)
                     else:
-                        page_b_obj = Page()
-                        page_b_obj.ref_no = int(page_b_suffix)
-                        page_b_obj.files.append(page_b_fileobj)
-                        job.document.save_page(page_b_obj)
-
-            if os.path.exists(page_filepath):
-                # Make page file
-                page_fileobj = process_corpus_file(
-                    page_filepath,
-                    "PNG Page Image",
-                    "PDF Page Extraction",
-                    job.scholar.username,
-                    primary_witness
-                )
-
-                job.document.reload()
-                existing_page = job.document.get_page(int(page_suffix))
-                if existing_page:
-                    job.document.save_page_file(existing_page.ref_no, page_fileobj)
-                else:
-                    page_obj = Page()
-                    page_obj.ref_no = int(page_suffix)
-                    page_obj.files.append(page_fileobj)
-                    job.document.save_page(page_obj)
+                        page_obj = Page()
+                        page_obj.ref_no = int(page_suffix)
+                        page_obj.files.append(page_fileobj)
+                        job.document.save_page(page_obj)
 
             if task:
                 corpus.complete_job_process(job_id, task.id)

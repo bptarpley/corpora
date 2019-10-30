@@ -14,6 +14,7 @@ import os
 from mongoengine import connect
 from huey import PriorityRedisHuey
 from neo4j import GraphDatabase
+from elasticsearch_dsl import connections
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -122,7 +123,9 @@ NEO4J = GraphDatabase.driver(
 )
 
 # Elasticsearch connection
-ELASTICSEARCH_HOST = os.environ['CRP_ELASTIC_HOST']
+connections.configure(
+    default={'hosts': os.environ['CRP_ELASTIC_HOST']}
+)
 
 # eMOP db info
 EMOP = {
@@ -167,6 +170,8 @@ AUTH_PASSWORD_VALIDATORS = [
 LOGIN_URL = '/scholar'
 USE_SSL = os.environ['CRP_USE_SSL'] == 'yes'
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTOCOL', 'https')
+
+VALID_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.1/topics/i18n/

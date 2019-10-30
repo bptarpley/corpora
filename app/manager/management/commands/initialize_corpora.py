@@ -6,6 +6,7 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
 from django.conf import settings
+from elasticsearch_dsl import Index, Mapping, Keyword, Text, Boolean
 from corpus import *
 
 initialized_file = '/corpora/initialized'
@@ -50,6 +51,16 @@ class Command(BaseCommand):
             scholar.auth_token = token.key
             scholar.save()
             print("Default user created.")
+
+            # Create Corpora Elasticsearch index
+            mapping = Mapping()
+            mapping.field('corpus_id', Keyword())
+            mapping.field('name', Text(), fields={ 'raw': Keyword() })
+            mapping.field('description', Text())
+            mapping.field('open_access', Boolean())
+            corpora_index = Index('/corpora')
+            corpora_index.mapping(mapping)
+            corpora_index.save()
 
             with open(initialized_file, 'w') as init_out:
                 init_out.write(time.strftime("%Y-%m-%d %H:%M"))

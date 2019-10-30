@@ -15,5 +15,6 @@ djangorestframework
 django-rest-framework-mongoengine
 pymysql
 neo4j
-elasticsearch
+elasticsearch-dsl>=7.0.0,<8.0.0
 lxml
+python-dateutil

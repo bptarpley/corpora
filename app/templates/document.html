@@ -38,11 +38,19 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="import-pages-pdf-options-split">Split Images in Half Vertically</label>
+                                <label for="import-pages-pdf-options-split">Split Images in Half Vertically?</label>
                                 <select id="import-pages-pdf-options-split" class="form-control" name="import-pages-split">
                                     <option value="No">No</option>
                                     <option value="Yes">Yes</option>
                                 </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="import-pages-pdf-options-primary">Make Primary Witness?*</label>
+                                <select id="import-pages-pdf-options-primary" class="form-control" name="import-pages-primary">
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                                <div class="text-muted">*If you have not yet imported any page images, or if you'd like to replace existing images as the primary witness for this document, this should remain set to 'Yes.'</div>
                             </div>
                         </div>
                         <div class="form-group">
@@ -888,12 +896,18 @@
                                 <div id="completed-job-{}-div" class="alert alert-{} completed-job">
                                     Task: <b>{}</b><br />
                                     {}
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="retry-job-id" value="{}">
+                                        <button type="submit" role="button" class="btn btn-danger">Retry</button>
+                                    </form>
                                 </div>
                             `.format(
                                 job_id,
                                 alert_class,
                                 jobs[x].task.name,
-                                job_msg
+                                job_msg,
+                                job_id
                             );
 
                             $('#completed-jobs-div').append(job_html);

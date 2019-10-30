@@ -67,7 +67,7 @@ def corpus(request, corpus_id):
             new_doc.work = unescape(_clean(request.POST, 'new-document-work'))
             new_doc.manifestation = unescape(_clean(request.POST, 'new-document-manifestation'))
             new_doc.save()
-            new_doc.update(set__path="/corpora/{0}/{1}".format(corpus_id, new_doc.id))
+            setup_document_directory(corpus_id, str(document.id))
         except:
             print(traceback.format_exc())
             response['errors'].append("Unable to save document!")
@@ -178,6 +178,7 @@ def document(request, corpus_id, document_id):
             if import_type == 'pdf':
                 image_dpi = _clean(request.POST, 'import-pages-image-dpi')
                 image_split = _clean(request.POST, 'import-pages-split')
+                primary_witness = _clean(request.POST, 'import-pages-primary')
 
                 if '.pdf' in files_to_process[0].lower():
                     pdf_file_path = files_to_process[0]
@@ -213,6 +214,7 @@ def document(request, corpus_id, document_id):
                     import_job.configuration['parameters']['pdf_file']['value'] = pdf_file_path
                     import_job.configuration['parameters']['image_dpi']['value'] = image_dpi
                     import_job.configuration['parameters']['split_images']['value'] = image_split
+                    import_job.configuration['parameters']['primary_witness']['value'] = primary_witness
 
                     corpus.update(push__jobs=import_job)
                     corpus.reload()
@@ -220,6 +222,24 @@ def document(request, corpus_id, document_id):
 
         else:
             response['errors'].append("Error locating files to import.")
+
+    # HANDLE JOB RETRIES
+    elif request.method == 'POST' and _contains(request.POST, ['retry-job-id']):
+        retry_job_id = _clean(request.POST, 'retry-job-id')
+        job_found = False
+        for job in document.jobs:
+            if str(job.id) == retry_job_id:
+                document.update(pull__jobs=job)
+                job.processes = []
+                job.processes_completed = []
+                job.status = 'preparing'
+                corpus.update(push__jobs=job)
+                run_job(corpus.id, job.id)
+                job_found = True
+
+            if job_found:
+                document.reload()
+                corpus.reload()
 
     # HANDLE RESET PAGES BUTTON
     elif request.method == 'GET' and 'reset-pages' in request.GET:
@@ -573,8 +593,7 @@ def api_document_set_kvp(request, corpus_id, document_id, key):
         if corpus:
             document = corpus.get_document(document_id)
             if document:
-                document.kvp[key] = value
-                document.save()
+                document.update(**{'set__kvp__{0}'.format(key): value})
                 return HttpResponse(status=204)
     return HttpResponse(status=404)
 
