@@ -45,6 +45,13 @@
                                 </select>
                             </div>
                             <div class="form-group">
+                                <label for="import-pages-pdf-options-extract-text">Extract Embedded Text?</label>
+                                <select id="import-pages-pdf-options-extract-text" class="form-control" name="import-pages-extract-text">
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
                                 <label for="import-pages-pdf-options-primary">Make Primary Witness?*</label>
                                 <select id="import-pages-pdf-options-primary" class="form-control" name="import-pages-primary">
                                     <option value="Yes">Yes</option>
@@ -131,6 +138,47 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                         <button type="button" class="btn btn-primary" id="analyze-submit-button" onclick="analyze();" disabled>Analyze</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- PageSet Modal -->
+    <div class="modal fade" id="pageset-modal" tabindex="-1" role="dialog" aria-labelledby="pageset-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="pageset-form" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="pageset-modal-label">New Page Set</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="pageset-name-box">Name</label>
+                            <input type="text" class="form-control" id="pageset-name-box" name="pageset-name" />
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="form-group">
+                                    <label for="pageset-start-box">Starting Page</label>
+                                    <input type="text" class="form-control" id="pageset-start-box" name="pageset-start" />
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-group">
+                                    <label for="pageset-end-box">Ending Page</label>
+                                    <input type="text" class="form-control" id="pageset-end-box" name="pageset-end" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Create</button>
                     </div>
                 </form>
             </div>
@@ -225,9 +273,23 @@
                             </div>
                             <div class="card-body">
                                 <div id="completed-jobs-div">
-                                    <div id="no-completed-jobs-div" class="alert alert-info">
-                                        There have been no jobs completed for this document.
-                                    </div>
+                                    {% if document.completed_tasks %}
+                                        {% for completed_task in document.completed_tasks %}
+                                            <div id="completed-job-{}-div" class="alert alert-{% if completed_task.status == 'complete' %}success{% else %}danger{% endif %} completed-job">
+                                                Task: <b>{{ completed_task.task.name }}</b><br />
+                                                Completed {{ completed_task.completed }}
+                                                <form method="post">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="retry-job-id" value="{{ completed_task.job_id }}">
+                                                    <button type="submit" role="button" class="btn btn-danger">Retry</button>
+                                                </form>
+                                            </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="alert alert-info">
+                                            There have been no jobs completed for this document.
+                                        </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -289,11 +351,75 @@
                                 There are currently no files for this document.
                             </div>
                         {% endif %}
+                        {% if document.has_primary_text %}
+                            <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/edit-xml/?use_tei_skeleton=y" class="btn btn-primary ml-1">Create TEI XML</a>
+                            <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/tei-skeleton" class="btn btn-primary ml-1" download>Download TEI XML Skeleton</a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
 
         </div>
+    {% if document.pages %}
+        <div class="row">
+
+            <!-- PAGE SETS -->
+            <div class="col-12">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4>Page Sets</h4>
+                    </div>
+                    <div class="card-body">
+                        {% if document.page_sets %}
+                            <table class="table table-striped">
+                                <thead class="thead-dark">
+                                    <th scope="col">
+                                        Name
+                                    </th>
+                                    <th scope="col">
+                                        Starting Page
+                                    </th>
+                                    <th scope="col">
+                                        Ending Page
+                                    </th>
+                                    <th scope="col">
+                                        Actions
+                                    </th>
+                                </thead>
+                                {% for name, page_set in document.page_sets.items %}
+                                    <tr>
+                                        <td>
+                                            {{ name }}
+                                        </td>
+                                        <td>
+                                            {{ page_set.starting_ref_no }}
+                                        </td>
+                                        <td>
+                                            {{ page_set.ending_ref_no }}
+                                        </td>
+                                        <td>
+                                            {% if document.has_primary_text %}
+                                                <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/edit-xml/?pageset={{ name }}" target="_blank" class="btn btn-primary ml-1">Create TEI XML</a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </table>
+                        {% else %}
+                            <div class="alert alert-info">
+                                There are currently no files for this document.
+                            </div>
+                        {% endif %}
+                        {% if document.has_primary_text %}
+                            <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/edit-xml/?use_tei_skeleton=y" class="btn btn-primary ml-1">Create TEI XML</a>
+                            <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/tei-skeleton" class="btn btn-primary ml-1" download>Download TEI XML Skeleton</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    {% endif %}
         <div class="row">
 
             <!-- PAGE FILE COLLECTIONS -->
@@ -365,8 +491,11 @@
                                                         </td>
                                                         <td>
                                                             {% if 'HOCR' in key or 'GCV TextAnnotation' in key %}
-                                                                <a id='fix-regions-button' href="/corpus/{{ corpus.id }}/document/{{ document.id }}/draw-page-regions/{{ file.page }}/?ocrfile={{ file.path }}" class="btn btn-primary ml-1">Fix OCR Regions</a>
+                                                                <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/draw-page-regions/{{ file.page }}/?ocrfile={{ file.path }}" class="btn btn-primary ml-1">Fix OCR Regions</a>
                                                             {% endif  %}
+                                                            {% if 'HOCR' in key or 'XML' in key %}
+                                                                <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/edit-xml/?path={{ file.path }}" class="btn btn-primary ml-1">Edit XML</a>
+                                                            {% endif %}
                                                         </td>
                                                     </tr>
                                                 {% endfor %}
@@ -396,6 +525,7 @@
                             <span>
                                 <button id="import-pages-button" class="btn btn-primary rounded" type="button">Import</button>
                                 {% if document.pages %}
+                                    <button id="create-pageset-button" class="btn btn-primary rounded ml-1" type="button">Create Page Set</button>
                                     {% if response.scholar.is_admin %}
                                         <a id="reset-pages-button" class="btn btn-secondary rounded ml-1" role="button" href="?reset-pages">Reset</a>
                                     {% endif %}
@@ -462,6 +592,7 @@
     <script type="application/javascript">
         var import_pages_files = [];
         var check_jobs_timer;
+        var check_jobs_interval = 10;
         var tasks = [];
         var page_file_collections;
         var bbox_collections = [];
@@ -529,7 +660,7 @@
             // SETUP PAGE VIEWER
             // ------------------------
             {% if document.page_file_collections %}
-                $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/page-file-collections/', function(pfc) {
+                $.get('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/page-file-collections/', function(pfc) {
                     page_file_collections = pfc;
 
                     for (let pfc in page_file_collections) {
@@ -538,10 +669,10 @@
                         }
                     }
                 }).done(function() {
-                    $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/get-kvp/page_viewer_left_collection', function (left) {
+                    $.get('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/kvp/page_viewer_left_collection', function (left) {
                         left_pfc = left;
                     }).done(function() {
-                        $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/get-kvp/page_viewer_right_collection', function (right) {
+                        $.get('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/kvp/page_viewer_right_collection', function (right) {
                             right_pfc = right;
                         }).done(function () {
                             $('#page-viewer-control-div').removeClass('d-none');
@@ -576,6 +707,13 @@
             $("#reset-pages-button").click(function() {
                 $("#import-pages-files").val(JSON.stringify(import_pages_files));
                 $("#import-pages-form").submit();
+            });
+
+            // ---------------------
+            // SETUP PAGE SET MODAL
+            // ---------------------
+            $("#create-pageset-button").click(function() {
+                $("#pageset-modal").modal();
             });
 
             // -----------------
@@ -619,7 +757,7 @@
             });
 
             // LOAD TASKS
-            $.post('/api/tasks/', function(payload) {
+            $.get('/api/tasks/', function(payload) {
                 tasks = payload;
                 let zip_page_file_task_id = '';
                 for (let x = 0; x < tasks.length; x++) {
@@ -646,8 +784,20 @@
                 }
             });
 
-            check_jobs(5);
+            check_jobs();
         });
+
+        function get_page(collection, ref_no) {
+            let page = false;
+            if (collection && collection in page_file_collections) {
+                page_file_collections[collection].files.forEach(pg => {
+                    if (pg['page'] === ref_no.toString()) {
+                        page = pg;
+                    }
+                });
+            }
+            return page;
+        }
 
         function show_page() {
             $('#page-viewer-div').attr('style', 'min-height: 1000px;');
@@ -662,58 +812,78 @@
                 }
             }
 
-            let num_pages = page_file_collections[left_pfc].files.length;
+            let num_pages = {{ document.pages|length }};
+
             if(ref_no < 1) { ref_no = 1; }
             if(ref_no > num_pages) { ref_no = num_pages; }
             if(ref_no == 1) { $('#go-prev-page-button').attr('disabled', true); }
             if(ref_no == num_pages) { $('#go-next-page-button').attr('disabled', true); }
             if(ref_no > 1) { $('#go-prev-page-button').attr('disabled', false); }
             if(ref_no < num_pages) { $('#go-next-page-button').attr('disabled', false); }
-            $('#go-page-box').val(ref_no);
 
-            let left_html = `
-                <img src="/get-image?path={}" class="img-fluid" />
-            `.format(page_file_collections[left_pfc].files[ref_no - 1]['path']);
+            $('#go-page-box').val(ref_no);
+            let left_page = get_page(left_pfc, ref_no);
+            let right_page = get_page(right_pfc, ref_no);
+
+            let left_col = `
+                <div class="alert alert-info">
+                    There is currently no image for this page number.
+                </div>
+            `;
+
+            if(left_page) {
+                left_col = `<img src="/get-image?path=${left_page['path']}" class="img-fluid" />`;
+            }
 
             if(right_pfc) {
-
                 let viewer_row = $(`
                     <div class="row">
                         <div class="col-6">
-                            {}
+                            ${left_col}
                         </div>
                     </div>
-                `.format(left_html));
+                `);
 
-                let right_col = $(`<div class="col-6" />`).load("/get-file?path={}".format(
-                    page_file_collections[right_pfc].files[ref_no - 1]['path']
-                ));
+                let right_col = `
+                    <div class="alert alert-info">
+                        There is currently no witness for this page number.
+                    </div>
+                `;
+
+                if (right_page) {
+                    right_col = $('<div class="col-6" />').load(`/get-file?path=${right_page['path']}`);
+                }
 
                 if (right_pfc.includes('OCR') && bbox_collections.length > 0) {
                     if (!$('#fix-regions-nav').length) {
                         $('#page-viewer-right-controls').append(`
-                            <li id='fix-regions-nav' class='nav-item ml-1'><a id='fix-regions-button' href="/corpus/{{ corpus.id }}/document/{{ document.id }}/draw-page-regions/{}/" class="btn btn-primary ml-1">Fix OCR Regions</a></li>
-                        `.format(ref_no));
+                            <li id='fix-regions-nav' class='nav-item ml-1'><a id='fix-regions-button' href="/corpus/{{ corpus.id }}/document/{{ document.id }}/draw-page-regions/${ref_no}/" class="btn btn-primary ml-1">Fix OCR Regions</a></li>
+                        `);
                     } else {
-                        $('#fix-regions-button').attr('href', '/corpus/{{ corpus.id }}/document/{{ document.id }}/draw-page-regions/{}/'.format(ref_no));
+                        $('#fix-regions-button').attr('href', `/corpus/{{ corpus.id }}/document/{{ document.id }}/draw-page-regions/${ref_no}/`);
                     }
                 }
 
                 viewer_row.append(right_col);
                 $('#page-viewer-div').append(viewer_row);
             } else {
-                $('#page-viewer-div').html(left_html);
+                $('#page-viewer-div').html(left_col);
             }
         }
 
         function set_collection(side, collection) {
+            let post_params = {
+                'csrfmiddlewaretoken': "{{ csrf_token }}",
+                'value': collection
+            };
+
             if(side == 'left') {
-                $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/set-kvp/page_viewer_left_collection', {value: collection}, function() {
+                $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/kvp/page_viewer_left_collection', post_params, function() {
                     left_pfc = collection;
                     show_page();
                 });
             } else {
-                $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/set-kvp/page_viewer_right_collection', {value: collection}, function() {
+                $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/kvp/page_viewer_right_collection', post_params, function() {
                     right_pfc = collection;
                     show_page();
                 });
@@ -724,15 +894,15 @@
         function load_jobsites(modal, task_filter) {
             let jobsite_type = "SLURM";
 
-            $.post('/api/jobsites/', function(jobsites) {
+            $.get('/api/jobsites/', function(jobsites) {
                 $("#ocr-jobsite-selector").html('');
                 if (jobsites.length > 0) {
                     for (let x = 0; x < jobsites.length; x++) {
-                        $("#{}-jobsite-selector".format(modal)).append(`<option value="{}" class="{}">{}</option>`.format(
-                            jobsites[x]["_id"]["$oid"],
-                            jobsites[x]["type"],
-                            jobsites[x]["name"]
-                        ));
+                        $(`#${modal}-jobsite-selector`).append(`
+                            <option value="${jobsites[x]["_id"]["$oid"]}" class="${jobsites[x]["type"]}">
+                                ${jobsites[x]["name"]}
+                            </option>
+                        `);
                         if (x === 0) {
                             jobsite_type = jobsites[x]["type"];
                             load_tasks(jobsite_type, modal, task_filter);
@@ -743,17 +913,18 @@
         }
 
         function load_tasks(jobsite_type, modal, task_filter) {
-            $("#{}-task-selector".format(modal)).html('');
+            $(`#${modal}-task-selector`).html('');
 
                 if (tasks.length > 0) {
                     let tasks_populated = 0;
 
                     for (let x = 0; x < tasks.length; x++) {
                         if (tasks[x]["jobsite_type"] == jobsite_type && tasks[x]["name"].includes(task_filter)) {
-                            $("#{}-task-selector".format(modal)).append(`<option value="{}">{}</option>`.format(
-                                tasks[x]["_id"]["$oid"],
-                                tasks[x]["name"]
-                            ));
+                            $(`#${modal}-task-selector`).append(`
+                                <option value="${tasks[x]["_id"]["$oid"]}">
+                                    ${tasks[x]["name"]}
+                                </option>
+                            `);
                             if (tasks_populated == 0) {
                                 load_task_parameters(tasks[x]["_id"]["$oid"], modal);
                             }
@@ -762,63 +933,83 @@
                     }
 
                     if (tasks_populated > 0) {
-                        $("#{}-task-selector-div".format(modal)).removeClass("d-none");
-                        $("#{}-submit-button".format(modal)).attr('disabled', false);
+                        $(`#${modal}-task-selector-div`).removeClass("d-none");
+                        $(`#${modal}-submit-button`).attr('disabled', false);
                     } else {
-                        $("#{}-task-selector-div".format(modal)).addClass("d-none");
-                        $("#{}-submit-button".format(modal)).attr('disabled', true);
+                        $(`#${modal}-task-selector-div`).addClass("d-none");
+                        $(`#${modal}-submit-button`).attr('disabled', true);
                     }
                 }
         }
 
         function load_task_parameters(task_id, modal) {
             console.log('load parameters fired');
-            $('#{}-task-parameters-div'.format(modal)).html('');
+            $(`#${modal}-task-parameters-div`).html('');
 
             for (let x = 0; x < tasks.length; x++) {
                 if (tasks[x]["_id"]["$oid"] == task_id) {
                     console.log('found task');
                     let parameters = tasks[x]['configuration']['parameters'];
                     for (let parameter in parameters) {
-                        if (parameters.hasOwnProperty(parameter)) {
+                        if (parameters[parameter].hasOwnProperty('type')) {
                             console.log('handling parameter ' + parameter);
                             let parameter_html = '';
                             let note_html = '';
                             if (parameters[parameter].hasOwnProperty('note')) {
-                                note_html = `
-                                    <span class='text-muted'>{}</span>
-                                `.format(parameters[parameter]['note']);
+                                note_html = `<span class='text-muted'>${parameters[parameter]['note']}</span>`;
                             }
 
                             if (parameters[parameter]['type'] == 'page_file_collection') {
+                                let select_options = '';
+                                for (let collection in page_file_collections) {
+                                    select_options += `<option>${collection}</option>\n`;
+                                }
+
                                 parameter_html = `
                                     <div class="form-group">
-                                        <label for="{}-collection-selector">{}</label>
-                                        <select id="{}-collection-selector" class="form-control" name="{}">
-                                            {% for collection_name in document.page_file_collections.keys %}
-                                                <option>{{ collection_name }}</option>
-                                            {% endfor %}
+                                        <label for="${modal}-collection-selector">${parameters[parameter]['label']}</label>
+                                        <select id="${modal}-collection-selector" class="form-control" name="${parameter}">
+                                            ${select_options}
                                         </select>
-                                        {}
+                                        ${note_html}
                                     </div>
-                                `.format(
-                                    modal,
-                                    parameters[parameter]['label'],
-                                    modal,
-                                    parameter,
-                                    note_html
-                                );
+                                `;
+                            } else if (parameters[parameter]['type'] == 'choice' && parameters[parameter].hasOwnProperty('choices')) {
+                                let select_options = '';
+                                parameters[parameter]['choices'].forEach(choice => {
+                                    select_options += `<option>${choice}</option>\n`;
+                                });
+
+                                parameter_html = `
+                                    <div class="form-group">
+                                        <label for="${modal}-collection-selector">${parameters[parameter]['label']}</label>
+                                        <select id="${modal}-collection-selector" class="form-control" name="${parameter}">
+                                            ${select_options}
+                                        </select>
+                                        ${note_html}
+                                    </div>
+                                `;
                             }
 
-                            $('#{}-task-parameters-div'.format(modal)).append(parameter_html);
+                            $(`#${modal}-task-parameters-div`).append(parameter_html);
                         }
                     }
                 }
             }
         }
 
-        function check_jobs(seconds_to_wait_for_next_check) {
-            $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/jobs/', function(jobs) {
+        function get_task_name(task_id) {
+            let name = "Unknown Task";
+            tasks.forEach(task => {
+                if (task['_id']['$oid'] == task_id) {
+                    name = task['name'];
+                }
+            });
+            return name;
+        }
+
+        function check_jobs() {
+            $.get('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/jobs/', function(jobs) {
                 let has_running = false;
                 let has_completed = false;
                 let stale_jobs = [];
@@ -833,90 +1024,48 @@
                             has_running = true;
                         }
 
-                        let job_id = jobs[x].id['$oid'];
-                        let progress_value = parseInt((jobs[x].processes_completed.length / jobs[x].processes.length) * 100).toString();
+                        let job_id = jobs[x].id;
+                        let progress_value = jobs[x].percent_complete;
                         if (jobs[x].status == 'preparing') {
                             progress_value = 0;
                         }
-                        let label = "{}%".format(progress_value);
-                        if (progress_value < 4) { label = ""; }
+                        let label = `${progress_value}%`;
+                        if (progress_value < 4) {
+                            label = "";
+                        }
 
-                        if ($('#running-job-{}-div'.format(job_id)).length) {
-                            $('#running-job-{}-progress-bar'.format(job_id)).css("width", progress_value);
-                            $('#running-job-{}-progress-bar'.format(job_id)).attr("aria-valuenow", progress_value);
-                            $('#running-job-{}-progress-bar'.format(job_id)).html(progress_value);
+                        if ($(`#running-job-${job_id}-div`).length) {
+                            $(`#running-job-${job_id}-progress-bar`).css("width", progress_value);
+                            $(`#running-job-${job_id}-progress-bar`).attr("aria-valuenow", progress_value);
+                            $(`#running-job-${job_id}-progress-bar`).html(progress_value);
                         } else {
                             let job_html = `
-                                <div id="running-job-{}-div" class="alert alert-info running-job">
-                                    Task: <b>{}</b>
+                                <div id="running-job-${job_id}-div" class="alert alert-info running-job">
+                                    Task: <b>${get_task_name(jobs[x].task_id)}</b>
                                     <div class="progress">
-                                        <div id="running-job-{}-progress-bar"
+                                        <div id="running-job-${job_id}-progress-bar"
                                              class="progress-bar progress-bar-striped bg-success progress-bar-animated"
                                              role="progressbar"
-                                             aria-valuenow="{}"
+                                             aria-valuenow="${progress_value}"
                                              aria-valuemin="0"
                                              aria-valuemax="100"
-                                             style="width: {}%">
-                                            {}
+                                             style="width: ${progress_value}%">
+                                            ${label}
                                         </div>
                                     </div>
                                 </div>
-                            `.format(
-                                job_id,
-                                jobs[x].task.name,
-                                job_id,
-                                progress_value,
-                                progress_value,
-                                label
-                            );
+                            `;
 
                             $('#running-jobs-div').append(job_html);
-                            stale_jobs = stale_jobs.filter(function(value, index, arr){
+                            stale_jobs = stale_jobs.filter(function (value, index, arr) {
                                 return value != job_id;
                             });
-                        }
-                    } else {
-                        if (!has_completed) {
-                            $('#completed-jobs-div').html('');
-                            has_completed = true;
-                        }
-
-                        let job_id = jobs[x].id['$oid'];
-
-                        if (!$('#completed-job-{}-div'.format(job_id)).length) {
-                            let alert_class = 'success';
-                            let job_msg = 'Completed successfully on {}'.format(parseMongoDate(jobs[x].status_time['$date']));
-
-                            if (jobs[x].status == 'error') {
-                                alert_class = 'danger';
-                                job_msg = 'Completed with errors on {}'.format(parseMongoDate(jobs[x].status_time['$date']));
-                            }
-
-                            let job_html = `
-                                <div id="completed-job-{}-div" class="alert alert-{} completed-job">
-                                    Task: <b>{}</b><br />
-                                    {}
-                                    <form method="post">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="retry-job-id" value="{}">
-                                        <button type="submit" role="button" class="btn btn-danger">Retry</button>
-                                    </form>
-                                </div>
-                            `.format(
-                                job_id,
-                                alert_class,
-                                jobs[x].task.name,
-                                job_msg,
-                                job_id
-                            );
-
-                            $('#completed-jobs-div').append(job_html);
                         }
                     }
                 }
 
                 for (let x = 0; x < stale_jobs.length; x++) {
-                    $('#running-job-{}-div'.format(stale_jobs[x])).remove();
+                    $(`#running-job-${stale_jobs[x]}-div`).remove();
                     $('#job-finished-modal').modal();
                 }
 
@@ -927,19 +1076,11 @@
                         </div>
                     `);
                 }
-
-                if (!has_completed && !$('#no-completed-jobs-div').length) {
-                    $('#completed-jobs-div').append(`
-                        <div id="no-completed-jobs-div" class="alert alert-info">
-                            There have been no jobs completed for this document.
-                        </div>
-                    `);
-                }
             });
 
             check_jobs_timer = setTimeout(function() {
-                check_jobs(10);
-            }, seconds_to_wait_for_next_check * 1000);
+                check_jobs();
+            }, check_jobs_interval * 1000);
         }
     </script>
 {% endblock %}

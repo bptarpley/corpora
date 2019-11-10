@@ -1,18 +1,22 @@
+import logging
+import re
+import json
 from django.shortcuts import render, redirect, HttpResponse
 from django.http import Http404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.views.decorators.csrf import csrf_exempt
+from django.template import Template, Context
 from html import unescape
 from corpus import *
-from . import _contains, _clean, _get_context
-import logging
-import re
 from .tasks import *
-from .utilities import *
+from .utilities import _get_context, _clean, _contains, \
+    get_scholar_corpora, get_scholar_corpus, get_documents, get_document, \
+    get_jobsites, get_tasks, get_document_page_file_collections, \
+    reset_page_extraction, get_page_regions, get_page_region_content
 from .serializers import DHDCorpusSerializer, DHDocumentSerializer
 from rest_framework_mongoengine.viewsets import ModelViewSet
+from rest_framework.decorators import api_view 
 from rest_framework.authtoken.models import Token
 
 
@@ -67,7 +71,7 @@ def corpus(request, corpus_id):
             new_doc.work = unescape(_clean(request.POST, 'new-document-work'))
             new_doc.manifestation = unescape(_clean(request.POST, 'new-document-manifestation'))
             new_doc.save()
-            setup_document_directory(corpus_id, str(document.id))
+            setup_document_directory(corpus_id, str(new_doc.id))
         except:
             print(traceback.format_exc())
             response['errors'].append("Unable to save document!")
@@ -179,6 +183,7 @@ def document(request, corpus_id, document_id):
                 image_dpi = _clean(request.POST, 'import-pages-image-dpi')
                 image_split = _clean(request.POST, 'import-pages-split')
                 primary_witness = _clean(request.POST, 'import-pages-primary')
+                extract_text = _clean(request.POST, 'import-pages-extract-text')
 
                 if '.pdf' in files_to_process[0].lower():
                     pdf_file_path = files_to_process[0]
@@ -205,20 +210,20 @@ def document(request, corpus_id, document_id):
                     import_task = Task.objects(id=import_task_id)[0]
 
                     import_job = Job()
-                    import_job.document = document
-                    import_job.task = import_task
-                    import_job.scholar = response['scholar']
-                    import_job.job_site = local_jobsite
+                    import_job.corpus_id = corpus_id
+                    import_job.document_id = document_id
+                    import_job.task_id = str(import_task.id)
+                    import_job.scholar_id = str(response['scholar'].id)
+                    import_job.jobsite_id = str(local_jobsite.id)
                     import_job.status = "preparing"
                     import_job.configuration = import_task.configuration
                     import_job.configuration['parameters']['pdf_file']['value'] = pdf_file_path
                     import_job.configuration['parameters']['image_dpi']['value'] = image_dpi
                     import_job.configuration['parameters']['split_images']['value'] = image_split
+                    import_job.configuration['parameters']['extract_text']['value'] = extract_text
                     import_job.configuration['parameters']['primary_witness']['value'] = primary_witness
-
-                    corpus.update(push__jobs=import_job)
-                    corpus.reload()
-                    run_job(corpus.id, import_job.id)
+                    import_job.save()
+                    run_job(import_job.id)
 
         else:
             response['errors'].append("Error locating files to import.")
@@ -226,20 +231,35 @@ def document(request, corpus_id, document_id):
     # HANDLE JOB RETRIES
     elif request.method == 'POST' and _contains(request.POST, ['retry-job-id']):
         retry_job_id = _clean(request.POST, 'retry-job-id')
-        job_found = False
-        for job in document.jobs:
-            if str(job.id) == retry_job_id:
-                document.update(pull__jobs=job)
-                job.processes = []
-                job.processes_completed = []
-                job.status = 'preparing'
-                corpus.update(push__jobs=job)
-                run_job(corpus.id, job.id)
-                job_found = True
+        for completed_task in document.completed_tasks:
+            if completed_task.job_id == retry_job_id:
+                job = Job.setup_retry_for_completed_task(corpus_id, document_id, completed_task)
+                document.modify(pull__completed_tasks=completed_task)
+                run_job(job.id)
 
-            if job_found:
-                document.reload()
-                corpus.reload()
+    # HANDLE PAGESET CREATION
+    elif request.method == 'POST' and _contains(request.POST, ['pageset-name', 'pageset-start', 'pageset-end']):
+        ps_name = slugify(_clean(request.POST, 'pageset-name')).replace('__', '_')
+        ps_start = _clean(request.POST, 'pageset-start')
+        ps_end = _clean(request.POST, 'pageset-end')
+
+        if ps_name not in document.page_sets:
+            if ps_start in document.pages and ps_end in document.pages:
+                page_ref_nos = natsorted(document.pages.keys())
+                ps = PageSet()
+                start_found = False
+                for ref_no in page_ref_nos:
+                    if ref_no == ps_start:
+                        start_found = True
+                    if start_found:
+                        ps.ref_nos.append(ref_no)
+                        if ref_no == ps_end:
+                            break
+                document.modify(**{'set__page_sets__{0}'.format(ps_name): ps})
+            else:
+                response['errors'].append("Start and end pages must be existing page numbers!")
+        else:
+            response['errors'].append("A page set with that name already exists!")
 
     # HANDLE RESET PAGES BUTTON
     elif request.method == 'GET' and 'reset-pages' in request.GET:
@@ -255,18 +275,17 @@ def document(request, corpus_id, document_id):
         task_parameters = [key for key in task.configuration['parameters'].keys()]
         if _contains(request.POST, task_parameters):
             job = Job()
-            job.document = document
-            job.task = task
-            job.scholar = response['scholar']
-            job.job_site = jobsite
+            job.corpus_id = corpus_id
+            job.document_id = document_id
+            job.task_id = str(task.id)
+            job.scholar_id = str(response['scholar'].id)
+            job.jobsite_id = str(jobsite.id)
             job.status = "preparing"
             job.configuration = task.configuration
             for parameter in task_parameters:
                 job.configuration['parameters'][parameter]['value'] = _clean(request.POST, parameter)
-
-            corpus.update(push__jobs=job)
-            corpus.reload()
-            run_job(corpus.id, job.id)
+            job.save()
+            run_job(job.id)
             response['messages'].append("Job successfully submitted.")
         else:
             response['errors'].append("Please provide values for all task parameters.")
@@ -281,10 +300,10 @@ def document(request, corpus_id, document_id):
         consolidated_text = ''
         for file in document.page_file_collections[collection_key]['files']:
             if os.path.exists(file['path']):
-                with open(file['path'], 'r') as fin:
-                    consolidated_text += fin.read()
+                with open(file['path'], 'r', encoding="utf-8") as fin:
+                    consolidated_text += fin.read() + '\n'
 
-        with open(consolidated_file, 'w') as fout:
+        with open(consolidated_file, 'w', encoding='utf-8') as fout:
             fout.write(consolidated_text)
 
         document.save_file(process_corpus_file(
@@ -319,6 +338,58 @@ def document(request, corpus_id, document_id):
 
 
 @login_required
+def edit_xml(request, corpus_id, document_id):
+    response = _get_context(request)
+    xml_file = None
+
+    if 'path' in request.GET:
+        path = _clean(request.GET, 'path')
+        if path.startswith('/corpora') and '../' not in path and path.lower().split('.')[-1] in ['xml', 'rdf', 'hocr']:
+            xml_file = "/get-file?path={0}".format(path)
+
+    elif 'use_tei_skeleton' in request.GET:
+        xml_file = "/corpus/{0}/document/{1}/tei-skeleton".format(corpus_id, document_id)
+
+    elif 'pageset' in request.GET:
+        pageset = _clean(request.GET, 'pageset')
+        xml_file = "/corpus/{0}/document/{1}/tei-skeleton?pageset={2}".format(corpus_id, document_id, pageset)
+
+    return render(
+        request,
+        'edit_xml.html',
+        {
+            'response': response,
+            'xml_file': xml_file,
+        }
+    )
+
+
+@login_required
+def tei_skeleton(request, corpus_id, document_id):
+    response = _get_context(request)
+    document = get_document(response['scholar'], corpus_id, document_id)
+    template_string = ""
+    template_path = "{0}/templates/tei_skeleton.xml".format(settings.BASE_DIR)
+    if os.path.exists(template_path):
+        with open(template_path, 'r', encoding='utf-8') as template_in:
+            template_string = template_in.read()
+
+    if 'pageset' in request.GET:
+        pageset = _clean(request.GET, 'pageset')
+        if pageset in document.page_sets:
+            document.kvp['_default_pageset'] = pageset
+
+    template = Template(template_string)
+    template_context = Context({
+        'document': document
+    })
+    return HttpResponse(
+        template.render(template_context),
+        content_type="application/xml"
+    )
+
+
+@login_required
 def draw_page_regions(request, corpus_id, document_id, ref_no):
     response = _get_context(request)
     document = get_document(response['scholar'], corpus_id, document_id)
@@ -327,7 +398,7 @@ def draw_page_regions(request, corpus_id, document_id, ref_no):
     ocr_file = request.GET.get('ocrfile', None)
 
     if document:
-        page = document.get_page(ref_no)
+        page = document.pages[ref_no]
         if page:
             if ocr_file and os.path.exists(ocr_file):
                 if ocr_file.lower().endswith('.object'):
@@ -358,24 +429,6 @@ def draw_page_regions(request, corpus_id, document_id, ref_no):
             'ref_no': ref_no
         }
     )
-
-
-@login_required
-def document_view(request, corpus_id, document_id, view_type, view_name):
-    response = _get_context(request)
-    document = Document(corpus=ObjectId(corpus_id), id=ObjectId(document_id))[0]
-    view_contents = ""
-
-    for view in document.views:
-        if view.type == view_type and view.name == view_name:
-            view_contents = view.contents
-
-    if not view_contents:
-        if view_type == 'iiif_manifest' and view_name == 'primary':
-            # to do: create a default iiif manifest for viewing :/
-            pass
-
-    return redirect('/')
 
 
 def scholar(request):
@@ -469,8 +522,8 @@ def scholar(request):
         }
     )
 
-# OLD API
-@csrf_exempt
+
+@api_view(['GET'])
 def api_corpora(request):
     response = _get_context(request)
     corpora = get_scholar_corpora(response['scholar'])
@@ -481,7 +534,7 @@ def api_corpora(request):
     )
 
 
-@csrf_exempt
+@api_view(['GET'])
 def api_corpus(request, corpus_id):
     response = _get_context(request)
     corpus = get_scholar_corpus(corpus_id, response['scholar'])
@@ -492,7 +545,7 @@ def api_corpus(request, corpus_id):
     )
 
 
-@csrf_exempt
+@api_view(['GET'])
 def api_documents(request, corpus_id):
     response = _get_context(request)
     documents, count, num_pages = get_documents(corpus_id, request, response)
@@ -514,7 +567,7 @@ def api_documents(request, corpus_id):
     )
 
 
-@csrf_exempt
+@api_view(['GET'])
 def api_document(request, corpus_id, document_id):
     response = _get_context(request)
     document = get_document(response['scholar'], corpus_id, document_id)
@@ -525,7 +578,7 @@ def api_document(request, corpus_id, document_id):
     )
 
 
-@csrf_exempt
+@api_view(['GET'])
 def api_jobsites(request):
     response = _get_context(request)
     jobsites = get_jobsites(response['scholar'])
@@ -536,7 +589,7 @@ def api_jobsites(request):
     )
 
 
-@csrf_exempt
+@api_view(['GET'])
 def api_tasks(request):
     response = _get_context(request)
     tasks = get_tasks(response['scholar'])
@@ -547,58 +600,53 @@ def api_tasks(request):
     )
 
 
-@csrf_exempt
+@api_view(['GET'])
 def api_corpus_jobs(request, corpus_id):
-    response = _get_context(request)
-    jobs = get_corpus_jobs(response['scholar'], corpus_id)
+    jobs = Job.get_jobs(corpus_id=corpus_id)
+    payload = []
+    for job in jobs:
+        payload.append(job.to_dict())
 
     return HttpResponse(
-        jobs.to_json(),
+        json.dumps(payload),
         content_type='application/json'
     )
 
 
-@csrf_exempt
+@api_view(['GET'])
 def api_document_jobs(request, corpus_id, document_id):
-    response = _get_context(request)
-    jobs = get_document_jobs(response['scholar'], corpus_id, document_id)
+    jobs = Job.get_jobs(corpus_id=corpus_id, document_id=document_id)
+    payload = []
+    for job in jobs:
+        payload.append(job.to_dict())
 
     return HttpResponse(
-        json.dumps(jobs),
+        json.dumps(payload),
         content_type='application/json'
     )
 
 
-@csrf_exempt
-def api_document_get_kvp(request, corpus_id, document_id, key):
+@api_view(['GET', 'POST'])
+def api_document_kvp(request, corpus_id, document_id, key):
     value = ''
     response = _get_context(request)
     corpus = get_scholar_corpus(corpus_id, response['scholar'])
     if corpus:
-        document = corpus.get_document(document_id)
-        if document:
+        document = corpus.get_document(document_id, only=['kvp__{0}'.format(key)])
+
+        if request.method == 'GET' and document:
             value = document.kvp.get(key, '')
+        elif request.method == 'POST' and document and 'value' in request.POST:
+            value = _clean(request.POST, 'value')
+            document.update(**{'set__kvp__{0}'.format(key): value})
 
     return HttpResponse(
         json.dumps(value),
         content_type='application/json'
     )
 
-@csrf_exempt
-def api_document_set_kvp(request, corpus_id, document_id, key):
-    if request.method == 'POST' and _contains(request.POST, ['value']):
-        value = _clean(request.POST, 'value')
-        response = _get_context(request)
-        corpus = get_scholar_corpus(corpus_id, response['scholar'])
-        if corpus:
-            document = corpus.get_document(document_id)
-            if document:
-                document.update(**{'set__kvp__{0}'.format(key): value})
-                return HttpResponse(status=204)
-    return HttpResponse(status=404)
 
-
-@csrf_exempt
+@api_view(['GET'])
 def api_document_page_file_collections(request, corpus_id, document_id):
     response = _get_context(request)
     page_file_collections = get_document_page_file_collections(response['scholar'], corpus_id, document_id)
@@ -609,7 +657,7 @@ def api_document_page_file_collections(request, corpus_id, document_id):
     )
 
 
-@csrf_exempt
+@api_view(['GET'])
 def api_page_region_content(request, corpus_id, document_id, ref_no, x, y, width, height):
     response = _get_context(request)
     document = get_document(response['scholar'], corpus_id, document_id)
@@ -617,7 +665,7 @@ def api_page_region_content(request, corpus_id, document_id, ref_no, x, y, width
     ocr_file = request.GET.get('ocrfile', None)
 
     if document:
-        page = document.get_page(ref_no)
+        page = document.pages[ref_no]
         if page:
             if ocr_file and os.path.exists(ocr_file):
                 if ocr_file.lower().endswith('.object'):

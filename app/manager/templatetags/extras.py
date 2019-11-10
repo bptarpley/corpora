@@ -1,6 +1,6 @@
 import json
 from django import template
-from manager.utilities import get_field_value_from_path
+from corpus import get_field_value_from_path
 
 register = template.Library()
 

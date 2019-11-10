@@ -14,8 +14,8 @@ REGISTRY = {
                 "collection": {
                     "value": "",
                     "type": "page_file_collection",
-                    "label": "Page Image Collection",
-                    "note": "Be sure to select a collection consisting of images."
+                    "label": "Page Text Collection",
+                    "note": "Be sure to select a collection consisting of plain text files."
                 }
             },
         },
@@ -25,39 +25,36 @@ REGISTRY = {
 }
 
 
-@db_task(priority=2, context=True)
-def analyze_document_for_word_frequency(corpus_id, job_id, task=None):
-    corpus = get_corpus(corpus_id)
-    if corpus:
-        job = corpus.get_job(job_id)
-        if job and task:
-            job.processes.append(task.id)
-            job.status = 'running'
-            corpus.save_job(job)
+@db_task(priority=2)
+def analyze_document_for_word_frequency(job_id):
+    job = Job(job_id)
+    job.set_status('running')
 
-            page_file_collections = job.document.page_file_collections
-            page_file_collection_key = job.configuration['parameters']['collection']['value']
-            text_files = page_file_collections[page_file_collection_key]['files']
-            word_freq_chart_file = "{0}/files/{1}_word_frequency.png".format(
-                job.document.path,
-                slugify(page_file_collection_key)
-            )
-            full_text = ''
+    page_file_collections = job.document.page_file_collections
+    page_file_collection_key = job.configuration['parameters']['collection']['value']
+    text_files = page_file_collections[page_file_collection_key]['files']
+    word_freq_chart_file = "{0}/files/{1}_word_frequency.png".format(
+        job.document.path,
+        slugify(page_file_collection_key)
+    )
+    full_text = ''
 
-            for text_file in text_files:
-                if os.path.exists(text_file['path']):
-                    with open(text_file['path'], 'r') as fin:
-                        full_text += fin.read() + '\n'
+    for text_file in text_files:
+        if os.path.exists(text_file['path']):
+            with open(text_file['path'], 'r', encoding='utf-8') as fin:
+                full_text += fin.read() + '\n'
 
-            tokens = get_tokens(full_text)
-            make_frequency_distribution_chart(tokens, word_freq_chart_file)
-            job.document.save_file(process_corpus_file(
-                word_freq_chart_file,
-                desc="Word Frequency Analysis PNG Image",
-                prov_type="Word Frequency Analysis Job",
-                prov_id=str(job_id)
-            ))
-            corpus.complete_job_process(job_id, task.id)
+    print("full text length: {0}".format(len(full_text)))
+    tokens = get_tokens(full_text)
+    print("tokens length: {0}".format(len(tokens)))
+    make_frequency_distribution_chart(tokens, word_freq_chart_file)
+    job.document.save_file(process_corpus_file(
+        word_freq_chart_file,
+        desc="Word Frequency Analysis PNG Image",
+        prov_type="Word Frequency Analysis Job",
+        prov_id=job_id
+    ))
+    job.complete('complete')
 
 
 def get_word_count(text):
@@ -139,19 +136,21 @@ def find_regex_matches(text, regular_expression):
 
 def make_frequency_distribution_chart(tokens, image_file, width=20, height=10, num_terms=50):
     if tokens and image_file:
-        import nltk
-        import matplotlib.pylab
+        print("doing a thing")
+        from nltk.probability import FreqDist
+        import matplotlib.pyplot as plt
 
         # generate the frequency distribution
-        freq_dist = nltk.FreqDist(tokens)
+        freq_dist = FreqDist(tokens)
+        freq_dist.pprint()
 
         # the object returned by nltk.FreqDist has a .plot() method which creates the chart. that method calls
         # pylab.show(), which normally requires a GUI to display the chart. we'll override pylab.show by having
         # it save the image to a file instead!
-        matplotlib.pylab.show = lambda: matplotlib.pylab.savefig(image_file)
+        plt.show = lambda: plt.savefig(image_file)
 
         # create a figure for our chart, 20" wide, 10" high, with tight margins
-        matplotlib.pylab.figure(figsize=(width, height), tight_layout=True)
+        plt.figure(figsize=(width, height), tight_layout=True)
 
         # actually create the diagram of 50 most frequent words
         freq_dist.plot(num_terms, cumulative=False)

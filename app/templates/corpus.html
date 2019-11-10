@@ -238,10 +238,10 @@
     <script type="application/javascript">
         var field_settings = {% if corpus.field_settings %}{{ corpus.field_settings|jsonify|safe }}{% else %}[]{% endif %};
         var settings_editor;
-        var query = findGetParameter('query');
-        var query_type = findGetParameter('query-type');
-        var page = findGetParameter('page');
-        var order = findGetParameter('order');
+        var query = '';
+        var query_type = '';
+        var page = 1;
+        var order = '';
         var query_string = build_query_string();
         var selected_docs = [];
         var tasks = [];
@@ -339,7 +339,7 @@
         }
 
         function load_documents() {
-            $.post('/api/corpus/{{ corpus.id }}/documents/' + build_query_string(), function(payload) {
+            $.get('/api/corpus/{{ corpus.id }}/documents/' + build_query_string(), function(payload) {
                 $("#document-table-body").html('');
                 $("#page-selector").html('');
 
@@ -347,7 +347,7 @@
                     $("#page-selector").addClass("d-none");
                 } else {
                     for (let x = 1; x <= payload['num_pages']; x++) {
-                        let option_html = '<option value="{}">Page {}</option>'.format(x, x);
+                        let option_html = `<option value="${x}">Page ${x}</option>`;
                         if (x == payload['page']) {
                             option_html = option_html.replace('">', '" selected>');
                         }
@@ -360,24 +360,26 @@
                         if (selected_docs.includes('doc-' + payload['data'][x]['_id']['$oid'])) {
                             checked = 'checked ';
                         }
-                        let row_html = `<tr><td>
-                            <input type="checkbox" class="checkbox doc-checkbox" id="doc-{}" {}/>
-                            <a href="/corpus/{{ corpus.id }}/document/{}/" target="_blank"><span class="oi oi-external-link"></span></a>
-                            </td>`.format(
-                            payload['data'][x]['_id']['$oid'],
-                            checked,
-                            payload['data'][x]['_id']['$oid']
-                        );
+                        let row_html = `
+                            <tr>
+                                <td>
+                                    <input type="checkbox" class="checkbox doc-checkbox" id="doc-${payload['data'][x]['_id']['$oid']}" ${checked}/>
+                                    <a href="/corpus/{{ corpus.id }}/document/${payload['data'][x]['_id']['$oid']}/" target="_blank">
+                                        <span class="oi oi-external-link"></span>
+                                    </a>
+                                </td>
+                        `;
+
                         for (let y = 0; y < field_settings.length; y++) {
                             if (field_settings[y].hasOwnProperty('display') && field_settings[y]['display']) {
                                 let width = "auto";
                                 if (field_settings[y].hasOwnProperty['width']) {
                                     width = field_settings[y]['width'];
                                 }
-                                row_html += `<td style="width: {};">{}</td>`.format(
-                                    width,
-                                    resolve(field_settings[y]['field'], payload['data'][x])
-                                );
+                                row_html += `
+                                    <td style="width: ${width};">
+                                        ${resolve(field_settings[y]['field'], payload['data'][x])}
+                                    </td>`;
                             }
                         }
 
@@ -411,15 +413,15 @@
         function load_jobsites() {
             let jobsite_type = "SLURM";
 
-            $.post('/api/jobsites/', function(jobsites) {
+            $.get('/api/jobsites/', function(jobsites) {
                 $("#jobsite-selector").html('');
                 if (jobsites.length > 0) {
                     for (let x = 0; x < jobsites.length; x++) {
-                        $("#jobsite-selector").append(`<option value="{}" class="{}">{}</option>`.format(
-                            jobsites[x]["_id"]["$oid"],
-                            jobsites[x]["type"],
-                            jobsites[x]["name"]
-                        ));
+                        $("#jobsite-selector").append(`
+                            <option value="${jobsites[x]["_id"]["$oid"]}" class="${jobsites[x]["type"]}">
+                                ${jobsites[x]["name"]}
+                            </option>
+                        `);
                         if (x == 0) {
                             jobsite_type = jobsites[x]["type"];
                         }
@@ -427,7 +429,7 @@
                 }
             });
 
-            $.post('/api/tasks/', function(payload) {
+            $.get('/api/tasks/', function(payload) {
                 tasks = payload;
                 load_tasks(jobsite_type);
             });
@@ -441,10 +443,7 @@
 
                     for (let x = 0; x < tasks.length; x++) {
                         if (tasks[x]["jobsite_type"] == jobsite_type) {
-                            $("#task-selector").append(`<option value="{}">{}</option>`.format(
-                                tasks[x]["_id"]["$oid"],
-                                tasks[x]["name"]
-                            ));
+                            $("#task-selector").append(`<option value="${tasks[x]["_id"]["$oid"]}">${tasks[x]["name"]}</option>`);
                             tasks_populated += 1;
                         }
                     }

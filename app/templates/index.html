@@ -88,10 +88,24 @@
 
 {% block js %}
     <script type="application/javascript">
+        var corpora = null;
+
         $(document).ready(function() {
+            corpora = new Corpora({
+                csrf_token: "{{ csrf_token }}"
+            });
+
+            corpora.get_corpora({}, load_corpora);
+
             $('#corpus-new-button').click(function() {
                 $('#new-corpus-modal').modal();
             });
         });
+
+        function load_corpora(corpora_data) {
+            corpora_data.forEach(corpus => {
+                console.log(corpus);
+            });
+        }
     </script>
 {% endblock %}

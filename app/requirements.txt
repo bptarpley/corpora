@@ -8,9 +8,10 @@ natsort
 Pillow
 pypdf2
 google-cloud-vision
-nltk
-matplotlib
+nltk==3.4.5
+matplotlib==3.1.1
 beautifulsoup4
+django-cors-headers
 djangorestframework
 django-rest-framework-mongoengine
 pymysql

@@ -14,21 +14,49 @@ initialized_file = '/corpora/initialized'
 
 class Command(BaseCommand):
     def handle(self, *args, **options):
-        
-        if not os.path.exists(initialized_file):
-            print("---------------------------")
-            print(" INITIALIZING CORPORA")
-            print("---------------------------")
+        initialized = False
+        initialization_attempts = 0
 
-            # Create local jobsite
+        while not initialized and initialization_attempts < 2:
+            try:
+                initialized = self._initialize()
+            except:
+                initialization_attempts += 1
+                print("\t-- ERROR INITIALIZING CORPORA:")
+                print(traceback.format_exc())
+                if initialization_attempts < 2:
+                    print("\t-- TRYING AGAIN IN 10 SECONDS...")
+                    time.sleep(10)
+                else:
+                    print("\t-- UNABLE TO INITIALIZE CORPORA:\n")
+                    print(traceback.format_exc())
+
+    def _initialize(self):
+        print("---------------------------")
+        print(" INITIALIZING CORPORA")
+        print("---------------------------\n")
+        local_jobsite = None
+        try:
+            local_jobsite = JobSite.objects(type="HUEY", name="Local")[0]
+            print("\t-- LOCAL JOB SITE EXISTS :)")
+        except:
+            local_jobsite = None
+
+        # Ensure local jobsite exists
+        if not local_jobsite:
+            print("\t-- CREATING LOCAL JOB SITE...")
             local_jobsite = JobSite()
             local_jobsite.name = "Local"
             local_jobsite.type = "HUEY"
             local_jobsite.job_dir = "/corpora"
             local_jobsite.max_jobs = 10
             local_jobsite.save()
-            print("Local jobsite created.")
+            print("\t-- LOCAL JOB SITE CREATED :)")
 
+        # Ensure a user exists
+        if User.objects.all().count() > 0:
+            print("\t-- USERS EXIST :)")
+        else:
             # Create default user
             user = User.objects.create_user(
                 settings.DEFAULT_USER_USERNAME,
@@ -50,64 +78,107 @@ class Command(BaseCommand):
             token, created = Token.objects.get_or_create(user=user)
             scholar.auth_token = token.key
             scholar.save()
-            print("Default user created.")
+            print("\t-- DEFAULT USER CREATED :)")
 
+        # Ensure Corpora Elasticsearch index exists
+        if Index('corpora').exists():
+            print("\t-- CORPORA INDEX EXISTS :)")
+        else:
             # Create Corpora Elasticsearch index
             mapping = Mapping()
             mapping.field('corpus_id', Keyword())
-            mapping.field('name', Text(), fields={ 'raw': Keyword() })
+            mapping.field('name', 'text', fields={ 'raw': Keyword() })
             mapping.field('description', Text())
             mapping.field('open_access', Boolean())
-            corpora_index = Index('/corpora')
+            corpora_index = Index('corpora')
             corpora_index.mapping(mapping)
             corpora_index.save()
+            print("\t-- CORPORA INDEX CREATED :)")
 
-            with open(initialized_file, 'w') as init_out:
-                init_out.write(time.strftime("%Y-%m-%d %H:%M"))
-        
+        # Ensure NEO4J constraints exist
+        with settings.NEO4J.session() as neo:
+            constraints = ' '.join([r.get("description") for r in neo.run("CALL db.constraints")])
+            constraint_created = False
+
+            if ":Corpus" not in constraints:
+                neo.run("CREATE CONSTRAINT ON(c:Corpus) ASSERT c.key IS UNIQUE")
+                constraint_created = True
+            if ":Document" not in constraints:
+                neo.run("CREATE CONSTRAINT ON(d:Document) ASSERT d.key IS UNIQUE")
+                constraint_created = True
+            if ":Page" not in constraints:
+                neo.run("CREATE CONSTRAINT ON(p:Page) ASSERT p.key IS UNIQUE")
+                constraint_created = True
+            if ":File" not in constraints:
+                neo.run("CREATE CONSTRAINT ON(f:File) ASSERT f.key IS UNIQUE")
+                constraint_created = True
+            if ":Job" not in constraints:
+                neo.run("CREATE CONSTRAINT ON(j:Job) ASSERT j.key IS UNIQUE")
+                constraint_created = True
+            if ":Process" not in constraints:
+                neo.run("CREATE CONSTRAINT ON(p:Process) ASSERT p.key IS UNIQUE")
+                constraint_created = True
+
+            if constraint_created:
+                print("\t-- NEO4J CONSTRAINTS CREATED :)")
+            else:
+                print("\t-- NEO4J CONSTRAINTS EXIST :)")
+
+        # Register new plug-in tasks (or update existing with new version)
         jobsites = JobSite.objects()
         tasks = Task.objects()
         apps = [app for app in settings.INSTALLED_APPS if app.startswith('plugins.')]
         apps.append('manager')
 
         for app in apps:
-            try:
-                task_module = importlib.import_module(app + '.tasks')
-                for name, plugin_task in task_module.REGISTRY.items():
-                    old_version_task_id = None
-                    found_existing_task = False
-                    new_task = None
+            task_module = importlib.import_module(app + '.tasks')
+            for name, plugin_task in task_module.REGISTRY.items():
+                old_version = None
+                found_existing_task = False
+                new_task = None
 
-                    for existing_task in tasks:
-                        if existing_task.name == name and existing_task.jobsite_type == 'HUEY':
-                            found_existing_task = True
-                            if existing_task.version != plugin_task['version']:
-                                old_version_task_id = existing_task.id
+                for existing_task in tasks:
+                    if existing_task.name == name and existing_task.jobsite_type == 'HUEY':
+                        found_existing_task = True
+                        if existing_task.version != plugin_task['version']:
+                            old_version = existing_task.version
+                            existing_task.version = plugin_task['version']
+                            existing_task.configuration = deepcopy(plugin_task['configuration'])
+                            existing_task.save()
+                        break
 
-                    if not found_existing_task or old_version_task_id:
-                        new_task = Task()
-                        new_task.name = name
-                        new_task.jobsite_type = 'HUEY'
-                        new_task.version = plugin_task['version']
-                        new_task.configuration = deepcopy(plugin_task['configuration'])
-                        new_task.save()
+                if not found_existing_task:
+                    new_task = Task()
+                    new_task.name = name
+                    new_task.jobsite_type = 'HUEY'
+                    new_task.version = plugin_task['version']
+                    new_task.configuration = deepcopy(plugin_task['configuration'])
+                    new_task.save()
 
-                    if new_task:
-                        for jobsite in jobsites:
-                            if jobsite.type == 'HUEY':
-                                jobsite.task_registry[name] = {
-                                    'task_id': new_task.id,
-                                    'module': plugin_task['module'],
-                                    'functions': deepcopy(plugin_task['functions'])
-                                }
-                                jobsite.save()
-                                print("Task {0}: {1} registered.".format(app, name))
-                        if old_version_task_id:
-                            for existing_task in tasks:
-                                if str(existing_task.id) == str(old_version_task_id):
-                                    existing_task.delete()
-                                    print("Updated task version from {0} to {1}".format(existing_task.version, new_task.version))
+                if new_task:
+                    for jobsite in jobsites:
+                        if jobsite.type == 'HUEY':
+                            jobsite.task_registry[name] = {
+                                'task_id': new_task.id,
+                                'module': plugin_task['module'],
+                                'functions': deepcopy(plugin_task['functions'])
+                            }
+                            jobsite.save()
+                            print("\t-- TASK {0}: {1} REGISTERED :)".format(app, name))
+                elif old_version:
+                    for jobsite in jobsites:
+                        if jobsite.type == 'HUEY':
+                            jobsite.task_registry[name]['module'] = plugin_task['module']
+                            jobsite.task_registry[name]['functions'] = plugin_task['functions']
+                            jobsite.save()
+                            print("\t-- UPDATED {0}: {1} FROM VERSION {2} TO {3} :)".format(
+                                app,
+                                name,
+                                old_version,
+                                plugin_task['version']
+                            ))
 
-            except:
-                print("Error registering tasks for {0} plugin:".format(app))
-                print(traceback.format_exc())
+        print("\n---------------------------")
+        print(" CORPORA INITIALIZED")
+        print("---------------------------\n")
+        return True

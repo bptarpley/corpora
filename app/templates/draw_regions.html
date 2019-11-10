@@ -207,7 +207,7 @@
             $('#edit-column').click(function() {
                 content_editor.setValue('Loading content...');
 
-                $.post('/api/corpus/{{ corpus_id }}/document/{{ document_id }}/page/get-region-content/{{ ref_no }}/{}/{}/{}/{}/?ocrfile={{ ocr_file }}'.format(
+                $.get('/api/corpus/{{ corpus_id }}/document/{{ document_id }}/page/get-region-content/{{ ref_no }}/{}/{}/{}/{}/?ocrfile={{ ocr_file }}'.format(
                     parseInt(currently_selected.x()),
                     parseInt(currently_selected.y()),
                     parseInt(currently_selected.width()),

@@ -1,7 +1,7 @@
 from corpus import *
 from mongoengine.queryset.visitor import Q
+from django.utils.html import escape
 from bs4 import BeautifulSoup
-from . import _contains, _clean
 from math import ceil
 from bson.objectid import ObjectId
 from google.cloud import vision
@@ -114,33 +114,6 @@ def get_jobsites(scholar):
             jobsites = JobSite.objects(id__in=[j.id for j in scholar.available_jobsites])
 
     return jobsites
-
-
-def get_corpus_jobs(scholar, corpus_id):
-    corpus = get_scholar_corpus(corpus_id, scholar)
-    if corpus:
-        return corpus.jobs
-    else:
-        return []
-
-
-def get_document_jobs(scholar, corpus_id, document_id):
-    jobs = []
-    corpus = get_scholar_corpus(corpus_id, scholar)
-    if corpus:
-        for job in corpus.jobs:
-            if job.document.id == ObjectId(document_id):
-                job_obj = json.loads(job.to_json())
-                job_obj['task']['name'] = job.task.name
-                jobs.append(job_obj)
-        document = corpus.get_document(document_id)
-        if document:
-            for job in document.jobs:
-                job_obj = json.loads(job.to_json())
-                job_obj['task']['name'] = job.task.name
-                jobs.append(job_obj)
-
-    return jobs
 
 
 def get_document_page_file_collections(scholar, corpus_id, document_id):
@@ -271,22 +244,51 @@ def reset_page_extraction(corpus_id, document_id):
                     shutil.rmtree(dir_to_delete)
 
             document.files = []
-            document.pages = []
+            document.pages = {}
             document.jobs = []
             corpus.jobs = []
 
-            document.save()
+            document.save(index_pages=True)
             corpus.save()
 
 
-def get_field_value_from_path(obj, path):
-    path_parts = path.split('.')
-    value = obj
+def _get_context(req):
+    resp = {
+        'errors': [],
+        'messages': [],
+        'scholar': {},
+        'url': req.build_absolute_uri(req.get_full_path()),
+        'page': int(_clean(req.GET, 'page', 1)),
+        'per_page': int(_clean(req.GET, 'per-page', 50)),
+    }
 
-    for part in path_parts:
-        if hasattr(value, part):
-            value = getattr(value, part)
-        elif part in value:
-            value = value[part]
+    resp['start_index'] = (resp['page'] - 1) * resp['per_page']
+    resp['end_index'] = resp['start_index'] + resp['per_page']
 
-    return value
+    if 'msg' in req.GET:
+        resp['messages'].append(req.GET['msg'])
+
+    if req.user.is_authenticated:
+        try:
+            resp['scholar'] = Scholar.objects(username=req.user.username)[0]
+        except:
+            print(traceback.format_exc())
+            resp['scholar'] = {}
+
+    return resp
+
+
+def _contains(obj, keys):
+    for key in keys:
+        if key not in obj:
+            return False
+    return True
+
+
+def _clean(obj, key, default_value=''):
+    val = obj.get(key, False)
+    if val:
+        return escape(val)
+    else:
+        return default_value
+
