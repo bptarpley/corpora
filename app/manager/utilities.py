@@ -82,12 +82,12 @@ def get_documents(corpus_id, request, response):
     return documents[response['start_index']:response['end_index']], count, num_pages
 
 
-def get_document(scholar, corpus_id, document_id):
+def get_document(scholar, corpus_id, document_id, only=[]):
     doc = None
     corpus = get_scholar_corpus(corpus_id, scholar)
 
     if corpus:
-        doc = corpus.get_document(document_id)
+        doc = corpus.get_document(document_id, only)
 
     return doc
 

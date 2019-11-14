@@ -444,49 +444,58 @@ class Corpus(mongoengine.Document):
         {
             "field": "title",
             "label": "Title",
-            "display": True,
             "type": "text",
+            "display": True,
             "search": True,
             "sort": True,
         },
         {
             "field": "author",
             "label": "Author",
-            "display": True,
             "type": "text",
+            "display": True,
             "search": True,
             "sort": True
         },
         {
             "field": "path",
             "label": "Path",
+            "type": "text",
             "display": False,
-            "search": False
+            "search": False,
+            "sort": False
         },
         {
             "field": "work",
             "label": "Work",
+            "type": "text",
             "display": False,
-            "search": False
+            "search": False,
+            "sort": False
         },
         {
             "field": "expression",
             "label": "Expression",
+            "type": "text",
             "display": False,
-            "search": False
+            "search": False,
+            "sort": False
         },
         {
             "field": "manifestation",
             "label": "Manifestation",
+            "type": "text",
             "display": False,
-            "search": False
+            "search": False,
+            "sort": False
         },
         {
             "field": "pub_date",
             "label": "Publication Date",
-            "display": True,
             "type": "date",
-            "search": True
+            "display": True,
+            "search": True,
+            "sort": True
         },
     ])
 

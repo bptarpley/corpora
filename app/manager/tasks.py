@@ -321,6 +321,7 @@ def extract_pdf_pages(job_id):
                         )
                         if text_file_obj:
                             job.document.save_page_file(ref_no, text_file_obj)
+                job.document.save(index_pages=True)
 
             # Determine whether to remove primary witness designation from existing images
             if primary_witness:

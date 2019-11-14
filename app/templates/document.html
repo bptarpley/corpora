@@ -327,7 +327,7 @@
                                     <tr>
                                         <td>
                                             {% if file.basename|lower|endswith:".png" or file.basename|lower|endswith:".gif" or file.basename|lower|endswith:".jpg" or file.basename|lower|endswith:".jpeg" or file.basename|lower|endswith:".tiff" or file.basename|lower|endswith:".tif" %}
-                                                <a href="/get-image?path={{ file.path }}" target="_blank">{{ file.basename }}</a>
+                                                <a href="/get-file?path={{ file.path }}" target="_blank">{{ file.basename }}</a>
                                             {% elif file.basename|lower|endswith:".zip" %}
                                                 <a href="/get-file?path={{ file.path }}" download="{{ file.basename }}">{{ file.basename }}</a>
                                             {% else %}
@@ -400,6 +400,7 @@
                                         <td>
                                             {% if document.has_primary_text %}
                                                 <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/edit-xml/?pageset={{ name }}" target="_blank" class="btn btn-primary ml-1">Create TEI XML</a>
+                                                <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/tei-skeleton?pageset={{ name }}" class="btn btn-primary ml-1" download>Download TEI XML Skeleton</a>
                                             {% endif %}
                                         </td>
                                     </tr>
@@ -409,10 +410,6 @@
                             <div class="alert alert-info">
                                 There are currently no files for this document.
                             </div>
-                        {% endif %}
-                        {% if document.has_primary_text %}
-                            <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/edit-xml/?use_tei_skeleton=y" class="btn btn-primary ml-1">Create TEI XML</a>
-                            <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/tei-skeleton" class="btn btn-primary ml-1" download>Download TEI XML Skeleton</a>
                         {% endif %}
                     </div>
                 </div>
@@ -479,7 +476,7 @@
                                                         </td>
                                                         <td>
                                                             {% if 'Image' in key %}
-                                                                <a href="/get-image?path={{ file.path }}" target="_blank">{{ file.basename }}</a>
+                                                                <a href="/get-file?path={{ file.path }}" target="_blank">{{ file.basename }}</a>
                                                             {% elif 'Object' in key %}
                                                                 <a href="/get-file?path={{ file.path }}" download="{{ file.basename }}">{{ file.basename }}</a>
                                                             {% else %}
@@ -491,7 +488,7 @@
                                                         </td>
                                                         <td>
                                                             {% if 'HOCR' in key or 'GCV TextAnnotation' in key %}
-                                                                <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/draw-page-regions/{{ file.page }}/?ocrfile={{ file.path }}" class="btn btn-primary ml-1">Fix OCR Regions</a>
+                                                                <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/draw-page-regions/{{ file.page }}/?ocrfile={{ file.path }}" target="_blank" class="btn btn-primary ml-1">Fix OCR Regions</a>
                                                             {% endif  %}
                                                             {% if 'HOCR' in key or 'XML' in key %}
                                                                 <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/edit-xml/?path={{ file.path }}" class="btn btn-primary ml-1">Edit XML</a>
@@ -832,7 +829,7 @@
             `;
 
             if(left_page) {
-                left_col = `<img src="/get-image?path=${left_page['path']}" class="img-fluid" />`;
+                left_col = `<img src="/get-file?path=${left_page['path']}" class="img-fluid" />`;
             }
 
             if(right_pfc) {
@@ -852,6 +849,7 @@
 
                 if (right_page) {
                     right_col = $('<div class="col-6" />').load(`/get-file?path=${right_page['path']}`);
+                    right_col.html(right_col.html().replace("\n", `<br />`));
                 }
 
                 if (right_pfc.includes('OCR') && bbox_collections.length > 0) {

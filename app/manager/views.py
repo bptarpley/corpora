@@ -18,6 +18,7 @@ from .serializers import DHDCorpusSerializer, DHDocumentSerializer
 from rest_framework_mongoengine.viewsets import ModelViewSet
 from rest_framework.decorators import api_view 
 from rest_framework.authtoken.models import Token
+from elasticsearch_dsl import connections, Search, Q
 
 
 @login_required
@@ -397,9 +398,10 @@ def draw_page_regions(request, corpus_id, document_id, ref_no):
     page_regions = []
     ocr_file = request.GET.get('ocrfile', None)
 
-    if document:
+    if document and ref_no in document.pages:
         page = document.pages[ref_no]
         if page:
+            print(page.files)
             if ocr_file and os.path.exists(ocr_file):
                 if ocr_file.lower().endswith('.object'):
                     page_regions = get_page_regions(ocr_file, 'GCV')
@@ -521,6 +523,51 @@ def scholar(request):
             'register': register
         }
     )
+
+@api_view(['GET'])
+def api_search(request, corpus_id=None, document_id=None):
+    search = None
+    search_fields = []
+
+    if 'q' in request.GET:
+        search_query = _clean(request.GET, 'q')
+        if 'fields' in request.GET:
+            search_fields = _clean(request.GET, 'fields').split(',')
+
+        if corpus_id:
+            corpus = get_corpus(corpus_id)
+
+            # check if the user has specified fields for searching. if so, we need to do some checking...
+            if search_fields:
+                # make sure fields exist in the index...
+                search_fields = [field for field in search_fields if field in corpus.field_settings]
+
+            # in case no user specified fields (or they weren't in index), just add all text fields
+            if not search_fields:
+                search_fields = [fs['field'] for fs in corpus.field_settings if fs['search'] and fs['type'] == "text"]
+
+            query = Q("multi_match", query=search_query, fields=search_fields)
+            search = Search(using=connections.get_connection(), index='corpus-{0}-documents'.format(corpus_id)).query(query)
+
+            if document_id:
+                #if 'pages.contents' not in search_fields and 'fields' not in request.GET:
+                #    search_fields.append('pages.contents')
+
+                query = Q("multi_match", query=search_query, fields=search_fields)
+                search = Search(using=connections.get_connection(), index='corpus-{0}-documents'.format(corpus_id)).query(query) #.filter('term', _id=document_id)
+        else:
+            query = Q("multi_match", query=search_query, fields=['description', 'name'])
+            search = Search(using=connections.get_connection(), index='corpora').query(query)
+
+    if search:
+        print(json.dumps(search.to_dict(), indent=4))
+        response = search.execute()
+        return HttpResponse(
+            json.dumps(response.to_dict()),
+            content_type='application/json'
+        )
+    else:
+        raise Http404("Search not completed.")
 
 
 @api_view(['GET'])
@@ -664,7 +711,7 @@ def api_page_region_content(request, corpus_id, document_id, ref_no, x, y, width
     content = ""
     ocr_file = request.GET.get('ocrfile', None)
 
-    if document:
+    if document and ref_no in document.pages:
         page = document.pages[ref_no]
         if page:
             if ocr_file and os.path.exists(ocr_file):
@@ -690,6 +737,71 @@ def get_image(request):
         response['X-Accel-Redirect'] = "/media/{0}{1}".format(image_path[1:].replace('/', '$!$'), iiif_parameters)
         return response
     raise Http404("Path not specified.")
+
+
+@login_required
+def get_document_iiif_manifest(request, corpus_id, document_id, pageset=None, collection=None):
+    response = _get_context(request)
+    document = get_document(response['scholar'], corpus_id, document_id)
+    if document:
+        host = "http{0}://{1}".format('s' if settings.USE_SSL else '', settings.ALLOWED_HOSTS[0])
+    return HttpResponse("Not yet implemented.")
+
+
+# TODO: speed up performance of retrieving files/images using neo4j
+@login_required
+def get_document_file(request, corpus_id, document_id, file_basename):
+    response = _get_context(request)
+    document = get_document(response['scholar'], corpus_id, document_id, ['files'])
+    for file in document.files:
+        if file.basename == file_basename:
+            response = HttpResponse()
+            response['X-Accel-Redirect'] = "/files/{0}".format(file.path.replace('/corpora/', ''))
+            return response
+    raise Http404("File not found.")
+
+
+@login_required
+def get_document_page_file(request, corpus_id, document_id, ref_no, file_basename):
+    response = _get_context(request)
+    document = get_document(response['scholar'], corpus_id, document_id, ['pages'])
+    if ref_no in document.pages:
+        for file in document.pages[ref_no].files:
+            if file.basename == file_basename:
+                response = HttpResponse()
+                response['X-Accel-Redirect'] = "/files/{0}".format(file.path.replace('/corpora/', ''))
+                return response
+    raise Http404("File not found.")
+
+
+@login_required
+def get_document_page_image(request,
+        corpus_id,
+        document_id,
+        ref_no,
+        image_basename,
+        region="full",
+        size="full",
+        rotation="0",
+        quality="default",
+        format="png"):
+    response = _get_context(request)
+    document = get_document(response['scholar'], corpus_id, document_id, ['pages'])
+    if ref_no in document.pages:
+        for file in document.pages[ref_no].files:
+            if file.basename == image_basename:
+                response = HttpResponse()
+                response['X-Accel-Redirect'] = "/media/{identifier}/{region}/{size}/{rotation}/{quality}.{format}".format(
+                    identifier=file.path[1:].replace('/', '$!$'),
+                    region=region,
+                    size=size,
+                    rotation=rotation,
+                    quality=quality,
+                    format=format
+                )
+                return response
+    raise Http404("Image not found.")
+
 
 @login_required
 def get_file(request):

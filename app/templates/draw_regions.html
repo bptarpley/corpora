@@ -207,14 +207,11 @@
             $('#edit-column').click(function() {
                 content_editor.setValue('Loading content...');
 
-                $.get('/api/corpus/{{ corpus_id }}/document/{{ document_id }}/page/get-region-content/{{ ref_no }}/{}/{}/{}/{}/?ocrfile={{ ocr_file }}'.format(
-                    parseInt(currently_selected.x()),
-                    parseInt(currently_selected.y()),
-                    parseInt(currently_selected.width()),
-                    parseInt(currently_selected.height())
-                ), function (content) {
-                    region_content = content;
-                    currently_editing = true;
+                $.get(
+                    `/api/corpus/{{ corpus_id }}/document/{{ document_id }}/page/get-region-content/{{ ref_no }}/${parseInt(currently_selected.x())}/${parseInt(currently_selected.y())}/${parseInt(currently_selected.width())}/${parseInt(currently_selected.height())}/?ocrfile={{ ocr_file }}`,
+                    function (content) {
+                        region_content = content;
+                        currently_editing = true;
                 }).done(function() {
                     content_editor.setValue(region_content);
                 });

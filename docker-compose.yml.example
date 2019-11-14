@@ -1,31 +1,92 @@
+# Be sure to replace all instances of /your/corpora/basedir with a local directory, such as /Users/username/corpora :)
+# Inside that directory, also be sure to create the following subdirectories: corpora, static, archive, link, and search
+
 version: '3'
 
 services:
+
+  nginx:
+    image: nginx
+    links:
+      - corpora:corpora
+      - iiif:iiif
+    volumes:
+      - ./nginx/corpora.conf:/etc/nginx/conf.d/default.conf
+      - /your/corpora/basedir:/data/corpora
+    ports:
+      - 80:80
 
   corpora:
     build: ./app
     command: ./start.sh
     environment:
-      CRP_MYSQL_HOST: your.host.com
-      CRP_MYSQL_DB: corpora
-      CRP_MYSQL_USER: corpora
-      CRP_MYSQL_PWD: your.secure.password
-      CRP_MONGO_HOST: your.host.com
+      CRP_HOST: localhost
+      CRP_MONGO_HOST: mongo
       CRP_MONGO_DB: corpora
       CRP_MONGO_USER: corpora
-      CRP_MONGO_PWD: your.secure.password
-    ports:
-      - "8000:8000"
+      CRP_MONGO_PWD: corpora
+      CRP_MONGO_POOLSIZE: 5
+      CRP_NEO4J_HOST: neo4j:7687
+      CRP_NEO4J_USER: neo4j
+      CRP_NEO4J_PWD: j4neo
+      CRP_ELASTIC_HOST: elastic
+      CRP_DJANGO_WORKERS: 3
+      CRP_HUEY_WORKERS: 10
+      CRP_USE_SSL: "no"
+    volumes:
+      - ./app:/apps/corpora
+      - ./app/imagemagick.xml:/etc/ImageMagick-6/policy.xml
+      - /your/corpora/basedir/static:/static
+      - /your/corpora/basedir/corpora:/corpora
+    depends_on:
+      - mongo
+      - neo4j
+      - elastic
+      - redis
+    links:
+      - redis:redis
+      - mongo:mongo
+      - neo4j:neo4j
+      - elastic:elastic
+
+  redis:
+    image: redis:5.0.4
 
   iiif:
-    build: ./iiif/
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
+    image: pulibrary/cantaloupe
     volumes:
-      - /path/to/images:/images
-      - ./iiif/loris2.wsgi:/var/www/loris2/loris2.wsgi
-      - ./iiif/loris2.conf:/opt/loris/etc/loris2.conf
+      - /your/corpora/basedir/corpora:/var/lib/cantaloupe/images/corpora
+      - ./iiif/cantaloupe.properties:/etc/cantaloupe.properties
+    # ports:
+    #  - 8182:8182
+
+  mongo:
+    image: mongo:3.4-xenial
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: corpora
+      MONGO_INITDB_ROOT_PASSWORD: corpora
+    volumes:
+      - /your/corpora/basedir/archive:/data/db
     ports:
-      - 127.0.0.1:8183:8888
+      - 27017:27017
+
+  neo4j:
+    image: neo4j:latest
+    environment:
+      NEO4J_dbms_memory_pagecache_size: 512M
+      NEO4J_dbms_memory_heap_max__size: 512M
+      NEO4J_AUTH: neo4j/j4neo
+    volumes:
+      - /your/corpora/basedir/link:/data
+    ports:
+      - 7687:7687
+      - 7474:7474
+
+  elastic:
+    image: elasticsearch:7.4.0
+    environment:
+      discovery.type: single-node
+    volumes:
+      - /your/corpora/basedir/search:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
