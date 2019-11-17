@@ -6,6 +6,7 @@ from django.http import Http404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from urllib.parse import unquote
 from django.template import Template, Context
 from html import unescape
 from corpus import *
@@ -527,15 +528,20 @@ def scholar(request):
 @api_view(['GET'])
 def api_search(request, corpus_id=None, document_id=None):
     search = None
+    index = None
     search_fields = []
+    should = []
+    must = []
+    search_pages = request.GET.get('search-pages', 'y') == 'y'
 
     if 'q' in request.GET:
-        search_query = _clean(request.GET, 'q')
+        search_query = request.GET['q']
         if 'fields' in request.GET:
             search_fields = _clean(request.GET, 'fields').split(',')
 
         if corpus_id:
             corpus = get_corpus(corpus_id)
+            index = 'corpus-{0}-documents'.format(corpus_id)
 
             # check if the user has specified fields for searching. if so, we need to do some checking...
             if search_fields:
@@ -546,20 +552,48 @@ def api_search(request, corpus_id=None, document_id=None):
             if not search_fields:
                 search_fields = [fs['field'] for fs in corpus.field_settings if fs['search'] and fs['type'] == "text"]
 
-            query = Q("multi_match", query=search_query, fields=search_fields)
-            search = Search(using=connections.get_connection(), index='corpus-{0}-documents'.format(corpus_id)).query(query)
+            # now that we (hopefully) have some search fields, we can build the query
+            for search_field in search_fields:
+                should.append(Q("match", **{search_field: search_query}))
 
-            if document_id:
-                #if 'pages.contents' not in search_fields and 'fields' not in request.GET:
-                #    search_fields.append('pages.contents')
+            if search_pages:
+                should.append(Q(
+                    "nested",
+                    path="pages",
+                    query=Q(
+                        "match",
+                        pages__contents=search_query
+                    ),
+                    inner_hits={
+                        "highlight": {
+                            "fields": {
+                                "pages.contents": { 'fragment_size': 50 }
+                            }
+                        },
+                        "from": 0,
+                        "size": 100,
+                        "_source": ['pages.ref_no']
+                    }
+                ))
 
-                query = Q("multi_match", query=search_query, fields=search_fields)
-                search = Search(using=connections.get_connection(), index='corpus-{0}-documents'.format(corpus_id)).query(query) #.filter('term', _id=document_id)
         else:
-            query = Q("multi_match", query=search_query, fields=['description', 'name'])
-            search = Search(using=connections.get_connection(), index='corpora').query(query)
+            index = "corpora"
+            should = [Q("match", description=search_query), Q('match', name=search_query)]
 
-    if search:
+    if index and should:
+        query = Q('bool', should=should, minimum_should_match=1)
+        if document_id:
+            query = Q('bool', should=should, must=[Q('term', _id=document_id)], minimum_should_match=1)
+
+        search = Search(
+            using=get_connection(),
+            index=index
+        ).query(
+            query
+        ).source(
+            includes=['_id', 'title', 'author', 'pub_date'],
+        ).highlight_options(order='score')
+
         print(json.dumps(search.to_dict(), indent=4))
         response = search.execute()
         return HttpResponse(
