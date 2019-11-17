@@ -5,7 +5,6 @@ import secrets
 import traceback
 import html
 import re
-from time import sleep
 from copy import deepcopy
 from natsort import natsorted
 from dateutil import parser
@@ -13,7 +12,7 @@ from datetime import datetime
 from bson.objectid import ObjectId
 from PIL import Image
 from django.conf import settings
-from elasticsearch_dsl import Index, Mapping, analyzer, Keyword, Text, Integer, Date, Nested, char_filter
+from elasticsearch_dsl import Index, Mapping, Keyword, Text, Integer, Date, Nested
 from elasticsearch_dsl.connections import get_connection
 from .tasks import index_document_pages
 
@@ -511,36 +510,17 @@ class Corpus(mongoengine.Document):
 
     @property
     def document_index(self):
-        if not hasattr(self, '_document_index') or self._document_index is None:
+        if not hasattr(self, '_document_index'):
             self._document_index = Index('corpus-{0}-documents'.format(self.id))
         return self._document_index
 
     def get_document_index_mapping(self):
-        corpora_char_filter = char_filter(
-            'corpora_char_filter',
-            type='mapping',
-            mappings=[
-                "\u0091 => '",
-                "\u0092 => '",
-                "\u2018 => '",
-                "\u2019 => '",
-                "\uFF07 => '",
-                "\u201C => \"",
-                "\u201D => \""
-            ]
-        )
-        corpora_analyzer = analyzer(
-            'corpora_analyzer',
-            char_filter=corpora_char_filter,
-            tokenizer='whitespace',
-            filter=['stop']
-        )
         mapping = Mapping()
 
         page_field = Nested(
             properties={
                 'ref_no': Integer(),
-                'contents': Text(analyzer=corpora_analyzer)
+                'content': Text()
             }
         )
         mapping.field('pages', page_field)
@@ -556,7 +536,7 @@ class Corpus(mongoengine.Document):
                     subfields = {}
                     if field_setting['sort']:
                         subfields = { 'raw': Keyword() }
-                    mapping.field(field_setting['field'], 'text', analyzer=corpora_analyzer, fields=subfields)
+                    mapping.field(field_setting['field'], 'text', fields=subfields)
                 elif field_type == 'integer':
                     mapping.field(field_setting['field'], Integer())
                 elif field_type == 'date':
@@ -566,18 +546,6 @@ class Corpus(mongoengine.Document):
 
     def running_jobs(self):
         return Job.get_jobs(corpus_id=str(self.id))
-
-    def rebuild_index(self):
-        if self.document_index.exists():
-            print("deleting corpus documents index...")
-            self.document_index.delete()
-            sleep(10)
-            self._document_index = None
-            self.document_index.mapping(self.get_document_index_mapping())
-            self.document_index.save()
-            corpus_documents = Document.objects(corpus=self.id)
-            for corpus_document in corpus_documents:
-                corpus_document.save(index_pages=True)
 
     def save(self, **kwargs):
         super().save(**kwargs)

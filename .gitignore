@@ -3,4 +3,3 @@ gcv_creds.json
 .idea
 archived
 docker-compose.yml
-*.pyc
