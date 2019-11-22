@@ -3,7 +3,7 @@ import importlib
 import time
 import traceback
 import pymysql
-from corpus import Corpus, Document, Page, Job, process_corpus_file, get_corpus
+from corpus import Corpus, Document, Page, Job, process_corpus_file, get_corpus, file_path_key
 from huey.contrib.djhuey import db_task, db_periodic_task
 from huey import crontab
 from bson.objectid import ObjectId
@@ -37,7 +37,7 @@ REGISTRY = {
         "functions": ['zip_up_page_file_collection']
     },
     "Import Document Pages from PDF": {
-        "version": "0.1",
+        "version": "0.2",
         "jobsite_type": "HUEY",
         "configuration": {
             "parameters": {
@@ -59,7 +59,7 @@ REGISTRY = {
             },
         },
         "module": 'manager.tasks',
-        "functions": ['extract_pdf_pages']
+        "functions": ['extract_pdf_pages', 'complete_pdf_page_extraction']
     },
 }
 
@@ -105,12 +105,12 @@ def check_document(corpus_id, document_id):
         for ref_no in document.pages.keys():
             found_primary_witness = False
 
-            for y in range(len(document.pages[ref_no].files)):
-                if document.pages[ref_no].files[y].primary_witness:
+            for file_key in document.pages[ref_no].files.keys():
+                if document.pages[ref_no].files[file_key].primary_witness:
                     found_primary_witness = True
-                    if os.path.exists(document.pages[ref_no].files[y].path) and not document.pages[ref_no].files[y].width:
-                        img = Image.open(document.pages[ref_no].files[y].path)
-                        document.pages[ref_no].files[y].width, document.pages[ref_no].files[y].height = img.size
+                    if os.path.exists(document.pages[ref_no].files[file_key].path) and not document.pages[ref_no].files[file_key].width:
+                        img = Image.open(document.pages[ref_no].files[file_key].path)
+                        document.pages[ref_no].files[file_key].width, document.pages[ref_no].files[file_key].height = img.size
                         document_changed = True
 
             if not found_primary_witness:
@@ -119,7 +119,7 @@ def check_document(corpus_id, document_id):
                     if 'ecco_no' in document.kvp:
                         for image_file in image_files:
                             if image_file.endswith('.TIF'):
-                                image_ref_no = int(image_file.replace(str(document.kvp['ecco_no']), '').replace('.TIF', '')[:-1])
+                                image_ref_no = image_file.replace(str(document.kvp['ecco_no']), '').replace('.TIF', '')[:-1]
                                 if ref_no == image_ref_no:
                                     file = process_corpus_file(
                                         "{0}/{1}".format(document.path, image_file),
@@ -129,7 +129,7 @@ def check_document(corpus_id, document_id):
                                         primary=True
                                     )
                                     if file:
-                                        document.pages[ref_no].files.append(file)
+                                        document.pages[ref_no].files[file.key] = file
                                         document_changed = True
 
         if '_emop_ocr_imported' not in document.kvp:
@@ -231,6 +231,13 @@ def check_document(corpus_id, document_id):
         document.save(index_pages=True)
 
 
+@db_task(priority=0)
+def rebuild_corpus_index(corpus_id):
+    corpus = get_corpus(corpus_id)
+    if corpus:
+        corpus.rebuild_index()
+
+
 ###############################
 #   FILE EXPORT JOBS
 ###############################
@@ -280,63 +287,46 @@ def extract_pdf_pages(job_id):
     primary_witness = job.configuration['parameters']['primary_witness']['value'] == 'Yes'
 
     if os.path.exists(pdf_file_path):
-        pdf_page_text = []
         with open(pdf_file_path, 'rb') as pdf_in:
             pdf_obj = PdfFileReader(pdf_in)
             num_pages = pdf_obj.getNumPages()
-            if extract_text and not split_images:
-                for page_num in range(0, num_pages):
-                    pdf_page_text.append(_extract_pdf_page_text(pdf_obj.getPage(page_num)))
 
         if num_pages > 0:
-            # Store any extracted text
-            if extract_text and len(pdf_page_text) == num_pages:
-                text_file_label = os.path.basename(pdf_file_path).split('.')[0]
+            if extract_text and not split_images:
+                pages_created = False
                 for page_num in range(0, num_pages):
                     ref_no = str(page_num + 1)
-                    page = None
-
                     if ref_no not in job.document.pages:
                         page = Page()
                         page.ref_no = ref_no
-                        job.document.save_page(page)
-                    else:
-                        page = job.document.pages[ref_no]
-
-                    if page:
+                        job.document.pages[ref_no] = page
                         page_path = "{0}/pages/{1}".format(job.document.path, ref_no)
                         if not os.path.exists(page_path):
                             os.makedirs(page_path, exist_ok=True)
+                        pages_created = True
+                if pages_created:
+                    job.document.save(perform_linking=True)
 
-                        text_file_path = "{0}/{1}_{2}.txt".format(page_path, text_file_label, ref_no)
-                        with open(text_file_path, 'w', encoding="utf-8") as text_out:
-                            text_out.write(pdf_page_text[page_num])
-
-                        text_file_obj = process_corpus_file(
-                            text_file_path,
-                            desc='Plain Text',
-                            prov_type='PDF Page Extraction Job',
-                            prov_id=str(job.id),
-                            primary=primary_witness
-                        )
-                        if text_file_obj:
-                            job.document.save_page_file(ref_no, text_file_obj)
-                job.document.save(index_pages=True)
+                huey_task = extract_embedded_pdf_text(job_id, pdf_file_path, primary_witness)
+                job.add_process(huey_task.id)
 
             # Determine whether to remove primary witness designation from existing images
+            # TODO: FIX THIS ONCE NEW PFC SYSTEM IS COMPLETE
+            '''
             if primary_witness:
                 doc_changed = False
                 for ref_no in job.document.pages.keys():
-                    for file_index in range(0, len(job.document.pages[ref_no].files)):
-                        file = job.document.pages[ref_no].files[file_index]
+                    for file_key in job.document.pages[ref_no].files.keys():
+                        file = job.document.pages[ref_no].files[file_key]
                         # In case this is a retry, check to make sure existing files aren't from previous job attempt
                         if file.extension in settings.VALID_IMAGE_EXTENSIONS \
                                 and file.primary_witness \
                                 and not (file.provenance_type == 'PDF Page Extraction Job' and file.provenance_id == str(job.id)):
-                            job.document.pages[ref_no].files[file_index].primary_witness = False
+                            job.document.pages[ref_no].files[file_key].primary_witness = False
                             doc_changed = True
                 if doc_changed:
                     job.document.save()
+            '''
 
             for page_num in range(0, num_pages):
                 huey_task = extract_pdf_page(job_id, pdf_file_path, page_num, image_dpi, split_images, primary_witness)
@@ -411,16 +401,15 @@ def extract_pdf_page(job_id, pdf_file_path, page_num, image_dpi, split_images, p
                 else:
                     page_b_obj = Page()
                     page_b_obj.ref_no = page_b_suffix
-                    page_b_obj.files.append(page_b_fileobj)
+                    page_b_obj.files[page_b_fileobj.key] = page_b_fileobj
                     job.document.save_page(page_b_obj)
 
     if os.path.exists(page_filepath):
         register_file = True
         if page_suffix in job.document.pages:
-            for file in job.document.pages[page_suffix].files:
-                if file.path == page_filepath:
-                    register_file = False
-                    break
+            file_key = file_path_key(page_filepath)
+            if file_key in job.document.pages[page_suffix].files:
+                register_file = False
 
         if register_file:
             # Make page file
@@ -438,8 +427,38 @@ def extract_pdf_page(job_id, pdf_file_path, page_num, image_dpi, split_images, p
             else:
                 page_obj = Page()
                 page_obj.ref_no = page_suffix
-                page_obj.files.append(page_fileobj)
+                page_obj.files[page_fileobj.key] = page_fileobj
                 job.document.save_page(page_obj)
+
+    if task:
+        job.complete_process(task.id)
+
+
+@db_task(priority=1, context=True)
+def extract_embedded_pdf_text(job_id, pdf_file_path, primary_witness, task=None):
+    job = Job(job_id)
+
+    if os.path.exists(pdf_file_path):
+        text_file_label = os.path.basename(pdf_file_path).split('.')[0]
+        with open(pdf_file_path, 'rb') as pdf_in:
+            pdf_obj = PdfFileReader(pdf_in)
+            for ref_no, page in job.document.ordered_pages:
+                pdf_page_num = int(ref_no) - 1
+                pdf_page_text = _extract_pdf_page_text(pdf_obj.getPage(pdf_page_num))
+                if pdf_page_text:
+                    text_file_path = "{0}/pages/{1}/{2}_{3}.txt".format(job.document.path, ref_no, text_file_label, ref_no)
+                    with open(text_file_path, 'w', encoding="utf-8") as text_out:
+                        text_out.write(pdf_page_text)
+
+                    text_file_obj = process_corpus_file(
+                        text_file_path,
+                        desc='Plain Text',
+                        prov_type='PDF Page Extraction Job',
+                        prov_id=str(job.id),
+                        primary=primary_witness
+                    )
+                    if text_file_obj:
+                        job.document.save_page_file(ref_no, text_file_obj)
 
     if task:
         job.complete_process(task.id)
@@ -487,3 +506,10 @@ def _extract_pdf_page_text(pdf_page):
                     text += " " + i
             text += "\n"
     return text
+
+
+@db_task(priority=1)
+def complete_pdf_page_extraction(job_id):
+    job = Job(job_id)
+    job.document.save(index_pages=True, perform_linking=True)
+    job.complete(status='complete')

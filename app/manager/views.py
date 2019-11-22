@@ -1,25 +1,21 @@
 import logging
-import re
 import json
+import mimetypes
 from django.shortcuts import render, redirect, HttpResponse
 from django.http import Http404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from urllib.parse import unquote
 from django.template import Template, Context
 from html import unescape
 from corpus import *
 from .tasks import *
-from .utilities import _get_context, _clean, _contains, \
+from .utilities import _get_context, _clean, _contains, build_search_query, \
     get_scholar_corpora, get_scholar_corpus, get_documents, get_document, \
     get_jobsites, get_tasks, get_document_page_file_collections, \
-    reset_page_extraction, get_page_regions, get_page_region_content
-from .serializers import DHDCorpusSerializer, DHDocumentSerializer
-from rest_framework_mongoengine.viewsets import ModelViewSet
+    reset_page_extraction, get_page_regions, get_page_region_content, get_file
 from rest_framework.decorators import api_view 
 from rest_framework.authtoken.models import Token
-from elasticsearch_dsl import connections, Search, Q
 
 
 @login_required
@@ -35,7 +31,7 @@ def corpora(request):
         c = Corpus()
         c.name = c_name
         c.description = c_desc
-        c.open_access = c_open is not None
+        c.open_access = True if c_open else False
         c.save()
         c.path = "/corpora/{0}".format(str(c.id))
         os.makedirs(c.path, exist_ok=True)
@@ -87,43 +83,27 @@ def corpus(request, corpus_id):
             settings = []
 
         if not response['errors'] and settings:
-            existing_indexes = []
-            index_name_map = {}
-            indexes_to_delete = []
-            indexes_to_create = []
+            existing_settings = deepcopy(corpus.field_settings)
+            index_rebuild_required = False
 
-            current_indexes = Corpus._get_db()['document'].index_information()
-            for index_name in current_indexes.keys():
-                field = current_indexes[index_name]['key'][0][0]
-                if 'partialFilterExpression' in current_indexes[index_name]:
-                    if current_indexes[index_name]['partialFilterExpression']['corpus'] == ObjectId(corpus_id):
-                        existing_indexes.append(field)
-                        index_name_map[field] = index_name
+            # determine whether change requires rebuild of Elasticsearch index...
+            for field in settings.keys():
+                if field in existing_settings:
+                    if existing_settings[field]['display'] != settings[field]['display'] or \
+                            existing_settings[field]['search'] != settings[field]['search'] or \
+                            existing_settings[field]['sort'] != settings[field]['sort'] or \
+                            (settings[field]['display'] or settings[field]['search'] or settings[field]['sort']) and (existing_settings[field].get('type', 'keyword') != settings[field].get('type', 'keyword')):
+                        index_rebuild_required = True
+                        break
+                else:
+                    index_rebuild_required = True
+                    break
 
-            for setting in settings:
-                if setting['field'] not in ['title', 'author', 'path']:
-                    if setting['search'] and setting['field'] not in existing_indexes:
-                        indexes_to_create.append(setting['field'])
-                    elif not setting['search'] and setting['field'] in existing_indexes:
-                        indexes_to_delete.append(setting['field'])
+            corpus.modify(set__field_settings=settings)
 
-            for existing_index in existing_indexes:
-                if existing_index not in [setting['field'] for setting in settings]:
-                    indexes_to_delete.append(existing_index)
-
-            for index_to_delete in indexes_to_delete:
-                Corpus._get_db()['document'].drop_index(index_name_map[index_to_delete])
-
-            for index_to_create in indexes_to_create:
-                Corpus._get_db()['document'].create_index(
-                    [(index_to_create, 1), (corpus.name, 1)],
-                    name="{0}-{1}-1".format(corpus.name, index_to_create),
-                    partialFilterExpression={'corpus': ObjectId(corpus_id)},
-                    background=True
-                )
-
-            corpus.field_settings = settings
-            corpus.save()
+            if index_rebuild_required:
+                response['messages'].append("The search index for your corpus is being rebuilt. Depending on the size of your corpus, this may take awhile, and until this process completes, searching/sorting/filtering your corpus may not work properly.")
+                rebuild_corpus_index(corpus_id)
 
             return redirect('/corpus/{0}/?&msg=Document field settings saved.'.format(str(corpus_id)))
 
@@ -402,14 +382,13 @@ def draw_page_regions(request, corpus_id, document_id, ref_no):
     if document and ref_no in document.pages:
         page = document.pages[ref_no]
         if page:
-            print(page.files)
             if ocr_file and os.path.exists(ocr_file):
                 if ocr_file.lower().endswith('.object'):
                     page_regions = get_page_regions(ocr_file, 'GCV')
                 elif ocr_file.lower().endswith('.hocr'):
                     page_regions = get_page_regions(ocr_file, 'HOCR')
 
-            for file in page.files:
+            for file_key, file in page.files.items():
                 if 'Image' in file.description and file.primary_witness:
                     image_path = file.path
                 elif not page_regions and 'GCV TextAnnotation Object' in file.description:
@@ -525,83 +504,28 @@ def scholar(request):
         }
     )
 
+
 @api_view(['GET'])
 def api_search(request, corpus_id=None, document_id=None):
-    search = None
-    index = None
-    search_fields = []
-    should = []
-    must = []
-    search_pages = request.GET.get('search-pages', 'y') == 'y'
+    response = _get_context(request)
+    if response['scholar']:
+        search_results = None
+        corpus, general_search_query, fields_query, fields_sort, search_pages = build_search_query(request, response['scholar'], corpus_id)
+        if general_search_query or fields_query:
+            if corpus:
+                search_results = corpus.search_documents(general_search_query, fields_query, fields_sort, search_pages, document_id)
+            elif general_search_query:
+                search_results = search_corpora(general_search_query, fields_sort)
 
-    if 'q' in request.GET:
-        search_query = request.GET['q']
-        if 'fields' in request.GET:
-            search_fields = _clean(request.GET, 'fields').split(',')
+            if search_results:
+                return HttpResponse(
+                    json.dumps(search_results),
+                    content_type='application/json'
+                )
+            else:
+                raise Http404("Search not completed.")
 
-        if corpus_id:
-            corpus = get_corpus(corpus_id)
-            index = 'corpus-{0}-documents'.format(corpus_id)
-
-            # check if the user has specified fields for searching. if so, we need to do some checking...
-            if search_fields:
-                # make sure fields exist in the index...
-                search_fields = [field for field in search_fields if field in corpus.field_settings]
-
-            # in case no user specified fields (or they weren't in index), just add all text fields
-            if not search_fields:
-                search_fields = [fs['field'] for fs in corpus.field_settings if fs['search'] and fs['type'] == "text"]
-
-            # now that we (hopefully) have some search fields, we can build the query
-            for search_field in search_fields:
-                should.append(Q("match", **{search_field: search_query}))
-
-            if search_pages:
-                should.append(Q(
-                    "nested",
-                    path="pages",
-                    query=Q(
-                        "match",
-                        pages__contents=search_query
-                    ),
-                    inner_hits={
-                        "highlight": {
-                            "fields": {
-                                "pages.contents": { 'fragment_size': 50 }
-                            }
-                        },
-                        "from": 0,
-                        "size": 100,
-                        "_source": ['pages.ref_no']
-                    }
-                ))
-
-        else:
-            index = "corpora"
-            should = [Q("match", description=search_query), Q('match', name=search_query)]
-
-    if index and should:
-        query = Q('bool', should=should, minimum_should_match=1)
-        if document_id:
-            query = Q('bool', should=should, must=[Q('term', _id=document_id)], minimum_should_match=1)
-
-        search = Search(
-            using=get_connection(),
-            index=index
-        ).query(
-            query
-        ).source(
-            includes=['_id', 'title', 'author', 'pub_date'],
-        ).highlight_options(order='score')
-
-        print(json.dumps(search.to_dict(), indent=4))
-        response = search.execute()
-        return HttpResponse(
-            json.dumps(response.to_dict()),
-            content_type='application/json'
-        )
-    else:
-        raise Http404("Search not completed.")
+    raise Http404("Search not completed.")
 
 
 @api_view(['GET'])
@@ -728,9 +652,11 @@ def api_document_kvp(request, corpus_id, document_id, key):
 
 
 @api_view(['GET'])
-def api_document_page_file_collections(request, corpus_id, document_id):
+def api_document_page_file_collections(request, corpus_id, document_id, pfc_slug=None):
     response = _get_context(request)
-    page_file_collections = get_document_page_file_collections(response['scholar'], corpus_id, document_id)
+    page_file_collections = get_document_page_file_collections(response['scholar'], corpus_id, document_id, pfc_slug)
+    for slug in page_file_collections.keys():
+        page_file_collections[slug]['page_files'] = page_file_collections[slug]['page_files'].page_dict
 
     return HttpResponse(
         json.dumps(page_file_collections),
@@ -761,19 +687,6 @@ def api_page_region_content(request, corpus_id, document_id, ref_no, x, y, width
 
 
 @login_required
-def get_image(request):
-
-    if request.method == 'GET' and 'path' in request.GET:
-        image_path = _clean(request.GET, "path")
-        iiif_parameters = _clean(request.GET, "iiif", "/full/full/0/default.jpg")
-
-        response = HttpResponse()
-        response['X-Accel-Redirect'] = "/media/{0}{1}".format(image_path[1:].replace('/', '$!$'), iiif_parameters)
-        return response
-    raise Http404("Path not specified.")
-
-
-@login_required
 def get_document_iiif_manifest(request, corpus_id, document_id, pageset=None, collection=None):
     response = _get_context(request)
     document = get_document(response['scholar'], corpus_id, document_id)
@@ -782,124 +695,43 @@ def get_document_iiif_manifest(request, corpus_id, document_id, pageset=None, co
     return HttpResponse("Not yet implemented.")
 
 
-# TODO: speed up performance of retrieving files/images using neo4j
 @login_required
-def get_document_file(request, corpus_id, document_id, file_basename):
+def get_document_file(request, corpus_id, document_id, file_key, ref_no=None):
     response = _get_context(request)
-    document = get_document(response['scholar'], corpus_id, document_id, ['files'])
-    for file in document.files:
-        if file.basename == file_basename:
-            response = HttpResponse()
-            response['X-Accel-Redirect'] = "/files/{0}".format(file.path.replace('/corpora/', ''))
-            return response
+    file = get_file(response['scholar'], corpus_id, document_id, file_key, ref_no)
+
+    if file:
+        mime_type, encoding = mimetypes.guess_type(file.path)
+        response = HttpResponse(content_type=mime_type)
+        response['X-Accel-Redirect'] = "/files/{0}".format(file.path.replace('/corpora/', ''))
+        return response
     raise Http404("File not found.")
 
 
 @login_required
-def get_document_page_file(request, corpus_id, document_id, ref_no, file_basename):
-    response = _get_context(request)
-    document = get_document(response['scholar'], corpus_id, document_id, ['pages'])
-    if ref_no in document.pages:
-        for file in document.pages[ref_no].files:
-            if file.basename == file_basename:
-                response = HttpResponse()
-                response['X-Accel-Redirect'] = "/files/{0}".format(file.path.replace('/corpora/', ''))
-                return response
-    raise Http404("File not found.")
-
-
-@login_required
-def get_document_page_image(request,
+def get_document_image(request,
         corpus_id,
         document_id,
-        ref_no,
-        image_basename,
+        image_key,
         region="full",
         size="full",
         rotation="0",
         quality="default",
-        format="png"):
+        format="png",
+        ref_no=None):
     response = _get_context(request)
-    document = get_document(response['scholar'], corpus_id, document_id, ['pages'])
-    if ref_no in document.pages:
-        for file in document.pages[ref_no].files:
-            if file.basename == image_basename:
-                response = HttpResponse()
-                response['X-Accel-Redirect'] = "/media/{identifier}/{region}/{size}/{rotation}/{quality}.{format}".format(
-                    identifier=file.path[1:].replace('/', '$!$'),
-                    region=region,
-                    size=size,
-                    rotation=rotation,
-                    quality=quality,
-                    format=format
-                )
-                return response
+    file = get_file(response['scholar'], corpus_id, document_id, image_key, ref_no)
+    if file:
+        mime_type, encoding = mimetypes.guess_type("file.{0}".format(format))
+        response = HttpResponse(content_type=mime_type)
+        response['X-Accel-Redirect'] = "/media/{identifier}/{region}/{size}/{rotation}/{quality}.{format}".format(
+            identifier=file.path[1:].replace('/', '$!$'),
+            region=region,
+            size=size,
+            rotation=rotation,
+            quality=quality,
+            format=format
+        )
+        return response
     raise Http404("Image not found.")
 
-
-@login_required
-def get_file(request):
-
-    if request.method == 'GET' and 'path' in request.GET:
-        file_path = _clean(request.GET, "path")
-
-        response = HttpResponse()
-        response['X-Accel-Redirect'] = "/files/{0}".format(file_path.replace('/corpora/', ''))
-        return response
-    raise Http404("Path not specified.")
-
-
-# DJANGO REST FRAMEWORK VIEWS
-class CorpusViewSet(ModelViewSet):
-    queryset = Corpus.objects
-    serializer_class = DHDCorpusSerializer
-
-    def get_queryset(self):
-        qs = []
-        try:
-            if self.request.user.is_authenticated:
-                scholar = Scholar.objects(username=self.request.user.username)[0]
-                qs = get_scholar_corpora(scholar)
-
-                filter = {}
-                if 'name' in self.request.query_params:
-                    filter['name'] = self.request.query_params['name']
-                if filter:
-                    qs = qs.filter(**filter)
-        except:
-            print(traceback.format_exc())
-        return qs
-
-
-class DocumentViewSet(ModelViewSet):
-    queryset = Document.objects
-    serializer_class = DHDocumentSerializer
-    _corpus = None
-
-    def get_queryset(self):
-        qs = []
-        print(self.kwargs)
-        try:
-            if self.request.user.is_authenticated:
-                scholar = Scholar.objects(username=self.request.user.username)[0]
-                corpus_id = self.kwargs['corpus_id']
-                self._corpus = get_scholar_corpus(corpus_id, scholar)
-                if self._corpus:
-                    # username = self.request.query_params.get('username', None)
-
-                    if 'id' in self.kwargs:
-                        qs = Document.objects(corpus=self._corpus)
-                    else:
-                        projection = [setting['field'] for setting in self._corpus.field_settings if setting['display']]
-                        projection.append("id")
-
-                        filter = { 'corpus': self._corpus }
-                        for query_param in self.request.query_params.keys():
-                            if query_param not in ['corpus', 'id'] and query_param in projection:
-                                filter[query_param.replace('.', '__')] = self.request.query_params[query_param]
-
-                        qs = Document.objects(**filter).only(*projection)
-        except:
-            print(traceback.format_exc())
-
-        return qs

@@ -157,9 +157,9 @@
                                     <button id="search-setting-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Title/Author</button>
                                     <div class="dropdown-menu">
                                         <a class="dropdown-item search-setting" id="search-setting-default" href="#">Title/Author</a>
-                                        {% for setting in corpus.field_settings %}
+                                        {% for field_name, setting in corpus.field_settings.items %}
                                             {% if setting.search %}
-                                                <a class="dropdown-item search-setting" id="search-setting-{{ setting.field }}" href="#">{{ setting.label }}</a>
+                                                <a class="dropdown-item search-setting" id="search-setting-{{ field_name }}" href="#">{{ setting.label }}</a>
                                             {% endif %}
                                         {% endfor %}
                                     </div>
@@ -186,10 +186,10 @@
                                 <th scope="col">
                                     <input type="checkbox" class="checkbox" id="select-all-box" />
                                 </th>
-                                {% for setting in corpus.field_settings %}
+                                {% for field_name, setting in corpus.field_settings.items %}
                                     {% if setting.display %}
                                         <th scope="col" {% if setting.width %}style="width: {{ setting.width }};"{% endif %}>
-                                            <a href="javascript: order_by('{{ setting.field }}');"><h5>{{ setting.label }}</h5></a>
+                                            <a href="javascript: order_by('{{ field_name }}');"><h5>{{ setting.label }}</h5></a>
                                         </th>
                                     {% endif %}
                                 {% endfor %}
@@ -236,7 +236,7 @@
 {% block js %}
     <script src="{% static 'js/ace/ace.js' %}"></script>
     <script type="application/javascript">
-        var field_settings = {% if corpus.field_settings %}{{ corpus.field_settings|jsonify|safe }}{% else %}[]{% endif %};
+        var field_settings = {% if corpus.field_settings %}{{ corpus.field_settings|jsonify|safe }}{% else %}{}{% endif %};
         var settings_editor;
         var query = '';
         var query_type = '';
@@ -370,15 +370,15 @@
                                 </td>
                         `;
 
-                        for (let y = 0; y < field_settings.length; y++) {
-                            if (field_settings[y].hasOwnProperty('display') && field_settings[y]['display']) {
+                        for (const field_name in field_settings) {
+                            if (field_settings[field_name].hasOwnProperty('display') && field_settings[field_name]['display']) {
                                 let width = "auto";
-                                if (field_settings[y].hasOwnProperty['width']) {
-                                    width = field_settings[y]['width'];
+                                if (field_settings[field_name].hasOwnProperty['width']) {
+                                    width = field_settings[field_name]['width'];
                                 }
                                 row_html += `
                                     <td style="width: ${width};">
-                                        ${resolve(field_settings[y]['field'], payload['data'][x])}
+                                        ${resolve(field_name, payload['data'][x])}
                                     </td>`;
                             }
                         }

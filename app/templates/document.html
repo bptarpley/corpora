@@ -38,11 +38,12 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="import-pages-pdf-options-split">Split Images in Half Vertically?</label>
+                                <label for="import-pages-pdf-options-split">Split Images in Half Vertically?*</label>
                                 <select id="import-pages-pdf-options-split" class="form-control" name="import-pages-split">
                                     <option value="No">No</option>
                                     <option value="Yes">Yes</option>
                                 </select>
+                                <div class="text-muted">* Useful for double-paged scans. NOTE: At present, Corpora cannot both split images <i>and</i> extract embedded text.</div>
                             </div>
                             <div class="form-group">
                                 <label for="import-pages-pdf-options-extract-text">Extract Embedded Text?</label>
@@ -57,7 +58,7 @@
                                     <option value="Yes">Yes</option>
                                     <option value="No">No</option>
                                 </select>
-                                <div class="text-muted">*If you have not yet imported any page images, or if you'd like to replace existing images as the primary witness for this document, this should remain set to 'Yes.'</div>
+                                <div class="text-muted">* If you have not yet imported any page images, or if you'd like to replace existing images as the primary witness for this document, this should remain set to 'Yes.'</div>
                             </div>
                         </div>
                         <div class="form-group">
@@ -323,15 +324,15 @@
                                         Size (bytes)
                                     </th>
                                 </thead>
-                                {% for file in document.files %}
+                                {% for file_key, file in document.files.items %}
                                     <tr>
                                         <td>
                                             {% if file.basename|lower|endswith:".png" or file.basename|lower|endswith:".gif" or file.basename|lower|endswith:".jpg" or file.basename|lower|endswith:".jpeg" or file.basename|lower|endswith:".tiff" or file.basename|lower|endswith:".tif" %}
-                                                <a href="/get-file?path={{ file.path }}" target="_blank">{{ file.basename }}</a>
+                                                <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/file/{{ file_key }}" target="_blank">{{ file.basename }}</a>
                                             {% elif file.basename|lower|endswith:".zip" %}
-                                                <a href="/get-file?path={{ file.path }}" download="{{ file.basename }}">{{ file.basename }}</a>
+                                                <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/file/{{ file_key }}" download="{{ file.basename }}">{{ file.basename }}</a>
                                             {% else %}
-                                                <a href="/get-file?path={{ file.path }}" target="_blank">{{ file.basename }}</a>
+                                                <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/file/{{ file_key }}" target="_blank">{{ file.basename }}</a>
                                             {% endif %}
                                         </td>
                                         <td>
@@ -428,27 +429,27 @@
                     <div class="card-body">
                         <div class="list-group" id="page-file-collection-group">
                             {% if document.page_file_collections %}
-                                {% for key, info in document.page_file_collections.items %}
-                                    <div id="page-file-collection-{{ info.collection_counter }}-container" class="list-group-item">
+                                {% for pfc_slug, pfc in document.page_file_collections.items %}
+                                    <div id="page-file-collection-{{ forloop.counter }}-container" class="list-group-item">
                                         <h5>
-                                            <button class="btn btn-link" data-toggle="collapse" data-target="#page-file-collection-{{ info.collection_counter }}" aria-expanded="false" aria-controls="page-file-collection-{{ info.collection_counter }}">
-                                                <span id="page-file-collection-{{ info.collection_counter }}-indicator" class="oi oi-caret-right"></span>
-                                                {{ key }}
+                                            <button class="btn btn-link" data-toggle="collapse" data-target="#page-file-collection-{{ forloop.counter }}" aria-expanded="false" aria-controls="page-file-collection-{{ forloop.counter }}">
+                                                <span id="page-file-collection-{{ forloop.counter }}-indicator" class="oi oi-caret-right"></span>
+                                                {{ pfc.label }}
                                             </button>
                                         </h5>
-                                        <div id="page-file-collection-{{ info.collection_counter }}" class="alert alert-info collapse" aria-labelledby="page-file-collection-{{ info.collection_counter }}-container" data-parent="#page-file-collection-group">
+                                        <div id="page-file-collection-{{ forloop.counter }}" class="alert alert-info collapse" aria-labelledby="page-file-collection-{{ forloop.counter }}-container" data-parent="#page-file-collection-group">
                                             <div class="mb-2 w-100 form-inline">
-                                                {% if 'Plain Text' in key %}
+                                                {% if 'Plain Text' in pfc.label %}
                                                     <form method="post">
                                                         {% csrf_token %}
-                                                        <input type="hidden" name="collection" value="{{ key }}"/>
+                                                        <input type="hidden" name="collection" value="{{ pfc_slug }}"/>
                                                         <input type="hidden" name="consolidate-files" value="y"/>
                                                         <button type="submit" class="btn btn-primary mr-2">Create a Consolidated Text File</button>
                                                     </form>
                                                 {% endif %}
                                                 <form method="post">
                                                     {% csrf_token %}
-                                                    <input type="hidden" name="collection" value="{{ key }}"/>
+                                                    <input type="hidden" name="collection" value="{{ pfc_slug }}"/>
                                                     <input type="hidden" name="jobsite" value="{{ local_jobsite }}"/>
                                                     <input type="hidden" name="task" class="zip_page_file_task" value=""/>
                                                     <button type="submit" class="btn btn-primary">Create a .zip File</button>
@@ -469,28 +470,28 @@
                                                         Action
                                                     </th>
                                                 </thead>
-                                                {% for file in info.files %}
+                                                {% for page_ref_no, file in pfc.page_files %}
                                                     <tr>
                                                         <td>
-                                                            {{ file.page }}
+                                                            {{ page_ref_no }}
                                                         </td>
                                                         <td>
-                                                            {% if 'Image' in key %}
-                                                                <a href="/get-file?path={{ file.path }}" target="_blank">{{ file.basename }}</a>
-                                                            {% elif 'Object' in key %}
-                                                                <a href="/get-file?path={{ file.path }}" download="{{ file.basename }}">{{ file.basename }}</a>
+                                                            {% if 'Image' in pfc.label %}
+                                                                <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/page/{{ page_ref_no }}/image/{{ file.key }}" target="_blank">{{ file.basename }}</a>
+                                                            {% elif 'Object' in pfc_name %}
+                                                                <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/page/{{ page_ref_no }}/file/{{ file.key }}" download="{{ file.basename }}">{{ file.basename }}</a>
                                                             {% else %}
-                                                                <a href="/get-file?path={{ file.path }}" target="_blank">{{ file.basename }}</a>
+                                                                <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/page/{{ page_ref_no }}/file/{{ file.key }}" target="_blank">{{ file.basename }}</a>
                                                             {% endif %}
                                                         </td>
                                                         <td>
                                                             {{ file.byte_size }}
                                                         </td>
                                                         <td>
-                                                            {% if 'HOCR' in key or 'GCV TextAnnotation' in key %}
-                                                                <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/draw-page-regions/{{ file.page }}/?ocrfile={{ file.path }}" target="_blank" class="btn btn-primary ml-1">Fix OCR Regions</a>
+                                                            {% if 'HOCR' in pfc.label or 'GCV TextAnnotation' in pfc.label %}
+                                                                <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/draw-page-regions/{{ page_ref_no }}/?ocrfile={{ file.path }}" target="_blank" class="btn btn-primary ml-1">Fix OCR Regions</a>
                                                             {% endif  %}
-                                                            {% if 'HOCR' in key or 'XML' in key %}
+                                                            {% if 'HOCR' in pfc.label or 'XML' in pfc.label %}
                                                                 <a href="/corpus/{{ corpus.id }}/document/{{ document.id }}/edit-xml/?path={{ file.path }}" class="btn btn-primary ml-1">Edit XML</a>
                                                             {% endif %}
                                                         </td>
@@ -543,9 +544,9 @@
                             <li class="nav-item dropleft">
                                 <a class="nav-link dropdown-toggle active" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Image</a>
                                 <div class="dropdown-menu">
-                                    {% for collection in document.page_file_collections.keys %}
-                                        {% if 'Image' in collection %}
-                                            <a class="dropdown-item" href="javascript: set_collection('left', '{{ collection }}');">{{ collection }}</a>
+                                    {% for slug, collection in document.page_file_collections.items %}
+                                        {% if 'image' in slug %}
+                                            <a class="dropdown-item" href="javascript: set_collection('left', '{{ slug }}');">{{ collection.label }}</a>
                                         {% endif %}
                                     {% endfor %}
                                 </div>
@@ -555,9 +556,9 @@
                                 <a class="nav-link dropdown-toggle active" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Witness</a>
                                 <div class="dropdown-menu">
                                     <a class="dropdown-item" href="javascript: set_collection('right', '');">None</a>
-                                    {% for collection in document.page_file_collections.keys %}
-                                        {% if 'Plain Text' in collection or 'HTML' in collection %}
-                                            <a class="dropdown-item" href="javascript: set_collection('right', '{{ collection }}');">{{ collection }}</a>
+                                    {% for slug, collection in document.page_file_collections.items %}
+                                        {% if 'plain-text' in slug or 'html' in slug %}
+                                            <a class="dropdown-item" href="javascript: set_collection('right', '{{ slug }}');">{{ collection.label }}</a>
                                         {% endif %}
                                     {% endfor %}
                                 </div>
@@ -660,16 +661,17 @@
                 $.get('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/page-file-collections/', function(pfc) {
                     page_file_collections = pfc;
 
-                    for (let pfc in page_file_collections) {
-                        if (pfc.includes('GCV TextAnnotation Object') || pfc.includes('HOCR')) {
-                            bbox_collections.push(pfc);
+                    for (let slug in page_file_collections) {
+                        let label = page_file_collections[slug].label;
+                        if (label.includes('GCV TextAnnotation Object') || label.includes('HOCR')) {
+                            bbox_collections.push(slug);
                         }
                     }
                 }).done(function() {
-                    $.get('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/kvp/page_viewer_left_collection', function (left) {
+                    $.get('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/kvp/_page_viewer_left_collection', function (left) {
                         left_pfc = left;
                     }).done(function() {
-                        $.get('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/kvp/page_viewer_right_collection', function (right) {
+                        $.get('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/kvp/_page_viewer_right_collection', function (right) {
                             right_pfc = right;
                         }).done(function () {
                             $('#page-viewer-control-div').removeClass('d-none');
@@ -786,12 +788,8 @@
 
         function get_page(collection, ref_no) {
             let page = false;
-            if (collection && collection in page_file_collections) {
-                page_file_collections[collection].files.forEach(pg => {
-                    if (pg['page'] === ref_no.toString()) {
-                        page = pg;
-                    }
-                });
+            if (collection && collection in page_file_collections && ref_no.toString() in page_file_collections[collection].page_files) {
+                page = page_file_collections[collection].page_files[ref_no.toString()]
             }
             return page;
         }
@@ -801,9 +799,9 @@
             $('#page-viewer-div').html('');
 
             if (!left_pfc) {
-                for(let page_file_collection in page_file_collections) {
-                    if (page_file_collection.includes('Image')) {
-                        left_pfc = page_file_collection;
+                for(let slug in page_file_collections) {
+                    if (slug.includes('primary') && slug.includes('image')) {
+                        left_pfc = slug;
                         break;
                     }
                 }
@@ -829,7 +827,7 @@
             `;
 
             if(left_page) {
-                left_col = `<img src="/get-file?path=${left_page['path']}" class="img-fluid" />`;
+                left_col = `<img src="/corpus/{{ corpus.id }}/document/{{ document.id }}/page/${ref_no}/image/${left_page['key']}" class="img-fluid" />`;
             }
 
             if(right_pfc) {
@@ -848,11 +846,11 @@
                 `;
 
                 if (right_page) {
-                    right_col = $('<div class="col-6" />').load(`/get-file?path=${right_page['path']}`);
+                    right_col = $('<div class="col-6" />').load(`/corpus/{{ corpus.id }}/document/{{ document.id }}/page/${ref_no}/file/${right_page['key']}`);
                     right_col.html(right_col.html().replace("\n", `<br />`));
                 }
 
-                if (right_pfc.includes('OCR') && bbox_collections.length > 0) {
+                if (right_pfc.includes('ocr') && bbox_collections.length > 0) {
                     if (!$('#fix-regions-nav').length) {
                         $('#page-viewer-right-controls').append(`
                             <li id='fix-regions-nav' class='nav-item ml-1'><a id='fix-regions-button' href="/corpus/{{ corpus.id }}/document/{{ document.id }}/draw-page-regions/${ref_no}/" class="btn btn-primary ml-1">Fix OCR Regions</a></li>
@@ -876,12 +874,12 @@
             };
 
             if(side == 'left') {
-                $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/kvp/page_viewer_left_collection', post_params, function() {
+                $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/kvp/_page_viewer_left_collection', post_params, function() {
                     left_pfc = collection;
                     show_page();
                 });
             } else {
-                $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/kvp/page_viewer_right_collection', post_params, function() {
+                $.post('/api/corpus/{{ corpus.id }}/document/{{ document.id }}/kvp/_page_viewer_right_collection', post_params, function() {
                     right_pfc = collection;
                     show_page();
                 });
@@ -959,8 +957,8 @@
 
                             if (parameters[parameter]['type'] == 'page_file_collection') {
                                 let select_options = '';
-                                for (let collection in page_file_collections) {
-                                    select_options += `<option>${collection}</option>\n`;
+                                for (let slug in page_file_collections) {
+                                    select_options += `<option value="${slug}">${page_file_collections[slug].label}</option>\n`;
                                 }
 
                                 parameter_html = `

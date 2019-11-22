@@ -10,27 +10,27 @@ import shutil
 import json
 
 
-def get_scholar_corpora(scholar):
+def get_scholar_corpora(scholar, only=[]):
     corpora = []
 
     if scholar:
         if scholar.is_admin:
             corpora = Corpus.objects
         else:
-            corpora = Corpus.objects(Q(id__in=[c.id for c in scholar.available_corpora]) | Q(open_access=True))
+            corpora = Corpus.objects(Q(id__in=[c.pk for c in scholar.available_corpora]) | Q(open_access=True))
     else:
         corpora = Corpus.objects(open_access=True)
+
+    if corpora and only:
+        corpora = corpora.only(only)
 
     return corpora
 
 
-def get_scholar_corpus(corpus_id, scholar):
+def get_scholar_corpus(corpus_id, scholar, only=[]):
     corpus = None
-
-    corpus = get_corpus(corpus_id)
-    if corpus:
-        if not (corpus.open_access or (scholar and scholar.is_admin) or (scholar and corpus in scholar.avialable_corpora)):
-            corpus = None
+    if scholar.is_admin or corpus_id in [str(c.pk) for c in scholar.available_corpora]:
+        corpus = get_corpus(corpus_id, only)
 
     return corpus
 
@@ -45,7 +45,7 @@ def get_documents(corpus_id, request, response):
     query_type = None
 
     corpus = get_scholar_corpus(corpus_id, response['scholar'])
-    projection = [setting['field'] for setting in corpus.field_settings if setting['display']]
+    projection = [field_name for field_name, setting in corpus.field_settings.items() if setting['display']]
     projection.append("id")
 
     if corpus:
@@ -58,13 +58,13 @@ def get_documents(corpus_id, request, response):
                 count = Document.objects(corpus=corpus).search_text('"' + query + '"').count()
                 documents = Document.objects(corpus=corpus).search_text('"' + query + '"').order_by('$text_score').only(*projection)
             else:
-                for setting in corpus.field_settings:
-                    if query_type.replace('__', '.') == setting['field']:
-                        if setting.get('type') == 'int':
-                            try:
-                                query = int(query.strip())
-                            except:
-                                response['errors'].append('Search query must be a number for this field.')
+                query_type_field = query_type.replace('__', '.')
+                if query_type_field in corpus.field_settings:
+                    if corpus.field_settings[query_type_field].get('type') == 'int':
+                        try:
+                            query = int(query.strip())
+                        except:
+                            response['errors'].append('Search query must be a number for this field.')
 
                 filters = {
                     'corpus': corpus,
@@ -84,12 +84,30 @@ def get_documents(corpus_id, request, response):
 
 def get_document(scholar, corpus_id, document_id, only=[]):
     doc = None
-    corpus = get_scholar_corpus(corpus_id, scholar)
+    corpus = get_scholar_corpus(corpus_id, scholar, ['id'])
 
     if corpus:
         doc = corpus.get_document(document_id, only)
 
     return doc
+
+
+def get_file(scholar, corpus_id, document_id, file_key, ref_no=None):
+    file = None
+
+    try:
+        if ref_no:
+            document = get_document(scholar, corpus_id, document_id, ['pages.{0}.files.{1}'.format(ref_no, file_key)])
+            if document:
+                file = document.pages[ref_no].files[file_key]
+        else:
+            document = get_document(scholar, corpus_id, document_id, ['files.{0}'.format(file_key)])
+            if document:
+                file = document.files[file_key]
+    except:
+        print("Error retrieving file!")
+
+    return file
 
 
 def get_tasks(scholar):
@@ -99,7 +117,7 @@ def get_tasks(scholar):
         if scholar.is_admin:
             tasks = Task.objects
         else:
-            tasks = Task.objects(id__in=[t.id for t in scholar.available_tasks])
+            tasks = Task.objects(id__in=[t.pk for t in scholar.available_tasks])
 
     return tasks
 
@@ -111,18 +129,23 @@ def get_jobsites(scholar):
         if scholar.is_admin:
             jobsites = JobSite.objects
         else:
-            jobsites = JobSite.objects(id__in=[j.id for j in scholar.available_jobsites])
+            jobsites = JobSite.objects(id__in=[j.pk for j in scholar.available_jobsites])
 
     return jobsites
 
 
-def get_document_page_file_collections(scholar, corpus_id, document_id):
+def get_document_page_file_collections(scholar, corpus_id, document_id, pfc_slug=None):
     page_file_collections = {}
-    corpus = get_scholar_corpus(corpus_id, scholar)
+    corpus = get_scholar_corpus(corpus_id, scholar, only=['id'])
     if corpus:
-        document = corpus.get_document(document_id)
-        if document:
-            page_file_collections = document.page_file_collections
+        if pfc_slug:
+            pfc = Document.get_page_file_collection(corpus_id, document_id, pfc_slug)
+            if pfc:
+                page_file_collections[pfc_slug] = pfc
+        else:
+            document = corpus.get_document(document_id)
+            if document:
+                page_file_collections = document.page_file_collections
     return page_file_collections
 
 
@@ -252,6 +275,67 @@ def reset_page_extraction(corpus_id, document_id):
             corpus.save()
 
 
+def build_search_query(request, scholar, corpus_id=None):
+    general_search_query = None
+    fields_query = {}
+    fields_sort = []
+    search_pages = request.GET.get('search-pages', 'n') == 'y'
+
+    # Users can provide a general search query (q)
+    if 'q' in request.GET:
+        general_search_query = request.GET['q']
+
+    # Users can alternatively provide specific queries per field (q_[field]=query),
+    # and can also specify how they want to sort the data (s_[field]=asc/desc)
+    for query_field in request.GET.keys():
+        field_name = query_field[2:]
+        if query_field.startswith('q_'):
+            fields_query[field_name] = request.GET[query_field]
+        elif query_field.startswith('s_'):
+            if request.GET[query_field] == 'desc':
+                field_name = '-' + field_name
+            fields_sort.append(field_name + '.raw')
+
+    if corpus_id:
+        corpus = get_scholar_corpus(corpus_id, scholar, only=['field_settings'])
+        sane = True
+
+        # make sure all fields_query fields are in corpus field settings...
+        print(fields_query)
+        for field_name in fields_query.keys():
+            if not (field_name in corpus.field_settings and corpus.field_settings[field_name]['display']):
+                sane = False
+                break
+
+        # make sure all fields_sort fields are in corpus field settings...
+        print(fields_sort)
+        for field_name in fields_sort:
+            if field_name.startswith('-'):
+                field_name = field_name[1:]
+            if field_name.endswith('.raw'):
+                field_name = field_name[:-4]
+
+            if not (field_name in corpus.field_settings and corpus.field_settings[field_name]['sort']):
+                sane = False
+                break
+
+        if sane and (general_search_query or fields_query):
+            return corpus, general_search_query, fields_query, fields_sort, search_pages
+        else:
+            return None, None, None, None, None
+
+    else:
+        sane = True
+
+        if fields_sort and not (len(list(fields_sort.keys())) == 1 and ('name.raw' in fields_sort or '-name.raw' in fields_sort)):
+            sane = False
+
+        if sane and general_search_query or fields_query:
+            return None, general_search_query, fields_query, fields_sort, False
+        else:
+            return None, None, None, None, None
+
+
 def _get_context(req):
     resp = {
         'errors': [],
@@ -269,11 +353,16 @@ def _get_context(req):
         resp['messages'].append(req.GET['msg'])
 
     if req.user.is_authenticated:
-        try:
-            resp['scholar'] = Scholar.objects(username=req.user.username)[0]
-        except:
-            print(traceback.format_exc())
-            resp['scholar'] = {}
+        scholar_json = req.session.get('scholar_json', None)
+        if scholar_json:
+            resp['scholar'] = Scholar.from_json(scholar_json)
+        else:
+            try:
+                resp['scholar'] = Scholar.objects(username=req.user.username)[0]
+                req.session['scholar_json'] = resp['scholar'].to_json()
+            except:
+                print(traceback.format_exc())
+                resp['scholar'] = {}
 
     return resp
 

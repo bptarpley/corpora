@@ -5,6 +5,7 @@ import secrets
 import traceback
 import html
 import re
+import zlib
 from time import sleep
 from copy import deepcopy
 from natsort import natsorted
@@ -13,9 +14,12 @@ from datetime import datetime
 from bson.objectid import ObjectId
 from PIL import Image
 from django.conf import settings
-from elasticsearch_dsl import Index, Mapping, analyzer, Keyword, Text, Integer, Date, Nested, char_filter
+from django.utils.text import slugify
+from elasticsearch_dsl import Index, Mapping, analyzer, Keyword, Text, Integer, Date, \
+    Nested, char_filter, Q, Search
+from elasticsearch_dsl.query import SimpleQueryString
 from elasticsearch_dsl.connections import get_connection
-from .tasks import index_document_pages
+from .tasks import index_document_pages, cache_page_file_collections
 
 
 class File(mongoengine.EmbeddedDocument):
@@ -32,37 +36,74 @@ class File(mongoengine.EmbeddedDocument):
     width = mongoengine.IntField()
     iiif_info = mongoengine.DictField()
 
+    @property
+    def key(self):
+        if not hasattr(self, '_key'):
+            self._key = file_path_key(self.path)
+        return self._key
+    
+    @property
+    def collection_label(self):
+        if not hasattr(self, '_collection_label'):
+            self._collection_label = "{0}{1} from {2} ({3})".format(
+                "Primary " if self.primary_witness else "",
+                self.description,
+                self.provenance_type,
+                self.provenance_id
+            ).strip()
+        return self._collection_label
+
+    def link(self, corpus_id, document_id=None, page_ref_no=None):
+        node_type = "Corpus"
+        node_uri = "/corpus/{0}".format(corpus_id)
+        link_page_file_collection = False
+
+        if document_id:
+            node_type = "Document"
+            node_uri += "/document/{0}".format(document_id)
+
+        if page_ref_no:
+            node_type = "Page"
+            node_uri += "/page/{0}".format(page_ref_no)
+            link_page_file_collection = True
+
+        run_neo(
+            '''
+                MATCH (n:{node_type} {{ uri: $node_uri }})
+                MERGE (f:File {{ uri: $file_uri }})
+                SET f.key = $file_key
+                MERGE (n) -[rel:hasFile]-> (f)
+            '''.format(node_type=node_type),
+            {
+                'node_uri': node_uri,
+                'file_uri': "{0}/file/{1}".format(node_uri, self.key),
+                'file_key': self.key
+            }
+        )
+
     def to_dict(self):
         return {
             'primary_witness': self.primary_witness,
+            'key': self.key,
             'path': self.path,
             'basename': self.basename,
             'extension': self.extension,
             'byte_size': self.byte_size,
             'description': self.description,
             'provenance_type': self.provenance_type,
-            'provenance_id': self.provenance_id
+            'provenance_id': self.provenance_id,
+            'height': self.height,
+            'width': self.width,
+            'iiif_info': self.iiif_info
         }
 
 
 class Page(mongoengine.EmbeddedDocument):
     instance = mongoengine.StringField()
     label = mongoengine.StringField()
-    ref_no = mongoengine.IntField()
+    ref_no = mongoengine.StringField()
     kvp = mongoengine.DictField()
-    files = mongoengine.ListField(mongoengine.EmbeddedDocumentField(File))
-
-    def get_file_index(self, path):
-        for x in range(0, len(self.files)):
-            if self.files[x].path == path:
-                return x
-        return -1
-
-    def get_file(self, path):
-        file_index = self.get_file_index(path)
-        if file_index > -1:
-            return self.files[file_index]
-        return None
+    files = mongoengine.MapField(mongoengine.EmbeddedDocumentField(File))
 
     @property
     def tei_text(self):
@@ -85,16 +126,36 @@ class Page(mongoengine.EmbeddedDocument):
                         self._text = ""
         return self._text
 
+    def link(self, corpus_id, document_id):
+        run_neo('''
+                MATCH (d:Document { uri: $doc_uri })
+                MERGE (p:Page { uri: $page_uri })
+                SET p.label = $page_label
+                SET p.ref_no = $page_ref_no
+                MERGE (d) -[rel:hasPage]-> (p) 
+            ''',
+            {
+                'doc_uri': "/corpus/{0}/document/{1}".format(corpus_id, document_id),
+                'page_uri': "/corpus/{0}/document/{1}/page/{2}".format(corpus_id, document_id, self.ref_no),
+                'page_label': self.label if self.label else self.ref_no,
+                'page_ref_no': self.ref_no
+            }
+        )
+
+        for file_key, file in self.files.items():
+            file.link(corpus_id=corpus_id, document_id=document_id, page_ref_no=self.ref_no)
+
     def to_dict(self):
         return {
             'instance': self.instance,
             'label': self.label,
             'ref_no': self.ref_no,
-            'files': [file.to_dict() for file in self.files]
+            'files': [file.to_dict() for file_key, file in self.files.items()]
         }
 
 
 class PageSet(mongoengine.EmbeddedDocument):
+    label = mongoengine.StringField()
     ref_nos = mongoengine.ListField(mongoengine.StringField())
     kvp = mongoengine.DictField()
 
@@ -135,18 +196,18 @@ class Job(object):
     def _load(self, id):
         results = run_neo(
             '''
-                MATCH (j:Job { key: $job_key })
+                MATCH (j:Job { uri: $job_uri })
                 return j
             ''',
             {
-                'job_key': "/job/{0}".format(id)
+                'job_uri': "/job/{0}".format(id)
             }
         )
         if len(results) == 1 and 'j' in results[0].keys():
             self._load_from_result(results[0]['j'])
             
     def _load_from_result(self, result):
-        self.id = result['key'].replace('/job/', '')
+        self.id = result['uri'].replace('/job/', '')
         self.corpus_id = result['corpus_id']
         self.document_id = result['document_id']
         self.task_id = result['task_id']
@@ -165,10 +226,10 @@ class Job(object):
         self.percent_complete = 0
         results = run_neo(
             '''
-                MATCH (j:Job { key: $job_key }) -[rel:hasProcess]-> (p:Process)
+                MATCH (j:Job { uri: $job_uri }) -[rel:hasProcess]-> (p:Process)
                 return p
             ''',
-            {'job_key': "/job/{0}".format(self.id)}
+            {'job_uri': "/job/{0}".format(self.id)}
         )
         if results:
             processes_created = len(results)
@@ -189,9 +250,9 @@ class Job(object):
 
         run_neo(
             '''
-                MATCH (c:Corpus { key: $corpus_key })
-                MATCH (d:Document { key: $document_key })
-                MERGE (j:Job { key: $job_key })
+                MATCH (c:Corpus { uri: $corpus_uri })
+                MATCH (d:Document { uri: $document_uri })
+                MERGE (j:Job { uri: $job_uri })
                 SET j.corpus_id = $job_corpus_id
                 SET j.document_id = $job_document_id
                 SET j.task_id = $job_task_id
@@ -208,9 +269,9 @@ class Job(object):
                 MERGE (c) -[:hasJob]-> (j) <-[:hasJob]- (d)
             ''',
             {
-                'corpus_key': "/corpus/{0}".format(self.corpus_id),
-                'document_key': "/corpus/{0}/document/{1}".format(self.corpus_id, self.document_id),
-                'job_key': "/job/{0}".format(self.id),
+                'corpus_uri': "/corpus/{0}".format(self.corpus_id),
+                'document_uri': "/corpus/{0}/document/{1}".format(self.corpus_id, self.document_id),
+                'job_uri': "/job/{0}".format(self.id),
                 'job_corpus_id': self.corpus_id,
                 'job_document_id': self.document_id,
                 'job_task_id': self.task_id,
@@ -252,12 +313,12 @@ class Job(object):
 
         run_neo(
             '''
-                MATCH (j:Job { key: $job_key })
+                MATCH (j:Job { uri: $job_uri })
                 SET j.status = $job_status
                 SET j.status_time = $job_status_time
             ''',
             {
-                'job_key': "/job/{0}".format(self.id),
+                'job_uri': "/job/{0}".format(self.id),
                 'job_status': self.status,
                 'job_status_time': int(self.status_time.timestamp())
             }
@@ -266,15 +327,15 @@ class Job(object):
     def add_process(self, process_id):
         run_neo(
             '''
-                MATCH (j:Job { key: $job_key })
-                MERGE (p:Process { key: $process_key })
+                MATCH (j:Job { uri: $job_uri })
+                MERGE (p:Process { uri: $process_uri })
                 SET p.status = 'running'
                 SET p.created = $process_created
                 MERGE (j) -[rel:hasProcess]-> (p)
             ''',
             {
-                'job_key': "/job/{0}".format(self.id),
-                'process_key': "/job/{0}/process/{1}".format(self.id, process_id),
+                'job_uri': "/job/{0}".format(self.id),
+                'process_uri': "/job/{0}/process/{1}".format(self.id, process_id),
                 'process_created': int(datetime.now().timestamp())
             }
         )
@@ -282,22 +343,22 @@ class Job(object):
     def complete_process(self, process_id):
         run_neo(
             '''
-                MATCH (j:Job { key: $job_key }) -[rel:hasProcess]-> (p:Process { key: $process_key })
+                MATCH (j:Job { uri: $job_uri }) -[rel:hasProcess]-> (p:Process { uri: $process_uri })
                 SET p.status = 'complete'
             ''',
             {
-                'job_key': "/job/{0}".format(self.id),
-                'process_key': "/job/{0}/process/{1}".format(self.id, process_id)
+                'job_uri': "/job/{0}".format(self.id),
+                'process_uri': "/job/{0}/process/{1}".format(self.id, process_id)
             }
         )
 
     def clear_processes(self):
         run_neo(
             '''
-                MATCH (j:Job { key: $job_key }) -[rel:hasProcess]-> (p:Process)
+                MATCH (j:Job { uri: $job_uri }) -[rel:hasProcess]-> (p:Process)
                 DETACH DELETE p
             ''',
-            {'job_key': "/job/{0}".format(self.id)}
+            {'job_uri': "/job/{0}".format(self.id)}
         )
 
     @property
@@ -349,16 +410,16 @@ class Job(object):
         ct.status = self.status
         ct.error = self.error
 
-        self.document.modify(push__completed_tasks=ct)
+        self.document.modify(push__completed_tasks=ct, set__last_updated=datetime.now())
 
         run_neo(
             '''
-                MATCH (j:Job { key: $job_key })
+                MATCH (j:Job { uri: $job_uri })
                 OPTIONAL MATCH (j) -[rel:hasProcess]-> (p)
                 DETACH DELETE j, p
             ''',
             {
-                'job_key': '/job/{0}'.format(self.id)
+                'job_uri': '/job/{0}'.format(self.id)
             }
         )
 
@@ -391,22 +452,22 @@ class Job(object):
         elif corpus_id and not document_id:
             results = run_neo(
                 '''
-                    MATCH (c:Corpus { key: $corpus_key }) -[rel:hasJob]-> (j:Job)
+                    MATCH (c:Corpus { uri: $corpus_uri }) -[rel:hasJob]-> (j:Job)
                     RETURN j
                 ''',
                 {
-                    'corpus_key': "/corpus/{0}".format(corpus_id)
+                    'corpus_uri': "/corpus/{0}".format(corpus_id)
                 }
             )
         elif corpus_id and document_id:
             results = run_neo(
                 '''
-                    MATCH (c:Corpus { key: $corpus_key }) -[:hasJob]-> (j:Job) <-[:hasJob]- (d:Document { key: $document_key })
+                    MATCH (c:Corpus { uri: $corpus_uri }) -[:hasJob]-> (j:Job) <-[:hasJob]- (d:Document { uri: $document_uri })
                     return j
                 ''',
                 {
-                    'corpus_key': "/corpus/{0}".format(corpus_id),
-                    'document_key': "/corpus/{0}/document/{1}".format(corpus_id, document_id)
+                    'corpus_uri': "/corpus/{0}".format(corpus_id),
+                    'document_uri': "/corpus/{0}/document/{1}".format(corpus_id, document_id)
                 }
             )
         
@@ -440,65 +501,58 @@ class Corpus(mongoengine.Document):
     files = mongoengine.ListField(mongoengine.EmbeddedDocumentField(File))
     document_sets = mongoengine.MapField(mongoengine.EmbeddedDocumentField('DocumentSet'))
     open_access = mongoengine.BooleanField(default=False)
-    field_settings = mongoengine.ListField(default=lambda: [
+    field_settings = mongoengine.DictField(default=lambda: {
         # AVAILABLE FIELD SETTING TYPES: keyword, text, integer, date
-        {
-            "field": "title",
+        'title': {
             "label": "Title",
             "type": "text",
             "display": True,
             "search": True,
             "sort": True,
         },
-        {
-            "field": "author",
+        'author': {
             "label": "Author",
             "type": "text",
             "display": True,
             "search": True,
             "sort": True
         },
-        {
-            "field": "path",
+        'path': {
             "label": "Path",
             "type": "text",
             "display": False,
             "search": False,
             "sort": False
         },
-        {
-            "field": "work",
+        'work': {
             "label": "Work",
             "type": "text",
             "display": False,
             "search": False,
             "sort": False
         },
-        {
-            "field": "expression",
+        'expression': {
             "label": "Expression",
             "type": "text",
             "display": False,
             "search": False,
             "sort": False
         },
-        {
-            "field": "manifestation",
+        'manifestation': {
             "label": "Manifestation",
             "type": "text",
             "display": False,
             "search": False,
             "sort": False
         },
-        {
-            "field": "pub_date",
+        'pub_date': {
             "label": "Publication Date",
             "type": "date",
             "display": True,
             "search": True,
             "sort": True
         },
-    ])
+    })
 
     def get_document(self, document_id, only=[]):
         try:
@@ -508,6 +562,78 @@ class Corpus(mongoengine.Document):
             return documents[0]
         except:
             return None
+
+    def search_documents(self, q=None, search_fields=None, sort_fields=None, search_pages=False, document_id=None):
+        if q or search_fields:
+            index = 'corpus-{0}-documents'.format(self.id)
+            should = []
+            must = []
+            page_query_string = None
+            page_query_type = "should"
+
+            if q and not search_fields:
+                should.append(SimpleQueryString(query=q))
+                if search_pages:
+                    page_query_string = q
+            else:
+                for search_field in search_fields.keys():
+                    if search_field == 'pages.contents':
+                        search_pages = True
+                        page_query_string = search_fields[search_field]
+                        page_query_type = "must"
+                    must.append(Q("match", **{search_field: search_fields[search_field]}))
+
+            if search_pages and page_query_string:
+                page_query = Q(
+                    "nested",
+                    path="pages",
+                    query=Q(
+                        "match",
+                        pages__contents=page_query_string
+                    ),
+                    inner_hits={
+                        "highlight": {
+                            "fields": {
+                                "pages.contents": {'fragment_size': 50}
+                            }
+                        },
+                        "from": 0,
+                        "size": 100,
+                        "_source": ['pages.ref_no']
+                    }
+                )
+                if page_query_type == 'should':
+                    should.append(page_query)
+                else:
+                    must.append(page_query)
+
+            if document_id:
+                must.append(Q('term', _id=document_id))
+
+            if should or must:
+                query = Q('bool', should=should, must=must)
+
+                search = Search(
+                    using=get_connection(),
+                    index=index
+                ).query(
+                    query
+                ).source(
+                    includes=['_id', 'title', 'author', 'pub_date'],
+                ).highlight_options(order='score')
+
+                if sort_fields:
+                    search = search.sort(*sort_fields)
+
+                print("Searching index {0}".format(index))
+                print(json.dumps(search.to_dict(), indent=4))
+                response = search.execute()
+                return response.to_dict()
+            else:
+                print("Error constructing search query.")
+                return []
+        else:
+            return []
 
     @property
     def document_index(self):
@@ -533,7 +659,7 @@ class Corpus(mongoengine.Document):
             'corpora_analyzer',
             char_filter=corpora_char_filter,
             tokenizer='whitespace',
-            filter=['stop']
+            filter=['stop', 'lowercase']
         )
         mapping = Mapping()
 
@@ -545,22 +671,22 @@ class Corpus(mongoengine.Document):
         )
         mapping.field('pages', page_field)
 
-        for field_setting in self.field_settings:
-            if field_setting['search']:
+        for field_name, field_setting in self.field_settings.items():
+            if field_setting['display']:
                 field_type = field_setting.get('type', 'keyword')
                 if field_type not in ['keyword', 'text', 'integer', 'date']:
                     field_type = 'keyword'
-                if field_type == 'keyword':
-                    mapping.field(field_setting['field'], Keyword())
+                if field_type == 'keyword' or (field_type == 'text' and not field_setting['search']):
+                    mapping.field(field_name, Keyword())
                 elif field_type == 'text':
                     subfields = {}
                     if field_setting['sort']:
                         subfields = { 'raw': Keyword() }
-                    mapping.field(field_setting['field'], 'text', analyzer=corpora_analyzer, fields=subfields)
+                    mapping.field(field_name, 'text', analyzer=corpora_analyzer, fields=subfields)
                 elif field_type == 'integer':
-                    mapping.field(field_setting['field'], Integer())
+                    mapping.field(field_name, Integer())
                 elif field_type == 'date':
-                    mapping.field(field_setting['field'], Date())
+                    mapping.field(field_name, Date())
 
         return mapping
 
@@ -584,11 +710,11 @@ class Corpus(mongoengine.Document):
 
         # Create node in Neo4j for corpus
         run_neo('''
-                MERGE (c:Corpus { key: $corpus_key })
+                MERGE (c:Corpus { uri: $corpus_uri })
                 SET c.name = $corpus_title
             ''',
             {
-                'corpus_key': "/corpus/{0}".format(self.id),
+                'corpus_uri': "/corpus/{0}".format(self.id),
                 'corpus_title': self.name
             }
         )
@@ -625,53 +751,61 @@ class Document(mongoengine.Document):
     author = mongoengine.StringField()
     pub_date = mongoengine.StringField()
     kvp = mongoengine.DictField()
-    files = mongoengine.ListField(mongoengine.EmbeddedDocumentField(File))
+    files = mongoengine.MapField(mongoengine.EmbeddedDocumentField(File))
     pages = mongoengine.MapField(mongoengine.EmbeddedDocumentField(Page))
     page_sets = mongoengine.MapField(mongoengine.EmbeddedDocumentField(PageSet))
     completed_tasks = mongoengine.ListField(mongoengine.EmbeddedDocumentField(CompletedTask))
+    last_updated = mongoengine.DateTimeField(default=datetime.now())
 
     @property
     def page_file_collections(self):
         if not hasattr(self, '_page_file_collections'):
-            collections = {}
-            collection_counter = 0
+            self._page_file_collections = {}
+            cached_pfcs = run_neo(
+                '''
+                    MATCH (d:Document { uri: $doc_uri }) -[:hasPageFileCollection]-> (pfc:PageFileCollection)
+                    RETURN pfc
+                '''
+                ,
+                {
+                    'doc_uri': "/corpus/{0}/document/{1}".format(self.corpus.id, self.id)
+                }
+            )
 
-            for ref_no, page in self.ordered_pages:
-                for file in page.files:
-                    collection_key = "{0}{1} from {2} ({3})".format(
-                        "Primary " if file.primary_witness else "",
-                        file.description,
-                        file.provenance_type,
-                        file.provenance_id
-                    ).strip()
-
-                    if collection_key not in collections:
-                        collection_counter += 1
-                        collections[collection_key] = {
-                            'provenance_type': file.provenance_type,
-                            'provenance_id': file.provenance_id,
-                            'description': file.description,
-                            'files': [],
-                            'collection_counter': collection_counter
+            if cached_pfcs:
+                for cached_pfc in cached_pfcs:
+                    created = datetime.fromtimestamp(cached_pfc['pfc']['created'])
+                    if created >= self.last_updated:
+                        label = cached_pfc['pfc']['label']
+                        slug = cached_pfc['pfc']['slug']
+                        page_file_dict = json.loads(cached_pfc['pfc']['page_file_dict_json'])
+                        self._page_file_collections[slug] = {
+                            'label': label,
+                            'page_files': PageNavigator(page_file_dict)
                         }
 
-                    collections[collection_key]['files'].append({
-                        'page': ref_no,
-                        'path': file.path,
-                        'basename': file.basename,
-                        'extension': file.extension,
-                        'byte_size': file.byte_size,
-                        'height': getattr(file, 'height', ''),
-                        'width': getattr(file, 'width', '')
-                    })
+            if not self._page_file_collections:
+                for ref_no, page in self.ordered_pages:
+                    for file_key, file in self.pages[ref_no].files.items():
+                        slug = slugify(file.collection_label)
+                        if slug not in self._page_file_collections:
+                            self._page_file_collections[slug] = {
+                                'label': file.collection_label,
+                                'page_files': {}
+                            }
+                        self._page_file_collections[slug]['page_files'][ref_no] = file.to_dict()
 
-            self._page_file_collections = collections
+                cache_page_file_collections(str(self.corpus.id), str(self.id), self._page_file_collections)
+
+                for slug in self._page_file_collections:
+                    self._page_file_collections[slug]['page_files'] = PageNavigator(self._page_file_collections[slug]['page_files'])
+
         return self._page_file_collections
 
     @property
     def has_primary_text(self):
         for ref_no, page in self.pages.items():
-            for file in page.files:
+            for file_key, file in page.files.items():
                 if file.extension == 'txt' and file.primary_witness:
                     return True
         return False
@@ -687,102 +821,58 @@ class Document(mongoengine.Document):
                 self._page_navigator = PageNavigator(self.pages)
         return self._page_navigator
 
-    def get_file_index(self, path):
-        for x in range(0, len(self.files)):
-            if self.files[x].path == path:
-                return x
-        return -1
-
-    def get_file(self, path):
-        file_index = self.get_file_index(path)
-        if file_index > -1:
-            return self.files[file_index]
-        return None
-
-    def save_file(self, file):
-        file_index = self.get_file_index(file.path)
-        if file_index > -1:
-            self.modify(**{'set__files__{0}'.format(str(file_index)): file})
-        else:
-            self.modify(push__files=file)
-            file_index = self.get_file_index(file.path)
-
-        run_neo('''
-                MATCH (d:Document { key: $doc_key })
-                MERGE (f:File { key: $file_key })
-                SET f.primary_witness = $file_primary_witness
-                SET f.description = $file_description
-                SET f.index = $file_index
-                MERGE (d) -[rel:hasFile]-> (f)
-            ''',
+    @staticmethod
+    def get_page_file_collection(corpus_id, document_id, slug):
+        pfc = {}
+        results = run_neo(
+            '''
+                MATCH (pfc:PageFileCollection { uri: $pfc_uri })
+                RETURN pfc
+            '''
+            ,
             {
-                'doc_key': "/corpus/{0}/document/{1}".format(self.corpus.id, self.id),
-                'file_key': file.path,
-                'file_primary_witness': file.primary_witness,
-                'file_description': file.description,
-                'file_index': file_index
+                'pfc_uri': "/corpus/{0}/document/{1}/page-file-collection/{2}".format(corpus_id, document_id, slug)
             }
         )
+
+        if results:
+            pfc = {
+                'label': results[0]['pfc']['label'],
+                'page_files': PageNavigator(json.loads(results[0]['pfc']['page_file_dict_json']))
+            }
+
+        return pfc
+
+    def save_file(self, file):
+        self.modify(**{'set__files__{0}'.format(file.key): file, 'set__last_updated': datetime.now()})
+        file.link(corpus_id=self.corpus.pk, document_id=self.id)
 
     def running_jobs(self):
         return Job.get_jobs(corpus_id=str(self.corpus.id), document_id=str(self.id))
 
     def save_page(self, page):
-        self.modify(**{'set__pages__{0}'.format(page.ref_no): page})
-        run_neo('''
-                MATCH (d:Document { key: $doc_key })
-                MERGE (p:Page { key: $page_key })
-                SET p.label = $page_label
-                SET p.ref_no = $page_ref_no
-                MERGE (d) -[rel:hasPage]-> (p) 
-            ''',
-            {
-                'doc_key': "/corpus/{0}/document/{1}".format(self.corpus.id, self.id),
-                'page_key': "/corpus/{0}/document/{1}/page/{2}".format(self.corpus.id, self.id, page.ref_no),
-                'page_label': page.label if page.label else str(page.ref_no),
-                'page_ref_no': page.ref_no
-            }
-        )
+        self.modify(**{'set__pages__{0}'.format(page.ref_no): page, 'set__last_updated': datetime.now()})
+        page.link(corpus_id=self.corpus.id, document_id=self.id)
 
     def save_page_file(self, page_ref_no, file):
-        file_index = self.pages[page_ref_no].get_file_index(file.path)
-        if file_index > -1:
-            self.modify(**{'set__pages__{0}__files__{1}'.format(page_ref_no, str(file_index)): file})
-        else:
-            self.modify(**{'push__pages__{0}__files'.format(page_ref_no): file})
-            file_index = self.pages[page_ref_no].get_file_index(file.path)
+        self.modify(**{'set__pages__{0}__files__{1}'.format(page_ref_no, file.key): file, 'set__last_updated': datetime.now()})
+        file.link(corpus_id=self.corpus.id, document_id=self.id, page_ref_no=page_ref_no)
 
-        run_neo('''
-                MATCH (p:Page { key: $page_key })
-                MERGE (f:File { key: $file_key })
-                SET f.primary_witness = $file_primary_witness
-                SET f.description = $file_description
-                SET f.index = $file_index
-                MERGE (p) -[rel:hasFile]-> (f)
-            ''',
-            {
-                'page_key': "/corpus/{0}/document/{1}/page/{2}".format(self.corpus.id, self.id, page_ref_no),
-                'file_key': file.path,
-                'file_primary_witness': file.primary_witness,
-                'file_description': file.description,
-                'file_index': file_index
-            }
-        )
-
-    def save(self, index_pages=False, **kwargs):
+    def save(self, index_pages=False, perform_linking=False, **kwargs):
+        self.last_updated = datetime.now()
         super().save(**kwargs)
 
         # Create document node and attach to corpus
         run_neo('''
-                MATCH (c:Corpus { key: $corpus_key })
-                MERGE (d:Document { key: $doc_key })
+                MATCH (c:Corpus { uri: $corpus_uri })
+                MERGE (d:Document { uri: $doc_uri })
                 SET d.title = $doc_title
                 SET d.author = $doc_author
                 MERGE (c) -[rel:hasDocument]-> (d)
             ''',
             {
-                'corpus_key': "/corpus/{0}".format(self.corpus.id),
-                'doc_key': "/corpus/{0}/document/{1}".format(self.corpus.id, self.id),
+                'corpus_uri': "/corpus/{0}".format(self.corpus.id),
+                'doc_uri': "/corpus/{0}/document/{1}".format(self.corpus.id, self.id),
                 'doc_title': self.title,
                 'doc_author': self.author
             }
@@ -791,14 +881,14 @@ class Document(mongoengine.Document):
         # Index document in Elasticsearch
         default_date = datetime(1, 1, 1, 0, 0)
         body = {}
-        for field_setting in self.corpus.field_settings:
+        for field_name, field_setting in self.corpus.field_settings.items():
             if field_setting['search']:
-                body[field_setting['field']] = get_field_value_from_path(self, field_setting['field'])
+                body[field_name] = get_field_value_from_path(self, field_name)
                 if field_setting['type'] == 'date':
-                    if not body[field_setting['field']]:
-                        body[field_setting['field']] = default_date
+                    if not body[field_name]:
+                        body[field_name] = default_date
                     else:
-                        body[field_setting['field']] = parser.parse(body[field_setting['field']], default=default_date)
+                        body[field_name] = parser.parse(body[field_name], default=default_date)
         get_connection().index(
             index='corpus-{0}-documents'.format(self.corpus.id),
             id=str(self.id),
@@ -812,6 +902,13 @@ class Document(mongoengine.Document):
                 pages[ref_no] = page.to_dict()
 
             index_document_pages(str(self.corpus.id), str(self.id), pages)
+
+        if perform_linking:
+            for file_key, file in self.files.items():
+                file.link(corpus_id=self.corpus.id, document_id=self.id)
+
+            for ref_no, page in self.pages.items():
+                page.link(corpus_id=self.corpus.id, document_id=self.id)
 
     meta = {
         'indexes':
@@ -864,7 +961,48 @@ class JobSite(mongoengine.Document):
     transfer_token = mongoengine.StringField()
     refresh_token = mongoengine.StringField()
     token_expiry = mongoengine.IntField()
-    task_registry = mongoengine.DictField()  # { 'Import Document Pages from PDF': {'task_id': '', 'python': 'extract_pdf_pages(corpus_id, job_id)' }
+    task_registry = mongoengine.DictField()  # For example of how task_registry is setup, see manager/management/commands/initialize_corpora.py
+
+    def save(self, index_pages=False, **kwargs):
+        super().save(**kwargs)
+
+        # Create jobsite node
+        run_neo('''
+                MERGE (js:JobSite { uri: $js_uri })
+                SET js.name = $js_name
+                SET js.type = $js_type
+            ''',
+            {
+                'js_uri': "/jobsite/{0}".format(self.id),
+                'js_name': self.name,
+                'js_type': self.type
+            }
+        )
+
+        # Create relationships with registered tasks
+        for task_name, task_info in self.task_registry.items():
+            run_neo('''
+                    MATCH (js:JobSite { uri: $js_uri })
+                    MATCH (t:Task { uri: $task_uri })
+                    MERGE (js) -[:hasRegisteredTask]-> (t)
+                ''',
+                {
+                    'js_uri': "/jobsite/{0}".format(self.id),
+                    'task_uri': "/task/{0}".format(task_info['task_id']),
+                    'js_type': self.type
+                }
+            )
+
+    @classmethod
+    def pre_delete(self, sender, document, **kwargs):
+        run_neo('''
+                MATCH (js:JobSite { uri: $jobsite_uri })
+                DETACH DELETE js
+            ''',
+            {
+                'jobsite_uri': "/jobsite/{0}".format(document.id),
+            }
+        )
 
 
 class Task(mongoengine.Document):
@@ -873,18 +1011,123 @@ class Task(mongoengine.Document):
     jobsite_type = mongoengine.StringField()
     configuration = mongoengine.DictField()
 
+    def save(self, index_pages=False, **kwargs):
+        super().save(**kwargs)
+
+        # Create task node
+        run_neo('''
+                MERGE (t:Task { uri: $task_uri })
+                SET t.name = $task_name
+            ''',
+            {
+                'task_uri': "/task/{0}".format(self.id),
+                'task_name': self.name
+            }
+        )
+
+    @classmethod
+    def pre_delete(self, sender, document, **kwargs):
+        # TODO: Think through what happens when documents reference task slated for deletion as a "completed task."
+        # With potentially thousands of documents referencing the task, going through every document and looking for
+        # instances of this task would be very time consuming. Yet, should the task disappear due to deletion,
+        # MongoEngine will throw data integrity errors :/ Thankfully, haven't had to delete any tasks yet...
+        # My guess is that this will involve creating a dummy task called "Deleted Task" that gets associated with
+        # completed tasks. That way, document files can still maintain provenance.
+
+        run_neo('''
+                MATCH (t:Task { uri: $task_uri })
+                DETACH DELETE t
+            ''',
+            {
+                'task_uri': "/task/{0}".format(document.id),
+            }
+        )
+
 
 class Scholar(mongoengine.Document):
     username = mongoengine.StringField(unique=True)
     fname = mongoengine.StringField()
     lname = mongoengine.StringField()
     email = mongoengine.EmailField()
-    available_corpora = mongoengine.ListField(mongoengine.ReferenceField(Corpus, reverse_delete_rule=mongoengine.PULL))
-    available_tasks = mongoengine.ListField(mongoengine.ReferenceField(Task, reverse_delete_rule=mongoengine.PULL))
-    available_jobsites = mongoengine.ListField(
-        mongoengine.ReferenceField(JobSite, reverse_delete_rule=mongoengine.PULL))
+    available_corpora = mongoengine.ListField(mongoengine.LazyReferenceField(Corpus, reverse_delete_rule=mongoengine.PULL))
+    available_tasks = mongoengine.ListField(mongoengine.LazyReferenceField(Task, reverse_delete_rule=mongoengine.PULL))
+    available_jobsites = mongoengine.ListField(mongoengine.LazyReferenceField(JobSite, reverse_delete_rule=mongoengine.PULL))
     is_admin = mongoengine.BooleanField(default=False)
     auth_token = mongoengine.StringField(default=secrets.token_urlsafe(32))
+
+    def save(self, index_pages=False, **kwargs):
+        super().save(**kwargs)
+
+        # Create task node
+        run_neo('''
+                MERGE (s:Scholar { uri: $scholar_uri })
+                SET s.username = $scholar_username
+                SET s.name = $scholar_name
+                SET s.email = $scholar_email
+                SET s.is_admin = $scholar_is_admin
+            ''',
+            {
+                'scholar_uri': "/scholar/{0}".format(self.id),
+                'scholar_username': self.username,
+                'scholar_name': "{0} {1}".format(self.fname, self.lname),
+                'scholar_email': self.email,
+                'scholar_is_admin': self.is_admin
+            }
+        )
+
+        # Wire up permissions (not relevant if user is admin)
+        for corpus in self.available_corpora:
+            run_neo('''
+                    MATCH (s:Scholar { uri: $scholar_uri })
+                    MATCH (c:Corpus { uri: $corpus_uri })
+                    MERGE (s) -[:canAccess]-> (c)
+                ''',
+                {
+                    'scholar_uri': "/scholar/{0}".format(self.id),
+                    'corpus_uri': "/corpus/{0}".format(corpus.pk)
+                }
+            )
+
+        for task in self.available_tasks:
+            run_neo('''
+                    MATCH (s:Scholar { uri: $scholar_uri })
+                    MATCH (t:Task { uri: $task_uri })
+                    MERGE (s) -[:canAccess]-> (t)
+                ''',
+                {
+                    'scholar_uri': "/scholar/{0}".format(self.id),
+                    'task_uri': "/task/{0}".format(task.pk)
+                }
+            )
+
+        for jobsite in self.available_jobsites:
+            run_neo('''
+                    MATCH (s:Scholar { uri: $scholar_uri })
+                    MATCH (js:JobSite { uri: $jobsite_uri })
+                    MERGE (s) -[:canAccess]-> (js)
+                ''',
+                {
+                    'scholar_uri': "/task/{0}".format(self.id),
+                    'jobsite_uri': "/jobsite/{0}".format(jobsite.pk)
+                }
+            )
+
+    @classmethod
+    def pre_delete(self, sender, document, **kwargs):
+        run_neo('''
+                MATCH (s:Scholar { uri: $scholar_uri })
+                DETACH DELETE s
+            ''',
+            {
+                'scholar_uri': "/scholar/{0}".format(document.id),
+            }
+        )
+
+
+# SIGNALS FOR HANDLING MONGOENGINE DOCUMENT PRE-DELETION (mostly for deleting Neo4J nodes)
+mongoengine.signals.pre_delete.connect(Scholar.pre_delete, sender=Scholar)
+mongoengine.signals.pre_delete.connect(Task.pre_delete, sender=Task)
+mongoengine.signals.pre_delete.connect(JobSite.pre_delete, sender=JobSite)
 
 
 # UTILITY CLASSES / FUNCTIONS
@@ -892,9 +1135,9 @@ class PageNavigator(object):
     def __init__(self, page_dict, page_set=None):
         self.page_dict = page_dict
         if not page_set:
-            self.ordered_pages = natsorted(list(page_dict.keys()))
+            self.ordered_ref_nos = natsorted(list(page_dict.keys()))
         else:
-            self.ordered_pages = page_set.ref_nos
+            self.ordered_ref_nos = page_set.ref_nos
         self.bookmark = 0
 
     def __iter__(self):
@@ -902,9 +1145,9 @@ class PageNavigator(object):
         return self
 
     def __next__(self):
-        if self.bookmark < len(self.ordered_pages):
+        if self.bookmark < len(self.ordered_ref_nos):
             self.bookmark += 1
-            return self.ordered_pages[self.bookmark - 1], self.page_dict[self.ordered_pages[self.bookmark - 1]]
+            return self.ordered_ref_nos[self.bookmark - 1], self.page_dict[self.ordered_ref_nos[self.bookmark - 1]]
         else:
             raise StopIteration
 
@@ -930,12 +1173,35 @@ def process_corpus_file(path, desc=None, prov_type=None, prov_id=None, primary=F
     return file
 
 
-def get_corpus(corpus_id):
+def file_path_key(path):
+    return zlib.compress(path.encode('utf-8')).hex()
+
+
+def get_corpus(corpus_id, only=[]):
     try:
-        corpus = Corpus.objects(id=corpus_id)[0]
-        return corpus
+        corpus = Corpus.objects(id=corpus_id)
+        if only:
+            corpus = corpus.only(*only)
+        return corpus[0]
     except:
         return None
+
+
+def search_corpora(q, sort_fields=[]):
+    search = Search(
+        using=get_connection(),
+        index="corpora"
+    ).query(
+        SimpleQueryString(query=q)
+    )
+
+    if sort_fields:
+        search = search.sort(*sort_fields)
+
+    print("Searching index corpora")
+    print(json.dumps(search.to_dict(), indent=4))
+    response = search.execute()
+    return response.to_dict()
 
 
 def get_field_value_from_path(obj, path):
