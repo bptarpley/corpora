@@ -8,10 +8,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.template import Template, Context
 from html import unescape
+from math import ceil
 from corpus import *
+from cms import ContentType, TemplateFormat, DEFAULT_TEMPLATE_FORMATS
 from .tasks import *
-from .utilities import _get_context, _clean, _contains, build_search_query, \
-    get_scholar_corpora, get_scholar_corpus, get_documents, get_document, \
+from .utilities import _get_context, _clean, _contains, get_corpus_search_results, \
+    get_scholar_corpora, get_scholar_corpus, get_document, \
     get_jobsites, get_tasks, get_document_page_file_collections, \
     reset_page_extraction, get_page_regions, get_page_region_content, get_file
 from rest_framework.decorators import api_view 
@@ -21,7 +23,6 @@ from rest_framework.authtoken.models import Token
 @login_required
 def corpora(request):
     response = _get_context(request)
-    corpora = get_scholar_corpora(response['scholar'])
 
     if response['scholar'].is_admin and request.method == 'POST' and 'new-corpus-name' in request.POST:
         c_name = unescape(_clean(request.POST, 'new-corpus-name'))
@@ -33,15 +34,12 @@ def corpora(request):
         c.description = c_desc
         c.open_access = True if c_open else False
         c.save()
-        c.path = "/corpora/{0}".format(str(c.id))
-        os.makedirs(c.path, exist_ok=True)
-        c.save()
+        sleep(4)
 
     return render(
         request,
         'index.html',
         {
-            'corpora': corpora,
             'response': response
         }
     )
@@ -51,67 +49,121 @@ def corpora(request):
 def corpus(request, corpus_id):
     response = _get_context(request)
     corpus = get_scholar_corpus(corpus_id, response['scholar'])
+    if corpus:
+        if request.method == 'POST' and _contains(request.POST, [
+            'new-document-title',
+            'new-document-author',
+            'new-document-pubdate',
+            'new-document-work',
+            'new-document-manifestation'
+        ]):
+            try:
+                new_doc = Document()
+                new_doc.corpus = corpus
+                new_doc.title = unescape(_clean(request.POST, 'new-document-title'))
+                new_doc.author = unescape(_clean(request.POST, 'new-document-author'))
+                new_doc.pub_date = _clean(request.POST, 'new-document-pubdate')
+                new_doc.work = unescape(_clean(request.POST, 'new-document-work'))
+                new_doc.manifestation = unescape(_clean(request.POST, 'new-document-manifestation'))
+                new_doc.save()
+            except:
+                print(traceback.format_exc())
+                response['errors'].append("Unable to save document!")
 
-    if request.method == 'POST' and _contains(request.POST, [
-        'new-document-title',
-        'new-document-author',
-        'new-document-pubdate',
-        'new-document-work',
-        'new-document-manifestation'
-    ]):
-        try:
-            new_doc = Document()
-            new_doc.corpus = corpus
-            new_doc.path = "/corpora/{0}/temp-{1}".format(corpus_id, ObjectId())
-            new_doc.title = unescape(_clean(request.POST, 'new-document-title'))
-            new_doc.author = unescape(_clean(request.POST, 'new-document-author'))
-            new_doc.pub_date = _clean(request.POST, 'new-document-pubdate')
-            new_doc.work = unescape(_clean(request.POST, 'new-document-work'))
-            new_doc.manifestation = unescape(_clean(request.POST, 'new-document-manifestation'))
-            new_doc.save()
-            setup_document_directory(corpus_id, str(new_doc.id))
-        except:
-            print(traceback.format_exc())
-            response['errors'].append("Unable to save document!")
+        elif request.method == 'POST' and 'settings' in request.POST:
+            try:
+                settings = json.loads(request.POST['settings'])
+            except:
+                response['errors'].append("Unable to parse field settings!")
+                logging.error(traceback.format_exc())
+                settings = []
 
-    elif request.method == 'POST' and 'settings' in request.POST:
-        try:
-            settings = json.loads(request.POST['settings'])
-        except:
-            response['errors'].append("Unable to parse field settings!")
-            logging.error(traceback.format_exc())
-            settings = []
+            if not response['errors'] and settings:
+                existing_settings = deepcopy(corpus.field_settings)
+                index_rebuild_required = False
 
-        if not response['errors'] and settings:
-            existing_settings = deepcopy(corpus.field_settings)
-            index_rebuild_required = False
-
-            # determine whether change requires rebuild of Elasticsearch index...
-            for field in settings.keys():
-                if field in existing_settings:
-                    if existing_settings[field]['display'] != settings[field]['display'] or \
-                            existing_settings[field]['search'] != settings[field]['search'] or \
-                            existing_settings[field]['sort'] != settings[field]['sort'] or \
-                            (settings[field]['display'] or settings[field]['search'] or settings[field]['sort']) and (existing_settings[field].get('type', 'keyword') != settings[field].get('type', 'keyword')):
+                # determine whether change requires rebuild of Elasticsearch index...
+                for field in settings.keys():
+                    if field in existing_settings:
+                        if existing_settings[field]['display'] != settings[field]['display'] or \
+                                existing_settings[field]['search'] != settings[field]['search'] or \
+                                existing_settings[field]['sort'] != settings[field]['sort'] or \
+                                (settings[field]['display'] or settings[field]['search'] or settings[field]['sort']) and (existing_settings[field].get('type', 'keyword') != settings[field].get('type', 'keyword')):
+                            index_rebuild_required = True
+                            break
+                    else:
                         index_rebuild_required = True
                         break
+
+                corpus.modify(set__field_settings=settings)
+
+                if index_rebuild_required:
+                    response['messages'].append("The search index for your corpus is being rebuilt. Depending on the size of your corpus, this may take awhile, and until this process completes, searching/sorting/filtering your corpus may not work properly.")
+                    rebuild_corpus_index(corpus_id)
+
+                return redirect('/corpus/{0}/?&msg=Document field settings saved.'.format(str(corpus_id)))
+
+        # HANDLE CONTENT_TYPE/FIELD ACTIONS THAT REQUIRE CONFIRMATION
+        elif request.method == 'POST' and _contains(request.POST, [
+            'content_type',
+            'field',
+            'action'
+        ]):
+            action_content_type = _clean(request.POST, 'content_type')
+            action_field_name = _clean(request.POST, 'field')
+            action = _clean(request.POST, 'action')
+
+            if action_content_type:
+                content_type = ContentType.objects(corpus=corpus_id, name=action_content_type)[0]
+
+                # content type actions
+                if not action_field_name:
+                    if action == 'delete':
+                        content_type.delete()
+
+                # field actions
                 else:
-                    index_rebuild_required = True
-                    break
+                    if action == 'delete':
+                        content_type.delete_field(action_field_name)
+                    elif action.startswith('shift_'):
+                        field_index = -1
+                        new_field_index = -1
+                        for index in range(0, len(content_type.fields)):
+                            if content_type.fields[index].name == action_field_name:
+                                field_index = index
 
-            corpus.modify(set__field_settings=settings)
+                        if field_index > -1:
+                            if action.endswith("_up") and field_index > 0:
+                                new_field_index = field_index - 1
+                            elif action.endswith("_down") and field_index < len(content_type.fields) - 1:
+                                new_field_index = field_index + 1
 
-            if index_rebuild_required:
-                response['messages'].append("The search index for your corpus is being rebuilt. Depending on the size of your corpus, this may take awhile, and until this process completes, searching/sorting/filtering your corpus may not work properly.")
-                rebuild_corpus_index(corpus_id)
+                        if field_index > -1 and new_field_index > -1:
+                            swap_field = content_type.fields[new_field_index]
+                            content_type.fields[new_field_index] = content_type.fields[field_index]
+                            content_type.fields[field_index] = swap_field
+                            content_type.save()
 
-            return redirect('/corpus/{0}/?&msg=Document field settings saved.'.format(str(corpus_id)))
+        # HANDLE THE CREATION OF NEW TEMPLATE FORMATS
+        elif request.method == 'POST' and _contains(request.POST, ['new-format-label', 'new-format-extension']):
+            new_format_label = _clean(request.POST, 'new-format-label')
+            new_format_extension = _clean(request.POST, 'new-format-extension')
+
+            if new_format_label \
+                    and new_format_extension \
+                    and new_format_extension not in [default['extension'] for default in DEFAULT_TEMPLATE_FORMATS]:
+                new_format = TemplateFormat()
+                new_format.corpus = corpus
+                new_format.label = new_format_label
+                new_format.extension = new_format_extension
+                new_format.ace_editor_mode = 'django'
+                new_format.save()
 
     return render(
         request,
         'corpus.html',
         {
-            'corpus': corpus,
+            'corpus_id': corpus_id,
             'response': response,
         }
     )
@@ -173,8 +225,6 @@ def document(request, corpus_id, document_id):
 
                     doc_files_path = "{0}/files".format(document.path)
                     new_pdf_path = "{0}/{1}".format(doc_files_path, pdf_file_basename)
-                    if not os.path.exists(doc_files_path):
-                        os.makedirs(doc_files_path)
 
                     os.rename(pdf_file_path, new_pdf_path)
                     pdf_file_path = new_pdf_path
@@ -509,32 +559,21 @@ def scholar(request):
 def api_search(request, corpus_id=None, document_id=None):
     response = _get_context(request)
     if response['scholar']:
-        search_results = None
-        corpus, general_search_query, fields_query, fields_sort, search_pages = build_search_query(request, response['scholar'], corpus_id)
-        if general_search_query or fields_query:
-            if corpus:
-                search_results = corpus.search_documents(general_search_query, fields_query, fields_sort, search_pages, document_id)
-            elif general_search_query:
-                search_results = search_corpora(general_search_query, fields_sort)
-
-            if search_results:
-                return HttpResponse(
-                    json.dumps(search_results),
-                    content_type='application/json'
-                )
-            else:
-                raise Http404("Search not completed.")
-
+        search_results = get_corpus_search_results(request, response['scholar'], corpus_id, document_id)
+        return HttpResponse(
+            json.dumps(search_results),
+            content_type='application/json'
+        )
     raise Http404("Search not completed.")
 
 
 @api_view(['GET'])
 def api_corpora(request):
     response = _get_context(request)
-    corpora = get_scholar_corpora(response['scholar'])
+    corpora = get_corpus_search_results(request, response['scholar'])
 
     return HttpResponse(
-        corpora.to_json(),
+        json.dumps(corpora),
         content_type='application/json'
     )
 
@@ -553,21 +592,10 @@ def api_corpus(request, corpus_id):
 @api_view(['GET'])
 def api_documents(request, corpus_id):
     response = _get_context(request)
-    documents, count, num_pages = get_documents(corpus_id, request, response)
-    payload = json.dumps({
-        'page': response['page'],
-        'per_page': response['per_page'],
-        'count': count,
-        'num_pages': num_pages
-    })
-
-    payload = '{0}, "data": {1}}}'.format(
-        payload[:-1],
-        documents.to_json()
-    )
+    documents = get_corpus_search_results(request, response['scholar'], corpus_id)
 
     return HttpResponse(
-        payload,
+        json.dumps(documents),
         content_type='application/json'
     )
 
@@ -687,11 +715,34 @@ def api_page_region_content(request, corpus_id, document_id, ref_no, x, y, width
 
 
 @login_required
-def get_document_iiif_manifest(request, corpus_id, document_id, pageset=None, collection=None):
+def get_document_iiif_manifest(request, corpus_id, document_id, collection=None, pageset=None):
     response = _get_context(request)
+    iiif_template_path = "{0}/templates/iiif_manifest.json".format(settings.BASE_DIR)
     document = get_document(response['scholar'], corpus_id, document_id)
-    if document:
+    pfcs = get_document_page_file_collections(response['scholar'], corpus_id, document_id, collection)
+    canvas_width = request.GET.get('width', '1000')
+    canvas_height = request.GET.get('height', '800')
+    component = request.GET.get('component', None)
+    if not collection:
+        for pfc_slug, pfc in pfcs.items():
+            if _contains(pfc['label'].lower(), ['primary', 'image']):
+                collection = pfc_slug
+
+    if document and collection in pfcs and os.path.exists(iiif_template_path):
         host = "http{0}://{1}".format('s' if settings.USE_SSL else '', settings.ALLOWED_HOSTS[0])
+
+        with open(iiif_template_path, 'r') as iiif_in:
+            iiif_template = iiif_in.read()
+
+        template = Template(iiif_template)
+        template_context = Context({
+            'host': host,
+            'document': document
+        })
+        return HttpResponse(
+            template.render(template_context),
+            content_type=template_format.mime_type
+        )
     return HttpResponse("Not yet implemented.")
 
 

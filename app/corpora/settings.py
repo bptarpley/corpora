@@ -51,9 +51,11 @@ INSTALLED_APPS = [
     'huey.contrib.djhuey',
     'corsheaders',
     'manager',
+    'plugins',
     'plugins.tesseract',
     'plugins.google_cloud_vision',
     'plugins.nlp',
+    'plugins.emop',
     'rest_framework',
     'rest_framework.authtoken',
 ]
@@ -105,6 +107,7 @@ TEMPLATES = [
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
             os.path.join(BASE_DIR, 'templates'),
+            '/corpora'
         ],
         'APP_DIRS': True,
         'OPTIONS': {

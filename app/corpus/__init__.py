@@ -496,6 +496,7 @@ class CompletedTask(mongoengine.EmbeddedDocument):
 class Corpus(mongoengine.Document):
     name = mongoengine.StringField(unique=True)
     description = mongoengine.StringField()
+    uri = mongoengine.StringField(unique=True)
     path = mongoengine.StringField()
     kvp = mongoengine.DictField()
     files = mongoengine.ListField(mongoengine.EmbeddedDocumentField(File))
@@ -563,7 +564,7 @@ class Corpus(mongoengine.Document):
         except:
             return None
 
-    def search_documents(self, q=None, search_fields=None, sort_fields=None, search_pages=False, document_id=None):
+    def search_documents(self, q=None, search_fields=None, sort_fields=None, search_pages=False, document_id=None, start_record=0, end_record=50):
         if q or search_fields:
             index = 'corpus-{0}-documents'.format(self.id)
             should = []
@@ -619,11 +620,13 @@ class Corpus(mongoengine.Document):
                 ).query(
                     query
                 ).source(
-                    includes=['_id', 'title', 'author', 'pub_date'],
+                    includes=['_id'] + [field for field, info in self.field_settings.items() if info['display']],
                 ).highlight_options(order='score')
 
                 if sort_fields:
                     search = search.sort(*sort_fields)
+
+                search = search[start_record:end_record]
 
                 print("Searching index {0}".format(index))
                 print(json.dumps(search.to_dict(), indent=4))
@@ -642,24 +645,10 @@ class Corpus(mongoengine.Document):
         return self._document_index
 
     def get_document_index_mapping(self):
-        corpora_char_filter = char_filter(
-            'corpora_char_filter',
-            type='mapping',
-            mappings=[
-                "\u0091 => '",
-                "\u0092 => '",
-                "\u2018 => '",
-                "\u2019 => '",
-                "\uFF07 => '",
-                "\u201C => \"",
-                "\u201D => \""
-            ]
-        )
         corpora_analyzer = analyzer(
             'corpora_analyzer',
-            char_filter=corpora_char_filter,
-            tokenizer='whitespace',
-            filter=['stop', 'lowercase']
+            tokenizer='classic',
+            filter=['stop', 'lowercase', 'classic']
         )
         mapping = Mapping()
 
@@ -705,8 +694,23 @@ class Corpus(mongoengine.Document):
             for corpus_document in corpus_documents:
                 corpus_document.save(index_pages=True)
 
+    def make_path(self):
+        corpus_path = "/corpora/{0}".format(self.id)
+        os.makedirs("{0}/files".format(corpus_path), exist_ok=True)
+        return corpus_path
+
     def save(self, **kwargs):
+        new_corpus = False
+        if not self.uri:
+            new_corpus = True
+            self.uri = "temp-{0}".format(ObjectId())
+
         super().save(**kwargs)
+
+        if new_corpus:
+            self.uri = "/corpus/{0}".format(self.id)
+            self.path = self.make_path()
+            self.update(**{'set__uri': self.uri, 'set__path': self.path})
 
         # Create node in Neo4j for corpus
         run_neo('''
@@ -724,7 +728,6 @@ class Corpus(mongoengine.Document):
             index='corpora',
             id=str(self.id),
             body={
-                'corpus_id': str(self.id),
                 'name': self.name,
                 'description': self.description,
                 'open_access': self.open_access
@@ -744,7 +747,8 @@ class Corpus(mongoengine.Document):
 class Document(mongoengine.Document):
     corpus = mongoengine.ReferenceField(Corpus, required=True)
     title = mongoengine.StringField()
-    path = mongoengine.StringField(unique=True)
+    uri = mongoengine.StringField(unique=True)
+    path = mongoengine.StringField()
     work = mongoengine.StringField()
     expression = mongoengine.StringField()
     manifestation = mongoengine.StringField()
@@ -858,57 +862,76 @@ class Document(mongoengine.Document):
         self.modify(**{'set__pages__{0}__files__{1}'.format(page_ref_no, file.key): file, 'set__last_updated': datetime.now()})
         file.link(corpus_id=self.corpus.id, document_id=self.id, page_ref_no=page_ref_no)
 
+    def make_path(self):
+        breakout_dir = str(self.id)[-6:-2]
+        path = "/corpora/{0}/{1}/{2}".format(self.corpus.id, breakout_dir, self.id)
+        files_path = "{0}/files".format(path)
+        pages_path = "{0}/pages".format(path)
+        os.makedirs(files_path, exist_ok=True)
+        os.makedirs(pages_path, exist_ok=True)
+        return path
+
     def save(self, index_pages=False, perform_linking=False, **kwargs):
         self.last_updated = datetime.now()
+        new_document = False
+        if not self.uri:
+            new_document = True
+            self.uri = "temp-{0}".format(ObjectId())
+
         super().save(**kwargs)
 
-        # Create document node and attach to corpus
-        run_neo('''
-                MATCH (c:Corpus { uri: $corpus_uri })
-                MERGE (d:Document { uri: $doc_uri })
-                SET d.title = $doc_title
-                SET d.author = $doc_author
-                MERGE (c) -[rel:hasDocument]-> (d)
-            ''',
-            {
-                'corpus_uri': "/corpus/{0}".format(self.corpus.id),
-                'doc_uri': "/corpus/{0}/document/{1}".format(self.corpus.id, self.id),
-                'doc_title': self.title,
-                'doc_author': self.author
-            }
-        )
+        if new_document:
+            self.uri = "/corpus/{0}/document/{1}".format(self.corpus.id, self.id)
+            self.path = self.make_path()
+            self.save()
+        else:
+            # Create document node and attach to corpus
+            run_neo('''
+                    MATCH (c:Corpus { uri: $corpus_uri })
+                    MERGE (d:Document { uri: $doc_uri })
+                    SET d.title = $doc_title
+                    SET d.author = $doc_author
+                    MERGE (c) -[rel:hasDocument]-> (d)
+                ''',
+                {
+                    'corpus_uri': "/corpus/{0}".format(self.corpus.id),
+                    'doc_uri': "/corpus/{0}/document/{1}".format(self.corpus.id, self.id),
+                    'doc_title': self.title,
+                    'doc_author': self.author
+                }
+            )
 
-        # Index document in Elasticsearch
-        default_date = datetime(1, 1, 1, 0, 0)
-        body = {}
-        for field_name, field_setting in self.corpus.field_settings.items():
-            if field_setting['search']:
-                body[field_name] = get_field_value_from_path(self, field_name)
-                if field_setting['type'] == 'date':
-                    if not body[field_name]:
-                        body[field_name] = default_date
-                    else:
-                        body[field_name] = parser.parse(body[field_name], default=default_date)
-        get_connection().index(
-            index='corpus-{0}-documents'.format(self.corpus.id),
-            id=str(self.id),
-            body=body
-        )
+            # Index document in Elasticsearch
+            default_date = datetime(1, 1, 1, 0, 0)
+            body = {}
+            for field_name, field_setting in self.corpus.field_settings.items():
+                if field_setting['search']:
+                    body[field_name] = get_field_value_from_path(self, field_name)
+                    if field_setting['type'] == 'date':
+                        if not body[field_name]:
+                            body[field_name] = default_date
+                        else:
+                            body[field_name] = parser.parse(body[field_name], default=default_date)
+            get_connection().index(
+                index='corpus-{0}-documents'.format(self.corpus.id),
+                id=str(self.id),
+                body=body
+            )
 
-        # Trigger huey task for indexing document pages in Elasticsearch
-        if index_pages:
-            pages = {}
-            for ref_no, page in self.pages.items():
-                pages[ref_no] = page.to_dict()
+            # Trigger huey task for indexing document pages in Elasticsearch
+            if index_pages:
+                pages = {}
+                for ref_no, page in self.pages.items():
+                    pages[ref_no] = page.to_dict()
 
-            index_document_pages(str(self.corpus.id), str(self.id), pages)
+                index_document_pages(str(self.corpus.id), str(self.id), pages)
 
-        if perform_linking:
-            for file_key, file in self.files.items():
-                file.link(corpus_id=self.corpus.id, document_id=self.id)
+            if perform_linking:
+                for file_key, file in self.files.items():
+                    file.link(corpus_id=self.corpus.id, document_id=self.id)
 
-            for ref_no, page in self.pages.items():
-                page.link(corpus_id=self.corpus.id, document_id=self.id)
+                for ref_no, page in self.pages.items():
+                    page.link(corpus_id=self.corpus.id, document_id=self.id)
 
     meta = {
         'indexes':
@@ -1187,7 +1210,7 @@ def get_corpus(corpus_id, only=[]):
         return None
 
 
-def search_corpora(q, sort_fields=[]):
+def search_corpora(q, sort_fields=[], start_record=0, end_record=50):
     search = Search(
         using=get_connection(),
         index="corpora"
@@ -1197,6 +1220,8 @@ def search_corpora(q, sort_fields=[]):
 
     if sort_fields:
         search = search.sort(*sort_fields)
+
+    search = search[start_record:end_record]
 
     print("Searching index corpora")
     print(json.dumps(search.to_dict(), indent=4))

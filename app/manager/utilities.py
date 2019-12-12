@@ -10,8 +10,10 @@ import shutil
 import json
 
 
-def get_scholar_corpora(scholar, only=[]):
+def get_scholar_corpora(scholar, only=[], page=1, page_size=50):
     corpora = []
+    start_record = (page - 1) * page_size
+    end_record = start_record + page_size
 
     if scholar:
         if scholar.is_admin:
@@ -24,7 +26,7 @@ def get_scholar_corpora(scholar, only=[]):
     if corpora and only:
         corpora = corpora.only(only)
 
-    return corpora
+    return corpora[start_record:end_record]
 
 
 def get_scholar_corpus(corpus_id, scholar, only=[]):
@@ -33,53 +35,6 @@ def get_scholar_corpus(corpus_id, scholar, only=[]):
         corpus = get_corpus(corpus_id, only)
 
     return corpus
-
-
-def get_documents(corpus_id, request, response):
-    documents = []
-    corpus = None
-    count = 0
-    num_pages = 0
-    order = "+author"
-    query = None
-    query_type = None
-
-    corpus = get_scholar_corpus(corpus_id, response['scholar'])
-    projection = [field_name for field_name, setting in corpus.field_settings.items() if setting['display']]
-    projection.append("id")
-
-    if corpus:
-        order = _clean(request.GET, 'order', '+author').strip()
-        query = _clean(request.GET, 'query', None)
-        query_type = _clean(request.GET, 'query-type', None)
-
-        if query and query_type:
-            if query_type == 'default':
-                count = Document.objects(corpus=corpus).search_text('"' + query + '"').count()
-                documents = Document.objects(corpus=corpus).search_text('"' + query + '"').order_by('$text_score').only(*projection)
-            else:
-                query_type_field = query_type.replace('__', '.')
-                if query_type_field in corpus.field_settings:
-                    if corpus.field_settings[query_type_field].get('type') == 'int':
-                        try:
-                            query = int(query.strip())
-                        except:
-                            response['errors'].append('Search query must be a number for this field.')
-
-                filters = {
-                    'corpus': corpus,
-                    query_type: query
-                }
-                count = Document.objects(**filters).count()
-                documents = Document.objects(**filters).order_by(order).only(*projection)
-
-        else:
-            count = Document.objects(corpus=corpus).count()
-            documents = Document.objects(corpus=corpus).order_by(order).only(*projection)
-
-        num_pages = ceil(count / response['per_page'])
-
-    return documents[response['start_index']:response['end_index']], count, num_pages
 
 
 def get_document(scholar, corpus_id, document_id, only=[]):
@@ -236,18 +191,6 @@ def get_page_region_content(ocr_file, ocr_type, x, y, width, height):
     return content.strip()
 
 
-def setup_document_directory(corpus_id, document_id):
-    corpus = get_corpus(corpus_id)
-    if corpus:
-        document = corpus.get_document(document_id)
-        if document:
-            document_path = "/corpora/{0}/{1}".format(corpus_id, document_id)
-            os.makedirs(document.path, exist_ok=True)
-            if not document.path or document.path != document_path:
-                document.path = document_path
-                document.update(set__path="/corpora/{0}/{1}".format(corpus_id, document_id))
-
-
 def reset_page_extraction(corpus_id, document_id):
     corpus = get_corpus(corpus_id)
     if corpus:
@@ -275,7 +218,19 @@ def reset_page_extraction(corpus_id, document_id):
             corpus.save()
 
 
-def build_search_query(request, scholar, corpus_id=None):
+def get_corpus_search_results(request, scholar, corpus_id=None, document_id=None):
+    valid_search = False
+    results = {
+        'meta': {
+            'total': 0,
+            'page': 1,
+            'page_size': 50,
+            'num_pages': 1,
+            'has_next_page': False
+        },
+        'records': []
+    }
+    search_results = []
     general_search_query = None
     fields_query = {}
     fields_sort = []
@@ -284,6 +239,7 @@ def build_search_query(request, scholar, corpus_id=None):
     # Users can provide a general search query (q)
     if 'q' in request.GET:
         general_search_query = request.GET['q']
+        valid_search = True
 
     # Users can alternatively provide specific queries per field (q_[field]=query),
     # and can also specify how they want to sort the data (s_[field]=asc/desc)
@@ -291,49 +247,70 @@ def build_search_query(request, scholar, corpus_id=None):
         field_name = query_field[2:]
         if query_field.startswith('q_'):
             fields_query[field_name] = request.GET[query_field]
+            valid_search = True
         elif query_field.startswith('s_'):
             if request.GET[query_field] == 'desc':
                 field_name = '-' + field_name
             fields_sort.append(field_name + '.raw')
+        elif query_field == 'page':
+            results['meta']['page'] = int(request.GET[query_field])
+        elif query_field == 'page-size':
+            results['meta']['page_size'] = int(request.GET[query_field])
 
-    if corpus_id:
+    start_record = (results['meta']['page'] - 1) * results['meta']['page_size']
+    end_record = start_record + results['meta']['page_size']
+
+    if not valid_search:
+        general_search_query = '*'
+        valid_search = True
+
+    if valid_search and corpus_id:
         corpus = get_scholar_corpus(corpus_id, scholar, only=['field_settings'])
+        if corpus:
+            sane = True
+
+            # make sure all fields_query fields are in corpus field settings...
+            for field_name in fields_query.keys():
+                if not (field_name in corpus.field_settings and corpus.field_settings[field_name]['display']):
+                    sane = False
+                    break
+
+            # make sure all fields_sort fields are in corpus field settings...
+            for sort_entry in fields_sort:
+                field_name = sort_entry
+                if sort_entry.startswith('-'):
+                    field_name = field_name[1:]
+                if sort_entry.endswith('.raw'):
+                    field_name = field_name[:-4]
+
+                if field_name in corpus.field_settings and corpus.field_settings[field_name]['sort']:
+                    if corpus.field_settings[field_name]['type'] != 'text' and sort_entry.endswith('.raw'):
+                        fields_sort[fields_sort.index(sort_entry)] = sort_entry[:-4]
+                else:
+                    sane = False
+                    break
+
+            if sane:
+                search_results = corpus.search_documents(general_search_query, fields_query, fields_sort, search_pages, document_id, start_record, end_record)
+
+    elif valid_search:
         sane = True
-
-        # make sure all fields_query fields are in corpus field settings...
-        print(fields_query)
-        for field_name in fields_query.keys():
-            if not (field_name in corpus.field_settings and corpus.field_settings[field_name]['display']):
-                sane = False
-                break
-
-        # make sure all fields_sort fields are in corpus field settings...
-        print(fields_sort)
-        for field_name in fields_sort:
-            if field_name.startswith('-'):
-                field_name = field_name[1:]
-            if field_name.endswith('.raw'):
-                field_name = field_name[:-4]
-
-            if not (field_name in corpus.field_settings and corpus.field_settings[field_name]['sort']):
-                sane = False
-                break
-
-        if sane and (general_search_query or fields_query):
-            return corpus, general_search_query, fields_query, fields_sort, search_pages
-        else:
-            return None, None, None, None, None
-
-    else:
-        sane = True
-
         if fields_sort and not (len(list(fields_sort.keys())) == 1 and ('name.raw' in fields_sort or '-name.raw' in fields_sort)):
             sane = False
 
-        if sane and general_search_query or fields_query:
-            return None, general_search_query, fields_query, fields_sort, False
-        else:
-            return None, None, None, None, None
+        if sane:
+            search_results = search_corpora(general_search_query, fields_sort, start_record, end_record)
+
+    if search_results:
+        results['meta']['total'] = search_results['hits']['total']['value']
+        results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
+        results['meta']['has_next_page'] = results['meta']['num_pages'] > results['meta']['page']
+        for search_result in search_results['hits']['hits']:
+            result = search_result['_source']
+            result['_id'] = { '$oid': search_result['_id'] }
+            results['records'].append(result)
+
+    return results
 
 
 def _get_context(req):

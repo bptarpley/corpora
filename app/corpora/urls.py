@@ -1,21 +1,7 @@
-"""corpora URL Configuration
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/2.1/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
 from django.urls import path
 from manager import views as manager_views
+from cms import views as cms_views
 
 
 urlpatterns = [
@@ -31,19 +17,31 @@ urlpatterns = [
     path('corpus/<str:corpus_id>/document/<str:document_id>/page/<str:ref_no>/file/<str:file_key>', manager_views.get_document_file),
     path('corpus/<str:corpus_id>/document/<str:document_id>/page/<str:ref_no>/image/<str:image_key>', manager_views.get_document_image),
     path('corpus/<str:corpus_id>/document/<str:document_id>/page/<str:ref_no>/image/<str:image_key>/<str:region>/<str:size>/<str:rotation>/<str:quality>.<str:format>', manager_views.get_document_image),
-    path('api/corpora/', manager_views.api_corpora),
-    path('api/corpus/<str:corpus_id>/', manager_views.api_corpus),
+    path('corpus/<str:corpus_id>/document/<str:document_id>/iiif-manifest.json', manager_views.get_document_iiif_manifest),
+    path('corpus/<str:corpus_id>/document/<str:document_id>/page-file-collection/<str:collection>/iiif-manifest.json', manager_views.get_document_iiif_manifest),
+    path('corpus/<str:corpus_id>/document/<str:document_id>/page-file-collection/<str:collection>/page-set/<str:pageset>/iiif-manifest.json', manager_views.get_document_iiif_manifest),
+    path('corpus/<str:corpus_id>/type/', cms_views.type_manager),
+    path('corpus/<str:corpus_id>/type/<str:content_type>/edit/', cms_views.edit_content),
+    path('corpus/<str:corpus_id>/type/<str:content_type>/edit/<str:id>/', cms_views.edit_content),
+    path('corpus/<str:corpus_id>/type/<str:content_type>/view/<str:id>/', cms_views.view_content),
+    path('corpus/<str:corpus_id>/type/<str:content_type>/view/<str:id>/<str:format_extension>', cms_views.view_content),
+    path('corpus/<str:corpus_id>/type/<str:content_type>/list/', cms_views.list_content),
     path('api/search/', manager_views.api_search),
+    path('api/jobsites/', manager_views.api_jobsites),
+    path('api/tasks/', manager_views.api_tasks),
+    path('api/corpus/', manager_views.api_corpora),
+    path('api/corpus/<str:corpus_id>/', manager_views.api_corpus),
     path('api/corpus/<str:corpus_id>/search/', manager_views.api_search),
-    path('api/corpus/<str:corpus_id>/document/<str:document_id>/search/', manager_views.api_search),
-    path('api/corpus/<str:corpus_id>/documents/', manager_views.api_documents),
     path('api/corpus/<str:corpus_id>/jobs/', manager_views.api_corpus_jobs),
+    path('api/corpus/<str:corpus_id>/type/', cms_views.type_schema),
+    path('api/corpus/<str:corpus_id>/type/<str:content_type>/', cms_views.api_content_data),
+    path('api/corpus/<str:corpus_id>/type/<str:content_type>/<str:id>/', cms_views.api_content_data),
+    path('api/corpus/<str:corpus_id>/document/', manager_views.api_documents),
     path('api/corpus/<str:corpus_id>/document/<str:document_id>/', manager_views.api_document),
+    path('api/corpus/<str:corpus_id>/document/<str:document_id>/search/', manager_views.api_search),
     path('api/corpus/<str:corpus_id>/document/<str:document_id>/jobs/', manager_views.api_document_jobs),
     path('api/corpus/<str:corpus_id>/document/<str:document_id>/kvp/<str:key>', manager_views.api_document_kvp),
     path('api/corpus/<str:corpus_id>/document/<str:document_id>/page-file-collections/', manager_views.api_document_page_file_collections),
     path('api/corpus/<str:corpus_id>/document/<str:document_id>/page-file-collection/<str:pfc_slug>', manager_views.api_document_page_file_collections),
     path('api/corpus/<str:corpus_id>/document/<str:document_id>/page/get-region-content/<str:ref_no>/<int:x>/<int:y>/<int:width>/<int:height>/', manager_views.api_page_region_content),
-    path('api/jobsites/', manager_views.api_jobsites),
-    path('api/tasks/', manager_views.api_tasks),
 ]

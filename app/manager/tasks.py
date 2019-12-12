@@ -1,9 +1,11 @@
 import os
+import json
 import importlib
 import time
 import traceback
 import pymysql
-from corpus import Corpus, Document, Page, Job, process_corpus_file, get_corpus, file_path_key
+from copy import deepcopy
+from corpus import Corpus, Document, Page, Job, process_corpus_file, get_corpus, file_path_key, File
 from huey.contrib.djhuey import db_task, db_periodic_task
 from huey import crontab
 from bson.objectid import ObjectId
@@ -15,7 +17,7 @@ from PyPDF2 import PdfFileReader
 from PyPDF2.pdf import ContentStream
 from PyPDF2.generic import TextStringObject, u_, b_
 
-from manager.utilities import setup_document_directory, get_field_value_from_path
+from manager.utilities import _contains
 from django.utils.text import slugify
 from zipfile import ZipFile
 
@@ -274,12 +276,77 @@ def zip_up_page_file_collection(job_id):
 
 
 ###############################
+#   DOCUMENT IMP/EXPORT JOBS
+###############################
+@db_task(priority=2)
+def import_document(corpus_id, document_json_path):
+    # TODO: better handling of KVP importing (some documents erroring out w/ invalid keys)
+    
+    if os.path.exists(document_json_path):
+        with open(document_json_path, 'r') as doc_in:
+            import_doc = json.load(doc_in)
+        if import_doc and _contains(import_doc, [
+            '_id',
+            'title',
+            'author',
+            'pub_date'
+        ]):
+            corpus = get_corpus(corpus_id, only=['id'])
+            doc = Document()
+            doc.corpus = corpus
+            doc.title = import_doc['title']
+            doc.author = import_doc['author']
+            doc.pub_date = import_doc['pub_date']
+            doc.kvp = deepcopy(import_doc['kvp'])
+
+            for key in list(doc.kvp.keys()):
+                if key.startswith('_'):
+                    doc.kvp.pop(key)
+            
+            for file in import_doc['files']:
+                f = File()
+                f.primary_witness = file['primary_facsimile']
+                f.path = file['path']
+                f.basename = file['basename']
+                f.extension = file['extension']
+                f.byte_size = file['byte_size']
+                f.description = file['description']
+                f.provenance_type = file['provenance_type']
+                f.provenance_id = file['provenance_id']
+
+                file_key = file_path_key(f.path)
+                doc.files[file_key] = f
+
+            for page in import_doc['pages']:
+                p = Page()
+                p.ref_no = str(page['ref_no'])
+                p.kvp = page['kvp']
+
+                for file in page['files']:
+                    f = File()
+                    f.primary_witness = file['primary_facsimile']
+                    f.path = file['path']
+                    f.basename = file['basename']
+                    f.extension = file['extension']
+                    f.byte_size = file['byte_size']
+                    f.description = file['description']
+                    f.provenance_type = file['provenance_type']
+                    f.provenance_id = file['provenance_id']
+
+                    file_key = file_path_key(f.path)
+                    p.files[file_key] = f
+
+                doc.pages[p.ref_no] = p
+
+            doc.save()
+
+
+###############################
 #   PDF PAGE EXTRACTION JOBS
 ###############################
 @db_task(priority=2)
 def extract_pdf_pages(job_id):
     job = Job(job_id)
-    setup_document_directory(job.corpus_id, job.document_id)
     pdf_file_path = job.configuration['parameters']['pdf_file']['value']
     image_dpi = job.configuration['parameters']['image_dpi']['value']
     split_images = job.configuration['parameters']['split_images']['value'] == 'Yes'

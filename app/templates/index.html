@@ -41,39 +41,30 @@
 {% endblock %}
 
 {% block main %}
-    <div class="container-fluid mt-4">
-        <div class="row">
+        <div class="row mt-4">
             <div class="col-12">
                 <div class="card mb-3">
                     <div class="card-header">
-                        <h4>Available Corpora</h4>
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <input type="text" class="form-control form-control-sm" id="search-box" placeholder="Search" />
+                        </div>
                     </div>
                     <div class="card-body">
-                        {% if corpora %}
-                            <table class="table">
-                                <thead class="thead-dark">
-                                    <th scope="col">Corpus</th>
-                                    <th scope="col">Description</th>
-                                    <th scope="col"></th>
-                                </thead>
-                                <tbody>
-                                    {% for corpus in corpora %}
-                                        <tr>
-                                            <td>
-                                                <a href="/corpus/{{ corpus.id }}/">{{ corpus.name }}</a>
-                                            </td>
-                                            <td>
-                                                {{ corpus.description }}
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        {% else %}
-                            <div class="alert alert-info">
-                                There are no open access corpora available to view at this time. If you are authorized to access certain corpora, please <a href="/scholar">log in</a>.
-                            </div>
-                        {% endif %}
+                        <table class="table">
+                            <thead class="thead-dark">
+                                <th scope="col">Corpus</th>
+                                <th scope="col">Description</th>
+                            </thead>
+                            <tbody id="corpus-table">
+                                <tr>
+                                    <td colspan="2">
+                                        <div class="alert alert-info">
+                                            Loading corpora...
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                     {% if response.scholar.is_admin %}
                     <div class="card-footer">
@@ -83,30 +74,65 @@
                 </div>
             </div>
         </div>
-    </div>
 {% endblock %}
 
 {% block js %}
 
     <script type="application/javascript">
-        var corpora = null;
+        var corpus_search = {};
 
         $(document).ready(function() {
-            corpora = new Corpora({
-                csrf_token: "{{ csrf_token }}"
-            });
-
-            corpora.get_corpora({}, load_corpora);
+            load_corpora();
 
             $('#corpus-new-button').click(function() {
                 $('#new-corpus-modal').modal();
             });
+
+            $("#search-box").keypress(function(e){
+                let key = e.which;
+                if (key == 13) {
+                    let query = $("#search-box").val();
+                    if (query) {
+                        corpus_search.q = query + '*';
+                    } else {
+                        corpus_search = {};
+                    }
+                    load_corpora();
+                }
+            });
         });
 
-        function load_corpora(corpora_data) {
-            corpora_data.forEach(corpus => {
-                console.log(corpus);
-            });
+        function load_corpora() {
+            corpora.get_corpora(corpus_search, build_corpora);
+        }
+
+        function build_corpora(corpora_data) {
+            let corpus_table = $("#corpus-table");
+            if (corpora_data.meta.total > 0) {
+                corpus_table.html('');
+                corpora_data.records.forEach(corpus => {
+                    corpus_table.append(`
+                        <tr>
+                            <td>
+                                <a href="/corpus/${_id(corpus)}/">${corpus.name}</a>
+                            </td>
+                            <td>
+                                ${corpus.description}
+                            </td>
+                        </tr>
+                    `);
+                });
+            } else {
+                corpus_table.html(`
+                    <tr>
+                        <td colspan="2">
+                            <div class="alert alert-info">
+                                There are no open access corpora available to view at this time. If you are authorized to access certain corpora, please <a href="/scholar">log in</a>.
+                            </div>
+                        </td>
+                    </tr>
+                `);
+            }
         }
     </script>
 

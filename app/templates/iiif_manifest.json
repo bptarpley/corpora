@@ -1,7 +1,7 @@
 {% load extras %}
 {
 	"@context": "http://iiif.io/api/presentation/2/context.json",
-	"@id": "{{ host }}/corpus/{{ document.corpus.id }}/document/{{ document.id }}/iiif-manifest?pageset={{ pageset }}&collection={{ collection }}",
+	"@id": "{{ host }}/corpus/{{ document.corpus.id }}/document/{{ document.id }}/page-file-collection/{{ collection }}/page-set/{{ pagest }}/iiif-manifest.json",
 	"@type": "sc:Manifest",
 	"label": "{{ document.title }}",
 	"attribution": "Center of Digital Humanities Research at Texas A&M University",
@@ -11,7 +11,7 @@
 	"metadata": [
 		{
 			"label":"Identifier",
-			"value":"http://corpora.dh.tamu.edu/corpus/{{ document.corpus.id }}/document/{{ document.id }}"
+			"value":"{{ host }}/corpus/{{ document.corpus.id }}/document/{{ document.id }}/"
 		},
 		{
 			"label":"Title",
@@ -36,7 +36,7 @@
 	],
 	"related": [
 		{
-			"@id": "{{ host }}/corpus/{{ document.corpus.id }}/document/{{ document.id }}",
+			"@id": "{{ host }}/corpus/{{ document.corpus.id }}/document/{{ document.id }}/",
 			"format": "text/html",
 			"label": "View document in Corpora"
 		}
@@ -83,7 +83,7 @@
 	{% endif %}
 	"sequences" : [
 		{
-			"@id":"{{ host }}/corpus/{{ document.corpus.id }}/document/{{ document.id }}/iiif-manifest?pageset={{ pageset }}&collection={{ collection }}&component=sequence",
+			"@id":"{{ host }}/corpus/{{ document.corpus.id }}/document/{{ document.id }}/page-file-collection/{{ collection }}/page-set/{{ pagest }}/iiif-manifest.json?component=sequence",
 			"@type":"sc:Sequence",
 			"label":"Current Page Order",
 			"viewingHint":"paged",
@@ -91,24 +91,24 @@
 			"canvases": [
 				{% for ref_no, page in document.ordered_pages %}
 				{
-					"@id":"{{ host }}/corpus/{{ document.corpus.id }}/document/{{ document.id }}/iiif-manifest?pageset={{ pageset }}&collection={{ collection }}&component=canvas",
+					"@id":"{{ host }}/corpus/{{ document.corpus.id }}/document/{{ document.id }}/page-file-collection/{{ collection }}/page-set/{{ pagest }}/iiif-manifest.json?component=canvas-{{ ref_no }}",
 					"@type":"sc:Canvas",
-					"label":"-",
+					"label":"{{ ref_no }}",
 					"width": {{ canvas_width }},
 					"height": {{ canvas_height }},
 					"images":[
 						{
                             "resource": {
                                 "service": {
-                                    "@id": "{{ host }}/corpus/{{ document.corpus.id }}/document/{{ document.id }}/pages/{{ ref_no }}/images/{{ nope }}",
+                                    "@id": "{{ host }}/corpus/{{ document.corpus.id }}/document/{{ document.id }}/page/{{ ref_no }}/image/{{ page.image_key }}",
                                     "@context": "http://iiif.io/api/image/2/context.json",
                                     "profile": "http://iiif.io/api/image/2/level1.json"
                                 },
-                                "@id": "http://iiif.dh.tamu.edu/iiif/2/agrippa%2Fagrippa_lighted_tiffs%2Fagrippa_lighted_173.tif",
+                                "@id": "{{ host }}/corpus/{{ document.corpus.id }}/document/{{ document.id }}/page/{{ ref_no }}/image/{{ page.image_key }}",
                                 "@type": "dctypes:Image",
-                                "width": 4800,
-                                "height": 7200,
-                                "format": "image/tiff"
+                                "width": {{ page.image_width }},
+                                "height": {{ page.image_height }},
+                                "format": "{{ page.image_mime_type }}"
                             },
                             "@type": "oa:Annotation",
                             "motivation": "sc:painting",

@@ -1,0 +1,326 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block modals %}
+    <!-- CONTENT TYPE MODAL -->
+    <div class="modal fade" id="new-ct-modal" tabindex="-1" role="dialog" aria-labelledby="new-ct-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="new-ct-modal-label">Create New Content Type</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="new-ct-index" value="new">
+                    <div class="form-group">
+                        <label for="new-ct-name-box">Name</label>
+                        <input id="new-ct-name-box" type="text" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-ct-plural-name-box">Plural Name</label>
+                        <input id="new-ct-plural-name-box" type="text" class="form-control">
+                    </div>
+                    <div class="form-check">
+                        <input id="new-ct-nav-checkbox" type="checkbox" value="" class="form-check-input" checked>
+                        <label for="new-ct-nav-checkbox">Include in Navigation?</label>
+                    </div>
+                    <div id="new-ct-proxy-field-div" class="form-group d-none">
+                        <label for="new-ct-proxy-field-selector">Proxy For</label>
+                        <select id="new-ct-proxy-field-selector" class="form-control"></select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="new-ct-create-button">Create</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FIELD MODAL -->
+    <div class="modal fade" id="new-f-modal" tabindex="-1" role="dialog" aria-labelledby="new-f-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="new-f-modal-label">Create New Field</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <input id="new-f-ct-id" type="hidden" value="new">
+                    <input id="new-f-f-id" type="hidden" value="new">
+                    <input id="new-f-action" type="hidden" value="create">
+                    <div class="form-group">
+                        <label for="new-f-name-box">Name</label>
+                        <input id="new-f-name-box" type="text" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-f-label-box">Label</label>
+                        <input id="new-f-label-box" type="text" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-f-type-box">Type</label>
+                        <select id="new-f-type-box">
+                            <option value="text" selected>Text</option>
+                            <option value="html">HTML</option>
+                            <option value="number">Number</option>
+                            <option value="date">Date</option>
+                            <option value="image">Image</option>
+                            <option value="link">Link</option>
+                            <option value="file">File Upload</option>
+                            <option value="cross_reference">Cross Reference</option>
+                        </select>
+                        <select id="new-f-cross-reference-box" class="d-none">
+                            <!-- Populated via Javascript /-->
+                        </select>
+                    </div>
+                    <div class="form-check">
+                        <input id="new-f-in-lists-checkbox" type="checkbox" value="" class="form-check-input">
+                        <label for="new-f-in-lists-checkbox">Include in Lists?</label>
+                    </div>
+                    <div class="form-check">
+                        <input id="new-f-indexed-checkbox" type="checkbox" value="" class="form-check-input">
+                        <label for="new-f-indexed-checkbox">Indexed?</label>
+                    </div>
+                    <div id="new-f-indexed-with-div" class="form-group align-items-start d-none">
+                        <label for="new-f-indexed-with-box">with:&nbsp;</label>
+                        <select id="new-f-indexed-with-box" class="f-with w-50" multiple>
+                            <!-- Populated via Javascript /-->
+                        </select>
+                    </div>
+                    <div class="form-check">
+                        <input id="new-f-unique-checkbox" type="checkbox" value="" class="form-check-input">
+                        <label for="new-f-unique-checkbox">Unique?</label>
+                    </div>
+                    <div id="new-f-unique-with-div" class="form-group align-items-start d-none">
+                        <label for="new-f-unique-with-box">with:&nbsp;</label>
+                        <select id="new-f-unique-with-box" class="f-with w-50" multiple>
+                            <!-- Populated via Javascript /-->
+                        </select>
+                    </div>
+                    <div class="form-check">
+                        <input id="new-f-multiple-checkbox" type="checkbox" value="" class="form-check-input">
+                        <label for="new-f-multiple-checkbox">Multiple?</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="new-f-create-button">Create</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TEMPLATE MODAL -->
+    <div class="modal fade" id="template-modal" tabindex="-1" role="dialog" aria-labelledby="template-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="template-modal-label">Edit Template</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="template-ct-id" value="">
+                    <input type="hidden" id="template-type" value="">
+                    <h6 id="template-type-label">View Template</h6>
+                    <ul id="template-modal-tablist" class="nav nav-tabs" role="tablist">
+                    </ul>
+                    <div id="template-modal-tabs" class="tab-content">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="template-regenerate-button">Regenerate</button>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="template-save-button">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TEMPLATE FORMAT MODAL -->
+    <div class="modal fade" id="template-format-modal" tabindex="-1" role="dialog" aria-labelledby="template-format-modal-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="template-format-modal-label">Manage Template Formats</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <label>Current Formats</label>
+                    <table class="table table-striped">
+                        <thead class="thead-dark">
+                            <th scope="col">Format</th>
+                            <th scope="col">Extension</th>
+                            <th scope="col">MIME Type</th>
+                        </thead>
+                        <tbody id="template-format-modal-table-body">
+                            <tr><td>Loading...</td></tr>
+                        </tbody>
+                    </table>
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="edit-field form-group">
+                            <label for="template-format-modal-label-box">Label</label>
+                            <input type="text" class="form-control" id="template-format-modal-label-box" name="new-format-label">
+                        </div>
+                        <div class="edit-field form-group">
+                            <label for="template-format-modal-extension-box">Extension</label>
+                            <input type="text" class="form-control" id="template-format-modal-extension-box" name="new-format-extension">
+                        </div>
+                        <div class="edit-field form-group">
+                            <label for="template-format-modal-mimetype-box">MIME Type</label>
+                            <input type="text" class="form-control" id="template-format-modal-mimetype-box" name="new-format-mimetype">
+                        </div>
+                        <input type="submit" class="btn btn-primary" value="Register New Format">
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCHEMA MODAL -->
+    <div class="modal fade" id="import-modal" tabindex="-1" role="dialog" aria-labelledby="import-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="import-modal-label">Import Schema</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="import-editor" style="height: 400px;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="import-button">Import</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONFIRMATION MODAL -->
+    <div class="modal fade" id="confirmation-modal" tabindex="-1" role="dialog" aria-labelledby="confirmation-modal-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="confirmation-modal-label">Confirm Deletion</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="confirmation-ct-index" value="">
+                        <input type="hidden" id="confirmation-ct-name" name="content_type" value="">
+                        <input type="hidden" id="confirmation-field-index" value="">
+                        <input type="hidden" id="confirmation-field-name" name="field" value="">
+                        <input type="hidden" id="confirmation-action" name="action" value="">
+                        <div id="confirmation-modal-message" class="alert alert-danger"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="confirmation-confirm-button">Confirm</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block main %}
+    <div class="container-fluid mt-4">
+        <div class="row mt-3">
+            <div class="col">
+                <div id="type-manager-div" class="card">
+                    <div class="card-header">
+                        <h2>Content Type Manager</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group" id="tm-ct-group">
+                            <div class="alert alert-info">No Content Types have been defined.</div>
+                        </div>
+                    </div>
+                    <div class="card-footer d-flex justify-content-between">
+                        <span>
+                            <button type="button" class="btn btn-primary mr-2" id="new-ct-button">New Content Type</button>
+                            <button type="button" title="Import Schema" class="btn btn-secondary" id="show-import-modal-button"><span class="fas fa-file-import"></span></button>
+                            <a role="button" title="Export Schema" class="btn btn-secondary" href="/get-schema/content/" download="schema"><span class="fas fa-file-export"></span></a>
+                            <button type="button" class="btn btn-secondary ml-2" id="manage-template-formats-button">Manage Template Formats</button>
+                        </span>
+                        <span>
+                            <button type="button" class="btn btn-secondary" id="cancel-button">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="save-button">Save Changes</button>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <form id="schema-form" method="post">
+            {% csrf_token %}
+            <input id="schema" type="hidden" name="schema" value="{}">
+        </form>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'js/ace/ace.js' %}"></script>
+    <script src={% static 'js/beautify/beautify.js' %}></script>
+    <script src={% static 'js/beautify/beautify-css.js' %}></script>
+    <script src={% static 'js/beautify/beautify-html.js' %}></script>
+    <script src="{% static 'js/type_manager.js' %}"></script>
+    <script type="application/javascript">
+        var corpus_id = '{{ corpus_id }}';
+        var type_manager;
+        var import_editor;
+        var template_editors = {};
+
+        $(document).ready(function() {
+            $.get(`/api/corpus/${corpus_id}/type/`, function(data) {
+                type_manager = new TypeManager('type-manager-div', corpus_id, data.content_types, data.template_formats);
+                import_editor = ace.edit("import-editor");
+                import_editor.setTheme("ace/theme/monokai");
+                import_editor.getSession().setMode("ace/mode/json");
+
+                $('#show-import-modal-button').click(function() {
+                    import_editor.setValue('');
+                    $('#import-modal-label').html('Import Schema');
+                    $('#import-button').removeClass('d-none');
+                    $('#import-modal').modal();
+                });
+
+                $('#import-button').click(function() {
+                    let import_schema = JSON.parse(import_editor.getValue());
+                    for (let x = 0; x < import_schema.content_types.length; x++) {
+                        import_schema.content_types[x].id = '';
+                        type_manager.add_content_type(null, import_schema.content_types[x]);
+                    }
+
+                    $('#import-modal').modal('hide');
+                });
+
+                $('#manage-template-formats-button').click(function() {
+                    $('#template-format-modal').modal();
+                });
+
+                $('#save-button').click(function() {
+                    $('#schema').val(type_manager.to_json());
+                    $('#schema-form').submit();
+                });
+
+
+            });
+        });
+    </script>
+{% endblock %}

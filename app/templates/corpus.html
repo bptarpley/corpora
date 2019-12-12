@@ -12,7 +12,7 @@
 {% endblock %}
 
 {% block modals %}
-    <!-- Field Settings Modal -->
+    <!-- DOCUMENT FIELD SETTINGS MODAL -->
     <div class="modal fade" id="field-settings-modal" tabindex="-1" role="dialog" aria-labelledby="field-settings-modal-label" aria-hidden="true">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
@@ -50,7 +50,7 @@
         </div>
     </div>
 
-    <!-- New Document Modal -->
+    <!-- NEW DOCUMENT MODAL -->
     <div class="modal fade" id="new-document-modal" tabindex="-1" role="dialog" aria-labelledby="new-document-modal-label" aria-hidden="true">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
@@ -93,11 +93,246 @@
             </div>
         </div>
     </div>
+
+    <!-- CONTENT TYPE MODAL -->
+    <div class="modal fade" id="new-ct-modal" tabindex="-1" role="dialog" aria-labelledby="new-ct-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="new-ct-modal-label">Create New Content Type</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="new-ct-index" value="new">
+                    <div class="form-group">
+                        <label for="new-ct-name-box">Name</label>
+                        <input id="new-ct-name-box" type="text" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-ct-plural-name-box">Plural Name</label>
+                        <input id="new-ct-plural-name-box" type="text" class="form-control">
+                    </div>
+                    <div class="form-check">
+                        <input id="new-ct-nav-checkbox" type="checkbox" value="" class="form-check-input" checked>
+                        <label for="new-ct-nav-checkbox">Include in Navigation?</label>
+                    </div>
+                    <div id="new-ct-proxy-field-div" class="form-group d-none">
+                        <label for="new-ct-proxy-field-selector">Proxy For</label>
+                        <select id="new-ct-proxy-field-selector" class="form-control"></select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="new-ct-create-button">Create</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FIELD MODAL -->
+    <div class="modal fade" id="new-f-modal" tabindex="-1" role="dialog" aria-labelledby="new-f-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="new-f-modal-label">Create New Field</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <input id="new-f-ct-id" type="hidden" value="new">
+                    <input id="new-f-f-id" type="hidden" value="new">
+                    <input id="new-f-action" type="hidden" value="create">
+                    <div class="form-group">
+                        <label for="new-f-name-box">Name</label>
+                        <input id="new-f-name-box" type="text" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-f-label-box">Label</label>
+                        <input id="new-f-label-box" type="text" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-f-type-box">Type</label>
+                        <select id="new-f-type-box">
+                            <option value="text" selected>Text</option>
+                            <option value="html">HTML</option>
+                            <option value="number">Number</option>
+                            <option value="date">Date</option>
+                            <option value="image">Image</option>
+                            <option value="link">Link</option>
+                            <option value="file">File Upload</option>
+                            <option value="cross_reference">Cross Reference</option>
+                        </select>
+                        <select id="new-f-cross-reference-box" class="d-none">
+                            <!-- Populated via Javascript /-->
+                        </select>
+                    </div>
+                    <div class="form-check">
+                        <input id="new-f-in-lists-checkbox" type="checkbox" value="" class="form-check-input">
+                        <label for="new-f-in-lists-checkbox">Include in Lists?</label>
+                    </div>
+                    <div class="form-check">
+                        <input id="new-f-indexed-checkbox" type="checkbox" value="" class="form-check-input">
+                        <label for="new-f-indexed-checkbox">Indexed?</label>
+                    </div>
+                    <div id="new-f-indexed-with-div" class="form-group align-items-start d-none">
+                        <label for="new-f-indexed-with-box">with:&nbsp;</label>
+                        <select id="new-f-indexed-with-box" class="f-with w-50" multiple>
+                            <!-- Populated via Javascript /-->
+                        </select>
+                    </div>
+                    <div class="form-check">
+                        <input id="new-f-unique-checkbox" type="checkbox" value="" class="form-check-input">
+                        <label for="new-f-unique-checkbox">Unique?</label>
+                    </div>
+                    <div id="new-f-unique-with-div" class="form-group align-items-start d-none">
+                        <label for="new-f-unique-with-box">with:&nbsp;</label>
+                        <select id="new-f-unique-with-box" class="f-with w-50" multiple>
+                            <!-- Populated via Javascript /-->
+                        </select>
+                    </div>
+                    <div class="form-check">
+                        <input id="new-f-multiple-checkbox" type="checkbox" value="" class="form-check-input">
+                        <label for="new-f-multiple-checkbox">Multiple?</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="new-f-create-button">Create</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TEMPLATE MODAL -->
+    <div class="modal fade" id="template-modal" tabindex="-1" role="dialog" aria-labelledby="template-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="template-modal-label">Edit Template</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="template-ct-id" value="">
+                    <input type="hidden" id="template-type" value="">
+                    <h6 id="template-type-label">View Template</h6>
+                    <ul id="template-modal-tablist" class="nav nav-tabs" role="tablist">
+                    </ul>
+                    <div id="template-modal-tabs" class="tab-content">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="template-regenerate-button">Regenerate</button>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="template-save-button">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TEMPLATE FORMAT MODAL -->
+    <div class="modal fade" id="template-format-modal" tabindex="-1" role="dialog" aria-labelledby="template-format-modal-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="template-format-modal-label">Manage Template Formats</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <label>Current Formats</label>
+                    <table class="table table-striped">
+                        <thead class="thead-dark">
+                            <th scope="col">Format</th>
+                            <th scope="col">Extension</th>
+                            <th scope="col">MIME Type</th>
+                        </thead>
+                        <tbody id="template-format-modal-table-body">
+                            <tr><td>Loading...</td></tr>
+                        </tbody>
+                    </table>
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="edit-field form-group">
+                            <label for="template-format-modal-label-box">Label</label>
+                            <input type="text" class="form-control" id="template-format-modal-label-box" name="new-format-label">
+                        </div>
+                        <div class="edit-field form-group">
+                            <label for="template-format-modal-extension-box">Extension</label>
+                            <input type="text" class="form-control" id="template-format-modal-extension-box" name="new-format-extension">
+                        </div>
+                        <div class="edit-field form-group">
+                            <label for="template-format-modal-mimetype-box">MIME Type</label>
+                            <input type="text" class="form-control" id="template-format-modal-mimetype-box" name="new-format-mimetype">
+                        </div>
+                        <input type="submit" class="btn btn-primary" value="Register New Format">
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCHEMA MODAL -->
+    <div class="modal fade" id="import-modal" tabindex="-1" role="dialog" aria-labelledby="import-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="import-modal-label">Import Schema</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="import-editor" style="height: 400px;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="import-button">Import</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONFIRMATION MODAL -->
+    <div class="modal fade" id="confirmation-modal" tabindex="-1" role="dialog" aria-labelledby="confirmation-modal-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="confirmation-modal-label">Confirm Deletion</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="confirmation-ct-index" value="">
+                        <input type="hidden" id="confirmation-ct-name" name="content_type" value="">
+                        <input type="hidden" id="confirmation-field-index" value="">
+                        <input type="hidden" id="confirmation-field-name" name="field" value="">
+                        <input type="hidden" id="confirmation-action" name="action" value="">
+                        <div id="confirmation-modal-message" class="alert alert-danger"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="confirmation-confirm-button">Confirm</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block main %}
-    <div class="container-fluid mt-4">
-        <div class="row">
+        <div class="row mt-4">
 
             <!-- METADATA -->
             <div class="col-6">
@@ -108,18 +343,18 @@
                     <div class="card-body">
                         <div class="row">
                             <div class="col-12">
-                                <div class="list-group">
+                                <div id="corpus-metadata-div" class="list-group">
                                     <div class="list-group-item">
                                         <h5>Name</h5>
-                                        {{ corpus.name }}
+                                        <span id="corpus-name-span"></span>
                                     </div>
                                     <div class="list-group-item">
                                         <h5>Description</h5>
-                                        {{ corpus.description }}
+                                        <span id="corpus-desc-span"></span>
                                     </div>
                                     <div class="list-group-item">
                                         <h5>Path</h5>
-                                        {{ corpus.path }}
+                                        <span id="corpus-path-span"></span>
                                     </div>
                                 </div>
                             </div>
@@ -148,51 +383,49 @@
             <!-- DOCUMENTS -->
             <div class="col-12">
                 <div class="card">
-                    <div class="card-header">
-                        <div class="d-flex w-100 justify-content-between align-items-center">
+                    <div class="card-header" style="padding: 0 !important;">
+                        <div class="d-flex w-100 justify-content-between align-items-center text-nowrap" style="padding: 0.75rem 1.25rem;">
                             <h4>Documents</h4>
-                            <div class="input-group ml-4 mr-4">
-                                <input type="text" class="form-control form-control-sm" id="search-box" placeholder="Search" />
+                            <div class="input-group ml-2 mr-2">
+                                <input type="text" class="form-control form-control" id="search-box" placeholder="Search" />
                                 <div class="input-group-append">
-                                    <button id="search-setting-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Title/Author</button>
-                                    <div class="dropdown-menu">
-                                        <a class="dropdown-item search-setting" id="search-setting-default" href="#">Title/Author</a>
-                                        {% for field_name, setting in corpus.field_settings.items %}
-                                            {% if setting.search %}
-                                                <a class="dropdown-item search-setting" id="search-setting-{{ field_name }}" href="#">{{ setting.label }}</a>
-                                            {% endif %}
-                                        {% endfor %}
+                                    <button id="search-setting-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">All Fields</button>
+                                    <div id="search-settings-menu" class="dropdown-menu">
+                                        <a class="dropdown-item search-setting" id="search-setting-default" href="#">All Fields</a>
                                     </div>
-                                    <button id="search-clear-button" class="btn btn-primary rounded ml-4 d-none" type="button">Clear Search</button>
-                                    <button id="new-document-button" class="btn btn-primary rounded ml-4" type="button">New Document</button>
                                     <input type="hidden" id="search-setting-value" value="default" />
                                 </div>
                             </div>
 
-                            <div class="form-inline mr-4">
+                            <button id="search-clear-button" class="btn btn-primary rounded mr-2 d-none" type="button">Clear Search</button>
+                            <button id="new-document-button" class="btn btn-primary rounded mr-2" type="button">New Document</button>
+
+                            <div class="form-inline mr-2">
                                 <select class="form-control btn-primary d-none" id="page-selector">
-                                    {% for page in page_range %}
-                                        <option value="{{ page }}" {% if page == current_page %}selected{% endif %}>Page {{ page }}</option>
-                                    {% endfor %}
                                 </select>
                             </div>
 
-                            <a href="javascript: edit_settings();"><h4 class="oi oi-cog mr-4"></h4></a>
+                            <div class="form-inline mr-2">
+                                <select class="form-control btn-primary" id="per-page-selector">
+                                    <option selected>5</option>
+                                    <option>10</option>
+                                    <option>20</option>
+                                    <option>50</option>
+                                </select>
+                            </div>
+
+                            <a href="javascript: edit_settings();"><h4 class="fas fa-cog mr-4"></h4></a>
                         </div>
+                        <div id="current-search-div" class="d-flex w-100 align-items-center p-2 pl-3 badge-secondary" style="padding-top: 12px !important;"></div>
                     </div>
                     <div class="card-body">
                         <table class="table table-striped">
                             <thead class="thead-dark">
-                                <th scope="col">
-                                    <input type="checkbox" class="checkbox" id="select-all-box" />
-                                </th>
-                                {% for field_name, setting in corpus.field_settings.items %}
-                                    {% if setting.display %}
-                                        <th scope="col" {% if setting.width %}style="width: {{ setting.width }};"{% endif %}>
-                                            <a href="javascript: order_by('{{ field_name }}');"><h5>{{ setting.label }}</h5></a>
-                                        </th>
-                                    {% endif %}
-                                {% endfor %}
+                                <tr id="document-table-header-row">
+                                    <th scope="col">
+                                        <input type="checkbox" class="checkbox" id="select-all-box" />
+                                    </th>
+                                </tr>
                             </thead>
                             <tbody id="document-table-body">
                                 <!-- contents populated via javascript load_documents() function below -->
@@ -201,8 +434,36 @@
                     </div>
                 </div>
             </div>
+
         </div>
-    </div>
+        <div id="content-types-div" class="row">
+
+        </div>
+        <div class="row">
+            <div class="col">
+                <div id="type-manager-div" class="card mt-4">
+                    <div class="card-header">
+                        <h4>Content Type Manager</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group" id="tm-ct-group">
+                            <div class="alert alert-info">No Content Types have been defined.</div>
+                        </div>
+                    </div>
+                    <div class="card-footer d-flex justify-content-between">
+                        <span>
+                            <button type="button" class="btn btn-primary mr-2" id="new-ct-button">New Content Type</button>
+                            <button type="button" title="Import Schema" class="btn btn-secondary" id="show-import-modal-button"><span class="fas fa-file-import"></span></button>
+                            <a role="button" title="Export Schema" class="btn btn-secondary" href="/get-schema/content/" download="schema"><span class="fas fa-file-export"></span></a>
+                            <button type="button" class="btn btn-secondary ml-2" id="manage-template-formats-button">Manage Template Formats</button>
+                        </span>
+                        <span>
+                            <button type="button" class="btn btn-primary" id="save-content-type-schema-button">Save Changes</button>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
     <div id="job-box" class="d-none">
         <div class="card">
@@ -221,7 +482,7 @@
                         <select id="jobsite-selector" class="form-control" name="jobsite">
                         </select>
                     </div>
-                    <div id="task-selector-div" class="form-group d-none">
+                    <div id="task-selector-div" class="form-group">
                         <label for="task-selector">Select a Task:</label>
                         <select id="task-selector" class="form-control" name="task">
                         </select>
@@ -235,240 +496,677 @@
 
 {% block js %}
     <script src="{% static 'js/ace/ace.js' %}"></script>
+    <script src={% static 'js/beautify/beautify.js' %}></script>
+    <script src={% static 'js/beautify/beautify-css.js' %}></script>
+    <script src={% static 'js/beautify/beautify-html.js' %}></script>
+    <script src="{% static 'js/handlebars.min-v4.5.3.js' %}"></script>
     <script type="application/javascript">
-        var field_settings = {% if corpus.field_settings %}{{ corpus.field_settings|jsonify|safe }}{% else %}{}{% endif %};
-        var settings_editor;
-        var query = '';
-        var query_type = '';
-        var page = 1;
-        var order = '';
-        var query_string = build_query_string();
-        var selected_docs = [];
+        var corpus_id = "{{ corpus_id }}";
+        var corpus = null;
+        var content_types = null;
+        var template_formats = null;
+        var ct_search = {};
+        var jobsites = [];
         var tasks = [];
+        var documents_search = {
+            'page': 1,
+            'page-size': 5,
+            's_author': "asc",
+            's_title': "asc"
+        };
+        var settings_editor;
+        var selected_docs = [];
+        var type_manager;
+        var import_editor;
+        var template_editors = {};
 
+        // fires once HTML DOM has loaded
         $(document).ready(function() {
-            load_documents();
-            load_jobsites();
+            // query corpora api for corpus data
+            corpora.get_corpus(corpus_id, function(corpus_data) {
+                corpus = corpus_data;
+
+                // core metadata
+                $('#corpus-name-span').html(corpus.name);
+                $('#corpus-desc-span').html(corpus.description);
+                $('#corpus-path-span').html(corpus.path);
+
+                // user metadata
+                let corpus_metadata_div = $('#corpus-metadata-div');
+                for (let key in corpus.kvp) {
+                    if (!key.startsWith("_") && (typeof(corpus.kvp[key]) == "string" || typeof(corpus.kvp[key]) == "boolean")) {
+                        corpus_metadata_div.append(`
+                            <div class="list-group-item">
+                                <h5>${key}</h5>
+                                ${corpus.kvp[key]}
+                            </div>
+                        `);
+                    }
+                }
+
+                // setup documents table headers
+                let table_header_row = $("#document-table-header-row");
+                for (let field_name in corpus.field_settings) {
+                    if (corpus.field_settings.hasOwnProperty(field_name)) {
+                        if (corpus.field_settings[field_name].display) {
+                            let width = "";
+                            if (corpus.field_settings[field_name].hasOwnProperty('width')) {
+                                width = `style="width: ${corpus.field_settings[field_name].width};"`;
+                            }
+
+                            table_header_row.append(`
+                                <th scope="col" ${width}>
+                                    <a href="javascript: order_by('${field_name}');"><h5>${corpus.field_settings[field_name].label}</h5></a>
+                                </th>
+                            `);
+                        }
+                    }
+                }
+
+                // setup search fields
+                let search_settings_menu = $("#search-settings-menu");
+                for (let field in corpus.field_settings) {
+                    if (corpus.field_settings.hasOwnProperty(field)) {
+                        if (corpus.field_settings[field].search) {
+                            search_settings_menu.append(`
+                                <a class="dropdown-item search-setting" id="search-setting-${field}" href="#">${corpus.field_settings[field].label}</a>
+                            `);
+                        }
+                    }
+                }
+
+                // setup event for selecting specific document search field
+                $(".search-setting").click(function(event) {
+                    event.preventDefault();
+                    let field = event.target.id.replace('search-setting-', '');
+                    let label = $(this).text();
+
+                    $("#search-setting-selection").text(label);
+                    $("#search-setting-value").val(field);
+                });
+
+                // setup event for selecting a page of document results
+                $("#page-selector").on("change", function() {
+                    // modify the documents_search object which keeps track of the parameters sent to document api
+                    documents_search.page = parseInt($("#page-selector").val());
+
+                    // this line of code will appear frequently--it queries document api and reloads documents table
+                    corpora.get_documents(corpus_id, documents_search, load_documents);
+                });
+
+                // setup event for selecting a page size of document results
+                $("#per-page-selector").on("change", function() {
+                    documents_search['page-size'] = parseInt($("#per-page-selector").val());
+                    corpora.get_documents(corpus_id, documents_search, load_documents);
+                });
+
+                // setup event for pressing enter when typing in document search box
+                $("#search-box").keypress(function(e){
+                    let key = e.which;
+                    if (key === 13) {
+                        let query = $("#search-box").val();
+                        let field = $("#search-setting-value").val();
+
+                        if (field === 'default') {
+                            documents_search['q'] = query;
+                        } else {
+                            documents_search['q_' + field] = query;
+                        }
+
+                        $("#search-clear-button").removeClass('d-none');
+                        corpora.get_documents(corpus_id, documents_search, load_documents);
+                    }
+                });
+
+                // setup event for clicking "Clear Search"
+                $("#search-clear-button").click(function(event) {
+                    $("#search-box").val('');
+                    for (let param in documents_search) {
+                        if (documents_search.hasOwnProperty(param)) {
+                            if (param.startsWith("q")) {
+                                delete documents_search[param];
+                            }
+                        }
+                    }
+                    $("#search-setting-selection").text("All Fields");
+                    $("#search-setting-value").val('default');
+
+                    corpora.get_documents(corpus_id, documents_search, load_documents);
+                });
+
+                // perform initial load of documents
+                corpora.get_documents(corpus_id, documents_search, load_documents);
+
+                // setup jobsites for bulk job running
+                corpora.get_jobsites(function(jobsite_data) {
+                    jobsites = jobsite_data;
+                    let jobsite_selector = $("#jobsite-selector");
+                    let first_jobsite = true;
+                    jobsites.forEach(jobsite => {
+                        if (first_jobsite) {
+                            load_jobsite_tasks(_id(jobsite));
+                            first_jobsite = false;
+                        }
+                        jobsite_selector.append(`
+                            <option value="${_id(jobsite)}">${jobsite.name}</option>
+                        `);
+                    });
+                });
+            });
+
+            // this function will query corpora api for custom content types schema, load that schema into the
+            // type manager, and build the content type tables
+            load_content_types();
 
             settings_editor = ace.edit("settings-editor");
             settings_editor.setTheme("ace/theme/monokai");
             settings_editor.getSession().setMode("ace/mode/json");
-
-            // Fix id's for search types
-            $(".search-setting").each(function() {
-                let id = $(this).attr('id');
-                $(this).attr('id', id.replace('.', '__'));
-            });
-
-            if (query && query_type) {
-                let label = "Title/Author";
-                if (query_type != "default") {
-                    label = $("#search-setting-" + query_type).text();
-                }
-                $("#search-setting-selection").text(label);
-                $("#search-setting-value").val(query_type);
-                $("#search-box").val(query);
-                $("#search-clear-button").removeClass("d-none");
-                $("#search-clear-button").click(function() {
-                    window.location.href = "/corpus/{{ corpus.id }}/";
-                });
-            }
-
-            $("#page-selector").on("change", function() {
-                page = $("#page-selector").val();
-                load_documents();
-            });
-
-            $(".search-setting").click(function(event) {
-                let field = event.target.id.replace('search-setting-', '');
-                let label = $(this).text();
-
-                $("#search-setting-selection").text(label);
-                $("#search-setting-value").val(field);
-            });
-
-            $("#search-box").keypress(function(e){
-                let key = e.which;
-                if (key == 13) {
-                    query = $("#search-box").val();
-                    query_type = $("#search-setting-value").val();
-                    $("#search-clear-button").removeClass('d-none');
-                    load_documents();
-                }
-            });
-
-            $("#search-clear-button").click(function(event) {
-                $("#search-box").val('');
-                query = '';
-                query_type = '';
-                load_documents();
-            });
 
             $("#new-document-button").click(function(event) {
                 $("#new-document-modal").modal();
             });
 
             $("#jobsite-selector").on("change", function() {
-                load_tasks($('#jobsite-selector :selected').attr('class'));
+                load_jobsite_tasks($('#jobsite-selector :selected').val());
             });
 
 
         });
 
-        function build_query_string() {
-            let query_string = '';
-            if ((query && query_type) || page || order) {
-                query_string += '?';
+        function load_documents(document_data) {
+            let document_table_body = $("#document-table-body");
+            let page_selector = $("#page-selector");
+            let per_page_selector = $("#per-page-selector");
+            let current_search_div = $("#current-search-div");
 
-                if (query && query_type) {
-                    query_string += 'query=' + query + '&query-type=' + query_type + '&';
-                }
-                if (page) {
-                    query_string += 'page=' + page + '&';
-                }
-                if (order) {
-                    query_string += 'order=' + order + '&';
-                }
+            document_table_body.html('');
+            page_selector.html('');
+            current_search_div.html('');
 
-                if (query_string) {
-                    query_string = query_string.slice(0, query_string.length - 1);
+            let has_search_param = false;
+            for (let search_setting in documents_search) {
+                if (documents_search.hasOwnProperty(search_setting) && (search_setting === 'q' || search_setting.startsWith('q_') || search_setting.startsWith('s_'))) {
+                    has_search_param = true;
+                    let setting_type = 'Searching';
+                    let field = "";
+                    let field_name = "";
+                    let search_value = `"${documents_search[search_setting]}"`;
+
+                    if (search_setting !== 'q') {
+                        field = search_setting.substring(2);
+                        field_name = corpus.field_settings[field].label;
+
+                        if (search_setting.startsWith('s_')) {
+                            setting_type = 'Sorting';
+                            search_value = "";
+
+                        }
+                    }
+
+                    current_search_div.append(`
+                        <span class="badge badge-primary p-2 mr-2" style="font-size: 12px;">
+                            ${setting_type} ${field_name} ${search_value}
+                            <a class="text-white" href="javascript: remove_search_param('${search_setting}');"><i class="far fa-times-circle"></i></a>
+                        </span>
+                    `);
                 }
             }
 
-            return query_string;
-        }
+            if (!has_search_param) {
+                current_search_div.removeClass('d-flex');
+                current_search_div.addClass('d-none');
+            } else {
+                current_search_div.removeClass('d-none');
+                current_search_div.addClass('d-flex');
+            }
 
-        function load_documents() {
-            $.get('/api/corpus/{{ corpus.id }}/documents/' + build_query_string(), function(payload) {
-                $("#document-table-body").html('');
-                $("#page-selector").html('');
-
-                if (payload['data'].length == 0) {
-                    $("#page-selector").addClass("d-none");
-                } else {
-                    for (let x = 1; x <= payload['num_pages']; x++) {
-                        let option_html = `<option value="${x}">Page ${x}</option>`;
-                        if (x == payload['page']) {
-                            option_html = option_html.replace('">', '" selected>');
-                        }
-                        $("#page-selector").append(option_html);
+            if (document_data.records.length < 1) {
+                page_selector.addClass("d-none");
+                per_page_selector.addClass("d-none");
+            } else {
+                for (let x = 1; x <= document_data.meta.num_pages; x++) {
+                    let option_html = `<option value="${x}">Page ${x}</option>`;
+                    if (x === document_data.meta.page) {
+                        option_html = option_html.replace('">', '" selected>');
                     }
-                    $("#page-selector").removeClass("d-none");
+                    $("#page-selector").append(option_html);
+                }
+                page_selector.removeClass("d-none");
+                per_page_selector.val(documents_search['page-size'].toString());
 
-                    for (let x = 0; x < payload['data'].length; x++) {
-                        let checked = '';
-                        if (selected_docs.includes('doc-' + payload['data'][x]['_id']['$oid'])) {
-                            checked = 'checked ';
-                        }
-                        let row_html = `
-                            <tr>
-                                <td>
-                                    <input type="checkbox" class="checkbox doc-checkbox" id="doc-${payload['data'][x]['_id']['$oid']}" ${checked}/>
-                                    <a href="/corpus/{{ corpus.id }}/document/${payload['data'][x]['_id']['$oid']}/" target="_blank">
-                                        <span class="oi oi-external-link"></span>
-                                    </a>
-                                </td>
-                        `;
+                document_data.records.forEach(document => {
+                    let checked = '';
+                    if (selected_docs.includes('doc-' + _id(document))) {
+                        checked = 'checked ';
+                    }
+                    let row_html = `
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="checkbox doc-checkbox" id="doc-${_id(document)}" ${checked}/>
+                                <a href="/corpus/${corpus_id}/document/${_id(document)}/" target="_blank">
+                                    <span class="fas fa-external-link-square-alt"></span>
+                                </a>
+                            </td>
+                    `;
 
-                        for (const field_name in field_settings) {
-                            if (field_settings[field_name].hasOwnProperty('display') && field_settings[field_name]['display']) {
+                    for (let field_name in corpus.field_settings) {
+                        if (corpus.field_settings.hasOwnProperty(field_name)) {
+                            if (corpus.field_settings[field_name].hasOwnProperty('display') && corpus.field_settings[field_name]['display']) {
                                 let width = "auto";
-                                if (field_settings[field_name].hasOwnProperty['width']) {
-                                    width = field_settings[field_name]['width'];
+                                if (corpus.field_settings[field_name].hasOwnProperty['width']) {
+                                    width = corpus.field_settings[field_name]['width'];
                                 }
+
+                                let value = resolve(field_name, document);
+                                if (field_name === "pub_date" && value) {
+                                    value = value.substring(0, 4);
+                                }
+
                                 row_html += `
                                     <td style="width: ${width};">
-                                        ${resolve(field_name, payload['data'][x])}
+                                        ${value}
                                     </td>`;
                             }
                         }
-
-                        row_html += "</tr>";
-                        $("#document-table-body").append(row_html);
                     }
 
-                    $(".doc-checkbox").change(function(event) {
-                        let checkbox_id = event.target.id;
-                        if (this.checked) {
-                            if(!selected_docs.includes(checkbox_id)) {
-                                selected_docs.push(checkbox_id);
-                            }
-                        } else {
-                            selected_docs = selected_docs.filter(function(value, index, arr){
-                                return value != checkbox_id;
-                            });
+                    row_html += "</tr>";
+                    $("#document-table-body").append(row_html);
+                });
+
+                $(".doc-checkbox").change(function(event) {
+                    let checkbox_id = event.target.id;
+                    if (this.checked) {
+                        if(!selected_docs.includes(checkbox_id)) {
+                            selected_docs.push(checkbox_id);
                         }
-
-                        if (selected_docs.length > 0) {
-                            $("#num-selected-docs").html(selected_docs.length);
-                            $("#job-box").removeClass("d-none");
-                        } else {
-                            $("#job-box").addClass("d-none");
-                        }
-                    });
-                }
-            });
-        }
-
-        function load_jobsites() {
-            let jobsite_type = "SLURM";
-
-            $.get('/api/jobsites/', function(jobsites) {
-                $("#jobsite-selector").html('');
-                if (jobsites.length > 0) {
-                    for (let x = 0; x < jobsites.length; x++) {
-                        $("#jobsite-selector").append(`
-                            <option value="${jobsites[x]["_id"]["$oid"]}" class="${jobsites[x]["type"]}">
-                                ${jobsites[x]["name"]}
-                            </option>
-                        `);
-                        if (x == 0) {
-                            jobsite_type = jobsites[x]["type"];
-                        }
-                    }
-                }
-            });
-
-            $.get('/api/tasks/', function(payload) {
-                tasks = payload;
-                load_tasks(jobsite_type);
-            });
-        }
-
-        function load_tasks(jobsite_type) {
-            $("#task-selector").html('');
-
-                if (tasks.length > 0) {
-                    let tasks_populated = 0;
-
-                    for (let x = 0; x < tasks.length; x++) {
-                        if (tasks[x]["jobsite_type"] == jobsite_type) {
-                            $("#task-selector").append(`<option value="${tasks[x]["_id"]["$oid"]}">${tasks[x]["name"]}</option>`);
-                            tasks_populated += 1;
-                        }
-                    }
-
-                    if (tasks_populated > 0) {
-                        $("#task-selector-div").removeClass("d-none");
                     } else {
-                        $("#task-selector-div").addClass("d-none");
+                        selected_docs = selected_docs.filter(function(value, index, arr){
+                            return value != checkbox_id;
+                        });
                     }
-                }
+
+                    if (selected_docs.length > 0) {
+                        $("#num-selected-docs").html(selected_docs.length);
+                        $("#job-box").removeClass("d-none");
+                    } else {
+                        $("#job-box").addClass("d-none");
+                    }
+                });
+            }
         }
 
         function order_by(field) {
-            if (order && '+' + field == order) {
-                    order = "-" + field;
+            let key = "s_" + field;
+            if (documents_search.hasOwnProperty(key)) {
+                if (documents_search[key] === 'asc') {
+                    documents_search[key] = 'desc';
+                } else {
+                    documents_search[key] = 'asc';
+                }
+            } else {
+                documents_search[key] = 'asc';
             }
-            else {
-                    order = "+" + field;
+            corpora.get_documents(corpus_id, documents_search, load_documents);
+        }
+
+        function remove_search_param(param) {
+            if (documents_search.hasOwnProperty(param)) {
+                delete documents_search[param];
+                corpora.get_documents(corpus_id, documents_search, load_documents);
             }
-            load_documents();
+        }
+
+        function load_content_types() {
+            type_manager = null;
+            content_types = null;
+            ct_search = {};
+            let ct_row = $("#content-types-div");
+            ct_row.html('');
+
+            corpora.get_content_types(corpus_id, function(content_types_data) {
+                content_types = content_types_data.content_types;
+                template_formats = content_types_data.template_formats;
+
+                // setup the corpora type manager
+                type_manager = new TypeManager('type-manager-div', corpus_id, content_types, template_formats);
+
+                // setup the editor for importing a content type schema
+                import_editor = ace.edit("import-editor");
+                import_editor.setTheme("ace/theme/monokai");
+                import_editor.getSession().setMode("ace/mode/json");
+
+                // setup event for showing schema import modal
+                $('#show-import-modal-button').click(function () {
+                    import_editor.setValue('');
+                    $('#import-modal-label').html('Import Schema');
+                    $('#import-button').removeClass('d-none');
+                    $('#import-modal').modal();
+                });
+
+                // setup event for clicking "Import" button on schema import modal
+                $('#import-button').click(function () {
+                    let import_schema = JSON.parse(import_editor.getValue());
+                    for (let x = 0; x < import_schema.content_types.length; x++) {
+                        import_schema.content_types[x].id = '';
+                        type_manager.add_content_type(null, import_schema.content_types[x]);
+                    }
+
+                    $('#import-modal').modal('hide');
+                });
+
+                // setup event for showing template formats modal
+                $('#manage-template-formats-button').click(function () {
+                    $('#template-format-modal').modal();
+                });
+
+                // setup event for saving the content type schema
+                $('#save-content-type-schema-button').click(function () {
+                    $('#save-content-type-schema-button').attr('disabled', true);
+                    corpora.edit_content_types(corpus_id, type_manager.to_json(), load_content_types);
+                });
+
+                for (let ct_index = 0; ct_index < content_types.length; ct_index ++) {
+                    let ct = content_types[ct_index];
+                    ct_row.append(`
+                        <div class="col-12">
+                            <a name="${ct.plural_name}"></a>
+                            <div class="card mt-4">
+                                <div class="card-header" style="padding: 0 !important;">
+                                    <div class="d-flex w-100 justify-content-between align-items-center text-nowrap" style="padding: 0.75rem 1.25rem;">
+                                        <h4>${ct.plural_name}</h4>
+                                        <div class="input-group ml-2 mr-2">
+                                            <input type="text" class="form-control form-control" id="ct-${ct.name}-search-box" placeholder="Search" />
+                                            <div class="input-group-append">
+                                                <button id="ct-${ct.name}-search-setting-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">All Fields</button>
+                                                <div id="ct-${ct.name}-search-settings-menu" class="dropdown-menu">
+                                                    <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-default" href="#">All Fields</a>
+                                                </div>
+                                                <input type="hidden" id="ct-${ct.name}-search-setting-value" value="default" />
+                                            </div>
+                                        </div>
+
+                                        <button id="ct-${ct.name}-search-clear-button" class="btn btn-primary rounded mr-2 d-none" type="button">Clear Search</button>
+                                        <a role="button" id="ct-${ct.name}-new-button" href="/corpus/${corpus_id}/type/${ct.name}/edit/" class="btn btn-primary rounded mr-2">New ${ct.name}</a>
+
+                                        <div class="form-inline mr-2">
+                                            <select class="form-control btn-primary d-none" id="ct-${ct.name}-page-selector">
+                                            </select>
+                                        </div>
+
+                                        <div class="form-inline mr-2">
+                                            <select class="form-control btn-primary" id="ct-${ct.name}-per-page-selector">
+                                                <option selected>5</option>
+                                                <option>10</option>
+                                                <option>20</option>
+                                                <option>50</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div id="ct-${ct.name}-current-search-div" class="d-flex w-100 align-items-center p-2 pl-3 badge-secondary" style="padding-top: 12px !important;"></div>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-striped">
+                                        <thead class="thead-dark">
+                                            <tr id="ct-${ct.name}-table-header-row">
+                                            </tr>
+                                        </thead>
+                                        <tbody id="ct-${ct.name}-table-body">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+
+                    // setup content type table headers
+                    let table_header_row = $(`#ct-${ct.name}-table-header-row`);
+                    table_header_row.append(`
+                        <th scope="col">
+                        </th>
+                    `);
+                    for (let x = 0; x < ct.fields.length; x++) {
+                        if (ct.fields[x].in_lists) {
+                            table_header_row.append(`
+                                <th scope="col">
+                                    <a href="javascript: ct_order_by('${ct.name}', '${ct.fields[x].name}');"><h5>${ct.fields[x].label}</h5></a>
+                                </th>
+                            `);
+                        }
+                    }
+
+                    // setup content type search fields
+                    let search_settings_menu = $(`#ct-${ct.name}-search-settings-menu`);
+                    for (let x = 0; x < ct.fields.length; x++) {
+                        if (ct.fields[x].in_lists) {
+                            search_settings_menu.append(`
+                                <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-${ct.fields[x].name}" href="#">${ct.fields[x].label}</a>
+                            `);
+                        }
+                    }
+                    $(`.ct-${ct.name}-search-setting`).click(function (event) {
+                        event.preventDefault();
+                        let field = event.target.id.replace(`ct-${ct.name}-search-setting-`, '');
+                        let label = $(this).text();
+
+                        $(`#ct-${ct.name}-search-setting-selection`).text(label);
+                        $(`#ct-${ct.name}-search-setting-value`).val(field);
+                    });
+
+                    $(`#ct-${ct.name}-page-selector`).on("change", function () {
+                        ct_search[ct.name].page = parseInt($("#page-selector").val());
+                        corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
+                    });
+
+                    $(`#ct-${ct.name}-per-page-selector`).on("change", function () {
+                        ct_search[ct.name]['page-size'] = parseInt($(`#ct-${ct.name}-per-page-selector`).val());
+                        corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
+                    });
+
+                    $(`#ct-${ct.name}-search-box`).keypress(function (e) {
+                        let key = e.which;
+                        if (key === 13) {
+                            let query = $(`#ct-${ct.name}-search-box`).val();
+                            let field = $(`#ct-${ct.name}-search-setting-value`).val();
+
+                            if (field === 'default') {
+                                ct_search[ct.name].q = query;
+                            } else {
+                                ct_search[ct.name]['q_' + field] = query;
+                            }
+
+                            $(`#ct-${ct.name}-search-clear-button`).removeClass('d-none');
+                            corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
+                        }
+                    });
+
+                    $(`#ct-${ct.name}-search-clear-button`).click(function (event) {
+                        $(`#ct-${ct.name}-search-box`).val('');
+                        for (let param in ct_search[ct.name]) {
+                            if (ct_search[ct.name].hasOwnProperty(param)) {
+                                if (param.startsWith("q")) {
+                                    delete ct_search[ct.name][param];
+                                }
+                            }
+                        }
+                        $(`#ct-${ct.name}-search-setting-selection`).text("All Fields");
+                        $(`#ct-${ct.name}-search-setting-value`).val('default');
+
+                        corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
+                    });
+
+                    ct_search[ct.name] = {
+                        'page': 1,
+                        'page-size': 5,
+                    };
+
+                    // perform initial load of content
+                    corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
+                }
+
+                let scroll_location = location.hash;
+                location.hash = '';
+                location.hash = scroll_location;
+            });
+        }
+
+        function load_content(content) {
+            let ct = null;
+
+            for (let x = 0; x < content_types.length; x++) {
+                if (content_types[x].name === content.meta.content_type) {
+                    ct = content_types[x];
+                }
+            }
+
+            $('#save-content-type-schema-button').attr('disabled', false);
+
+            let ct_table_body = $(`#ct-${ct.name}-table-body`);
+            let page_selector = $(`#ct-${ct.name}-page-selector`);
+            let per_page_selector = $(`#ct-${ct.name}-per-page-selector`);
+            let current_search_div = $(`#ct-${ct.name}-current-search-div`);
+
+            ct_table_body.html('');
+            page_selector.html('');
+            current_search_div.html('');
+
+            let has_search_param = false;
+            for (let search_setting in ct_search[ct.name]) {
+                if (ct_search[ct.name].hasOwnProperty(search_setting) && (search_setting === 'q' || search_setting.startsWith('q_') || search_setting.startsWith('s_'))) {
+                    has_search_param = true;
+                    let setting_type = 'Searching';
+                    let field = "";
+                    let field_name = "";
+                    let search_value = `"${ct_search[ct.name][search_setting]}"`;
+
+                    if (search_setting !== 'q') {
+                        field = search_setting.substring(2);
+                        for (let x = 0; x < ct.fields.length; x++) {
+                            if (ct.fields[x].name == field) {
+                                field_name = ct.fields[x].label;
+                            }
+                        }
+
+                        if (search_setting.startsWith('s_')) {
+                            setting_type = 'Sorting';
+                            search_value = "";
+
+                        }
+                    }
+
+                    current_search_div.append(`
+                        <span class="badge badge-primary p-2 mr-2" style="font-size: 12px;">
+                            ${setting_type} ${field_name} ${search_value}
+                            <a class="text-white" href="javascript: ct_remove_search_param('${ct.name}', '${search_setting}');"><i class="far fa-times-circle"></i></a>
+                        </span>
+                    `);
+                }
+            }
+
+            if (!has_search_param) {
+                current_search_div.removeClass('d-flex');
+                current_search_div.addClass('d-none');
+            } else {
+                current_search_div.removeClass('d-none');
+                current_search_div.addClass('d-flex');
+            }
+
+            if (content.records.length < 1) {
+                page_selector.addClass("d-none");
+                per_page_selector.addClass("d-none");
+            } else {
+                for (let x = 1; x <= content.meta.num_pages; x++) {
+                    let option_html = `<option value="${x}">Page ${x}</option>`;
+                    if (x === content.meta.page) {
+                        option_html = option_html.replace('">', '" selected>');
+                    }
+                    page_selector.append(option_html);
+                }
+                page_selector.removeClass("d-none");
+                per_page_selector.val(ct_search[ct.name]['page-size'].toString());
+
+                content.records.forEach(item => {
+                    let row_html = `
+                        <tr>
+                            <td>
+                                <a href="${item.url}" target="_blank">
+                                    <span class="fas fa-external-link-square-alt"></span>
+                                </a>
+                            </td>
+                    `;
+
+                    for (let field_name in item.fields) {
+                        if (item.fields.hasOwnProperty(field_name)) {
+                            let field = item.fields[field_name];
+                            let value = field.value;
+
+                            if (field.cross_reference_type) {
+                                value = `<a href="${field.value.url}" target="_blank">${field.value.label}</a>`;
+                            }
+
+                            if (field.multiple) {
+                                value = '';
+                                field.value.forEach(val => {
+                                    if (field.cross_reference_type) {
+                                        value += `, <a href="${val.url}" target="_blank">${val.label}</a>`;
+                                    } else {
+                                        value += `, ${val}`;
+                                    }
+                                });
+                                if (value) { value = value.substring(2); }
+                            }
+
+                            row_html += `
+                                <td style="width: auto;">
+                                    ${value}
+                                </td>`;
+                        }
+                    }
+
+                    row_html += "</tr>";
+                    ct_table_body.append(row_html);
+                });
+            }
+        }
+
+        function ct_order_by(ct_name, field) {
+            let key = "s_" + field;
+            if (ct_search[ct_name].hasOwnProperty(key)) {
+                if (ct_search[ct_name][key] === 'asc') {
+                    ct_search[ct_name][key] = 'desc';
+                } else {
+                    ct_search[ct_name][key] = 'asc';
+                }
+            } else {
+                ct_search[ct_name][key] = 'asc';
+            }
+            corpora.list_content(corpus_id, ct_name, ct_search[ct_name], load_content);
+        }
+
+        function ct_remove_search_param(ct_name, param) {
+            if (ct_search[ct_name].hasOwnProperty(param)) {
+                delete ct_search[ct_name][param];
+                corpora.list_content(corpus_id, ct_name, ct_search[ct_name], load_content);
+            }
+        }
+
+        function load_jobsite_tasks(jobsite_id) {
+            jobsites.forEach(jobsite => {
+                if (jobsite_id === _id(jobsite)) {
+                    let task_selector = $("#task-selector");
+                    task_selector.html("");
+                    for (let task_name in jobsite.task_registry) {
+                        task_selector.append(`
+                            <option value="${jobsite.task_registry[task_name].task_id['$oid']}">${task_name}</option>
+                        `);
+                    }
+                }
+            });
         }
 
         function edit_settings() {
-            $("#settings-value").val(JSON.stringify(field_settings));
-            settings_editor.setValue(JSON.stringify(field_settings, null, '\t'));
+            $("#settings-value").val(JSON.stringify(corpus.field_settings));
+            settings_editor.setValue(JSON.stringify(corpus.field_settings, null, '\t'));
             $("#field-settings-modal").modal();
         }
 

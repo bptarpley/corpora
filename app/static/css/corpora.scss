@@ -19,10 +19,22 @@ $theme-colors: (
 // Bootstrap and its default variables
 @import "scss/bootstrap";
 
+
 // Custom CSS
+html, body {
+  height: 100%;
+  width: 100%;
+}
+
 .brand {
   background-image: url('/static/img/top-books.png');
   background-repeat: repeat-x;
+}
+
+.footer {
+  background-image: url('/static/img/bottom-books.png');
+  background-repeat: repeat-x;
+  background-position: left bottom;
 }
 
 .logo {
@@ -63,6 +75,11 @@ h1, h2, h3, h4, h5, h6 {
 
 .carousel-control-next-icon, .carousel-control-prev-icon {
   color: #17BEBB;
+}
+
+.btn-square {
+  width: 15px;
+  height: 20px;
 }
 
 #job-box {

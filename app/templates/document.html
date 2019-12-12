@@ -3,7 +3,7 @@
 {% load extras %}
 
 {% block css %}
-    <link href="https://unpkg.com/filepond/dist/filepond.css" rel="stylesheet">
+    <link href="{% static 'css/filepond.css' %}" rel="stylesheet">
 {% endblock %}
 
 {% block modals %}
@@ -433,7 +433,7 @@
                                     <div id="page-file-collection-{{ forloop.counter }}-container" class="list-group-item">
                                         <h5>
                                             <button class="btn btn-link" data-toggle="collapse" data-target="#page-file-collection-{{ forloop.counter }}" aria-expanded="false" aria-controls="page-file-collection-{{ forloop.counter }}">
-                                                <span id="page-file-collection-{{ forloop.counter }}-indicator" class="oi oi-caret-right"></span>
+                                                <span id="page-file-collection-{{ forloop.counter }}-indicator" class="fas fa-caret-right"></span>
                                                 {{ pfc.label }}
                                             </button>
                                         </h5>
@@ -535,9 +535,9 @@
                     </div>
                     <div id="page-viewer-control-div" class="d-flex w-100 justify-content-between align-items-center p-3 control-div">
                         <div class="form-inline">
-                            <button id="go-prev-page-button" type="button" class="btn btn-primary rounded" disabled><span class="oi oi-caret-left"></span></button>
+                            <button id="go-prev-page-button" type="button" class="btn btn-primary rounded" disabled><span class="fas fa-caret-left"></span></button>
                             <input id="go-page-box" type="text" class="form-control" style="width: 60px;" value="1">
-                            <button id="go-next-page-button" type="button" class="btn btn-primary rounded"><span class="oi oi-caret-right"></span></button>
+                            <button id="go-next-page-button" type="button" class="btn btn-primary rounded"><span class="fas fa-caret-right"></span></button>
                         </div>
 
                         <ul id="page-viewer-right-controls" class="nav nav-pills">
@@ -585,7 +585,7 @@
 {% endblock %}
 
 {% block js %}
-    <script src="https://unpkg.com/filepond/dist/filepond.js"></script>
+    <script src="{% static 'js/filepond.js' %}"></script>
     <script src="{% static 'js/ace/ace.js' %}"></script>
     <script type="application/javascript">
         var import_pages_files = [];
@@ -624,14 +624,14 @@
             // ------------------------
             $('.collapse').on('show.bs.collapse', function (event) {
                 let indicator_id = event.target.id + "-indicator";
-                $("#" + indicator_id).removeClass("oi-caret-right");
-                $("#" + indicator_id).addClass("oi-caret-bottom");
+                $("#" + indicator_id).removeClass("fa-caret-right");
+                $("#" + indicator_id).addClass("fa-caret-down");
             });
 
             $('.collapse').on('hidden.bs.collapse', function (event) {
                 let indicator_id = event.target.id + "-indicator";
-                $("#" + indicator_id).removeClass("oi-caret-bottom");
-                $("#" + indicator_id).addClass("oi-caret-right");
+                $("#" + indicator_id).removeClass("fa-caret-down");
+                $("#" + indicator_id).addClass("fa-caret-right");
             });
 
             // ------------------------
