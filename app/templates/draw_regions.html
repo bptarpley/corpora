@@ -165,7 +165,7 @@
                 .panZoom(panzoom_options);
             delineate.viewbox(0, 0, $('#delineator').height(), $('#delineator').width());
             canvas = delineate.group().attr('class', 'delineator-canvas');
-            image = canvas.image('/get-image?path={{ image_path }}').move(0, 0);
+            image = canvas.image(corpora.image_url('{{ image_file.uri }}')).move(0, 0);
 
             populate_columns();
 
