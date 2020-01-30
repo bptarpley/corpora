@@ -1,7 +1,6 @@
 #!/bin/bash
 
 if [ ! -f /apps/initialized ]; then
-    pip3 install django-cors-headers
     echo "WAITING FOR DATABASES..."
     sleep 20
 fi

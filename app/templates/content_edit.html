@@ -1,0 +1,558 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+    <link href="{% static 'css/filepond.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block modals %}
+    <div class="modal fade" id="file-selection-modal" tabindex="-1" role="dialog" aria-labelledby="file-selection-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="file-selection-modal-label">Select File</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-light">
+                        <div class="mb-2">
+                            <input type="text" class="form-control" id="file-selection-modal-filter-box" aria-placeholder="Filter" placeholder="Filter">
+                        </div>
+                        <table class="table table-striped">
+                            <thead class="thead-dark">
+                                <th scope="col">Path: <span id="file-selection-modal-table-header">/</span></th>
+                            </thead>
+                            <tbody id="file-selection-modal-table-body">
+                                <tr><td>Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <input type="file" class="filepond">
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="file-selection-modal-new-folder-box" aria-placeholder="New Folder" placeholder="New Folder">
+                                <span class="input-group-btn ml-1"><a href="javascript:handle_folder_creation();" role="button" id="file-selection-modal-new-folder-button" class="btn btn-secondary">Go</a></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="content-selection-modal" tabindex="-1" role="dialog" aria-labelledby="content-selection-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="content-selection-modal-label">Select ContentType</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-light">
+                        <div class="mb-2">
+                            <input type="text" class="form-control" id="content-selection-modal-filter-box" aria-placeholder="Search" placeholder="Search">
+                        </div>
+                        <table class="table table-striped">
+                            <thead class="thead-dark">
+                                <th scope="col" id="content-selection-modal-table-header">ContentType</th>
+                            </thead>
+                            <tbody id="content-selection-modal-table-body">
+                                <tr><td>Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="content-selection-modal-prev-page-button" class="btn btn-secondary"><span class="fas fa-angle-left"></span></button>
+                    <button type="button" id="content-selection-modal-next-page-button" class="btn btn-secondary"><span class="fas fa-angle-right"></span></button>
+                    <button type="button" id="content-create-new-button" class="btn btn-primary">Create New</button>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block main %}
+    <div class="row mt-4">
+        <div class="col-12">
+
+            <!-- CONTENT CARD -->
+            <div class="card">
+                <div class="card-header">
+                    <h4 id="header-label">
+                        <!-- title -->
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form id="content-form" method="post">
+                        {% csrf_token %}
+                    </form>
+                </div>
+                <div class="card-footer">
+                    <button type="button" class="btn btn-primary" id="content-save-button">Save</button>
+                    <a role="button" href="/corpus/{{ corpus_id }}/" class="btn btn-secondary">Cancel</a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'js/filepond.js' %}"></script>
+    <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
+    <script type="application/javascript">
+        var corpus_id = '{{ corpus_id }}';
+        var content_type = '{{ content_type }}';
+        var content_id = '{% if content_id %}{{ content_id }}{% endif %}';
+        var corpus = null;
+        var content = null;
+        var field_indexes = {};
+        var multi_field_counter = 0;
+
+        var file_selection_input_id = null;
+        var file_selection_path = '';
+        var file_search_timer;
+        var file_uploads = [];
+
+        var content_selection_vars = {
+            q: '*',
+            only: 'label',
+            s_label: 'asc',
+            page_size: 10,
+            page: 1
+        };
+        var content_search_timer;
+        var content_selection_input_id = null;
+        var content_selection_type = null;
+
+        var input_templates = {
+            text: function(field, value, id_suffix) {
+                return `
+                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2">
+                        <input type="text" class="form-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value}">
+                        ${multi_remover(field, id_suffix)}
+                    </div>
+                `;
+            },
+            keyword: function(field, value, id_suffix) {
+                return `
+                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2">
+                        <input type="text" class="form-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value}">
+                        ${multi_remover(field, id_suffix)}
+                    </div>
+                `;
+            },
+            html: function(field, value, id_suffix) {
+                return `
+                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2">
+                        <textarea id="${field.name}-value${id_suffix}" class="html-field" name="${field.name}-value${id_suffix}">
+                            ${value}
+                        </textarea>
+                        ${multi_remover(field, id_suffix)}
+                    </div>
+                `;
+            },
+            number: function(field, value, id_suffix) {
+                return `
+                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2">
+                        <input type="number" class="form-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value}">
+                        ${multi_remover(field, id_suffix)}
+                    </div>
+                `;
+            },
+            date: function(field, value, id_suffix) {
+                return `
+                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2">
+                        <input type="date" class="form-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value ? corpora.date_string(value) : ''}">
+                        ${multi_remover(field, id_suffix)}
+                    </div>
+                `;
+            },
+            file: function(field, value, id_suffix) {
+                let sub_path = '';
+                let multi_remove = '';
+
+                if (value) {
+                    sub_path = '/' + value.path.split('/').slice(7).join('/');
+                }
+
+                return `
+                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2">
+                        <div class="input-group-prepend">
+                            <a href="javascript:select_file('${field.name}-value${id_suffix}');" role="button" class="btn btn-secondary" id="${field.name}-select-button">Browse</a>
+                        </div>
+                        <input type="text" class="form-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" placeholder="File Path" aria-label="${field.label}" aria-describedby="${field.name}-select-button" value="${sub_path}">
+                        ${multi_remover(field, id_suffix)}
+                    </div>
+                `;
+            },
+            link: function(field, value, id_suffix) {
+                return `
+                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2">
+                        <input type="text" class="form-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value}">
+                        ${multi_remover(field, id_suffix)}
+                    </div>
+                `;
+            },
+            cross_reference: function(field, value, id_suffix) {
+                return `
+                    <div id="${field.name}-value${id_suffix}-div" class="btn-toolbar mb-2" role="toolbar">
+                        <div class="btn-group" role="group">
+                            <button onclick="return false;" id="${field.name}-value${id_suffix}-select-button" class="xref-select-button btn btn-secondary">Select</button>
+                            <button onclick="return false;" id="${field.name}-value${id_suffix}-open-button" class="xref-open-button btn btn-warning" role="button">${value ? value.label : `No ${field.cross_reference_type} selected.`}</button>
+                            <button onclick="return false;" id="${field.name}-value${id_suffix}-clear-button" class="xref-clear-button btn btn-danger ${value ? '' : 'd-none'}" role="button">${field.multiple ? 'Delete' : 'Clear'}</button>
+                        </div>
+                        <input type="hidden" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value ? value.id : ""}">
+                        <input type="hidden" id="${field.name}-value${id_suffix}-xref-type" value="${field.cross_reference_type}">
+                    </div>
+                `;
+            }
+        };
+
+        const pond = FilePond.create(document.querySelector('.filepond'), {
+            allowMultiple: true,
+            allowRevert: false
+        });
+
+        pond.on('addfile', (error, file) => {
+            if(!error) {
+                file_uploads.push(file.filename);
+            }
+        });
+
+        pond.on('processfile', (error, file) => {
+            if(!error) {
+                let index = file_uploads.indexOf(file.filename);
+                if (index !== -1) { file_uploads.splice(index, 1); }
+                if (file_uploads.length == 0) {
+                    select_file(file_selection_input_id, file_selection_path);
+                }
+            }
+        });
+
+        $(document).ready(function() {
+            corpora.get_corpus(corpus_id, function(corpus_data) {
+                corpus = corpus_data;
+                add_breadcrumb(corpus.name, `/corpus/${corpus_id}/`);
+                build_content_form();
+            });
+
+            // SETUP FILE SEARCH BOX
+            $('#file-selection-modal-filter-box').on('input', function(e){
+                clearTimeout(file_search_timer);
+                file_search_timer = setTimeout(function() {
+                    let filter = $('#file-selection-modal-filter-box').val();
+                    select_file(file_selection_function, file_selection_path, filter);
+                }, 1200);
+            });
+        });
+
+        function multi_remover(field, id_suffix, append=true) {
+            if (field.multiple) {
+                return `
+                    <div class="${append ? 'input-group-append' : ''}">
+                        <a href="javascript:remove_multi_field('${field.name}-value${id_suffix}-div');" role="button" class="btn btn-danger">Delete</a>
+                    </div>
+                `;
+            }
+            else {
+                return '';
+            }
+        }
+
+        function build_content_form() {
+            let content_form = $("#content-form");
+
+            for (let x = 0; x < corpus.content_types[content_type].fields.length; x++) {
+                let field = corpus.content_types[content_type].fields[x];
+                field_indexes[field.name] = x;
+
+                if (field.type !== 'embedded') {
+                    if (field.multiple) {
+                        content_form.append(`
+                            <label for="${field.name}-values-div">${field.label}</label>
+                            <div class="ml-2 mb-2">
+                                <div id="${field.name}-values-div">
+                                </div>
+                                <button type="button" class="btn btn-sm btn-secondary add_multi_field_button" id="${field.name}-add-button">Add</button>
+                            </div>
+                        `);
+                    } else {
+                        content_form.append(`
+                            <div id="${field.name}-value-div" class="form-group">
+                                <label for="${field.name}-value">${field.label}</label>
+                            </div>
+                        `);
+                    }
+                }
+            }
+
+            if (content_id) {
+                corpora.get_content(corpus_id, content_type, content_id, inject_content);
+            } else {
+                inject_content(null);
+            }
+
+            $('#content-save-button').click(function() {
+                $('#content-form').submit();
+            });
+
+            $('.add_multi_field_button').click(function() {
+                let field_name = this.id.replace('-add-button', '');
+                let field = corpus.content_types[content_type].fields[field_indexes[field_name]];
+
+                $(`#${field.name}-values-div`).append(input_templates[field.type](field, '', `-${multi_field_counter}`));
+
+                if (field.type === 'html') {
+                    tinymce.init(
+                        {
+                            selector: `#${field.name}-value-${multi_field_counter}`,
+                            plugins: 'link code table',
+                            menubar: 'edit insert view format table tools help'
+                        }
+                    );
+                } else if (field.type === 'cross_reference') {
+                    assign_content_selection_events();
+                }
+                multi_field_counter += 1;
+            });
+        }
+
+        function inject_content(content_data) {
+            content = content_data;
+            let has_html_field = false;
+            let has_file_field = false;
+            let has_xref_field = false;
+
+            if (!content) {
+                $('#header-label').html(`New ${content_type}`);
+            } else {
+                $('#header-label').html(content.label);
+                add_breadcrumb(content.label, `/corpus/${corpus_id}/${content_type}/${content_id}/`);
+            }
+
+            for (let f_index = 0; f_index < corpus.content_types[content_type].fields.length; f_index++) {
+                let field = corpus.content_types[content_type].fields[f_index];
+
+                if (field.type === 'html') { has_html_field = true; }
+                else if (field.type === 'file') { has_file_field = true; }
+                else if (field.type === 'cross_reference') { has_xref_field = true; }
+
+                if (field.type !== 'embedded') {
+                    if (field.multiple) {
+                        if (content && content[field.name]) {
+                            content[field.name].forEach(function (value, index) {
+                                $(`#${field.name}-values-div`).append(input_templates[field.type](field, value, `-${index}`));
+                            });
+                            multi_field_counter += 1;
+                        }
+                    } else if (content) {
+                        $(`#${field.name}-value-div`).append(input_templates[field.type](field, content[field.name] ? content[field.name] : "", ""));
+                    } else {
+                        $(`#${field.name}-value-div`).append(input_templates[field.type](field, "", ""));
+                    }
+                }
+            }
+
+            if (has_html_field) {
+                tinymce.init(
+                    {
+                        selector: '.html-field',
+                        plugins: 'link code table',
+                        menubar: 'edit insert view format table tools help'
+                    }
+                );
+            }
+
+            if (has_xref_field) {
+                assign_content_selection_events();
+            }
+
+            hide_loading_overlay();
+        }
+
+        function remove_multi_field(div_id) {
+            $(`#${div_id}`).remove();
+        }
+
+        // FILE SELECTION FUNCTIONALITY
+        function select_file(input_id, path='', filter='', select='file') {
+            corpora.get_content_files(corpus_id, content_type, content_id, path, filter, function (data) {
+                file_selection_input_id = input_id;
+                file_selection_path = path;
+
+                let url = `/api/corpus/${corpus_id}/${content_type}/files/`;
+                if (content_id) {
+                    url = url.replace('/files/', `/${content_id}/files/`)
+                }
+
+                pond.setOptions({
+                    server: {
+                        process: {
+                            url: `${url}?path=${path}`,
+                            headers: {
+                                'X-CSRFToken': '{{ csrf_token }}'
+                            }
+                        },
+                        fetch: null,
+                        revert: null
+                    }
+                });
+                pond.removeFiles();
+                file_uploads = [];
+
+                $('#file-selection-modal-table-body').html('');
+                $('#file-selection-modal-table-header').html(path + '/');
+                if (path) {
+                    let up_directory = '/' + path.split('/').slice(1, -1).join('/');
+                    if (up_directory === '/') { up_directory = ''; }
+                    if (select === 'file') {
+                        $('#file-selection-modal-table-header').append(`<a href="javascript:select_file(file_selection_input_id, '${up_directory}');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`);
+                    } else {
+                        $('#file-selection-modal-table-header').append(`<a href="javascript:select_file(file_selection_input_id, '${up_directory}', '', 'dir');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`);
+                    }
+                }
+                for (let x = 0; x < data.length; x++) {
+                    if(select === 'file') {
+                        if (data[x].type === 'file') {
+                            $('#file-selection-modal-table-body').append(`
+                                <tr><td><a href="javascript:handle_file_selection('${data[x].path}', '${data[x].filename}');">${data[x].filename}</a></td></tr>
+                            `);
+                        } else {
+                            $('#file-selection-modal-table-body').append(`
+                                <tr><td><span class="fas fa-folder-open"></span> ${data[x].filename} <a class="btn btn-sm btn-primary text-white float-right" role="button" href="javascript:select_file(file_selection_input_id, '${data[x].path}');">Browse</a></td></tr>
+                            `);
+                        }
+                    } else {
+                        if (data[x].type === 'dir') {
+                            $('#file-selection-modal-table-body').append(`
+                                <tr><td><span class="fas fa-folder-open"></span> <a href="javascript:handle_file_selection('${data[x].path}', '');">${data[x].filename}</a> <a class="btn btn-sm btn-primary text-white float-right" role="button" href="javascript:select_file(file_selection_input_id, '${data[x].path}', '', 'dir');">Browse</a></td></tr>
+                            `);
+                        }
+                    }
+                }
+
+                $('#file-selection-modal').modal();
+            });
+        }
+
+        function handle_folder_creation() {
+            let dirname = pep8_variable_format($('#file-selection-modal-new-folder-box').val());
+            corpora.make_content_file_dir(corpus_id, content_type, content_id, file_selection_path, dirname, function() {
+                $('#file-selection-modal-new-folder-box').val('');
+                select_file(file_selection_input_id, path=file_selection_path);
+            });
+        }
+
+        function handle_file_selection(path, filename) {
+            $(`#${file_selection_input_id}`).val(`${path}/${filename}`);
+            $('#file-selection-modal').modal('hide');
+        }
+
+        // CONTENT SELECTION FUNCTIONALITY
+        function select_content(ct, input_id) {
+            content_selection_input_id = input_id;
+            content_selection_type = ct;
+
+            corpora.list_content(corpus_id, content_selection_type, content_selection_vars, function(data){
+                $('#content-selection-modal-prev-page-button').prop('disabled', content_selection_vars.page <= 1);
+                $('#content-selection-modal-next-page-button').prop('disabled', !data.meta.has_next_page);
+
+                $('#content-selection-modal-label').html(`Select ${content_selection_type}`);
+                $('#content-selection-modal-table-header').html(content_selection_type);
+                $('#content-selection-modal-table-body').html('');
+                for (let x = 0; x < data.records.length; x++) {
+                    $('#content-selection-modal-table-body').append(`
+                        <tr><td><a id="xref-item-${data.records[x].id}" href="javascript:handle_content_selection('${data.records[x].id}');">${data.records[x].label}</a></td></tr>
+                    `);
+                }
+
+                // SETUP CONTENT CREATE NEW BUTTON
+                let new_button = $('#content-create-new-button');
+                new_button.off('click'); // <- removes previously associated click events
+                new_button.click(function() {
+                    let left = (screen.width / 2);
+                    let top = (screen.height / 2);
+                    let options = `top=${top},left=${left}`;
+                    return window.open(`/edit/${content_type}/new/?popup=y`, 'Create New{% if popup %}:{% endif %}', options);
+                });
+
+                $('#content-selection-modal').modal();
+            });
+        }
+
+        function assign_content_selection_events() {
+            // select content button click event
+            $('.xref-select-button').click(function() {
+                let button_id = this.id;
+                let input_id = button_id.replace('-select-button', '');
+                let xref_type = $(`#${input_id}-xref-type`).val();
+
+                select_content(xref_type, input_id);
+            });
+
+            // content navigation button click event
+            $('.xref-open-button').click(function() {
+                let button_id = this.id;
+                let input_id = button_id.replace('-open-button', '');
+                let xref_type = $(`#${input_id}-xref-type`).val();
+                let xref_id = $(`#${input_id}`).val();
+
+                if (xref_id) {
+                    window.open(`/corpus/${corpus_id}/${xref_type}/${xref_id}/`, '_blank');
+                }
+            });
+
+            // content clear button click event
+            $('.xref-clear-button').click(function() {
+                let button_id = this.id;
+                let input_id = button_id.replace('-clear-button', '');
+                let xref_type = $(`#${input_id}-xref-type`).val();
+
+                // single value
+                if(input_id.split('-').length === 2) {
+                    $(`#${input_id}`).val('');
+                    $(`#${input_id}-clear-button`).addClass('d-none');
+                    $(`#${input_id}-open-button`).html(`No ${xref_type} selected.`);
+                } else {
+                    $(`#${input_id}-div`).remove();
+                }
+            });
+        }
+
+        // previous select content page click event
+        $('#content-selection-modal-prev-page-button').click(function() {
+            content_selection_vars.page -= 1;
+            select_content(content_selection_type, content_selection_input_id);
+        });
+
+        // next select content page click event
+        $('#content-selection-modal-next-page-button').click(function() {
+            content_selection_vars.page += 1;
+            select_content(content_selection_type, content_selection_input_id);
+        });
+
+        function handle_content_selection(id) {
+            let label = $(`#xref-item-${id}`).html();
+
+            $(`#${content_selection_input_id}`).val(id);
+            $(`#${content_selection_input_id}-open-button`).html(label);
+            $(`#${content_selection_input_id}-clear-button`).removeClass('d-none');
+            $('#content-selection-modal').modal('hide');
+        }
+
+    </script>
+{% endblock %}

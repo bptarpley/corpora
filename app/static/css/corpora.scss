@@ -19,15 +19,68 @@ $theme-colors: (
 // Bootstrap and its default variables
 @import "scss/bootstrap";
 
+
 // Custom CSS
+html, body {
+  height: 100%;
+  width: 100%;
+}
+
 .brand {
   background-image: url('/static/img/top-books.png');
   background-repeat: repeat-x;
 }
 
+.footer {
+  background-image: url('/static/img/bottom-books.png');
+  background-repeat: repeat-x;
+  background-position: left bottom;
+}
+
 .logo {
   height: 60px;
   margin-top: 40px;
+}
+
+#loading-overlay {
+  z-index: 5000;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  background-color: #FFFFFF;
+  /*opacity: .5;*/
+}
+
+.loading-spinner {
+  animation: rotation 8s infinite linear;
+}
+
+@keyframes rotation {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(359deg);
+  }
+}
+
+#breadcrumb {
+  z-index: 4999;
+  position: fixed;
+  top: 0px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #FFFFFF;
+  padding: 5px 10px 5px 10px;
+  max-width: 500px;
+  border-left: solid 4px #17BEBB;
+  border-right: solid 4px #17BEBB;
+}
+
+#breadcrumb-inner {
+  max-width: 480px;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .card-header {
@@ -63,6 +116,11 @@ h1, h2, h3, h4, h5, h6 {
 
 .carousel-control-next-icon, .carousel-control-prev-icon {
   color: #17BEBB;
+}
+
+.btn-square {
+  width: 15px;
+  height: 20px;
 }
 
 #job-box {

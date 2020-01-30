@@ -10,81 +10,36 @@ import shutil
 import json
 
 
-def get_scholar_corpora(scholar):
+def get_scholar_corpora(scholar, only=[], page=1, page_size=50):
     corpora = []
+    start_record = (page - 1) * page_size
+    end_record = start_record + page_size
 
     if scholar:
         if scholar.is_admin:
             corpora = Corpus.objects
         else:
-            corpora = Corpus.objects(Q(id__in=[c.id for c in scholar.available_corpora]) | Q(open_access=True))
+            corpora = Corpus.objects(Q(id__in=[c.pk for c in scholar.available_corpora]) | Q(open_access=True))
     else:
         corpora = Corpus.objects(open_access=True)
 
-    return corpora
+    if corpora and only:
+        corpora = corpora.only(only)
+
+    return corpora[start_record:end_record]
 
 
-def get_scholar_corpus(corpus_id, scholar):
+def get_scholar_corpus(corpus_id, scholar, only=[]):
     corpus = None
-
-    corpus = get_corpus(corpus_id)
-    if corpus:
-        if not (corpus.open_access or (scholar and scholar.is_admin) or (scholar and corpus in scholar.avialable_corpora)):
-            corpus = None
+    if scholar.is_admin or corpus_id in [str(c.pk) for c in scholar.available_corpora]:
+        corpus = get_corpus(corpus_id, only)
 
     return corpus
 
 
-def get_documents(corpus_id, request, response):
-    documents = []
-    corpus = None
-    count = 0
-    num_pages = 0
-    order = "+author"
-    query = None
-    query_type = None
-
-    corpus = get_scholar_corpus(corpus_id, response['scholar'])
-    projection = [setting['field'] for setting in corpus.field_settings if setting['display']]
-    projection.append("id")
-
-    if corpus:
-        order = _clean(request.GET, 'order', '+author').strip()
-        query = _clean(request.GET, 'query', None)
-        query_type = _clean(request.GET, 'query-type', None)
-
-        if query and query_type:
-            if query_type == 'default':
-                count = Document.objects(corpus=corpus).search_text('"' + query + '"').count()
-                documents = Document.objects(corpus=corpus).search_text('"' + query + '"').order_by('$text_score').only(*projection)
-            else:
-                for setting in corpus.field_settings:
-                    if query_type.replace('__', '.') == setting['field']:
-                        if setting.get('type') == 'int':
-                            try:
-                                query = int(query.strip())
-                            except:
-                                response['errors'].append('Search query must be a number for this field.')
-
-                filters = {
-                    'corpus': corpus,
-                    query_type: query
-                }
-                count = Document.objects(**filters).count()
-                documents = Document.objects(**filters).order_by(order).only(*projection)
-
-        else:
-            count = Document.objects(corpus=corpus).count()
-            documents = Document.objects(corpus=corpus).order_by(order).only(*projection)
-
-        num_pages = ceil(count / response['per_page'])
-
-    return documents[response['start_index']:response['end_index']], count, num_pages
-
-
 def get_document(scholar, corpus_id, document_id, only=[]):
     doc = None
-    corpus = get_scholar_corpus(corpus_id, scholar)
+    corpus = get_scholar_corpus(corpus_id, scholar, ['id'])
 
     if corpus:
         doc = corpus.get_document(document_id, only)
@@ -92,14 +47,34 @@ def get_document(scholar, corpus_id, document_id, only=[]):
     return doc
 
 
-def get_tasks(scholar):
+def parse_uri(uri):
+    uri_dict = {}
+    uri_parts = [part for part in uri.split('/') if part]
+
+    if len(uri_parts) % 2 == 0:
+        key_index = 0
+
+        while key_index < len(uri_parts):
+            uri_dict[uri_parts[key_index]] = uri_parts[key_index + 1]
+            key_index += 2
+
+    return uri_dict
+
+
+def get_tasks(scholar, content_type=None):
     tasks = []
 
     if scholar:
         if scholar.is_admin:
-            tasks = Task.objects
+            if content_type:
+                tasks = Task.objects(content_type=content_type)
+            else:
+                tasks = Task.objects
         else:
-            tasks = Task.objects(id__in=[t.id for t in scholar.available_tasks])
+            if content_type:
+                tasks = Task.objects(id__in=[t.pk for t in scholar.available_tasks], content_type=content_type)
+            else:
+                tasks = Task.objects(id__in=[t.pk for t in scholar.available_tasks])
 
     return tasks
 
@@ -111,171 +86,171 @@ def get_jobsites(scholar):
         if scholar.is_admin:
             jobsites = JobSite.objects
         else:
-            jobsites = JobSite.objects(id__in=[j.id for j in scholar.available_jobsites])
+            jobsites = JobSite.objects(id__in=[j.pk for j in scholar.available_jobsites])
 
     return jobsites
 
 
-def get_document_page_file_collections(scholar, corpus_id, document_id):
-    page_file_collections = {}
-    corpus = get_scholar_corpus(corpus_id, scholar)
-    if corpus:
-        document = corpus.get_document(document_id)
-        if document:
-            page_file_collections = document.page_file_collections
-    return page_file_collections
+def get_corpus_search_results(request, scholar, corpus_id=None, document_id=None):
+    valid_search = False
+    results = {
+        'meta': {
+            'total': 0,
+            'page': 1,
+            'page_size': 50,
+            'num_pages': 1,
+            'has_next_page': False
+        },
+        'records': []
+    }
+    search_results = []
+    general_search_query = None
+    fields_query = {}
+    fields_sort = []
+    search_pages = request.GET.get('search-pages', 'n') == 'y'
 
+    # Users can provide a general search query (q)
+    if 'q' in request.GET:
+        general_search_query = request.GET['q']
+        valid_search = True
 
-def get_page_regions(ocr_file, ocr_type):
-    regions = []
+    # Users can alternatively provide specific queries per field (q_[field]=query),
+    # and can also specify how they want to sort the data (s_[field]=asc/desc)
+    for query_field in request.GET.keys():
+        field_name = query_field[2:]
+        if query_field.startswith('q_'):
+            fields_query[field_name] = request.GET[query_field]
+            valid_search = True
+        elif query_field.startswith('s_'):
+            if request.GET[query_field] == 'desc':
+                field_name = '-' + field_name
+            fields_sort.append(field_name + '.raw')
+        elif query_field == 'page':
+            results['meta']['page'] = int(request.GET[query_field])
+        elif query_field == 'page-size':
+            results['meta']['page_size'] = int(request.GET[query_field])
 
-    if os.path.exists(ocr_file):
-        if ocr_type == 'GCV':
-            gcv_obj = vision.types.TextAnnotation()
-            with open(ocr_file, 'rb') as gcv_in:
-                gcv_obj.ParseFromString(gcv_in.read())
+    start_record = (results['meta']['page'] - 1) * results['meta']['page_size']
+    end_record = start_record + results['meta']['page_size']
 
-            page = gcv_obj.pages[0]
-            for block in page.blocks:
-                lowest_x = min([vertice.x for vertice in block.bounding_box.vertices])
-                lowest_y = min([vertice.y for vertice in block.bounding_box.vertices])
-                highest_x = max([vertice.x for vertice in block.bounding_box.vertices])
-                highest_y = max([vertice.y for vertice in block.bounding_box.vertices])
+    if not valid_search:
+        general_search_query = '*'
+        valid_search = True
 
-                regions.append({
-                    'x': lowest_x,
-                    'y': lowest_y,
-                    'height': highest_y - lowest_y,
-                    'width': highest_x - lowest_x
-                })
-        elif ocr_type == 'HOCR':
-            with open(ocr_file, 'rb') as hocr_in:
-                hocr_obj = BeautifulSoup(hocr_in.read(), 'html.parser')
-            blocks = hocr_obj.find_all("div", class_="ocr_carea")
-            for block in blocks:
-                bbox_parts = block.attrs['title'].split()
-                regions.append({
-                    'x': int(bbox_parts[1]),
-                    'y': int(bbox_parts[2]),
-                    'width': int(bbox_parts[3]) - int(bbox_parts[1]),
-                    'height': int(bbox_parts[4]) - int(bbox_parts[2])
-                })
+    if valid_search and corpus_id:
+        corpus = get_scholar_corpus(corpus_id, scholar, only=['field_settings'])
+        if corpus:
+            sane = True
 
-    return regions
+            es_field_name_map = {}
+            for field_name, settings in corpus.field_settings.items():
+                es_field_name_map[settings['es_field_name']] = field_name
 
+            # make sure all fields_query fields are in corpus field settings...
+            for es_field_name in fields_query.keys():
+                if not (es_field_name in es_field_name_map and corpus.field_settings[es_field_name_map[es_field_name]]['display']):
+                    sane = False
+                    break
 
-def get_page_region_content(ocr_file, ocr_type, x, y, width, height):
-    content = ""
+            # make sure all fields_sort fields are in corpus field settings...
+            for sort_entry in fields_sort:
+                es_field_name = sort_entry
+                if sort_entry.startswith('-'):
+                    es_field_name = es_field_name[1:]
+                if sort_entry.endswith('.raw'):
+                    es_field_name = es_field_name[:-4]
 
-    if os.path.exists(ocr_file):
-        if ocr_type == 'GCV':
-            gcv_obj = vision.types.TextAnnotation()
-            breaks = vision.enums.TextAnnotation.DetectedBreak.BreakType
-            with open(ocr_file, 'rb') as gcv_in:
-                gcv_obj.ParseFromString(gcv_in.read())
+                if es_field_name in es_field_name_map and corpus.field_settings[es_field_name_map[es_field_name]]['sort']:
+                    if corpus.field_settings[es_field_name_map[es_field_name]]['type'] != 'text' and sort_entry.endswith('.raw'):
+                        fields_sort[fields_sort.index(sort_entry)] = sort_entry[:-4]
+                else:
+                    sane = False
+                    break
 
-                for page in gcv_obj.pages:
-                    for block in page.blocks:
-                        for paragraph in block.paragraphs:
-                            for word in paragraph.words:
-                                for symbol in word.symbols:
-                                    lowest_x = min([vertice.x for vertice in symbol.bounding_box.vertices])
-                                    lowest_y = min([vertice.y for vertice in symbol.bounding_box.vertices])
-                                    highest_x = max([vertice.x for vertice in symbol.bounding_box.vertices])
-                                    highest_y = max([vertice.y for vertice in symbol.bounding_box.vertices])
-                                    
-                                    if lowest_x >= x and \
-                                        lowest_y >= y and \
-                                        highest_x <= (x + width) and \
-                                        highest_y <= (y + height):
-                                             
-                                        content += symbol.text
-                                        if symbol.property.detected_break.type == breaks.SPACE:
-                                            content += ' '
-                                        elif symbol.property.detected_break.type == breaks.EOL_SURE_SPACE:
-                                            content += '\n'
-                                        elif symbol.property.detected_break.type == breaks.LINE_BREAK:
-                                            content += '\n'
-                                        elif symbol.property.detected_break.type == breaks.HYPHEN:
-                                            content += '-\n'
-        elif ocr_type == 'HOCR':
-            with open(ocr_file, 'rb') as hocr_in:
-                hocr_obj = BeautifulSoup(hocr_in.read(), 'html.parser')
-            words = hocr_obj.find_all("span", class_="ocrx_word")
-            for word in words:
-                bbox_parts = word.attrs['title'].replace(';', '').split()
-                if int(bbox_parts[1]) >= x and \
-                    int(bbox_parts[2]) >= y and \
-                    int(bbox_parts[3]) <= (x + width) and \
-                    int(bbox_parts[4]) <= (y + height):
+            if sane:
+                search_results = corpus.search_documents(general_search_query, fields_query, fields_sort, search_pages, document_id, start_record, end_record)
 
-                    content += word.text + ' '
-    return content.strip()
+    elif valid_search:
+        sane = True
+        if fields_sort and not (len(list(fields_sort.keys())) == 1 and ('name.raw' in fields_sort or '-name.raw' in fields_sort)):
+            sane = False
 
+        if sane:
+            search_results = search_corpora(general_search_query, fields_sort, start_record, end_record)
 
-def setup_document_directory(corpus_id, document_id):
-    corpus = get_corpus(corpus_id)
-    if corpus:
-        document = corpus.get_document(document_id)
-        if document:
-            document_path = "/corpora/{0}/{1}".format(corpus_id, document_id)
-            os.makedirs(document.path, exist_ok=True)
-            if not document.path or document.path != document_path:
-                document.path = document_path
-                document.update(set__path="/corpora/{0}/{1}".format(corpus_id, document_id))
+    if search_results:
+        results['meta']['total'] = search_results['hits']['total']['value']
+        results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
+        results['meta']['has_next_page'] = results['meta']['num_pages'] > results['meta']['page']
+        for search_result in search_results['hits']['hits']:
+            result = search_result['_source']
+            result['_id'] = { '$oid': search_result['_id'] }
+            results['records'].append(result)
 
-
-def reset_page_extraction(corpus_id, document_id):
-    corpus = get_corpus(corpus_id)
-    if corpus:
-        document = corpus.get_document(document_id)
-        if document:
-            print('found objects')
-
-            dirs_to_delete = [
-                "{0}/temporary_uploads".format(document.path),
-                "{0}/files".format(document.path),
-                "{0}/pages".format(document.path),
-            ]
-
-            for dir_to_delete in dirs_to_delete:
-                if os.path.exists(dir_to_delete):
-                    print('found {0}'.format(dir_to_delete))
-                    shutil.rmtree(dir_to_delete)
-
-            document.files = []
-            document.pages = {}
-            document.jobs = []
-            corpus.jobs = []
-
-            document.save(index_pages=True)
-            corpus.save()
+    return results
 
 
 def _get_context(req):
-    resp = {
+    context = {
         'errors': [],
         'messages': [],
         'scholar': {},
         'url': req.build_absolute_uri(req.get_full_path()),
-        'page': int(_clean(req.GET, 'page', 1)),
-        'per_page': int(_clean(req.GET, 'per-page', 50)),
+        'only': [],
+        'search': {}
     }
 
-    resp['start_index'] = (resp['page'] - 1) * resp['per_page']
-    resp['end_index'] = resp['start_index'] + resp['per_page']
+    default_search = {
+        'general_query': '',
+        'fields_query': {},
+        'fields_sort': [],
+        'page': 1,
+        'page_size': 50,
+        'only': []
+    }
 
-    if 'msg' in req.GET:
-        resp['messages'].append(req.GET['msg'])
+    for param in req.GET.keys():
+        value = req.GET[param]
+        search_field_name = param[2:]
+
+        if param in ['q', 'page', 'page-size'] or param.startswith('q_') or param.startswith('s_'):
+            context['search'] = default_search
+        
+        if param == 'msg':
+            context['messages'].append(value)
+        if param == 'only':
+            context['only'] = value.split(',')
+            if context['search']:
+                context['search']['only'] = context['only']
+        elif param == 'q':
+            context['search']['general_query'] = value
+        elif param.startswith('q_'):
+            context['search']['fields_query'][search_field_name] = value
+        elif param.startswith('s_'):
+            if value == 'desc':
+                search_field_name = '-' + search_field_name
+            context['search']['fields_sort'].append(search_field_name + '.raw')
+        elif param == 'page':
+            context['search']['page'] = int(value)
+        elif param == 'page-size':
+            context['search']['page_size'] = int(value)
+
+    if context['search'] and (not context['search']['general_query'] and not context['search']['fields_query']):
+        context['search']['general_query'] = "*"
 
     if req.user.is_authenticated:
-        try:
-            resp['scholar'] = Scholar.objects(username=req.user.username)[0]
-        except:
-            print(traceback.format_exc())
-            resp['scholar'] = {}
+        scholar_json = req.session.get('scholar_json', None)
+        if scholar_json:
+            context['scholar'] = Scholar.from_json(scholar_json)
+        else:
+            try:
+                context['scholar'] = Scholar.objects(username=req.user.username)[0]
+                req.session['scholar_json'] = context['scholar'].to_json()
+            except:
+                print(traceback.format_exc())
+                context['scholar'] = {}
 
-    return resp
+    return context
 
 
 def _contains(obj, keys):

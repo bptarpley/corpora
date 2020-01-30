@@ -51,12 +51,15 @@ INSTALLED_APPS = [
     'huey.contrib.djhuey',
     'corsheaders',
     'manager',
+    'plugins',
     'plugins.tesseract',
-    'plugins.google_cloud_vision',
-    'plugins.nlp',
+    #'plugins.google_cloud_vision',
+    #'plugins.nlp',
+    'plugins.emop',
+    #'plugins.nvs',
+    'plugins.document',
     'rest_framework',
     'rest_framework.authtoken',
-    'rest_framework_mongoengine'
 ]
 
 MIDDLEWARE = [
@@ -71,6 +74,20 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'corpora.urls'
+
+# REDIS CACHING
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://redis:6379/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient"
+        },
+        "KEY_PREFIX": "example"
+    }
+}
 
 # CORS CONFIG
 CORS_ORIGIN_ALLOW_ALL = True
@@ -92,6 +109,7 @@ TEMPLATES = [
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
             os.path.join(BASE_DIR, 'templates'),
+            '/corpora'
         ],
         'APP_DIRS': True,
         'OPTIONS': {

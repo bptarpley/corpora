@@ -1,7 +1,7 @@
-FROM ubuntu:18.04
+FROM python:3.7-slim-buster
 ENV PYTHONUNBUFFERED 1
 
-RUN apt-get update && apt-get install -y git python3-pip libmysqlclient-dev ghostscript libgs-dev imagemagick tesseract-ocr tesseract-ocr-eng
+RUN apt-get update && apt-get install -y python3-pip git ghostscript libgs-dev imagemagick tesseract-ocr tesseract-ocr-eng
 
 # Configure ImageMagick
 RUN sed -i "s^<policy domain=\"coder\" rights=\"none\" pattern=\"PDF\" />^<policy domain=\"coder\" rights=\"read|write\" pattern=\"PDF\" />^g" /etc/ImageMagick-6/policy.xml

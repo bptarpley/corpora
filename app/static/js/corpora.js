@@ -1,3 +1,25 @@
+function pep8_variable_format(string) {
+    const a = 'àáäâãåăæçèéëêǵḧìíïîḿńǹñòóöôœøṕŕßśșțùúüûǘẃẍÿź·/-,:;';
+    const b = 'aaaaaaaaceeeeghiiiimnnnooooooprssstuuuuuwxyz______';
+    const p = new RegExp(a.split('').join('|'), 'g');
+
+    return string.toString().toLowerCase()
+        .replace(/\s+/g, '_') // Replace spaces with -
+        .replace(p, c => b.charAt(a.indexOf(c))) // Replace special characters
+        .replace(/&/g, '_and_') // Replace & with 'and'
+        .replace(/[^\w\-]+/g, '') // Remove all non-word characters
+        .replace(/\-\-+/g, '_') // Replace multiple - with single -
+        .replace(/^-+/, '') // Trim - from start of text
+        .replace(/-+$/, ''); // Trim - from end of text
+}
+
+function pep8_class_format(string) {
+    // expects a pep8 variable formatted string
+    return string.toLowerCase().split('_').map(function(word) {
+        return word.replace(word[0], word[0].toUpperCase());
+    }).join('');
+}
+
 class Corpora {
     constructor(config={}) {
         this.host = 'host' in config ? config.host : "";
@@ -25,7 +47,7 @@ class Corpora {
 
     get_corpora(search={}, callback) {
         this.make_request(
-            "/api/corpora/",
+            "/api/corpus/",
             "GET",
             search,
             callback
@@ -50,56 +72,11 @@ class Corpora {
         );
     }
 
-    get_documents(corpus_id, search={}, callback) {
+    get_content_jobs(corpus_id, content_type, content_id, callback) {
         this.make_request(
-            `/api/corpus/${corpus_id}/documents/`,
-            "GET",
-            search,
-            callback
-        );
-    }
-
-    get_document(corpus_id, document_id, callback) {
-        this.make_request(
-            `/api/corpus/${corpus_id}/document/${document_id}/`,
+            `/api/corpus/${corpus_id}/${content_type}/${content_id}/jobs/`,
             "GET",
             {},
-            callback
-        );
-    }
-
-    get_document_page_file_collections(corpus_id, document_id, callback) {
-        this.make_request(
-            `/api/corpus/${corpus_id}/document/${document_id}/page-file-collections/`,
-            "GET",
-            {},
-            callback
-        );
-    }
-
-    get_document_jobs(corpus_id, document_id, callback) {
-        this.make_request(
-            `/api/corpus/${corpus_id}/document/${document_id}/jobs/`,
-            "GET",
-            {},
-            callback
-        );
-    }
-
-    get_document_kvp(corpus_id, document_id, key, callback) {
-        this.make_request(
-            `/api/corpus/${corpus_id}/document/${document_id}/kvp/${key}/`,
-            "GET",
-            {},
-            callback
-        );
-    }
-
-    set_document_kvp(corpus_id, document_id, key, value, callback) {
-        this.make_request(
-            `/api/corpus/${corpus_id}/document/${document_id}/kvp/${key}/`,
-            "POST",
-            {value: value},
             callback
         );
     }
@@ -113,12 +90,130 @@ class Corpora {
         );
     }
 
-    get_tasks(callback) {
+    get_tasks(content_type=null, callback) {
+        let url = '/api/tasks/';
+        if (content_type) {
+            url += `${content_type}/`
+        }
+
         this.make_request(
-            `/api/tasks/`,
+            url,
             "GET",
             {},
             callback
         );
+    }
+
+    edit_content_types(corpus_id, schema, callback) {
+        this.make_request(
+            `/api/corpus/${corpus_id}/type/`,
+            "POST",
+            {
+                schema: schema
+            },
+            callback
+        );
+    }
+
+    get_content(corpus_id, content_type, content_id, callback) {
+        this.make_request(
+            `/api/corpus/${corpus_id}/${content_type}/${content_id}/`,
+            "GET",
+            {},
+            callback
+        );
+    }
+
+    list_content(corpus_id, content_type, search={}, callback) {
+        this.make_request(
+            `/api/corpus/${corpus_id}/${content_type}/`,
+            "GET",
+            search,
+            callback
+        );
+    }
+
+    edit_content(corpus_id, content_type, fields={}) {
+        this.make_request(
+            `/api/corpus/${corpus_id}/${content_type}/`,
+            "POST",
+            fields,
+            callback
+        )
+    }
+
+    get_content_files(corpus_id, content_type, content_id, path, filter, callback) {
+        let endpoint = `/api/corpus/${corpus_id}/${content_type}/files/`;
+        if (content_id) {
+            endpoint = endpoint.replace('/files/', `/${content_id}/files/`);
+        }
+
+        this.make_request(
+            endpoint,
+            "GET",
+            {
+                path: path,
+                filter: filter
+            },
+            callback
+        );
+    }
+
+    make_content_file_dir(corpus_id, content_type, content_id, path, new_dir, callback) {
+        let endpoint = `/api/corpus/${corpus_id}/${content_type}/files/`;
+        if (content_id) {
+            endpoint = endpoint.replace('/files/', `/${content_id}/files/`);
+        }
+
+        this.make_request(
+            endpoint,
+            "POST",
+            {
+                path: path,
+                newdir: new_dir
+            },
+            callback
+        );
+    }
+
+    get_preference(content_type, content_uri, preference, callback) {
+        this.make_request(
+            `/api/scholar/preference/${content_type}/${preference}/`,
+            "GET",
+            {
+                content_uri: content_uri
+            },
+            callback
+        );
+    }
+
+    set_preference(content_type, content_uri, preference, value, callback) {
+        this.make_request(
+            `/api/scholar/preference/${content_type}/${preference}/`,
+            "POST",
+            {
+                content_uri: content_uri,
+                value: value
+            },
+            callback
+        )
+    }
+
+    file_url(uri) {
+        return `/file/uri/${uri.split('/').join('|')}/`;
+    }
+
+    image_url(uri) {
+        return `/image/uri/${uri.split('/').join('|')}/`;
+    }
+
+    time_string(timestamp) {
+        let date = new Date(timestamp * 1000);
+        return date.toLocaleString('en-US', { timeZone: 'UTC' });
+    }
+
+    date_string(timestamp) {
+        let date = new Date(timestamp * 1000);
+        return date.toISOString().split('T')[0];
     }
 }

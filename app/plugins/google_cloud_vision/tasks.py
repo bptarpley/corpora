@@ -1,7 +1,6 @@
 import io
 from django.utils.text import slugify
 from huey.contrib.djhuey import db_task
-from manager.utilities import setup_document_directory
 from google.cloud import vision
 from corpus import *
 
@@ -29,7 +28,6 @@ REGISTRY = {
 @db_task(priority=2)
 def ocr_document_with_google_cloud_vision(job_id):
     job = Job(job_id)
-    setup_document_directory(job.corpus_id, job.document_id)
     page_file_collections = job.document.page_file_collections
     page_file_collection_key = job.configuration['parameters']['collection']['value']
     page_files = page_file_collections[page_file_collection_key]['files']
