@@ -224,7 +224,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
             return redirect("/corpus/{0}/{1}/{2}".format(
                 corpus_id,
                 content_type,
-                content_id
+                str(content.id)
             ))
 
         return render(
