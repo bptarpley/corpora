@@ -12,6 +12,10 @@ WORKDIR /apps
 RUN mkdir corpora
 COPY . corpora/
 
+RUN adduser -r corpora
+RUN chown -R corpora.corpora /apps
+USER corpora
+
 RUN pip3 install -r /apps/corpora/requirements.txt
 RUN python3 -m nltk.downloader punkt stopwords wordnet averaged_perceptron_tagger
 
