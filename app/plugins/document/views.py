@@ -250,7 +250,7 @@ def draw_page_regions(request, corpus_id, document_id, ref_no):
     response = _get_context(request)
     corpus = get_scholar_corpus(corpus_id, response['scholar'])
     document = corpus.get_content('Document', document_id)
-    image_path = ""
+    image_file = None
     page_regions = []
     ocr_file = request.GET.get('ocrfile', None)
 
@@ -265,7 +265,7 @@ def draw_page_regions(request, corpus_id, document_id, ref_no):
 
             for file_key, file in page.files.items():
                 if 'Image' in file.description and file.primary_witness:
-                    image_path = file.path
+                    image_file = file
                 elif not page_regions and 'GCV TextAnnotation Object' in file.description:
                     ocr_file = file.path
                     page_regions = get_page_regions(file.path, 'GCV')
@@ -278,7 +278,7 @@ def draw_page_regions(request, corpus_id, document_id, ref_no):
         'draw_regions.html',
         {
             'response': response,
-            'image_path': image_path,
+            'image_file': image_file,
             'page_regions': page_regions,
             'corpus_id': corpus_id,
             'document_id': document_id,
