@@ -152,51 +152,56 @@ class Command(BaseCommand):
         for app in apps:
             if app == 'manager' or os.path.exists("{0}/plugins/{1}/tasks.py".format(settings.BASE_DIR, app.split('.')[1])):
                 task_module = importlib.import_module(app + '.tasks')
-                for name, plugin_task in task_module.REGISTRY.items():
-                    old_version = None
-                    found_existing_task = False
-                    new_task = None
+                if hasattr(task_module, 'REGISTRY'):
+                    for name, plugin_task in task_module.REGISTRY.items():
+                        old_version = None
+                        found_existing_task = False
+                        new_task = None
 
-                    for existing_task in tasks:
-                        if existing_task.name == name and existing_task.jobsite_type == 'HUEY':
-                            found_existing_task = True
-                            if existing_task.version != plugin_task['version']:
-                                old_version = existing_task.version
-                                existing_task.version = plugin_task['version']
-                                existing_task.configuration = deepcopy(plugin_task['configuration'])
-                                existing_task.save()
-                            break
+                        for existing_task in tasks:
+                            if existing_task.name == name and existing_task.jobsite_type == 'HUEY':
+                                found_existing_task = True
+                                if existing_task.version != plugin_task['version']:
+                                    old_version = existing_task.version
+                                    existing_task.version = plugin_task['version']
+                                    existing_task.content_type = plugin_task['content_type']
+                                    existing_task.track_provenance = plugin_task['track_provenance']
+                                    existing_task.configuration = deepcopy(plugin_task['configuration'])
+                                    existing_task.save()
+                                break
 
-                    if not found_existing_task:
-                        new_task = Task()
-                        new_task.name = name
-                        new_task.jobsite_type = 'HUEY'
-                        new_task.version = plugin_task['version']
-                        new_task.configuration = deepcopy(plugin_task['configuration'])
-                        new_task.save()
+                        if not found_existing_task:
+                            new_task = Task()
+                            new_task.name = name
+                            new_task.jobsite_type = 'HUEY'
+                            new_task.version = plugin_task['version']
+                            new_task.content_type = plugin_task['content_type']
+                            new_task.track_provenance = plugin_task['track_provenance']
+                            new_task.configuration = deepcopy(plugin_task['configuration'])
+                            new_task.save()
 
-                    if new_task:
-                        for jobsite in jobsites:
-                            if jobsite.type == 'HUEY':
-                                jobsite.task_registry[name] = {
-                                    'task_id': new_task.id,
-                                    'module': plugin_task['module'],
-                                    'functions': deepcopy(plugin_task['functions'])
-                                }
-                                jobsite.save()
-                                print("\t-- TASK {0}: {1} REGISTERED :)".format(app, name))
-                    elif old_version:
-                        for jobsite in jobsites:
-                            if jobsite.type == 'HUEY':
-                                jobsite.task_registry[name]['module'] = plugin_task['module']
-                                jobsite.task_registry[name]['functions'] = plugin_task['functions']
-                                jobsite.save()
-                                print("\t-- UPDATED {0}: {1} FROM VERSION {2} TO {3} :)".format(
-                                    app,
-                                    name,
-                                    old_version,
-                                    plugin_task['version']
-                                ))
+                        if new_task:
+                            for jobsite in jobsites:
+                                if jobsite.type == 'HUEY':
+                                    jobsite.task_registry[name] = {
+                                        'task_id': new_task.id,
+                                        'module': plugin_task['module'],
+                                        'functions': deepcopy(plugin_task['functions'])
+                                    }
+                                    jobsite.save()
+                                    print("\t-- TASK {0}: {1} REGISTERED :)".format(app, name))
+                        elif old_version:
+                            for jobsite in jobsites:
+                                if jobsite.type == 'HUEY':
+                                    jobsite.task_registry[name]['module'] = plugin_task['module']
+                                    jobsite.task_registry[name]['functions'] = plugin_task['functions']
+                                    jobsite.save()
+                                    print("\t-- UPDATED {0}: {1} FROM VERSION {2} TO {3} :)".format(
+                                        app,
+                                        name,
+                                        old_version,
+                                        plugin_task['version']
+                                    ))
 
         print("\n---------------------------")
         print(" CORPORA INITIALIZED")

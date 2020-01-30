@@ -53,9 +53,11 @@ INSTALLED_APPS = [
     'manager',
     'plugins',
     'plugins.tesseract',
-    'plugins.google_cloud_vision',
-    'plugins.nlp',
+    #'plugins.google_cloud_vision',
+    #'plugins.nlp',
     'plugins.emop',
+    #'plugins.nvs',
+    'plugins.document',
     'rest_framework',
     'rest_framework.authtoken',
 ]

@@ -1,6 +1,8 @@
 Django==2.1
 gunicorn
-mongoengine
+bson==0.5.8
+pymongo==3.7.2
+mongoengine==0.19.1
 blinker==1.4
 djongo
 redis==3.2.1

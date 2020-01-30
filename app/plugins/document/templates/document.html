@@ -1,0 +1,1180 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+    <link href="{% static 'css/filepond.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block modals %}
+    <!-- Import Pages Modal -->
+    <div class="modal fade" id="import-pages-modal" tabindex="-1" role="dialog" aria-labelledby="import-pages-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="import-pages-form" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" id="import-pages-files" name="import-pages-files" value="[]" />
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="import-pages-modal-label">Import Pages</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="import-pages-type" id="import-pages-type-pdf" value="pdf" checked>
+                            <label class="form-check-label" for="new-document-import-type">Import pages from PDF file</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="import-pages-type" id="import-pages-type-images" value="images">
+                            <label class="form-check-label" for="new-document-import-type">Import pages from multiple image files</label>
+                        </div>
+                        <div id="import-pages-pdf-options" class="mt-1">
+                            <div class="form-group">
+                                <label for="import-pages-pdf-options-dpi">Image DPI</label>
+                                <select id="image-pages-pdf-options-dpi" class="form-control" name="import-pages-image-dpi">
+                                    <option value="300">300</option>
+                                    <option value="150">150</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="import-pages-pdf-options-split">Split Images in Half Vertically?*</label>
+                                <select id="import-pages-pdf-options-split" class="form-control" name="import-pages-split">
+                                    <option value="No">No</option>
+                                    <option value="Yes">Yes</option>
+                                </select>
+                                <div class="text-muted">* Useful for double-paged scans. NOTE: At present, Corpora cannot both split images <i>and</i> extract embedded text.</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="import-pages-pdf-options-extract-text">Extract Embedded Text?</label>
+                                <select id="import-pages-pdf-options-extract-text" class="form-control" name="import-pages-extract-text">
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="import-pages-pdf-options-primary">Make Primary Witness?*</label>
+                                <select id="import-pages-pdf-options-primary" class="form-control" name="import-pages-primary">
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                </select>
+                                <div class="text-muted">* If you have not yet imported any page images, or if you'd like to replace existing images as the primary witness for this document, this should remain set to 'Yes.'</div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <input id="import-pages-filepond" class="filepond" type="file">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="import-pages-submit-button" onclick="import_pages();" disabled>Import</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- OCR Modal -->
+    <div class="modal fade" id="ocr-modal" tabindex="-1" role="dialog" aria-labelledby="ocr-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="ocr-form" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="ocr-modal-label">Perform OCR</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="ocr-jobsite-selector">Jobsite</label>
+                            <select id="ocr-jobsite-selector" class="form-control" name="jobsite">
+                            </select>
+                        </div>
+                        <div id="ocr-task-selector-div" class="form-group">
+                            <label for="ocr-task-selector">Task</label>
+                            <select id="ocr-task-selector" class="form-control" name="task">
+                            </select>
+                        </div>
+                        <div id="ocr-task-parameters-div">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="ocr-submit-button" onclick="perform_ocr();" disabled>Perform OCR</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analyze Modal -->
+    <div class="modal fade" id="analyze-modal" tabindex="-1" role="dialog" aria-labelledby="analyze-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="analyze-form" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="analyze-modal-label">Analyze</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="analyze-jobsite-selector">Jobsite</label>
+                            <select id="analyze-jobsite-selector" class="form-control" name="jobsite">
+                            </select>
+                        </div>
+                        <div id="analyze-task-selector-div" class="form-group">
+                            <label for="analyze-task-selector">Task</label>
+                            <select id="analyze-task-selector" class="form-control" name="task">
+                            </select>
+                        </div>
+                        <div id="analyze-task-parameters-div">
+
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="analyze-submit-button" onclick="analyze();" disabled>Analyze</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- PageSet Modal -->
+    <div class="modal fade" id="pageset-modal" tabindex="-1" role="dialog" aria-labelledby="pageset-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="pageset-form" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="pageset-modal-label">New Page Set</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="pageset-name-box">Name</label>
+                            <input type="text" class="form-control" id="pageset-name-box" name="pageset-name" />
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="form-group">
+                                    <label for="pageset-start-box">Starting Page</label>
+                                    <input type="text" class="form-control" id="pageset-start-box" name="pageset-start" />
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-group">
+                                    <label for="pageset-end-box">Ending Page</label>
+                                    <input type="text" class="form-control" id="pageset-end-box" name="pageset-end" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Create</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Job Finished Modal -->
+    <div class="modal fade" id="job-finished-modal" tabindex="-1" role="dialog" aria-labelledby="job-finished-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="job-finished-modal-label">Job Completed</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-success">
+                        One or more jobs have completed for this document. Click the "Refresh" button below to view results.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="window.location = window.location.href;">Refresh</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block main %}
+    <div class="container-fluid mt-4">
+        <div class="row">
+
+            <!-- METADATA -->
+            <div class="col-sm-12 col-md-6">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4 class="float-left">Metadata</h4>
+                        {% if response.scholar.is_admin %}
+                            <a href="/corpus/{{ corpus_id }}/Document/{{ document_id }}/edit/" class="float-right">
+                                <span class="fas fa-edit"></span>
+                            </a>
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="list-group" id="doc-metadata-list">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- JOBS -->
+            <div class="col-sm-12 col-md-6">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h4>Running Jobs</h4>
+                            </div>
+                            <div class="card-body">
+                                <div id="running-jobs-div">
+                                    <div id="no-running-jobs-div" class="alert alert-info">
+                                        There are currently no jobs running for this document.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h4>Provenance</h4>
+                            </div>
+                            <div class="card-body">
+                                <div id="doc-provenance-div">
+                                    <div class="alert alert-info">
+                                        No jobs have been completed for this document.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="row">
+
+            <!-- DOCUMENT FILES -->
+            <div class="col-12">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4>Document Files</h4>
+                    </div>
+                    <div class="card-body" id="doc-files-div">
+                        <div class="alert alert-info">
+                            There are currently no files for this document.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    {% if document.pages %}
+        <div class="row">
+
+            <!-- PAGE SETS -->
+            <div class="col-12">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4>Page Sets</h4>
+                    </div>
+                    <div class="card-body" id="doc-pageset-div">
+                        <div class="alert alert-info">
+                            No page sets defined for this document.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    {% endif %}
+        <div class="row">
+
+            <!-- PAGE FILE COLLECTIONS -->
+            <div class="col-12">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4>Page File Collections</h4>
+                    </div>
+                    <div class="card-body" id="doc-pfc-div">
+
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="row">
+
+            <!-- PAGES -->
+            <div class="col-12">
+                <div class="card mb-3">
+                    <div class="card-header" style="border-bottom: none;">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h4>Pages</h4>
+                            <span>
+                                <button id="import-pages-button" class="btn btn-primary rounded" type="button">Import</button>
+                                {% if document.pages %}
+                                    <button id="create-pageset-button" class="btn btn-primary rounded ml-1" type="button">Create Page Set</button>
+                                    {% if response.scholar.is_admin %}
+                                        <a id="reset-pages-button" class="btn btn-secondary rounded ml-1" role="button" href="?reset-pages">Reset</a>
+                                    {% endif %}
+                                    <button id="perform-ocr-button" class="btn btn-primary rounded ml-1" type="button">Perform OCR</button>
+                                    <button id="analyze-button" class="btn btn-primary rounded ml-1" type="button">Analyze</button>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <div id="page-viewer-control-div" class="d-flex w-100 justify-content-between align-items-center p-3 control-div">
+                        <div class="form-inline">
+                            <button id="go-prev-page-button" type="button" class="btn btn-primary rounded" disabled><span class="fas fa-caret-left"></span></button>
+                            <input id="go-page-box" type="text" class="form-control" style="width: 60px;" value="1">
+                            <button id="go-next-page-button" type="button" class="btn btn-primary rounded"><span class="fas fa-caret-right"></span></button>
+                        </div>
+
+                        <ul id="page-viewer-controls" class="nav nav-pills">
+                            <li class="nav-item dropleft">
+                                <a class="nav-link dropdown-toggle active" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Image</a>
+                                <div class="dropdown-menu" id="page-viewer-left-options">
+                                </div>
+                            </li>
+
+                            <li class="nav-item dropleft ml-2">
+                                <a class="nav-link dropdown-toggle active" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Witness</a>
+                                <div class="dropdown-menu" id="page-viewer-right-options">
+                                    <a class="dropdown-item" href="javascript: set_collection('right', '');">None</a>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body">
+                        <div id="page-viewer-div">
+                            {% if document.pages %}
+                                <div class="alert alert-info">
+                                    Loading...
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    There are currently no pages for this document. Click the "Import" button above to import pages from image files or a PDF.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'js/filepond.js' %}"></script>
+    <script src="{% static 'js/ace/ace.js' %}"></script>
+    <script type="application/javascript">
+        var corpus_id = '{{ corpus_id }}';
+        var corpus = null;
+
+        var document_id = '{{ document_id }}';
+        var document_uri = `/corpus/${corpus_id}/Document/${document_id}`;
+        var doc = null;
+
+        var is_admin = {% if response.scholar.is_admin %}true{% else %}false{% endif %};
+
+        var import_pages_files = [];
+        var check_jobs_timer;
+        var check_jobs_interval = 10;
+        var jobsites = [];
+        var local_jobsite_id = null;
+        var tasks = [];
+        var bbox_collections = [];
+        var pfc_setting = {
+            left: null,
+            right: null
+        };
+        var ref_no = 1;
+
+        const pond = FilePond.create(document.querySelector('.filepond'), {
+            allowMultiple: true,
+            allowRevert: false
+        });
+
+        pond.on('processfile', (error, file) => {
+            if(!error) {
+                $("#import-pages-submit-button").attr('disabled', false);
+                import_pages_files.push(file.filename.replace(new RegExp('[^a-zA-Z0-9\\.\\-]', "gm"), '_'));
+            }
+        });
+
+        $('#page-carousel').on('slide.bs.carousel', function(ev) {
+            let lazy;
+            lazy = $(ev.relatedTarget).find("img[data-src]");
+            lazy.attr("src", lazy.data('src'));
+            lazy.removeAttr("data-src");
+        });
+
+        $(document).ready(function() {
+            corpora.get_jobsites(function(jobsites_data) {
+                jobsites = jobsites_data;
+                for (let x = 0; x < jobsites.length; x++) {
+                    if (jobsites[x].name === 'Local') {
+                        local_jobsite_id = _id(jobsites[x]);
+                    }
+                }
+
+                corpora.get_tasks('Document', function(tasks_data) {
+                    tasks = tasks_data;
+
+                    corpora.get_corpus(corpus_id, function(corpus_data) {
+                        corpus = corpus_data;
+                        add_breadcrumb(corpus.name, `/corpus/${corpus_id}/`);
+
+                        // ------------------------
+                        // SETUP DOCUMENT
+                        // ------------------------
+                        corpora.get_content(corpus_id, 'Document', document_id, function (document_data) {
+                            doc = document_data;
+                            add_breadcrumb(doc.label, document_uri);
+
+                            // LOAD DOCUMENT METADATA
+                            let doc_metadata_list = $('#doc-metadata-list');
+                            corpus.content_types.Document.fields.forEach( field => {
+                                if (doc[field.name] && ['text', 'keyword', 'number'].includes(field.type)) {
+                                    doc_metadata_list.append(`
+                                        <div class="list-group-item">
+                                            <h5>${field.label}</h5>
+                                            ${doc[field.name]}
+                                        </div>
+                                    `);
+                                }
+                            });
+
+                            // LOAD DOCUMENT PROVENANCE
+                            let doc_provenance_div = $('#doc-provenance-div');
+                            if (doc.provenance.length > 0) { doc_provenance_div.html(''); }
+                            doc.provenance.forEach( prov => {
+                                let retry_form = '';
+                                if (is_admin) {
+                                    retry_form = `
+                                        <form method="post">
+                                            <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
+                                            <input type="hidden" name="retry-job-id" value="${prov.job_id}">
+                                            <button type="submit" role="button" class="btn btn-danger">Retry</button>
+                                        </form>
+                                    `;
+                                }
+
+                                doc_provenance_div.append(`
+                                    <div id="provenance-${prov.job_id}-div" class="alert alert-${prov.status === "complete" ? 'success' : 'danger'} provenance">
+                                        Task: <b>${prov.task_name}</b><br />
+                                        Completed: ${corpora.time_string(prov.completed)}
+                                        ${retry_form}
+                                    </div>
+                                `);
+                            });
+
+                            // LOAD DOCUMENT FILES
+                            let doc_files_div = $('#doc-files-div');
+                            if (Object.keys(doc.files).length > 0) {
+                                doc_files_div.html(`
+                                    <table class="table table-striped">
+                                        <thead class="thead-dark">
+                                            <th scope="col">
+                                                File
+                                            </th>
+                                            <th scope="col">
+                                                Description
+                                            </th>
+                                            <th scope="col">
+                                                Extension
+                                            </th>
+                                            <th scope="col">
+                                                Size (bytes)
+                                            </th>
+                                        </thead>
+                                        <tbody id="doc-files-table-body">
+                                        </tbody>
+                                    </table>
+                                `);
+
+                                let doc_files_tbody = $('#doc-files-table-body');
+                                for (let file_key in doc.files) {
+                                    let file = doc.files[file_key];
+
+                                    let file_url = corpora.file_url(file.uri);
+                                    if (file.is_image) {
+                                        file_url = corpora.image_url(file.uri);
+                                    }
+
+                                    let open_mode = 'target="_blank"';
+                                    if (file.extension === 'zip') {
+                                        open_mode = `download="${file.basename}"`;
+                                    }
+
+                                    doc_files_tbody.append(`
+                                        <tr>
+                                            <td>
+                                                <a href="${file_url}" target="_blank">${file.basename}</a>
+                                            </td>
+                                            <td>
+                                                ${file.description}
+                                            </td>
+                                            <td>
+                                                ${file.extension}
+                                            </td>
+                                            <td>
+                                                ${file.byte_size}
+                                            </td>
+                                        </tr>
+                                    `);
+                                }
+
+                                if (doc.has_primary_text) {
+                                    doc_files_div.append(`
+                                        <a href="${document_uri}/edit-xml/?use_tei_skeleton=y" class="btn btn-primary ml-1">Create TEI XML</a>
+                                        <a href="${document_uri}/tei-skeleton" class="btn btn-primary ml-1" download>Download TEI XML Skeleton</a>
+                                    `);
+                                }
+                            }
+
+                            // LOAD DOCUMENT PAGESETS
+                            let doc_pageset_div = $('#doc-pageset-div');
+                            if (Object.keys(doc.page_sets).length > 0) {
+                                doc_pageset_div.html('');
+                                doc_pageset_div.append(`
+                                    <table class="table table-striped">
+                                        <thead class="thead-dark">
+                                            <th scope="col">
+                                                Name
+                                            </th>
+                                            <th scope="col">
+                                                Starting Page
+                                            </th>
+                                            <th scope="col">
+                                                Ending Page
+                                            </th>
+                                            <th scope="col">
+                                                Actions
+                                            </th>
+                                        </thead>
+                                        <tbody id="doc-pageset-tbody">
+                                    </table>
+                                `);
+
+                                let doc_pageset_tbody = $('#doc-pageset-tbody');
+                                let tei_buttons = "";
+                                for (let ps_key in doc.page_sets) {
+                                    if (doc.has_primary_text) {
+                                        tei_buttons = `
+                                            <a href="${document_uri}/edit-xml/?pageset=${ps_key}" target="_blank" class="btn btn-primary ml-1">Create TEI XML</a>
+                                            <a href="${document_uri}/tei-skeleton?pageset=${ps_key}" class="btn btn-primary ml-1" download>Download TEI XML Skeleton</a>
+                                        `;
+                                    }
+
+                                    doc_pageset_tbody.append(`
+                                        <tr>
+                                            <td>
+                                                ${doc.page_sets[ps_key].label}
+                                            </td>
+                                            <td>
+                                                ${doc.page_sets[ps_key].starting_ref_no}
+                                            </td>
+                                            <td>
+                                                ${doc.page_sets[ps_key].ending_ref_no}
+                                            </td>
+                                            <td>
+                                                ${tei_buttons}
+                                            </td>
+                                        </tr>
+                                    `);
+                                }
+                            }
+
+                            // LOAD PAGE FILE COLLECTIONS
+                            let doc_pfc_div = $('#doc-pfc-div');
+                            let page_viewer_left_options = $('#page-viewer-left-options');
+                            let page_viewer_right_options = $('#page-viewer-right-options');
+                            if (Object.keys(doc.page_file_collections).length > 0) {
+                                doc_pfc_div.html('<div class="list-group" id="doc-pfc-group"></div>');
+                                let doc_pfc_group = $('#doc-pfc-group');
+                                let pfc_counter = 0;
+                                for (let slug in doc.page_file_collections) {
+                                    let pfc = doc.page_file_collections[slug];
+                                    let label = pfc.label;
+                                    let text_consolidation_form = '';
+
+                                    if (label.includes('GCV TextAnnotation Object') || label.includes('HOCR')) {
+                                        bbox_collections.push(slug);
+                                    } else if (label.includes('Image')) {
+                                        page_viewer_left_options.append(`
+                                            <a class="dropdown-item" href="javascript: set_collection('left', '${slug}');">${label}</a>
+                                        `);
+                                    } else if (label.includes('Plain Text')) {
+                                        text_consolidation_form = `
+                                            <form method="post">
+                                                <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
+                                                <input type="hidden" name="collection" value="${slug}"/>
+                                                <input type="hidden" name="consolidate-files" value="y"/>
+                                                <button type="submit" class="btn btn-primary mr-2">Create a Consolidated Text File</button>
+                                            </form>
+                                        `;
+                                        page_viewer_right_options.append(`
+                                            <a class="dropdown-item" href="javascript: set_collection('right', '${slug}');">${label}</a>
+                                        `);
+                                    } else if (label.includes('HTML')) {
+                                        page_viewer_right_options.append(`
+                                            <a class="dropdown-item" href="javascript: set_collection('right', '${slug}');">${label}</a>
+                                        `);
+                                    }
+
+                                    let zip_file_form = '';
+                                    if (local_jobsite_id) {
+                                        let zip_page_file_task_id = '';
+                                        for (let x = 0; x < tasks.length; x++) {
+                                            if (tasks[x].name === "Zip Page File Collection") {
+                                                zip_page_file_task_id = _id(tasks[x]);
+                                            }
+                                        }
+
+                                        zip_file_form = `
+                                            <form method="post">
+                                                <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
+                                                <input type="hidden" name="collection" value="${slug}"/>
+                                                <input type="hidden" name="jobsite" value="${local_jobsite_id}"/>
+                                                <input type="hidden" name="task" value="${zip_page_file_task_id}"/>
+                                                <button type="submit" class="btn btn-primary">Create a .zip File</button>
+                                            </form>
+                                        `;
+                                    }
+
+                                    doc_pfc_group.append(`
+                                        <div id="page-file-collection-${pfc_counter}-container" class="list-group-item">
+                                        <h5>
+                                            <button class="btn btn-link" data-toggle="collapse" data-target="#page-file-collection-${pfc_counter}" aria-expanded="false" aria-controls="page-file-collection-${pfc_counter}">
+                                                <span id="page-file-collection-${pfc_counter}-indicator" class="fas fa-caret-right"></span>
+                                                ${label}
+                                            </button>
+                                        </h5>
+                                        <div id="page-file-collection-${pfc_counter}" class="alert alert-info collapse" aria-labelledby="page-file-collection-${pfc_counter}-container" data-parent="#page-file-collection-group">
+                                            <div class="mb-2 w-100 form-inline">
+                                                ${text_consolidation_form}
+                                                ${zip_file_form}
+                                            </div>
+                                            <table class="table table-striped">
+                                                <thead class="thead-dark">
+                                                    <th scope="col">
+                                                        Page #
+                                                    </th>
+                                                    <th scope="col">
+                                                        Link
+                                                    </th>
+                                                    <th scope="col">
+                                                        Size (bytes)
+                                                    </th>
+                                                    <th scope="col">
+                                                        Action
+                                                    </th>
+                                                </thead>
+                                                <tbody id="doc-pfc-${pfc_counter}-tbody">
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    `);
+
+                                    let doc_pfc_tbody = $(`#doc-pfc-${pfc_counter}-tbody`);
+                                    for (let ref_no in pfc.page_files) {
+                                        let file = pfc.page_files[ref_no];
+
+                                        let mode = 'target="_blank"';
+                                        if (label.includes('Object')) { mode = 'download'; }
+
+                                        let link = `<a href="${corpora.file_url(file.uri)}" ${mode}>${file.basename}</a>`;
+                                        if (label.includes('Image')) {
+                                            link = `<a href="${corpora.image_url(file.uri)}" ${mode}>${file.basename}</a>`;
+                                        }
+
+                                        let actions = '';
+                                        if (label.includes('HOCR') || label.includes('GCV TextAnnotation')) {
+                                            actions = `<a href="${document_uri}/draw-page-regions/${ref_no}/?ocrfile=${file.path}" target="_blank" class="btn btn-primary ml-1">Fix OCR Regions</a>`;
+                                        }
+                                        if (label.includes('HOCR') || label.includes('XML')) {
+                                            actions += `<a href="${document_uri}/edit-xml/?path=${file.path}" class="btn btn-primary ml-1">Edit XML</a>`;
+                                        }
+
+                                        doc_pfc_tbody.append(`
+                                            <tr>
+                                                <td>
+                                                    ${ref_no}
+                                                </td>
+                                                <td>
+                                                    ${link}
+                                                </td>
+                                                <td>
+                                                    ${file.byte_size}
+                                                </td>
+                                                <td>
+                                                    ${actions}
+                                                </td>
+                                            </tr>
+                                        `);
+                                    }
+
+                                    pfc_counter += 1;
+                                }
+                            }
+
+                            // LOAD PAGE VIEWER USER PREFERENCES
+                            corpora.get_preference(
+                                'Document',
+                                document_uri,
+                                'page_viewer_left_collection',
+                                function (left_pref) {
+                                    pfc_setting.left = left_pref;
+                                }
+                            );
+
+                            corpora.get_preference(
+                                'Document',
+                                document_uri,
+                                'page_viewer_right_collection',
+                                function (right_pref) {
+                                    pfc_setting.right = right_pref;
+                                    $('#page-viewer-control-div').removeClass('d-none');
+                                    show_page();
+                                }
+                            );
+
+                            hide_loading_overlay();
+                        });
+                    });
+                });
+            });
+
+            // ------------------------
+            // SETUP COLLAPSIBLE PAGE FILE COLLECTIONS
+            // ------------------------
+            $('.collapse').on('show.bs.collapse', function (event) {
+                let indicator_id = event.target.id + "-indicator";
+                $("#" + indicator_id).removeClass("fa-caret-right");
+                $("#" + indicator_id).addClass("fa-caret-down");
+            });
+
+            $('.collapse').on('hidden.bs.collapse', function (event) {
+                let indicator_id = event.target.id + "-indicator";
+                $("#" + indicator_id).removeClass("fa-caret-down");
+                $("#" + indicator_id).addClass("fa-caret-right");
+            });
+
+            // ------------------------
+            // SETUP PAGE VIEWER CONTROLS
+            // ------------------------
+            $("#go-prev-page-button").click(function() {
+                ref_no -= 1;
+                show_page();
+            });
+            $("#go-next-page-button").click(function() {
+                ref_no += 1;
+                show_page();
+            });
+            $("#go-page-box").keypress(function(e){
+                let key = e.which;
+                if (key == 13) {
+                    ref_no = parseInt($("#go-page-box").val());
+                    if (isNaN(ref_no)) { ref_no = 1; }
+                    show_page();
+                }
+            });
+
+            // ------------------------
+            // SETUP IMPORT PAGES MODAL
+            // ------------------------
+            $("#import-pages-button").click(function() {
+                $("#import-pages-submit-button").attr('disabled', true);
+                $("#import-pages-modal").modal();
+            });
+
+            $("input[type=radio][name=import-pages-type]").change(function() {
+                if (this.value == 'pdf') {
+                    $("#import-pages-pdf-options").removeClass("d-none");
+                }
+                else if (this.value == 'images') {
+                    $("#import-pages-pdf-options").addClass("d-none");
+                }
+            });
+
+            $("#import-pages-submit-button").click(function() {
+                $("#import-pages-files").val(JSON.stringify(import_pages_files));
+                $("#import-pages-form").submit();
+            });
+
+            $("#reset-pages-button").click(function() {
+                $("#import-pages-files").val(JSON.stringify(import_pages_files));
+                $("#import-pages-form").submit();
+            });
+
+            // ---------------------
+            // SETUP PAGE SET MODAL
+            // ---------------------
+            $("#create-pageset-button").click(function() {
+                $("#pageset-modal").modal();
+            });
+
+            // -----------------
+            // SETUP OCR MODAL
+            // -----------------
+            $("#perform-ocr-button").click(function() {
+                load_jobsites("ocr", "OCR");
+                $("#ocr-modal").modal();
+            });
+
+            $("#ocr-jobsite-selector").on("change", function() {
+                load_tasks($('#ocr-jobsite-selector :selected').attr('class'), 'ocr', 'OCR');
+            });
+
+            $("#ocr-task-selector").on("change", function() {
+                load_task_parameters($('#ocr-task-selector').val(), 'ocr');
+            });
+
+            $("#ocr-submit-button").click(function() {
+                $("#ocr-form").submit();
+            });
+
+            // -------------------
+            // SETUP ANALYZE MODAL
+            // -------------------
+            $("#analyze-button").click(function() {
+                load_jobsites("analyze", "Analyze");
+                $("#analyze-modal").modal();
+            });
+
+            $("#analyze-jobsite-selector").on("change", function() {
+                load_tasks($('#analyze-jobsite-selector :selected').attr('class'), 'analyze', 'Analyze');
+            });
+
+            $("#analyze-task-selector").on("change", function() {
+                load_task_parameters($('#analyze-task-selector').val(), 'analyze');
+            });
+
+            $("#analyze-submit-button").click(function() {
+                $("#analyze-form").submit();
+            });
+
+            FilePond.setOptions({
+                server: {
+                    process: {
+                        url: './',
+                        headers: {
+                            'X-CSRFToken': corpora.csrf_token
+                        }
+                    },
+                    fetch: null,
+                    revert: null
+                }
+            });
+
+            check_jobs();
+        });
+
+        function get_page(collection, ref_no) {
+            let page = false;
+            if (collection && collection in doc.page_file_collections && ref_no.toString() in doc.page_file_collections[collection].page_files) {
+                page = doc.page_file_collections[collection].page_files[ref_no.toString()]
+            }
+            return page;
+        }
+
+        function show_page() {
+            $('#page-viewer-div').attr('style', 'min-height: 1000px;');
+            $('#page-viewer-div').html('');
+
+            if (!pfc_setting.left) {
+                for(let slug in doc.page_file_collections) {
+                    if (slug.includes('primary') && slug.includes('image')) {
+                        pfc_setting.left = slug;
+                        break;
+                    }
+                }
+            }
+
+            let num_pages = Object.keys(doc.pages).length;
+
+            if(ref_no < 1) { ref_no = 1; }
+            if(ref_no > num_pages) { ref_no = num_pages; }
+            if(ref_no == 1) { $('#go-prev-page-button').attr('disabled', true); }
+            if(ref_no == num_pages) { $('#go-next-page-button').attr('disabled', true); }
+            if(ref_no > 1) { $('#go-prev-page-button').attr('disabled', false); }
+            if(ref_no < num_pages) { $('#go-next-page-button').attr('disabled', false); }
+
+            $('#go-page-box').val(ref_no);
+            let left_page = get_page(pfc_setting.left, ref_no);
+            let right_page = get_page(pfc_setting.right, ref_no);
+
+            let left_col = `
+                <div class="alert alert-info">
+                    There is currently no image for this page number.
+                </div>
+            `;
+
+            if(left_page) {
+                left_col = `<img src="${corpora.image_url(`${document_uri}/page/${ref_no}/file/${left_page['key']}`)}" class="img-fluid" />`;
+            }
+
+            if(pfc_setting.right) {
+                let viewer_row = $(`
+                    <div class="row">
+                        <div class="col-6">
+                            ${left_col}
+                        </div>
+                    </div>
+                `);
+
+                let right_col = `
+                    <div class="alert alert-info">
+                        There is currently no witness for this page number.
+                    </div>
+                `;
+
+                if (right_page) {
+                    right_col = $('<div class="col-6" />').load(corpora.file_url(`${document_uri}/page/${ref_no}/file/${right_page['key']}`));
+                    right_col.html(right_col.html().replace("\n", `<br />`));
+                }
+
+                if (pfc_setting.right.includes('ocr') && bbox_collections.length > 0) {
+                    if (!$('#fix-regions-nav').length) {
+                        $('#page-viewer-controls').append(`
+                            <li id='fix-regions-nav' class='nav-item ml-1'><a id='fix-regions-button' href="${document_uri}/draw-page-regions/${ref_no}/" class="btn btn-primary ml-1">Fix OCR Regions</a></li>
+                        `);
+                    } else {
+                        $('#fix-regions-button').attr('href', `${document_uri}/draw-page-regions/${ref_no}/`);
+                    }
+                }
+
+                viewer_row.append(right_col);
+                $('#page-viewer-div').append(viewer_row);
+            } else {
+                $('#page-viewer-div').html(left_col);
+            }
+        }
+
+        function set_collection(side, collection) {
+            corpora.set_preference(
+                'Document',
+                `/corpus/{{ corpus_id }}/Document/{{ document_id }}`,
+                `page_viewer_${side}_collection`,
+                collection,
+                function(pref) {
+                    pfc_setting[side] = pref;
+
+                    $('#page-viewer-control-div').removeClass('d-none');
+                    show_page();
+                }
+            );
+        }
+
+        function load_jobsites(modal, task_filter) {
+            $("#ocr-jobsite-selector").html('');
+            if (jobsites.length > 0) {
+                for (let x = 0; x < jobsites.length; x++) {
+                    $(`#${modal}-jobsite-selector`).append(`
+                        <option value="${jobsites[x]["_id"]["$oid"]}" class="${jobsites[x]["type"]}">
+                            ${jobsites[x]["name"]}
+                        </option>
+                    `);
+                    if (x === 0) {
+                        load_tasks(jobsites[x]["type"], modal, task_filter);
+                    }
+                }
+            }
+        }
+
+        function load_tasks(jobsite_type, modal, task_filter) {
+            $(`#${modal}-task-selector`).html('');
+
+                if (tasks.length > 0) {
+                    let tasks_populated = 0;
+
+                    for (let x = 0; x < tasks.length; x++) {
+                        if (tasks[x]["jobsite_type"] == jobsite_type && tasks[x]["name"].includes(task_filter)) {
+                            $(`#${modal}-task-selector`).append(`
+                                <option value="${tasks[x]["_id"]["$oid"]}">
+                                    ${tasks[x]["name"]}
+                                </option>
+                            `);
+                            if (tasks_populated == 0) {
+                                load_task_parameters(tasks[x]["_id"]["$oid"], modal);
+                            }
+                            tasks_populated += 1;
+                        }
+                    }
+
+                    if (tasks_populated > 0) {
+                        $(`#${modal}-task-selector-div`).removeClass("d-none");
+                        $(`#${modal}-submit-button`).attr('disabled', false);
+                    } else {
+                        $(`#${modal}-task-selector-div`).addClass("d-none");
+                        $(`#${modal}-submit-button`).attr('disabled', true);
+                    }
+                }
+        }
+
+        function load_task_parameters(task_id, modal) {
+            console.log('load parameters fired');
+            $(`#${modal}-task-parameters-div`).html('');
+
+            for (let x = 0; x < tasks.length; x++) {
+                if (tasks[x]["_id"]["$oid"] == task_id) {
+                    console.log('found task');
+                    let parameters = tasks[x]['configuration']['parameters'];
+                    for (let parameter in parameters) {
+                        if (parameters[parameter].hasOwnProperty('type')) {
+                            console.log('handling parameter ' + parameter);
+                            let parameter_html = '';
+                            let note_html = '';
+                            if (parameters[parameter].hasOwnProperty('note')) {
+                                note_html = `<span class='text-muted'>${parameters[parameter]['note']}</span>`;
+                            }
+
+                            if (parameters[parameter]['type'] == 'page_file_collection') {
+                                let select_options = '';
+                                for (let slug in doc.page_file_collections) {
+                                    select_options += `<option value="${slug}">${doc.page_file_collections[slug].label}</option>\n`;
+                                }
+
+                                parameter_html = `
+                                    <div class="form-group">
+                                        <label for="${modal}-collection-selector">${parameters[parameter]['label']}</label>
+                                        <select id="${modal}-collection-selector" class="form-control" name="${parameter}">
+                                            ${select_options}
+                                        </select>
+                                        ${note_html}
+                                    </div>
+                                `;
+                            } else if (parameters[parameter]['type'] == 'choice' && parameters[parameter].hasOwnProperty('choices')) {
+                                let select_options = '';
+                                parameters[parameter]['choices'].forEach(choice => {
+                                    select_options += `<option>${choice}</option>\n`;
+                                });
+
+                                parameter_html = `
+                                    <div class="form-group">
+                                        <label for="${modal}-collection-selector">${parameters[parameter]['label']}</label>
+                                        <select id="${modal}-collection-selector" class="form-control" name="${parameter}">
+                                            ${select_options}
+                                        </select>
+                                        ${note_html}
+                                    </div>
+                                `;
+                            }
+
+                            $(`#${modal}-task-parameters-div`).append(parameter_html);
+                        }
+                    }
+                }
+            }
+        }
+
+        function get_task_name(task_id) {
+            let name = "Unknown Task";
+            tasks.forEach(task => {
+                if (_id(task) == task_id) {
+                    name = task['name'];
+                }
+            });
+            return name;
+        }
+
+        function check_jobs() {
+            corpora.get_content_jobs(corpus_id, 'Document', document_id, function(jobs) {
+                let has_running = false;
+                let has_completed = false;
+                let stale_jobs = [];
+                $('.running-job').each(function(index, item) {
+                    stale_jobs.push($(item).attr('id').replace('running-job-', '').replace('-div', ''));
+                });
+
+                for (let x = 0; x < jobs.length; x++) {
+                    if (jobs[x].status == 'running' || jobs[x].status == 'preparing') {
+                        if (!has_running) {
+                            $('#running-jobs-div').html('');
+                            has_running = true;
+                        }
+
+                        let job_id = jobs[x].id;
+                        let progress_value = jobs[x].percent_complete;
+                        if (jobs[x].status == 'preparing') {
+                            progress_value = 0;
+                        }
+                        let label = `${progress_value}%`;
+                        if (progress_value < 4) {
+                            label = "";
+                        }
+
+                        if ($(`#running-job-${job_id}-div`).length) {
+                            $(`#running-job-${job_id}-progress-bar`).css("width", progress_value);
+                            $(`#running-job-${job_id}-progress-bar`).attr("aria-valuenow", progress_value);
+                            $(`#running-job-${job_id}-progress-bar`).html(progress_value);
+                        } else {
+                            let job_html = `
+                                <div id="running-job-${job_id}-div" class="alert alert-info running-job">
+                                    Task: <b>${get_task_name(jobs[x].task_id)}</b>
+                                    <div class="progress">
+                                        <div id="running-job-${job_id}-progress-bar"
+                                             class="progress-bar progress-bar-striped bg-success progress-bar-animated"
+                                             role="progressbar"
+                                             aria-valuenow="${progress_value}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100"
+                                             style="width: ${progress_value}%">
+                                            ${label}
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+
+                            $('#running-jobs-div').append(job_html);
+                            stale_jobs = stale_jobs.filter(function (value, index, arr) {
+                                return value != job_id;
+                            });
+                        }
+                    }
+                }
+
+                for (let x = 0; x < stale_jobs.length; x++) {
+                    $(`#running-job-${stale_jobs[x]}-div`).remove();
+                    $('#job-finished-modal').modal();
+                }
+
+                if (!has_running && !$('#no-running-jobs-div').length) {
+                    $('#running-jobs-div').append(`
+                        <div id="no-running-jobs-div" class="alert alert-info">
+                            There are currently no jobs running for this document.
+                        </div>
+                    `);
+                }
+            });
+
+            check_jobs_timer = setTimeout(function() {
+                check_jobs();
+            }, check_jobs_interval * 1000);
+        }
+    </script>
+{% endblock %}

@@ -1,7 +1,9 @@
+import os
+import importlib
 from django.contrib import admin
 from django.urls import path
+from django.conf import settings
 from manager import views as manager_views
-from cms import views as cms_views
 
 
 urlpatterns = [
@@ -9,39 +11,37 @@ urlpatterns = [
     path('', manager_views.corpora),
     path('scholar', manager_views.scholar),
     path('corpus/<str:corpus_id>/', manager_views.corpus),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/', manager_views.document),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/edit-xml/', manager_views.edit_xml),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/tei-skeleton', manager_views.tei_skeleton),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/draw-page-regions/<str:ref_no>/', manager_views.draw_page_regions),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/file/<str:file_key>', manager_views.get_document_file),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/page/<str:ref_no>/file/<str:file_key>', manager_views.get_document_file),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/page/<str:ref_no>/image/<str:image_key>', manager_views.get_document_image),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/page/<str:ref_no>/image/<str:image_key>/<str:region>/<str:size>/<str:rotation>/<str:quality>.<str:format>', manager_views.get_document_image),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/iiif-manifest.json', manager_views.get_document_iiif_manifest),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/page-file-collection/<str:collection>/iiif-manifest.json', manager_views.get_document_iiif_manifest),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/page-file-collection/<str:collection>/page-set/<str:pageset>/iiif-manifest.json', manager_views.get_document_iiif_manifest),
-    path('corpus/<str:corpus_id>/type/', cms_views.type_manager),
-    path('corpus/<str:corpus_id>/type/<str:content_type>/edit/', cms_views.edit_content),
-    path('corpus/<str:corpus_id>/type/<str:content_type>/edit/<str:id>/', cms_views.edit_content),
-    path('corpus/<str:corpus_id>/type/<str:content_type>/view/<str:id>/', cms_views.view_content),
-    path('corpus/<str:corpus_id>/type/<str:content_type>/view/<str:id>/<str:format_extension>', cms_views.view_content),
-    path('corpus/<str:corpus_id>/type/<str:content_type>/list/', cms_views.list_content),
+]
+
+plugins = [app for app in settings.INSTALLED_APPS if app.startswith('plugins.')]
+for plugin in plugins:
+    if os.path.exists("{0}/plugins/{1}/urls.py".format(settings.BASE_DIR, plugin.split('.')[1])):
+        url_module = importlib.import_module(plugin + '.urls')
+        if hasattr(url_module, 'urlpatterns'):
+            urlpatterns += url_module.urlpatterns
+
+urlpatterns += [
+    path('corpus/<str:corpus_id>/<str:content_type>/', manager_views.edit_content),
+    path('corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/', manager_views.view_content),
+    path('corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/edit/', manager_views.edit_content),
+
+    path('file/uri/<str:file_uri>/', manager_views.get_file),
+    path('image/uri/<str:image_uri>/', manager_views.get_image),
+    path('image/uri/<str:image_uri>/<str:region>/<str:size>/<str:rotation>/<str:quality>.<str:format>', manager_views.get_image),
+
     path('api/search/', manager_views.api_search),
     path('api/jobsites/', manager_views.api_jobsites),
     path('api/tasks/', manager_views.api_tasks),
+    path('api/tasks/<str:content_type>/', manager_views.api_tasks),
     path('api/corpus/', manager_views.api_corpora),
     path('api/corpus/<str:corpus_id>/', manager_views.api_corpus),
     path('api/corpus/<str:corpus_id>/search/', manager_views.api_search),
     path('api/corpus/<str:corpus_id>/jobs/', manager_views.api_corpus_jobs),
-    path('api/corpus/<str:corpus_id>/type/', cms_views.type_schema),
-    path('api/corpus/<str:corpus_id>/type/<str:content_type>/', cms_views.api_content_data),
-    path('api/corpus/<str:corpus_id>/type/<str:content_type>/<str:id>/', cms_views.api_content_data),
-    path('api/corpus/<str:corpus_id>/document/', manager_views.api_documents),
-    path('api/corpus/<str:corpus_id>/document/<str:document_id>/', manager_views.api_document),
-    path('api/corpus/<str:corpus_id>/document/<str:document_id>/search/', manager_views.api_search),
-    path('api/corpus/<str:corpus_id>/document/<str:document_id>/jobs/', manager_views.api_document_jobs),
-    path('api/corpus/<str:corpus_id>/document/<str:document_id>/kvp/<str:key>', manager_views.api_document_kvp),
-    path('api/corpus/<str:corpus_id>/document/<str:document_id>/page-file-collections/', manager_views.api_document_page_file_collections),
-    path('api/corpus/<str:corpus_id>/document/<str:document_id>/page-file-collection/<str:pfc_slug>', manager_views.api_document_page_file_collections),
-    path('api/corpus/<str:corpus_id>/document/<str:document_id>/page/get-region-content/<str:ref_no>/<int:x>/<int:y>/<int:width>/<int:height>/', manager_views.api_page_region_content),
+
+    path('api/corpus/<str:corpus_id>/<str:content_type>/', manager_views.api_content),
+    path('api/corpus/<str:corpus_id>/<str:content_type>/files/', manager_views.api_content_files),
+    path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/', manager_views.api_content),
+    path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/files/', manager_views.api_content_files),
+    path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/jobs/', manager_views.api_content_jobs),
+    path('api/scholar/preference/<str:content_type>/<str:preference>/', manager_views.api_scholar_preference)
 ]

@@ -7,6 +7,8 @@ REGISTRY = {
     "OCR Document with Tesseract 4": {
         "version": "0.3",
         "jobsite_type": "HUEY",
+        "track_provenance": True,
+        "content_type": "Document",
         "configuration": {
             "parameters": {
                 "collection": {
@@ -37,7 +39,7 @@ REGISTRY = {
 def ocr_document_with_tesseract(job_id):
     job = Job(job_id)
     page_file_collection_key = job.configuration['parameters']['collection']['value']
-    page_files = job.document.get_page_file_collection(job.corpus_id, job.document_id, page_file_collection_key)['page_files']
+    page_files = job.content.get_page_file_collection(job.corpus_id, job.content_id, page_file_collection_key)['page_files']
     primary_witness = job.configuration['parameters']['primary_witness']['value'] == 'Yes'
     num_pages = len(page_files.ordered_ref_nos)
     pages_per_worker = 5
@@ -57,17 +59,17 @@ def ocr_document_with_tesseract(job_id):
 def ocr_pages_with_tesseract(job_id, starting_page, ending_page, primary_witness, task=None):
     job = Job(job_id)
     page_file_collection_key = job.configuration['parameters']['collection']['value']
-    page_files = job.document.get_page_file_collection(job.corpus_id, job.document_id, page_file_collection_key)['page_files']
+    page_files = job.content.get_page_file_collection(job.corpus_id, job.content_id, page_file_collection_key)['page_files']
     assigned_pages = page_files.ordered_ref_nos[starting_page:ending_page + 1]
 
     for ref_no, file in page_files:
         if ref_no in assigned_pages:
-            os.makedirs("{0}/pages/{1}".format(job.document.path, ref_no), exist_ok=True)
+            os.makedirs("{0}/pages/{1}".format(job.content.path, ref_no), exist_ok=True)
 
             if os.path.exists(file['path']):
                 # base path for different outputs
                 page_file_results = "{0}/pages/{1}/{2}_Tesseract4_{3}".format(
-                    job.document.path,
+                    job.content.path,
                     ref_no,
                     page_file_collection_key,
                     ref_no
@@ -82,7 +84,7 @@ def ocr_pages_with_tesseract(job_id, starting_page, ending_page, primary_witness
                 ]
 
                 if call(command) == 0:
-                    txt_file_obj = process_corpus_file(
+                    txt_file_obj = File.process(
                         page_file_results + '.txt',
                         desc='Plain Text',
                         prov_type='Tesseract OCR Job',
@@ -90,9 +92,9 @@ def ocr_pages_with_tesseract(job_id, starting_page, ending_page, primary_witness
                         primary=primary_witness
                     )
                     if txt_file_obj:
-                        job.document.save_page_file(ref_no, txt_file_obj)
+                        job.content.save_page_file(ref_no, txt_file_obj)
 
-                    hocr_file_obj = process_corpus_file(
+                    hocr_file_obj = File.process(
                         page_file_results + '.hocr',
                         desc='HOCR',
                         prov_type='Tesseract OCR Job',
@@ -100,7 +102,7 @@ def ocr_pages_with_tesseract(job_id, starting_page, ending_page, primary_witness
                         primary=primary_witness
                     )
                     if hocr_file_obj:
-                        job.document.save_page_file(ref_no, hocr_file_obj)
+                        job.content.save_page_file(ref_no, hocr_file_obj)
 
     if task:
         job.complete_process(task.id)
@@ -109,6 +111,6 @@ def ocr_pages_with_tesseract(job_id, starting_page, ending_page, primary_witness
 @db_task(priority=2)
 def complete_ocr_document_with_tesseract(job_id):
     job = Job(job_id)
-    job.document.save(index_pages=True)
+    job.content.save(index_pages=True)
     job.complete(status='complete')
 

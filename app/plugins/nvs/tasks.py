@@ -4,7 +4,7 @@ from corpus import *
 from cms import *
 from bs4 import BeautifulSoup
 
-
+'''
 REGISTRY = {
     "Import NVS Data from TEI": {
         "version": "0",
@@ -74,3 +74,4 @@ def _str(val):
     if val:
         return str(val)
     return ''
+'''
