@@ -147,7 +147,7 @@ connect(
     host=os.environ['CRP_MONGO_HOST'],
     username=os.environ['CRP_MONGO_USER'],
     password=os.environ['CRP_MONGO_PWD'],
-    authentication_source='admin',
+    authentication_source=os.environ.get('CRP_MONGO_AUTH_SOURCE', 'admin'),
     maxpoolsize=os.environ['CRP_MONGO_POOLSIZE']
 )
 
