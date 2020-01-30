@@ -136,7 +136,7 @@ DATABASES = {
         'USER': os.environ['CRP_MONGO_USER'],
         'PASSWORD': os.environ['CRP_MONGO_PWD'],
         'HOST': os.environ['CRP_MONGO_HOST'],
-        'AUTH_SOURCE': 'admin',
+        'AUTH_SOURCE': os.environ.get('CRP_MONGO_AUTH_SOURCE', 'admin'),
         'AUTH_MECHANISM': 'SCRAM-SHA-1',
     }
 }
