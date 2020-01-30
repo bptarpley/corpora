@@ -9,6 +9,8 @@ from manager.utilities import _get_context, get_scholar_corpus, _contains, _clea
 from manager.tasks import run_job
 from natsort import natsorted
 from rest_framework.decorators import api_view
+from google.cloud import vision
+from bs4 import BeautifulSoup
 
 
 @login_required
