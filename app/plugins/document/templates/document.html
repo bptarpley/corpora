@@ -333,16 +333,8 @@
                     <div class="card-header" style="border-bottom: none;">
                         <div class="d-flex w-100 justify-content-between align-items-center">
                             <h4>Pages</h4>
-                            <span>
+                            <span id="page-action-buttons-span">
                                 <button id="import-pages-button" class="btn btn-primary rounded" type="button">Import</button>
-                                {% if document.pages %}
-                                    <button id="create-pageset-button" class="btn btn-primary rounded ml-1" type="button">Create Page Set</button>
-                                    {% if response.scholar.is_admin %}
-                                        <a id="reset-pages-button" class="btn btn-secondary rounded ml-1" role="button" href="?reset-pages">Reset</a>
-                                    {% endif %}
-                                    <button id="perform-ocr-button" class="btn btn-primary rounded ml-1" type="button">Perform OCR</button>
-                                    <button id="analyze-button" class="btn btn-primary rounded ml-1" type="button">Analyze</button>
-                                {% endif %}
                             </span>
                         </div>
                     </div>
@@ -762,6 +754,15 @@
                                     show_page();
                                 }
                             );
+
+                            // SETUP PAGE TASK BUTTONS
+                            if(doc.pages) {
+                                $('#page-action-buttons-span').append(`
+                                    <button id="create-pageset-button" class="btn btn-primary rounded ml-1" type="button">Create Page Set</button>
+                                    <button id="perform-ocr-button" class="btn btn-primary rounded ml-1" type="button">Perform OCR</button>
+                                    <button id="analyze-button" class="btn btn-primary rounded ml-1" type="button">Analyze</button>
+                                `);
+                            }
 
                             hide_loading_overlay();
                         });
