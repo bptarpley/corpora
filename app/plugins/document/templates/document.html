@@ -762,6 +762,53 @@
                                     <button id="perform-ocr-button" class="btn btn-primary rounded ml-1" type="button">Perform OCR</button>
                                     <button id="analyze-button" class="btn btn-primary rounded ml-1" type="button">Analyze</button>
                                 `);
+
+                                // ---------------------
+                                // SETUP PAGE SET MODAL
+                                // ---------------------
+                                $("#create-pageset-button").click(function() {
+                                    $("#pageset-modal").modal();
+                                });
+
+                                // -----------------
+                                // SETUP OCR MODAL
+                                // -----------------
+                                $("#perform-ocr-button").click(function() {
+                                    load_jobsites("ocr", "OCR");
+                                    $("#ocr-modal").modal();
+                                });
+
+                                $("#ocr-jobsite-selector").on("change", function() {
+                                    load_tasks($('#ocr-jobsite-selector :selected').attr('class'), 'ocr', 'OCR');
+                                });
+
+                                $("#ocr-task-selector").on("change", function() {
+                                    load_task_parameters($('#ocr-task-selector').val(), 'ocr');
+                                });
+
+                                $("#ocr-submit-button").click(function() {
+                                    $("#ocr-form").submit();
+                                });
+
+                                // -------------------
+                                // SETUP ANALYZE MODAL
+                                // -------------------
+                                $("#analyze-button").click(function() {
+                                    load_jobsites("analyze", "Analyze");
+                                    $("#analyze-modal").modal();
+                                });
+
+                                $("#analyze-jobsite-selector").on("change", function() {
+                                    load_tasks($('#analyze-jobsite-selector :selected').attr('class'), 'analyze', 'Analyze');
+                                });
+
+                                $("#analyze-task-selector").on("change", function() {
+                                    load_task_parameters($('#analyze-task-selector').val(), 'analyze');
+                                });
+
+                                $("#analyze-submit-button").click(function() {
+                                    $("#analyze-form").submit();
+                                });
                             }
 
                             hide_loading_overlay();
@@ -825,58 +872,6 @@
             $("#import-pages-submit-button").click(function() {
                 $("#import-pages-files").val(JSON.stringify(import_pages_files));
                 $("#import-pages-form").submit();
-            });
-
-            $("#reset-pages-button").click(function() {
-                $("#import-pages-files").val(JSON.stringify(import_pages_files));
-                $("#import-pages-form").submit();
-            });
-
-            // ---------------------
-            // SETUP PAGE SET MODAL
-            // ---------------------
-            $("#create-pageset-button").click(function() {
-                $("#pageset-modal").modal();
-            });
-
-            // -----------------
-            // SETUP OCR MODAL
-            // -----------------
-            $("#perform-ocr-button").click(function() {
-                load_jobsites("ocr", "OCR");
-                $("#ocr-modal").modal();
-            });
-
-            $("#ocr-jobsite-selector").on("change", function() {
-                load_tasks($('#ocr-jobsite-selector :selected').attr('class'), 'ocr', 'OCR');
-            });
-
-            $("#ocr-task-selector").on("change", function() {
-                load_task_parameters($('#ocr-task-selector').val(), 'ocr');
-            });
-
-            $("#ocr-submit-button").click(function() {
-                $("#ocr-form").submit();
-            });
-
-            // -------------------
-            // SETUP ANALYZE MODAL
-            // -------------------
-            $("#analyze-button").click(function() {
-                load_jobsites("analyze", "Analyze");
-                $("#analyze-modal").modal();
-            });
-
-            $("#analyze-jobsite-selector").on("change", function() {
-                load_tasks($('#analyze-jobsite-selector :selected').attr('class'), 'analyze', 'Analyze');
-            });
-
-            $("#analyze-task-selector").on("change", function() {
-                load_task_parameters($('#analyze-task-selector').val(), 'analyze');
-            });
-
-            $("#analyze-submit-button").click(function() {
-                $("#analyze-form").submit();
             });
 
             FilePond.setOptions({
