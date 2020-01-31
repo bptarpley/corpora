@@ -278,7 +278,11 @@ def draw_page_regions(request, corpus_id, document_id, ref_no):
         'draw_regions.html',
         {
             'response': response,
-            'image_file': image_file,
+            'image_file': image_file.to_dict(parent_uri="/corpus/{0}/Document/{1}/page/{2}".format(
+                corpus_id,
+                document_id,
+                ref_no
+            )),
             'page_regions': page_regions,
             'corpus_id': corpus_id,
             'document_id': document_id,
