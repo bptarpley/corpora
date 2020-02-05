@@ -9919,7 +9919,7 @@ html, body {
 }
 #breadcrumb {
   z-index: 4999;
-  position: fixed;
+  position: absolute;
   top: 0px;
   left: 50%;
   transform: translateX(-50%);

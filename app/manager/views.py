@@ -38,6 +38,7 @@ def corpora(request):
             c.save_content_type(schema)
 
         sleep(4)
+        response['messages'].append("{0} corpus successfully created.".format(c.name))
 
     return render(
         request,
@@ -60,6 +61,13 @@ def corpus(request, corpus_id):
                 for queued_job_id in queued_job_ids:
                     run_job(queued_job_id)
 
+            response['messages'].append('''
+                Content type(s) successfully saved. Due to the setting/unsetting of fields as being in lists, or the 
+                changing of label templates, <strong>reindexing of existing content may occur</strong>, which can 
+                result in the temporary unavailability of content in lists or searches. All existing content will be 
+                made available once reindexing completes.  
+            ''')
+
         # HANDLE CONTENT_TYPE/FIELD ACTIONS THAT REQUIRE CONFIRMATION
         elif request.method == 'POST' and _contains(request.POST, [
             'content_type',
@@ -70,51 +78,54 @@ def corpus(request, corpus_id):
             action_field_name = _clean(request.POST, 'field')
             action = _clean(request.POST, 'action')
 
-            if action_content_type:
-                content_type = ContentType.objects(corpus=corpus_id, name=action_content_type)[0]
+            if action_content_type in corpus.content_types:
 
                 # content type actions
                 if not action_field_name:
                     if action == 'delete':
-                        content_type.delete()
+                        run_job(corpus.queue_local_job(task_name="Delete Content Type", parameters={
+                            'content_type': action_content_type,
+                        }))
+
+                        response['messages'].append("Content type {0} successfully deleted.".format(action_content_type))
 
                 # field actions
                 else:
                     if action == 'delete':
-                        content_type.delete_field(action_field_name)
+                        run_job(corpus.queue_local_job(task_name="Delete Content Type Field", parameters={
+                            'content_type': action_content_type,
+                            'field_name': action_field_name
+                        }))
+
+                        response['messages'].append("Field {0} successfully deleted from {1}.".format(
+                            action_field_name,
+                            action_content_type
+                        ))
+                        
                     elif action.startswith('shift_'):
+                        ct = corpus.content_types[action_content_type]
                         field_index = -1
                         new_field_index = -1
-                        for index in range(0, len(content_type.fields)):
-                            if content_type.fields[index].name == action_field_name:
+
+                        for index in range(0, len(ct.fields)):
+                            if ct.fields[index].name == action_field_name:
                                 field_index = index
 
                         if field_index > -1:
                             if action.endswith("_up") and field_index > 0:
                                 new_field_index = field_index - 1
-                            elif action.endswith("_down") and field_index < len(content_type.fields) - 1:
+                            elif action.endswith("_down") and field_index < len(ct.fields) - 1:
                                 new_field_index = field_index + 1
 
                         if field_index > -1 and new_field_index > -1:
-                            swap_field = content_type.fields[new_field_index]
-                            content_type.fields[new_field_index] = content_type.fields[field_index]
-                            content_type.fields[field_index] = swap_field
-                            content_type.save()
+                            swap_field = ct.fields[new_field_index]
+                            corpus.content_types[action_content_type].fields[new_field_index] = corpus.content_types[action_content_type].fields[field_index]
+                            corpus.content_types[action_content_type].fields[field_index] = swap_field
+                            corpus.save()
 
-        # HANDLE THE CREATION OF NEW TEMPLATE FORMATS
-        elif request.method == 'POST' and _contains(request.POST, ['new-format-label', 'new-format-extension']):
-            new_format_label = _clean(request.POST, 'new-format-label')
-            new_format_extension = _clean(request.POST, 'new-format-extension')
-
-            if new_format_label \
-                    and new_format_extension \
-                    and new_format_extension not in [default['extension'] for default in DEFAULT_TEMPLATE_FORMATS]:
-                new_format = TemplateFormat()
-                new_format.corpus = corpus
-                new_format.label = new_format_label
-                new_format.extension = new_format_extension
-                new_format.ace_editor_mode = 'django'
-                new_format.save()
+                            response['messages'].append("Field {0} successfully successfully repositioned.".format(
+                                action_field_name
+                            ))
 
         # HANDLE SCHEMA EXPORT
         elif request.method == 'GET' and 'export' in request.GET and request.GET['export'] == 'schema':
@@ -126,6 +137,15 @@ def corpus(request, corpus_id):
                 json.dumps(schema),
                 content_type='application/json'
             )
+
+        # HANDLE CORPUS DELETION
+        elif request.method == 'POST' and 'corpus-deletion-name' in request.POST:
+            if corpus.name == request.POST['corpus-deletion-name']:
+                run_job(corpus.queue_local_job(task_name="Delete Corpus", parameters={}))
+
+                return redirect("/?msg=Corpus {0} is being deleted.".format(
+                    corpus.name
+                ))
 
     return render(
         request,
@@ -190,7 +210,6 @@ def edit_content(request, corpus_id, content_type, content_id=None):
 
                     # set value for xref fields
                     elif ct_fields[field_name].type == 'cross_reference':
-                        print('setting xref value')
                         field_value = corpus.get_content(ct_fields[field_name].cross_reference_type, field_value).to_dbref()
 
                     # set value for number fields
@@ -467,14 +486,23 @@ def api_content(request, corpus_id, content_type, content_id=None):
     content = {}
     corpus = get_scholar_corpus(corpus_id, context['scholar'])
 
-    if corpus:
+    if corpus and content_type in corpus.content_types:
         if content_id:
             content = corpus.get_content(content_type, content_id, context['only'])
             content = content.to_dict()
-        elif context['search']:
-            content = corpus.search_content(content_type=content_type, **context['search'])
         else:
-            content = corpus.search_content(content_type=content_type, general_search_query="*")
+            xref_fields = [field.name for field in corpus.content_types[content_type].fields if field.cross_reference_type]
+
+            if context['search']:
+                content = corpus.search_content(content_type=content_type, **context['search'])
+            else:
+                content = corpus.search_content(content_type=content_type, general_search_query="*")
+
+            for hit in range(0, len(content['records'])):
+                for field_name in content['records'][hit].keys():
+                    if field_name in xref_fields:
+                        content['records'][hit][field_name] = json.loads(content['records'][hit][field_name])
+
 
     return HttpResponse(
         json.dumps(content),

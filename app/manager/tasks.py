@@ -54,6 +54,54 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['adjust_content']
     },
+    "Delete Content Type": {
+        "version": "0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "content_type": {
+                    "value": "",
+                    "type": "content_type",
+                    "label": "Content Type"
+                }
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['delete_content_type']
+    },
+    "Delete Content Type Field": {
+        "version": "0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "content_type": {
+                    "value": "",
+                    "type": "content_type",
+                    "label": "Content Type"
+                },
+                "field_name": {
+                    "value": "",
+                    "type": "field",
+                    "label": "Field Name"
+                }
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['delete_content_type_field']
+    },
+    "Delete Corpus": {
+        "version": "0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {},
+        "module": 'manager.tasks',
+        "functions": ['delete_corpus']
+    }
 }
 
 
@@ -110,4 +158,35 @@ def adjust_content(job_id):
         elif reindex:
             content._do_indexing()
 
+    job.complete(status='complete')
+
+
+@db_task(priority=5)
+def delete_content_type(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    content_type = job.configuration['parameters']['content_type']['value']
+    if content_type in job.corpus.content_types:
+        job.corpus.delete_content_type(content_type)
+
+    job.complete(status='complete')
+
+
+@db_task(priority=5)
+def delete_content_type_field(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    content_type = job.configuration['parameters']['content_type']['value']
+    field_name = job.configuration['parameters']['field_name']['value']
+    if content_type in job.corpus.content_types:
+        job.corpus.delete_content_type_field(content_type, field_name)
+
+    job.complete(status='complete')
+
+
+@db_task(priority=5)
+def delete_corpus(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    job.corpus.delete()
     job.complete(status='complete')

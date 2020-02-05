@@ -52,12 +52,13 @@ INSTALLED_APPS = [
     'corsheaders',
     'manager',
     'plugins',
+    'plugins.document',
     'plugins.tesseract',
     #'plugins.google_cloud_vision',
     #'plugins.nlp',
     'plugins.emop',
     #'plugins.nvs',
-    'plugins.document',
+    'plugins.cervantes',
     'rest_framework',
     'rest_framework.authtoken',
 ]
@@ -129,33 +130,44 @@ WSGI_APPLICATION = 'corpora.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
 
+MONGO_DB = os.environ['CRP_MONGO_DB']
+MONGO_USER = os.environ['CRP_MONGO_USER']
+MONGO_PWD = os.environ['CRP_MONGO_PWD']
+MONGO_HOST = os.environ['CRP_MONGO_HOST']
+MONGO_AUTH_SOURCE = os.environ.get('CRP_MONGO_AUTH_SOURCE', 'admin')
+MONGO_POOLSIZE = os.environ['CRP_MONGO_POOLSIZE']
+
 DATABASES = {
     'default': {
         'ENGINE': 'djongo',
-        'NAME': os.environ['CRP_MONGO_DB'],
-        'USER': os.environ['CRP_MONGO_USER'],
-        'PASSWORD': os.environ['CRP_MONGO_PWD'],
-        'HOST': os.environ['CRP_MONGO_HOST'],
-        'AUTH_SOURCE': os.environ.get('CRP_MONGO_AUTH_SOURCE', 'admin'),
+        'NAME': MONGO_DB,
+        'USER': MONGO_USER,
+        'PASSWORD': MONGO_PWD,
+        'HOST': MONGO_HOST,
+        'AUTH_SOURCE': MONGO_AUTH_SOURCE,
         'AUTH_MECHANISM': 'SCRAM-SHA-1',
     }
 }
 
 # Mongoengine connection
 connect(
-    os.environ['CRP_MONGO_DB'],
-    host=os.environ['CRP_MONGO_HOST'],
-    username=os.environ['CRP_MONGO_USER'],
-    password=os.environ['CRP_MONGO_PWD'],
-    authentication_source=os.environ.get('CRP_MONGO_AUTH_SOURCE', 'admin'),
-    maxpoolsize=os.environ['CRP_MONGO_POOLSIZE']
+    MONGO_DB,
+    host=MONGO_HOST,
+    username=MONGO_USER,
+    password=MONGO_PWD,
+    authentication_source=MONGO_AUTH_SOURCE,
+    maxpoolsize=MONGO_POOLSIZE
 )
 
 # NEO4J connection
-NEO4J = GraphDatabase.driver(
-    "bolt://{0}".format(os.environ['CRP_NEO4J_HOST']),
-    auth=(os.environ['CRP_NEO4J_USER'], os.environ['CRP_NEO4J_PWD'])
-)
+NEO4J = None
+try:
+    NEO4J = GraphDatabase.driver(
+        "bolt://{0}".format(os.environ['CRP_NEO4J_HOST']),
+        auth=(os.environ['CRP_NEO4J_USER'], os.environ['CRP_NEO4J_PWD'])
+    )
+except:
+    print("Neo4J database uninitialized.")
 
 # Elasticsearch connection
 connections.configure(

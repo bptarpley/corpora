@@ -5,11 +5,13 @@ import secrets
 import traceback
 import importlib
 import zlib
+import shutil
 from math import ceil
 from copy import deepcopy
 from datetime import datetime, timezone
 from dateutil import parser
 from bson.objectid import ObjectId
+from bson import DBRef
 from PIL import Image
 from django.conf import settings
 from elasticsearch_dsl import Index, Mapping, analyzer, Keyword, Text, Integer, Date, \
@@ -109,7 +111,7 @@ class Task(mongoengine.Document):
         )
 
     @classmethod
-    def pre_delete(self, sender, document, **kwargs):
+    def _post_delete(self, sender, document, **kwargs):
         # TODO: Think through what happens when documents reference task slated for deletion as a "completed task."
         # With potentially thousands of documents referencing the task, going through every document and looking for
         # instances of this task would be very time consuming. Yet, should the task disappear due to deletion,
@@ -180,7 +182,7 @@ class JobSite(mongoengine.Document):
             )
 
     @classmethod
-    def pre_delete(self, sender, document, **kwargs):
+    def _post_delete(self, sender, document, **kwargs):
         run_neo('''
                 MATCH (js:JobSite { uri: $jobsite_uri })
                 DETACH DELETE js
@@ -624,7 +626,7 @@ class Scholar(mongoengine.Document):
         )
 
     @classmethod
-    def pre_delete(cls, sender, document, **kwargs):
+    def _post_delete(cls, sender, document, **kwargs):
         run_neo('''
                 MATCH (s:Scholar { uri: $scholar_uri })
                 DETACH DELETE s
@@ -692,13 +694,6 @@ class ContentType(mongoengine.EmbeddedDocument):
             if self.fields[index].name == field_name:
                 return self.fields[index]
         return None
-
-    def get_field_stats(self):
-        stats = {}
-        for field in self.fields:
-            stats[field.name] = field.stats
-            stats[field.name]['type'] = field.type
-        return stats
 
     def get_mongoengine_class(self, corpus):
         class_dict = {
@@ -779,43 +774,6 @@ class ContentType(mongoengine.EmbeddedDocument):
 
         return ct_class
 
-    def clear_field(self, field_name):
-        if field_name in [field.name for field in self.fields]:
-            self.mongoengine_class.objects.update(**{'set__{0}'.format(field_name): None})
-
-    def delete_field(self, field_name):
-        if field_name in [field.name for field in self.fields]:
-            self.clear_field(field_name)
-
-            # find and delete field or references to field
-            field_index = -1
-            for x in range(0, len(self.fields)):
-                if self.fields[x].name == field_name:
-                    field_index = x
-                else:
-                    if field_name in self.fields[x].unique_with:
-                        self.fields[x].unique_with.remove(field_name)
-                    if field_name in self.fields[x].indexed_with:
-                        self.fields[x].indexed_with.remove(field_name)
-            if field_index > -1:
-                self.fields.pop(field_index)
-                self.save()
-
-            # delete any indexes referencing field, then drop field from collection
-            print('field cleared. now attemtpting to drop indexes...')
-            collection_name = "corpus_{0}_{1}".format(self.corpus.id, self.name)
-            db = self._get_db()
-            index_info = db[collection_name].index_information()
-            for index_name in index_info.keys():
-                delete_index = False
-                for key in index_info[index_name]['key']:
-                    if key[0] == field_name:
-                        delete_index = True
-                if delete_index:
-                    db[collection_name].drop_index(index_name)
-            print('indexes cleared. now attemtpting to unset fields...')
-            db[collection_name].update({}, {'$unset': {field_name: 1}}, multi=True)
-
     def build_index(self, corpus_id):
         field_type_map = {
             'text': 'text',
@@ -859,9 +817,6 @@ class ContentType(mongoengine.EmbeddedDocument):
 
         index.mapping(mapping)
         index.save()
-
-    def delete(self, corpus_id):
-        self.get_mongoengine_class(corpus_id).drop_collection()
 
     def to_dict(self):
         ct_dict = {
@@ -1027,6 +982,14 @@ class Corpus(mongoengine.Document):
                 content.content_type = content_type
 
         return content
+
+    def get_content_dbref(self, content_type, content_id):
+        if not type(content_id) == ObjectId:
+            content_id = ObjectId(content_id)
+        return DBRef(
+            "corpus_{0}_{1}".format(self.id, content_type),
+            content_id
+        )
 
     def search_content(self, content_type, page=1, page_size=50, general_query="", fields_query=[], fields_sort=[], only=[]):
         results = {
@@ -1272,6 +1235,81 @@ class Corpus(mongoengine.Document):
 
         return queued_job_ids
 
+    def delete_content_type(self, content_type):
+        if content_type in self.content_types:
+            # Delete Neo4J nodes
+            run_neo(
+                '''
+                    MATCH (x)
+                    WHERE EXISTS (x.uri)
+                    AND x.uri STARTS WITH '/corpus/{0}/{1}'
+                    DETACH DELETE x
+                '''.format(
+                    self.id,
+                    content_type
+                ), {}
+            )
+
+            # Delete Elasticsearch index
+            index_name = "corpus-{0}-{1}".format(self.id, content_type.lower())
+            index = Index(index_name)
+            if index.exists():
+                index.delete()
+
+            # Drop MongoDB collection
+            self.content_types[content_type].get_mongoengine_class(self).drop_collection()
+
+            # Delete files
+            ct_path = "{0}/{1}".format(self.path, content_type)
+            if os.path.exists(ct_path):
+                shutil.rmtree(ct_path)
+
+            # Remove from content_types
+            del self.content_types[content_type]
+
+            self.save()
+
+    def clear_content_type_field(self, content_type, field_name):
+        if content_type in self.content_types:
+            ct = self.content_types[content_type]
+            if field_name in [field.name for field in ct.fields]:
+                ct.get_mongoengine_class(self).objects.update(**{'set__{0}'.format(field_name): None})
+
+    def delete_content_type_field(self, content_type, field_name):
+        if content_type in self.content_types:
+            ct = self.content_types[content_type]
+
+            if field_name in [field.name for field in ct.fields]:
+
+                # find and delete field or references to field
+                field_index = -1
+                for x in range(0, len(ct.fields)):
+                    if ct.fields[x].name == field_name and not ct.fields[x].inherited:
+                        field_index = x
+                    else:
+                        if field_name in ct.fields[x].unique_with:
+                            self.content_types[content_type].fields[x].unique_with.remove(field_name)
+                        if field_name in ct.fields[x].indexed_with:
+                            self.content_types[content_type].fields[x].indexed_with.remove(field_name)
+                if field_index > -1:
+                    self.content_types[content_type].fields.pop(field_index)
+                    self.save()
+
+                    # delete any indexes referencing field, then drop field from collection
+                    print('field cleared. now attemtpting to drop indexes...')
+                    collection_name = "corpus_{0}_{1}".format(self.id, content_type)
+                    db = self._get_db()
+                    index_info = db[collection_name].index_information()
+                    for index_name in index_info.keys():
+                        delete_index = False
+                        for key in index_info[index_name]['key']:
+                            if key[0] == field_name:
+                                delete_index = True
+                        if delete_index:
+                            db[collection_name].drop_index(index_name)
+                    print('indexes cleared. now attemtpting to unset fields...')
+                    db[collection_name].update({}, {'$unset': {field_name: 1}}, multi=True)
+
     def queue_local_job(self, content_type=None, content_id=None, task_id=None, task_name=None, scholar_id=None, parameters={}):
         local_jobsite = JobSite.objects(name='Local')[0]
         if task_name and not task_id:
@@ -1338,6 +1376,20 @@ class Corpus(mongoengine.Document):
                 'description': document.description,
                 'open_access': document.open_access
             }
+        )
+
+    @classmethod
+    def _post_delete(cls, sender, document, **kwargs):
+
+        # Delete all Neo4J nodes associated with corpus
+        run_neo(
+            '''
+                MATCH (x)
+                WHERE EXISTS (x.uri)
+                AND x.uri STARTS WITH '/corpus/{0}'
+                DETACH DELETE x
+            '''.format(document.id),
+            {}
         )
         
     def to_dict(self):
@@ -1497,13 +1549,13 @@ class Content(mongoengine.Document):
                 if field_value and not field.type == 'embedded':
                     if field.cross_reference_type:
                         if field.multiple:
-                            index_obj[field.name] = " ".join(
-                                ["{0}|||{1}".format(x.label, x.uri) for x in field_value])
+                            multivals = [{'label': val.label, 'uri': val.uri} for val in field_value]
+                            index_obj[field.name] = json.dumps(multivals)
                         else:
-                            index_obj[field.name] = "{0}|||{1}".format(
-                                field_value.label,
-                                field_value.uri
-                            )
+                            index_obj[field.name] = json.dumps({
+                                'label': field_value.label,
+                                'uri': field_value.uri
+                            })
                     elif field.type not in ['file']:
                         if field.multiple and field.type != 'number':
                             index_obj[field.name] = " ".join(field_value)
@@ -1622,9 +1674,10 @@ class Content(mongoengine.Document):
 
 # SIGNALS FOR HANDLING MONGOENGINE DOCUMENT PRE-DELETION (mostly for deleting Neo4J nodes)
 mongoengine.signals.post_save.connect(Corpus._post_save, sender=Corpus)
-mongoengine.signals.pre_delete.connect(Scholar.pre_delete, sender=Scholar)
-mongoengine.signals.pre_delete.connect(Task.pre_delete, sender=Task)
-mongoengine.signals.pre_delete.connect(JobSite.pre_delete, sender=JobSite)
+mongoengine.signals.post_delete.connect(Scholar._post_delete, sender=Scholar)
+mongoengine.signals.post_delete.connect(Task._post_delete, sender=Task)
+mongoengine.signals.post_delete.connect(JobSite._post_delete, sender=JobSite)
+mongoengine.signals.post_delete.connect(Corpus._post_delete, sender=Corpus)
 Scholar.register_delete_rule(Corpus, "available_corpora", mongoengine.PULL)
 
 
@@ -1699,3 +1752,18 @@ def parse_date_string(date_string):
         pass
 
     return date_obj
+
+
+def ensure_connection():
+    try:
+        c = Corpus.objects.count()
+    except:
+        mongoengine.disconnect_all()
+        mongoengine.connect(
+            settings.MONGO_DB,
+            host=settings.MONGO_HOST,
+            username=settings.MONGO_USER,
+            password=settings.MONGO_PWD,
+            authentication_source=settings.MONGO_AUTH_SOURCE,
+            maxpoolsize=settings.MONGO_POOLSIZE
+        )

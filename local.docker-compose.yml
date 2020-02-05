@@ -24,8 +24,10 @@ services:
       CRP_MONGO_PWD: corpora
       CRP_MONGO_POOLSIZE: 5
       CRP_NEO4J_HOST: neo4j:7687
-      CRP_NEO4J_USER: neo4j
-      CRP_NEO4J_PWD: j4neo
+      CRP_NEO4J_USER: corpora
+      CRP_NEO4J_PWD: PC4115422lse1d1aedfX!
+      CRP_NEO4J_RO_USER: corpora_ro
+      CRP_NEO4J_RO_PWD: corpora
       CRP_ELASTIC_HOST: elastic
       CRP_DJANGO_WORKERS: 3
       CRP_HUEY_WORKERS: 10
@@ -73,11 +75,11 @@ services:
       - 27017:27017
 
   neo4j:
-    image: neo4j:latest
+    image: graphfoundation/ongdb:3.5.14
     environment:
       NEO4J_dbms_memory_pagecache_size: 512M
       NEO4J_dbms_memory_heap_max__size: 512M
-      NEO4J_AUTH: neo4j/j4neo
+      #NEO4J_AUTH: neo4j/j4neo
     volumes:
       - /Users/bptarpley/corpora/link:/data
     ports:

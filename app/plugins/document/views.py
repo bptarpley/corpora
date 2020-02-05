@@ -284,8 +284,8 @@ def draw_page_regions(request, corpus_id, document_id, ref_no):
                 ref_no
             )),
             'page_regions': page_regions,
-            'corpus_id': corpus_id,
-            'document_id': document_id,
+            'corpus': corpus,
+            'document': document,
             'ocr_file': ocr_file,
             'ref_no': ref_no
         }

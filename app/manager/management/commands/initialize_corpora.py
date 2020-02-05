@@ -5,6 +5,7 @@ from copy import deepcopy
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
+from neo4j import GraphDatabase
 from django.conf import settings
 from elasticsearch_dsl import Index, Mapping, Keyword, Text, Boolean
 from corpus import *
@@ -38,7 +39,77 @@ class Command(BaseCommand):
         print(" INITIALIZING CORPORA")
         print("---------------------------\n")
 
-        # Ensure NEO4J constraints exist
+        # Ensure NEO4J users/passwords set and constraints exist
+        if not settings.NEO4J:
+            # attempting to connect with default creds.
+            initial_neo = GraphDatabase.driver(
+                "bolt://{0}".format(os.environ['CRP_NEO4J_HOST']),
+                auth=('neo4j', 'neo4j')
+            )
+            temp_default_pwd = 'initpwd'
+
+            with initial_neo.session() as neo:
+                # change default password (must do in order to proceed with new account creation)
+                neo.run(
+                    "CALL dbms.security.changePassword('{0}')".format(temp_default_pwd)
+                )
+
+            initial_neo.close()
+            initial_neo = GraphDatabase.driver(
+                "bolt://{0}".format(os.environ['CRP_NEO4J_HOST']),
+                auth=('neo4j', temp_default_pwd)
+            )
+
+            with initial_neo.session() as neo:
+                # create admin account
+                neo.run(
+                    "CALL dbms.security.createUser",
+                    username=os.environ['CRP_NEO4J_USER'],
+                    password=os.environ['CRP_NEO4J_PWD'],
+                    requirePasswordChange=False
+                )
+
+                # grant admin account admin privs
+                neo.run(
+                    "CALL dbms.security.addRoleToUser",
+                    roleName="admin",
+                    username=os.environ['CRP_NEO4J_USER']
+                )
+
+                # create read-only user
+                neo.run(
+                    "CALL dbms.security.createUser",
+                    username=os.environ['CRP_NEO4J_RO_USER'],
+                    password=os.environ['CRP_NEO4J_RO_PWD'],
+                    requirePasswordChange=False
+                )
+
+                # grant read-only account privs
+                neo.run(
+                    "CALL dbms.security.addRoleToUser",
+                    roleName="reader",
+                    username=os.environ['CRP_NEO4J_RO_USER']
+                )
+
+            initial_neo.close()
+
+            # setup NEO4J default connection
+            settings.NEO4J = GraphDatabase.driver(
+                "bolt://{0}".format(os.environ['CRP_NEO4J_HOST']),
+                auth=(os.environ['CRP_NEO4J_USER'], os.environ['CRP_NEO4J_PWD'])
+            )
+
+            # delete default user
+            with settings.NEO4J.session() as neo:
+                neo.run(
+                    "CALL dbms.security.deleteUser",
+                    username="neo4j"
+                )
+
+            print("\t-- NEO4J USERS INITIALIZED :)")
+        else:
+            print("\t-- NEO4J USERS INITIALIZED :)")
+
         with settings.NEO4J.session() as neo:
             constraints = ' '.join([r.get("description") for r in neo.run("CALL db.constraints")])
             constraint_created = False

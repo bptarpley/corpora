@@ -166,6 +166,14 @@ def import_document(corpus_id, document_json_path):
             if valid:
                 doc.kvp = {}
 
+                if 'jobs' in import_doc:
+                    doc.emop_ocr_jobs = ""
+                    for job in import_doc['jobs']:
+                        if 'configuration' in job and 'notes' in job['configuration']:
+                            doc.emop_ocr_jobs += job['configuration']['notes'] + ", "
+                    if doc.emop_ocr_jobs:
+                        doc.emop_ocr_jobs = doc.emop_ocr_jobs[:-2]
+
                 for file in import_doc['files']:
                     f = File()
                     f.primary_witness = file['primary_facsimile']

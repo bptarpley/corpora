@@ -293,6 +293,36 @@
             </form>
         </div>
 
+    {% if response.scholar.is_admin %}
+        <div class="row">
+            <div class="col">
+                <div id="type-manager-div" class="card mt-4">
+                    <div class="card-header">
+                        <h4>Corpus Management</h4>
+                    </div>
+                    <div class="card-body">
+                        <button type="button" class="btn btn-danger" id="corpus-show-delete-confirmation-button">Delete Corpus</button>
+                        <div id="corpus-deletion-confirmation-div" class="alert alert-danger mt-3 d-none">
+                            <strong>Warning:</strong> Should you delete this corpus, all data and linkages comprising it
+                            will be deleted, and it will only be recoverable via backups. Depending on the size of your corpus,
+                            deletion could take some time. <strong>If you are certain you'd like to delete this corpus,
+                            type its name (<span id="corpus-deletion-name-span"></span>) in the box below and click the
+                            "Delete" button</strong>:
+
+                            <form id="corpus-deletion-form" action="post">
+                                <div class="form-group mt-3">
+                                    <label for="corpus-deletion-confirmation-box" class="sr-only">Corpus Name</label>
+                                    <input type="text" class="form-control" id="corpus-deletion-confirmation-box" name="corpus-deletion-name" placeholder="Corpus Name">
+                                </div>
+                                <button type="button" class="btn btn-danger" id="corpus-delete-button">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
     <div id="job-box" class="d-none">
         <div class="card">
             <div class="card-header">
@@ -559,6 +589,22 @@
                     manage_content_type(ct_name);
                 }
 
+                // HANDLE CORPUS DELETION EVENTS
+                $('#corpus-show-delete-confirmation-button').click(function() {
+                    $('#corpus-deletion-name-span').html(corpus.name);
+                    if ($(this).html() === "Delete Corpus") {
+                        $('#corpus-deletion-confirmation-div').removeClass('d-none');
+                        $(this).html("Cancel Corpus Deletion");
+                    } else {
+                        $('#corpus-deletion-confirmation-div').addClass('d-none');
+                        $(this).html("Delete Corpus");
+                    }
+                });
+
+                $('#corpus-delete-button').click(function() {
+                    $('#corpus-deletion-form').submit();
+                });
+
                 let scroll_location = location.hash;
                 location.hash = '';
                 location.hash = scroll_location;
@@ -816,18 +862,22 @@
                             }
 
                             if (field.cross_reference_type && value) {
-                                let val_parts = value.split('|||');
-                                value = `<a href="${val_parts[1]}" target="_blank">${val_parts[0]}</a>`;
-                            }
-
-                            if (field.multiple) {
+                                if (field.multiple) {
+                                    let multi_value = '';
+                                    for (let y in value) {
+                                        multi_value += `, <a href="${value[y].uri}" target="_blank">${value[y].label}</a>`;
+                                    }
+                                    if (multi_value) {
+                                        multi_value = multi_value.substring(2);
+                                    }
+                                    value = multi_value;
+                                } else {
+                                    value = `<a href="${value.uri}" target="_blank">${value.label}</a>`;
+                                }
+                            } else if (field.multiple) {
                                 let multi_value = '';
                                 for (let y in value) {
-                                    if (field.cross_reference_type) {
-                                        multi_value += `, <a href="${value[y].uri}" target="_blank">${value[y].label}</a>`;
-                                    } else {
-                                        multi_value += `, ${value[y]}`;
-                                    }
+                                    multi_value += `, ${value[y]}`;
                                 }
                                 if (multi_value) {
                                     multi_value = multi_value.substring(2);

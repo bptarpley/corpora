@@ -98,8 +98,6 @@ REGISTRY = [
             "save_page_file"
         ],
         "base_mongo_indexes": [
-            'title',
-            'author',
             {
                 'fields': ['id', 'pages.ref_no'],
                 'unique': True,
@@ -116,7 +114,12 @@ REGISTRY = [
                 'sparse': True
             }
         ],
-        "templates": {}
+        "templates": {
+            "Label": {
+                "template": "{{ Document.title }}{% if Document.author %} ({{ Document.author }}){% endif %}",
+                "mime_type": "text/html"
+            }
+        }
     },
 ]
 
