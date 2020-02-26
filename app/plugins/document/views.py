@@ -19,7 +19,7 @@ def document(request, corpus_id, document_id):
     corpus = get_scholar_corpus(corpus_id, response['scholar'])
 
     if corpus:
-        if request.method == 'POST':
+        if response['scholar'].is_admin and request.method == 'POST':
             document = corpus.get_content('Document', document_id)
 
             # HANDLE FILE UPLOADS

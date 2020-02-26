@@ -231,7 +231,7 @@ class DQLocation(Content):
                 self.section
             )
         elif self.part and self.chapter:
-            new_uri = "/corpus/{1}/DQLocation/{1}/{2}".format(
+            new_uri = "/corpus/{0}/DQLocation/{1}/{2}".format(
                 self.corpus_id,
                 self.part,
                 self.chapter

@@ -309,7 +309,8 @@
                             type its name (<span id="corpus-deletion-name-span"></span>) in the box below and click the
                             "Delete" button</strong>:
 
-                            <form id="corpus-deletion-form" action="post">
+                            <form id="corpus-deletion-form" method="post">
+                                {% csrf_token %}
                                 <div class="form-group mt-3">
                                     <label for="corpus-deletion-confirmation-box" class="sr-only">Corpus Name</label>
                                     <input type="text" class="form-control" id="corpus-deletion-confirmation-box" name="corpus-deletion-name" placeholder="Corpus Name">
@@ -770,10 +771,14 @@
             page_selector.html('');
             current_search_div.html('');
 
-            let has_search_param = false;
+            current_search_div.append(`
+                <span class="badge badge-primary p-2 mr-2" style="font-size: 12px;">
+                    Total: ${content.meta.total}
+                </span>
+            `);
+
             for (let search_setting in ct_search[ct.name]) {
                 if (ct_search[ct.name].hasOwnProperty(search_setting) && (search_setting === 'q' || search_setting.startsWith('q_') || search_setting.startsWith('s_'))) {
-                    has_search_param = true;
                     let setting_type = 'Searching';
                     let field = "";
                     let field_name = "";
@@ -801,14 +806,6 @@
                         </span>
                     `);
                 }
-            }
-
-            if (!has_search_param) {
-                current_search_div.removeClass('d-flex');
-                current_search_div.addClass('d-none');
-            } else {
-                current_search_div.removeClass('d-none');
-                current_search_div.addClass('d-flex');
             }
 
             if (content.records.length < 1) {
@@ -841,6 +838,7 @@
                     page_selector.append(option_html);
                 }
                 page_selector.removeClass("d-none");
+                per_page_selector.removeClass("d-none");
                 per_page_selector.val(ct_search[ct.name]['page-size'].toString());
 
                 content.records.forEach(item => {

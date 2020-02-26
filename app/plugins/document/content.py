@@ -97,23 +97,23 @@ REGISTRY = [
             "save_page",
             "save_page_file"
         ],
-        "base_mongo_indexes": [
-            {
-                'fields': ['id', 'pages.ref_no'],
-                'unique': True,
-                'sparse': True
-            },
-            {
-                'fields': ['id', 'files.path'],
-                'unique': True,
-                'sparse': True
-            },
-            {
-                'fields': ['id', 'pages.files.path'],
-                'unique': True,
-                'sparse': True
-            }
-        ],
+        #"base_mongo_indexes": [
+        #    {
+        #        'fields': ['id', 'pages.ref_no'],
+        #        'unique': True,
+        #        'sparse': True
+        #    },
+        #    {
+        #        'fields': ['id', 'files.path'],
+        #        'unique': True,
+        #        'sparse': True
+        #    },
+        #    {
+        #        'fields': ['id', 'pages.files.path'],
+        #        'unique': True,
+        #        'sparse': True
+        #    }
+        #],
         "templates": {
             "Label": {
                 "template": "{{ Document.title }}{% if Document.author %} ({{ Document.author }}){% endif %}",
@@ -372,18 +372,15 @@ class Document(Content):
         return pfc
 
     def save_file(self, file):
-        self.files[file.key] = file
-        self.save(do_indexing=False, do_linking=False)
+        self.modify(**{'set__files__{0}'.format(file.key): file})
         file._do_linking(content_type='Document', content_uri=self.uri)
 
     def save_page(self, page):
-        self.pages[page.ref_no] = page
-        self.save(do_indexing=False, do_linking=False)
+        self.modify(**{'set__pages__{0}'.format(page.ref_no): page})
         page._do_linking(content_type='Document', content_uri=self.uri)
 
     def save_page_file(self, page_ref_no, file):
-        self.pages[page_ref_no].files[file.key] = file
-        self.save(do_indexing=False, do_linking=False)
+        self.modify(**{'set__pages__{0}__files__{1}'.format(page_ref_no, file.key): file})
         file._do_linking(content_type='Page', content_uri="{0}/page/{1}".format(self.uri, page_ref_no))
 
     def to_dict(self, ref_only=False):

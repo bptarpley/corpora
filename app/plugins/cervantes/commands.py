@@ -187,6 +187,7 @@ def import_images():
     db = _get_db()
 
     # Edition Categories
+    '''
     print("Loading edition categories...")
     query = 'select * from EditionCat'
     rows = _get_data(db, query)
@@ -197,8 +198,10 @@ def import_images():
         edcat.name = row['display'].replace('&nbsp;', '').strip()
         edcat.save()
         cache.set("{0}/edition_category/{1}".format(cache_key_base, row['id']), str(edcat.id))
+    '''
 
     # Editions
+    '''
     print("Loading editions...")
     query = 'select * from EDITION'
     rows = _get_data(db, query)
@@ -225,10 +228,11 @@ def import_images():
 
         ed.save()
         cache.set("{0}/editions/{1}".format(cache_key_base, row['id']), str(ed.id))
+    '''
 
     # Illustrations
     print("Loading illustrations...")
-    query = "select * from IMAGE"
+    query = "select * from IMAGE WHERE part IS NULL"
     rows = _get_data(db, query)
     for row in rows:
         try:
@@ -256,10 +260,20 @@ def import_images():
             img.title_caption = row['titleCap']
             img.title_supplied = row['titleSup']
 
-            part = row['part'].strip()
-            chapter = _get_extract(row['chapter'].strip(), r'([^\.]*)\.')
-            section = _get_extract(row['subject'].strip(), r'([^ ]*) ')
-            description = row['subject'].strip().replace(section, '')
+            part = ""
+            chapter = ""
+            section = ""
+            description = ""
+
+            if row['part']:
+                part = row['part'].strip()
+
+            if row['chapter']:
+                chapter = _get_extract(row['chapter'].strip(), r'([^\.]*)\.')
+
+            if row['subject']:
+                section = _get_extract(row['subject'].strip(), r'([^ ]*) ')
+                description = row['subject'].strip().replace(section, '')
 
             location_key = "{0}-{1}-{2}".format(
                 part,
@@ -278,7 +292,7 @@ def import_images():
                 })
                 if locations and locations.count() == 1:
                     img.location = locations[0].to_dbref()
-                    cache.set("{0}/locations/{1}".format(cache_key_base, location_key), locations[0].id)
+                    cache.set("{0}/locations/{1}".format(cache_key_base, location_key), str(locations[0].id))
                 else:
                     location = corpus.get_content('DQLocation')
                     location.part = part
@@ -287,7 +301,7 @@ def import_images():
                     location.description = description
                     location.save()
                     img.location = location.to_dbref()
-                    cache.set("{0}/locations/{1}".format(cache_key_base, location_key), location.id)
+                    cache.set("{0}/locations/{1}".format(cache_key_base, location_key), str(location.id))
 
             img.illustration_type = row['type']
             img.illustration_technique = row['technique']

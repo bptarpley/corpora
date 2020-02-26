@@ -559,6 +559,7 @@ class Scholar(mongoengine.Document):
     available_jobsites = mongoengine.ListField(mongoengine.LazyReferenceField(JobSite, reverse_delete_rule=mongoengine.PULL))
     is_admin = mongoengine.BooleanField(default=False)
     auth_token = mongoengine.StringField(default=secrets.token_urlsafe(32))
+    auth_token_ips = mongoengine.ListField(mongoengine.StringField())
 
     def save(self, index_pages=False, **kwargs):
         super().save(**kwargs)
@@ -1011,16 +1012,22 @@ class Corpus(mongoengine.Document):
             index = "corpus-{0}-{1}".format(self.id, content_type.lower())
             should = []
             must = []
-            if general_query:
+            if general_query and not fields_query:
                 should.append(SimpleQueryString(query=general_query))
 
             if fields_query:
                 for search_field in fields_query.keys():
-                    must.append(Q("match", **{search_field: fields_query[search_field]}))
+                    must.append(Q("match_phrase", **{search_field: fields_query[search_field]}))
+
+            if general_query and fields_query:
+                must.append(SimpleQueryString(query=general_query))
 
             if should or must:
                 search_query = Q('bool', should=should, must=must)
-                search_cmd = Search(using=get_connection(), index=index).query(search_query)
+
+                extra = {'track_total_hits': True}
+
+                search_cmd = Search(using=get_connection(), index=index, extra=extra).query(search_query)
 
                 if only:
                     if '_id' not in only:
@@ -1028,10 +1035,22 @@ class Corpus(mongoengine.Document):
                     search_cmd = search_cmd.source(includes=only)
 
                 if fields_sort:
-                    search_cmd = search_cmd.sort(*fields_sort)
+                    adjusted_fields_sort = []
+                    for x in range(0, len(fields_sort)):
+                        field_name = list(fields_sort[x].keys())[0]
+                        sort_direction = fields_sort[x][field_name]
+                        field = self.content_types[content_type].get_field(field_name)
+                        if field:
+                            if field.type in ['text', 'cross_reference']:
+                                field_name = field_name + '.raw'
+                            adjusted_fields_sort.append({field_name: sort_direction})
+
+                    search_cmd = search_cmd.sort(*adjusted_fields_sort)
 
                 search_cmd = search_cmd[start_index:end_index]
+                # print(json.dumps(search_cmd.to_dict(), indent=4))
                 search_results = search_cmd.execute().to_dict()
+                # print(json.dumps(search_results, indent=4))
                 results['meta']['total'] = search_results['hits']['total']['value']
                 results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
                 results['meta']['has_next_page'] = results['meta']['page'] < results['meta']['num_pages']
@@ -1379,7 +1398,18 @@ class Corpus(mongoengine.Document):
         )
 
     @classmethod
-    def _post_delete(cls, sender, document, **kwargs):
+    def _pre_delete(cls, sender, document, **kwargs):
+
+        # Delete Content Type indexes and collections
+        for content_type in document.content_types.keys():
+            # Delete ct index
+            index_name = "corpus-{0}-{1}".format(document.id, content_type.lower())
+            index = Index(index_name)
+            if index.exists():
+                index.delete()
+
+            # Drop ct MongoDB collection
+            document.content_types[content_type].get_mongoengine_class(document).drop_collection()
 
         # Delete all Neo4J nodes associated with corpus
         run_neo(
@@ -1391,6 +1421,14 @@ class Corpus(mongoengine.Document):
             '''.format(document.id),
             {}
         )
+
+        # Remove corpus from ES index
+        es_corpus_doc = Search(index='corpora').query("match", _id=str(document.id))
+        es_corpus_doc.delete()
+
+        # Delete corpus files
+        if os.path.exists(document.path):
+            shutil.rmtree(document.path)
         
     def to_dict(self):
         corpus_dict = {
@@ -1414,6 +1452,7 @@ class Corpus(mongoengine.Document):
 
     meta = {
         'indexes': [
+            'open_access',
             {
                 'fields': ['id', 'content_types.name'],
                 'unique': True,
@@ -1677,7 +1716,7 @@ mongoengine.signals.post_save.connect(Corpus._post_save, sender=Corpus)
 mongoengine.signals.post_delete.connect(Scholar._post_delete, sender=Scholar)
 mongoengine.signals.post_delete.connect(Task._post_delete, sender=Task)
 mongoengine.signals.post_delete.connect(JobSite._post_delete, sender=JobSite)
-mongoengine.signals.post_delete.connect(Corpus._post_delete, sender=Corpus)
+mongoengine.signals.pre_delete.connect(Corpus._pre_delete, sender=Corpus)
 Scholar.register_delete_rule(Corpus, "available_corpora", mongoengine.PULL)
 
 
@@ -1692,23 +1731,58 @@ def get_corpus(corpus_id, only=[]):
         return None
 
 
-def search_corpora(q, sort_fields=[], start_record=0, end_record=50):
-    search = Search(
-        using=get_connection(),
-        index="corpora"
-    ).query(
-        SimpleQueryString(query=q)
-    )
+def search_corpora(page=1, page_size=50, general_query="", fields_query=[], fields_sort=[], only=[], ids=[], open_access_only=False):
+    results = {
+        'meta': {
+            'content_type': 'Corpus',
+            'total': 0,
+            'page': page,
+            'page_size': page_size,
+            'num_pages': 1,
+            'has_next_page': False
+        },
+        'records': []
+    }
 
-    if sort_fields:
-        search = search.sort(*sort_fields)
+    start_index = (page - 1) * page_size
+    end_index = page * page_size
 
-    search = search[start_record:end_record]
+    index = "corpora"
+    should = []
+    must = []
+    if general_query:
+        should.append(SimpleQueryString(query=general_query))
 
-    print("Searching index corpora")
-    print(json.dumps(search.to_dict(), indent=4))
-    response = search.execute()
-    return response.to_dict()
+    if fields_query:
+        for search_field in fields_query.keys():
+            must.append(Q('match', **{search_field: fields_query[search_field]}))
+
+    if ids:
+        must.append(Q('terms', _id=ids) | Q('match', open_access=True))
+    elif open_access_only:
+        must.append(Q('match', open_access=True))
+
+    if should or must:
+        search_query = Q('bool', should=should, must=must)
+        search_cmd = Search(using=get_connection(), index=index, extra={'track_total_hits': True}).query(search_query)
+
+        if fields_sort:
+            search_cmd = search_cmd.sort(*fields_sort)
+
+        search_cmd = search_cmd[start_index:end_index]
+        print(json.dumps(search_cmd.to_dict(), indent=4))
+        search_results = search_cmd.execute().to_dict()
+        results['meta']['total'] = search_results['hits']['total']['value']
+        results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
+        results['meta']['has_next_page'] = results['meta']['page'] < results['meta']['num_pages']
+
+        for hit in search_results['hits']['hits']:
+            record = deepcopy(hit['_source'])
+            record['id'] = hit['_id']
+            record['_search_score'] = hit['_score']
+            results['records'].append(record)
+
+    return results
 
 
 def get_field_value_from_path(obj, path):
