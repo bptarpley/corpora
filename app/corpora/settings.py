@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'plugins',
     'plugins.document',
     'plugins.tesseract',
+    'plugins.calamari',
     #'plugins.google_cloud_vision',
     #'plugins.nlp',
     'plugins.emop',

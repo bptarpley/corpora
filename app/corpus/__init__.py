@@ -943,7 +943,7 @@ class File(mongoengine.EmbeddedDocument):
             'collection_label': self.collection_label
         }
 
-
+# ORM for django
 class Corpus(mongoengine.Document):
     name = mongoengine.StringField(unique=True)
     description = mongoengine.StringField()
