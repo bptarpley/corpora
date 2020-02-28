@@ -29,13 +29,11 @@ urlpatterns += [
     path('image/uri/<str:image_uri>/', manager_views.get_image),
     path('image/uri/<str:image_uri>/<str:region>/<str:size>/<str:rotation>/<str:quality>.<str:format>', manager_views.get_image),
 
-    path('api/search/', manager_views.api_search),
     path('api/jobsites/', manager_views.api_jobsites),
     path('api/tasks/', manager_views.api_tasks),
     path('api/tasks/<str:content_type>/', manager_views.api_tasks),
     path('api/corpus/', manager_views.api_corpora),
     path('api/corpus/<str:corpus_id>/', manager_views.api_corpus),
-    path('api/corpus/<str:corpus_id>/search/', manager_views.api_search),
     path('api/corpus/<str:corpus_id>/jobs/', manager_views.api_corpus_jobs),
 
     path('api/corpus/<str:corpus_id>/<str:content_type>/', manager_views.api_content),

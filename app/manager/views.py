@@ -1,7 +1,6 @@
-import logging
-import json
 import re
 import mimetypes
+from ipaddress import ip_address
 from django.shortcuts import render, redirect, HttpResponse
 from django.http import Http404
 from django.contrib.auth import authenticate, login, logout
@@ -11,9 +10,16 @@ from html import unescape
 from time import sleep
 from corpus import *
 from .tasks import *
-from .utilities import _get_context, _clean, _contains, get_corpus_search_results, \
-    get_scholar_corpora, get_scholar_corpus, parse_uri, \
-    get_jobsites, get_tasks
+from .utilities import(
+    _get_context,
+    _clean,
+    _contains,
+    get_scholar_corpus,
+    parse_uri,
+    get_jobsites,
+    get_tasks,
+    clear_cached_session_scholar
+)
 from rest_framework.decorators import api_view 
 from rest_framework.authtoken.models import Token
 
@@ -54,7 +60,7 @@ def corpus(request, corpus_id):
     response = _get_context(request)
     corpus = get_scholar_corpus(corpus_id, response['scholar'])
     if corpus:
-        if request.method == 'POST' and 'schema' in request.POST:
+        if response['scholar'].is_admin and request.method == 'POST' and 'schema' in request.POST:
             schema = json.loads(request.POST['schema'])
             for ct_schema in schema:
                 queued_job_ids = corpus.save_content_type(ct_schema)
@@ -69,7 +75,7 @@ def corpus(request, corpus_id):
             ''')
 
         # HANDLE CONTENT_TYPE/FIELD ACTIONS THAT REQUIRE CONFIRMATION
-        elif request.method == 'POST' and _contains(request.POST, [
+        elif response['scholar'].is_admin and request.method == 'POST' and _contains(request.POST, [
             'content_type',
             'field',
             'action'
@@ -139,7 +145,7 @@ def corpus(request, corpus_id):
             )
 
         # HANDLE CORPUS DELETION
-        elif request.method == 'POST' and 'corpus-deletion-name' in request.POST:
+        elif response['scholar'].is_admin and request.method == 'POST' and 'corpus-deletion-name' in request.POST:
             if corpus.name == request.POST['corpus-deletion-name']:
                 run_job(corpus.queue_local_job(task_name="Delete Corpus", parameters={}))
 
@@ -157,11 +163,12 @@ def corpus(request, corpus_id):
     )
 
 
+@login_required
 def edit_content(request, corpus_id, content_type, content_id=None):
     context = _get_context(request)
     corpus = get_scholar_corpus(corpus_id, context['scholar'])
 
-    if corpus and content_type in corpus.content_types:
+    if context['scholar'].is_admin and corpus and content_type in corpus.content_types:
 
         if request.method == 'POST':
             temp_file_fields = []
@@ -306,41 +313,56 @@ def scholar(request):
         lname = _clean(request.POST, 'lname')
         email = _clean(request.POST, 'email')
 
-        if password and password == password2:
-            if not response['scholar']:
-                user = User.objects.create_user(
-                    username,
-                    email,
-                    password
-                )
-                user.first_name = fname
-                user.last_name = lname
-                user.save()
+        valid_ips = True
+        auth_token_ips = [request.POST[val] for val in request.POST.keys() if val.startswith('auth-token-ip-')]
+        for auth_token_ip in auth_token_ips:
+            try:
+                ip = ip_address(auth_token_ip)
+            except:
+                valid_ips = False
 
-                response['scholar'] = Scholar()
-                response['scholar'].username = username
-                response['scholar'].fname = fname
-                response['scholar'].lname = lname
-                response['scholar'].email = email
+        if valid_ips:
+            if password and password == password2:
+                if not response['scholar']:
+                    user = User.objects.create_user(
+                        username,
+                        email,
+                        password
+                    )
+                    user.first_name = fname
+                    user.last_name = lname
+                    user.save()
 
-                token, created = Token.objects.get_or_create(user=user)
-                response['scholar'].auth_token = token.key
-                response['scholar'].save()
+                    response['scholar'] = Scholar()
+                    response['scholar'].username = username
+                    response['scholar'].fname = fname
+                    response['scholar'].lname = lname
+                    response['scholar'].email = email
+                    response['scholar'].auth_token_ips = auth_token_ips
 
-                return redirect("/scholar?msg=You have successfully registered. Please login below.")
+                    token, created = Token.objects.get_or_create(user=user)
+                    response['scholar'].auth_token = token.key
+                    response['scholar'].save()
+                    clear_cached_session_scholar(user.id)
+
+                    return redirect("/scholar?msg=You have successfully registered. Please login below.")
+                else:
+                    response['scholar'].fname = fname
+                    response['scholar'].lname = lname
+                    response['scholar'].email = email
+                    response['scholar'].auth_token_ips = auth_token_ips
+                    response['scholar'].save()
+
+                    user = User.objects.get(username=username)
+                    user.set_password(password)
+                    user.save()
+                    clear_cached_session_scholar(user.id)
+
+                    response['messages'].append("Your account settings have been saved successfully.")
             else:
-                response['scholar'].fname = fname
-                response['scholar'].lname = lname
-                response['scholar'].email = email
-                response['scholar'].save()
-
-                user = User.objects.get(username=username)
-                user.set_password(password)
-                user.save()
-
-                response['messages'].append("Your account settings have been saved successfully.")
+                response['errors'].append('You must provide a password, and passwords must match!')
         else:
-            response['errors'].append('You must provide a password, and passwords must match!')
+            response['errors'].append('One or more of your API IP addresses is invalid!')
 
     elif request.method == 'POST' and _contains(request.POST, ['username', 'password']):
         username = _clean(request.POST, 'username')
@@ -447,21 +469,22 @@ def get_image(
 
 
 @api_view(['GET'])
-def api_search(request, corpus_id=None, document_id=None):
-    response = _get_context(request)
-    if response['scholar']:
-        search_results = get_corpus_search_results(request, response['scholar'], corpus_id, document_id)
-        return HttpResponse(
-            json.dumps(search_results),
-            content_type='application/json'
-        )
-    raise Http404("Search not completed.")
-
-
-@api_view(['GET'])
 def api_corpora(request):
-    response = _get_context(request)
-    corpora = get_corpus_search_results(request, response['scholar'])
+    context = _get_context(request)
+    ids = []
+    open_access_only = True
+
+    if not context['search']:
+        context['search'] = {
+            'general_query': "*"
+        }
+
+    if context['scholar'] and context['scholar'].is_admin:
+        open_access_only = False
+    elif context['scholar']:
+        ids = [str(corpus.pk) for corpus in context['scholar'].available_corpora]
+
+    corpora = search_corpora(**context['search'], ids=ids, open_access_only=open_access_only)
 
     return HttpResponse(
         json.dumps(corpora),
@@ -474,16 +497,23 @@ def api_corpus(request, corpus_id):
     response = _get_context(request)
     corpus = get_scholar_corpus(corpus_id, response['scholar'])
 
-    return HttpResponse(
-        json.dumps(corpus.to_dict()),
-        content_type='application/json'
-    )
-
+    if corpus:
+        return HttpResponse(
+            json.dumps(corpus.to_dict()),
+            content_type='application/json'
+        )
+    else:
+        return HttpResponse(
+            "{}",
+            content_type='application/json'
+        )
 
 @api_view(['GET'])
 def api_content(request, corpus_id, content_type, content_id=None):
     context = _get_context(request)
     content = {}
+    if context['scholar']:
+        print(json.dumps(json.loads(context['scholar'].to_json()), indent=4))
     corpus = get_scholar_corpus(corpus_id, context['scholar'])
 
     if corpus and content_type in corpus.content_types:
@@ -516,7 +546,7 @@ def api_content_files(request, corpus_id, content_type, content_id=None):
     corpus = get_scholar_corpus(corpus_id, context['scholar'])
     files = []
 
-    if corpus:
+    if context['scholar'].is_admin and corpus:
 
         base_path = "{corpus_path}/{content_type}/temporary_uploads".format(
             corpus_path=corpus.path,
