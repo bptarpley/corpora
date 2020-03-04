@@ -149,6 +149,7 @@ def adjust_content(job_id):
     relabel = job.configuration['parameters']['relabel']['value']
     resave = job.configuration['parameters']['resave']['value']
     contents = job.corpus.get_content(content_type, all=True)
+    contents = contents.batch_size(10)
     for content in contents:
         if relabel:
             content.label = ''

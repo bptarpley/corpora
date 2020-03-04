@@ -25,7 +25,6 @@ def document(request, corpus_id, document_id):
             # HANDLE FILE UPLOADS
             if 'filepond' in request.FILES:
                 filename = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', request.FILES['filepond'].name)
-                print(filename)
                 upload_path = "{0}/temporary_uploads".format(document.path)
                 file_path = "{0}/{1}".format(upload_path, filename)
 
@@ -89,9 +88,25 @@ def document(request, corpus_id, document_id):
                                 }
                             )
                             run_job(job_id)
-
                 else:
                     response['errors'].append("Error locating files to import.")
+
+            # HANDLE IMPORT DOCUMENT FILES FORM SUBMISSION
+            elif 'import-document-files' in request.POST:
+                import_files = json.loads(request.POST['import-document-files'])
+
+                upload_path = document.path + '/files'
+                for import_file in import_files:
+                    import_file_path = "{0}{1}".format(upload_path, import_file)
+                    if os.path.exists(import_file_path):
+                        extension = import_file.split('.')[-1]
+                        document.save_file(File.process(
+                            import_file_path,
+                            extension.upper() + " File",
+                            "User Import",
+                            response['scholar']['username'],
+                            False
+                        ))
 
             # HANDLE JOB RETRIES
             elif _contains(request.POST, ['retry-job-id']):

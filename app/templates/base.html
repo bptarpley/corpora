@@ -27,7 +27,7 @@
         {% block modals %}
         {% endblock %}
 
-        <div class="container-fluid d-flex flex-column h-100">
+        <div id="main-container" class="container-fluid d-flex flex-column">
             <div class="row">
                 <div class="col-12">
                     <div class="brand align-items-center">
@@ -85,6 +85,7 @@
         <script src="{% static 'js/corpora.js' %}"></script>
         <script type="application/javascript">
             var corpora = null;
+            var main_container = $('#main-container');
 
             function hide_loading_overlay() {
                 let loading_overlay = $('#loading-overlay');
@@ -122,6 +123,10 @@
 
             $(document).ready(function() {
                 corpora = new Corpora({'csrf_token': "{{ csrf_token }}"});
+                main_container.css('min-height', `${window.innerHeight}px`);
+                $(window).resize(function() {
+                    main_container.css('min-height', `${window.innerHeight}px`);
+                });
             });
         </script>
 

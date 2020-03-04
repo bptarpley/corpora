@@ -69,6 +69,25 @@ class Field(mongoengine.EmbeddedDocument):
             elif self.type == 'file':
                 return value.to_dict(parent_uri)
         return value
+    
+    def get_mongoengine_field_class(self):
+        if self.type == 'number':
+            if self.unique and not self.unique_with:
+                return mongoengine.IntField(unique=True)
+            else:
+                return mongoengine.IntField()
+        elif self.type == 'date':
+            if self.unique and not self.unique_with:
+                return mongoengine.DateField(unique=True)
+            else:
+                return mongoengine.DateField()
+        elif self.type == 'file':
+            return mongoengine.EmbeddedDocumentField(File)
+        elif self.type != 'cross_reference':
+            if self.unique and not self.unique_with:
+                return mongoengine.StringField(unique=True)
+            else:
+                return mongoengine.StringField()
 
     def to_dict(self):
         return {
@@ -436,7 +455,10 @@ class Job(object):
     @property
     def content(self):
         if not hasattr(self, '_content'):
-            self._content = self.corpus.get_content(self.content_type, self.content_id)
+            if self.content_type == 'Corpus':
+                return self.corpus
+            else:
+                self._content = self.corpus.get_content(self.content_type, self.content_id)
         return self._content
 
     @property
@@ -708,19 +730,7 @@ class ContentType(mongoengine.EmbeddedDocument):
 
         for field in self.fields:
             if not field.inherited:
-                if field.type == 'number':
-                    if field.unique and not field.unique_with:
-                        class_dict[field.name] = mongoengine.IntField(unique=True)
-                    else:
-                        class_dict[field.name] = mongoengine.IntField()
-                elif field.type == 'date':
-                    if field.unique and not field.unique_with:
-                        class_dict[field.name] = mongoengine.DateField(unique=True)
-                    else:
-                        class_dict[field.name] = mongoengine.DateField()
-                elif field.type == 'file':
-                    class_dict[field.name] = mongoengine.EmbeddedDocumentField(File)
-                elif field.type == 'cross_reference':
+                if field.type == 'cross_reference':
                     if field.cross_reference_type == self.name:
                         xref_class = self.name
                     else:
@@ -731,10 +741,7 @@ class ContentType(mongoengine.EmbeddedDocument):
                     else:
                         class_dict[field.name] = mongoengine.ReferenceField(xref_class)
                 else:
-                    if field.unique and not field.unique_with:
-                        class_dict[field.name] = mongoengine.StringField(unique=True)
-                    else:
-                        class_dict[field.name] = mongoengine.StringField()
+                    class_dict[field.name] = field.get_mongoengine_field_class()
 
                 if field.unique_with:
                     indexes.append({
@@ -774,50 +781,6 @@ class ContentType(mongoengine.EmbeddedDocument):
         mongoengine.signals.pre_save.connect(ct_class._pre_save, sender=ct_class)
 
         return ct_class
-
-    def build_index(self, corpus_id):
-        field_type_map = {
-            'text': 'text',
-            'keyword': 'keyword',
-            'html': 'text',
-            'number': 'integer',
-            'date': 'date',
-            'file': 'text',
-            'image': 'text',
-            'link': 'text',
-            'cross_reference': 'text',
-            'document': 'text',
-        }
-
-        index_name = "corpus-{0}-{1}".format(corpus_id, self.name.lower())
-        index = Index(index_name)
-        if index.exists():
-            index.delete()
-
-        corpora_analyzer = analyzer(
-            'corpora_analyzer',
-            tokenizer='classic',
-            filter=['stop', 'lowercase', 'classic']
-        )
-        mapping = Mapping()
-        mapping.field('label', 'text', analyzer=corpora_analyzer, fields={'raw': Keyword()})
-        mapping.field('uri', 'keyword')
-
-        for field in self.fields:
-            if field.type != 'embedded':
-                field_type = field_type_map[field.type]
-                subfields = {}
-
-                if field.in_lists and field_type == 'text':
-                    subfields = {'raw': {'type': 'keyword'}}
-
-                if field.type == 'text':
-                    mapping.field(field.name, field_type, analyzer=corpora_analyzer, fields=subfields)
-                else:
-                    mapping.field(field.name, field_type, fields=subfields)
-
-        index.mapping(mapping)
-        index.save()
 
     def to_dict(self):
         ct_dict = {
@@ -954,6 +917,11 @@ class Corpus(mongoengine.Document):
     files = mongoengine.MapField(mongoengine.EmbeddedDocumentField(File))
     open_access = mongoengine.BooleanField(default=False)
     content_types = mongoengine.MapField(mongoengine.EmbeddedDocumentField(ContentType))
+    provenance = mongoengine.EmbeddedDocumentListField(CompletedTask)
+
+    def save_file(self, file):
+        self.modify(**{'set__files__{0}'.format(file.key): file})
+        file._do_linking(content_type='Corpus', content_uri=self.uri)
 
     def get_content(self, content_type, content_id_or_query={}, only=[], all=False):
         content = None
@@ -1009,7 +977,8 @@ class Corpus(mongoengine.Document):
             start_index = (page - 1) * page_size
             end_index = page * page_size
 
-            index = "corpus-{0}-{1}".format(self.id, content_type.lower())
+            index_name = "corpus-{0}-{1}".format(self.id, content_type.lower())
+            index = Index(index_name)
             should = []
             must = []
             if general_query and not fields_query:
@@ -1017,7 +986,18 @@ class Corpus(mongoengine.Document):
 
             if fields_query:
                 for search_field in fields_query.keys():
-                    must.append(Q("match_phrase", **{search_field: fields_query[search_field]}))
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        must.append(Q(
+                            "nested",
+                            path=field_parts[0],
+                            query=Q(
+                                "match_phrase",
+                                **{search_field: fields_query[search_field]}
+                            )
+                        ))
+                    else:
+                        must.append(Q("match_phrase", **{search_field: fields_query[search_field]}))
 
             if general_query and fields_query:
                 must.append(SimpleQueryString(query=general_query))
@@ -1027,7 +1007,7 @@ class Corpus(mongoengine.Document):
 
                 extra = {'track_total_hits': True}
 
-                search_cmd = Search(using=get_connection(), index=index, extra=extra).query(search_query)
+                search_cmd = Search(using=get_connection(), index=index_name, extra=extra).query(search_query)
 
                 if only:
                     if '_id' not in only:
@@ -1036,21 +1016,41 @@ class Corpus(mongoengine.Document):
 
                 if fields_sort:
                     adjusted_fields_sort = []
+                    mappings = index.get()[index_name]['mappings']['properties']
                     for x in range(0, len(fields_sort)):
                         field_name = list(fields_sort[x].keys())[0]
                         sort_direction = fields_sort[x][field_name]
-                        field = self.content_types[content_type].get_field(field_name)
-                        if field:
-                            if field.type in ['text', 'cross_reference']:
-                                field_name = field_name + '.raw'
-                            adjusted_fields_sort.append({field_name: sort_direction})
+                        subfield_name = None
+
+                        if '.' in field_name:
+                            field_parts = field_name.split('.')
+                            field_name = field_parts[0]
+                            subfield_name = field_parts[1]
+
+                        if field_name in mappings:
+                            field_type = mappings[field_name]['type']
+                            if field_type == 'nested' and subfield_name:
+                                field_type = mappings[field_name]['properties'][subfield_name]['type']
+
+                            if subfield_name:
+                                full_field_name = '{0}.{1}'.format(field_name, subfield_name)
+                                adjusted_fields_sort.append({
+                                    full_field_name + '.raw' if field_type == 'text' else full_field_name: {
+                                        'order': sort_direction['order'],
+                                        'nested_path': field_name
+                                    }
+                                })
+                            else:
+                                adjusted_fields_sort.append({
+                                    field_name + '.raw' if field_type == 'text' else field_name: sort_direction
+                                })
 
                     search_cmd = search_cmd.sort(*adjusted_fields_sort)
 
                 search_cmd = search_cmd[start_index:end_index]
-                # print(json.dumps(search_cmd.to_dict(), indent=4))
+                print(json.dumps(search_cmd.to_dict(), indent=4))
                 search_results = search_cmd.execute().to_dict()
-                # print(json.dumps(search_results, indent=4))
+                print(json.dumps(search_results, indent=4))
                 results['meta']['total'] = search_results['hits']['total']['value']
                 results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
                 results['meta']['has_next_page'] = results['meta']['page'] < results['meta']['num_pages']
@@ -1222,6 +1222,8 @@ class Corpus(mongoengine.Document):
                 self.reload()
 
         if valid:
+            related_content_types = []
+
             if 'Label' not in self.content_types[ct_name].templates:
                 template = ContentTemplate()
                 template.template = "{content_type} ({{{{ {content_type}.id }}}})".format(content_type=ct_name)
@@ -1229,9 +1231,16 @@ class Corpus(mongoengine.Document):
                 self.content_types[ct_name].templates['Label'] = template
 
             if reindex:
-                self.content_types[ct_name].build_index(str(self.id))
+                self.build_content_type_elastic_index(ct_name)
                 if not existing:
                     reindex = False
+                else:
+                    for related_ct in self.content_types.keys():
+                        if related_ct != ct_name:
+                            for related_field in self.content_types[related_ct].fields:
+                                if related_field.type == 'cross_reference' and related_field.cross_reference_type == ct_name:
+                                    self.build_content_type_elastic_index(related_ct)
+                                    related_content_types.append(related_ct)
 
             self.content_types[ct_name].has_file_field = schema.get('has_file_field', False)
             for field in self.content_types[ct_name].fields:
@@ -1328,6 +1337,77 @@ class Corpus(mongoengine.Document):
                             db[collection_name].drop_index(index_name)
                     print('indexes cleared. now attemtpting to unset fields...')
                     db[collection_name].update({}, {'$unset': {field_name: 1}}, multi=True)
+
+    def build_content_type_elastic_index(self, content_type):
+        if content_type in self.content_types:
+            ct = self.content_types[content_type]
+            field_type_map = {
+                'text': 'text',
+                'keyword': 'keyword',
+                'html': 'text',
+                'number': 'integer',
+                'date': 'date',
+                'file': 'text',
+                'image': 'text',
+                'link': 'text',
+                'cross_reference': None,
+                'document': 'text',
+            }
+
+            index_name = "corpus-{0}-{1}".format(self.id, ct.name.lower())
+            index = Index(index_name)
+            if index.exists():
+                index.delete()
+
+            corpora_analyzer = analyzer(
+                'corpora_analyzer',
+                tokenizer='classic',
+                filter=['stop', 'lowercase', 'classic']
+            )
+
+            mapping = Mapping()
+            mapping.field('label', 'text', analyzer=corpora_analyzer, fields={'raw': Keyword()})
+            mapping.field('uri', 'keyword')
+
+            for field in ct.fields:
+                if field.type != 'embedded' and field.in_lists:
+                    field_type = field_type_map[field.type]
+                    nested_text_type = {
+                        'type': 'text',
+                        'analyzer': corpora_analyzer,
+                        'fields': {
+                            'raw': {
+                                'type': 'keyword'
+                            }
+                        }
+                    }
+
+                    if field.type == 'cross_reference' and field.cross_reference_type in self.content_types:
+                        xref_ct = self.content_types[field.cross_reference_type]
+                        xref_mapping_props = {
+                            'id': 'keyword',
+                            'label': nested_text_type,
+                            'uri': 'keyword'
+                        }
+
+                        for xref_field in xref_ct.fields:
+                            if xref_field.in_lists and not xref_field.type == 'cross_reference':
+                                xref_field_type = field_type_map[xref_field.type]
+                                if xref_field.type == 'text':
+                                    xref_field_type = nested_text_type
+
+                                xref_mapping_props[xref_field.name] = xref_field_type
+
+                        mapping.field(field.name, Nested(properties=xref_mapping_props))
+
+                    elif field_type == 'text':
+                        subfields = {'raw': {'type': 'keyword'}}
+                        mapping.field(field.name, field_type, analyzer=corpora_analyzer, fields=subfields)
+                    else:
+                        mapping.field(field.name, field_type)
+
+            index.mapping(mapping)
+            index.save()
 
     def queue_local_job(self, content_type=None, content_id=None, task_id=None, task_name=None, scholar_id=None, parameters={}):
         local_jobsite = JobSite.objects(name='Local')[0]
@@ -1435,6 +1515,7 @@ class Corpus(mongoengine.Document):
             'id': str(self.id),
             'name': self.name,
             'description': self.description,
+            'path': self.path,
             'uri': self.uri,
             'kvp': deepcopy(self.kvp),
             'open_access': self.open_access,
@@ -1443,10 +1524,12 @@ class Corpus(mongoengine.Document):
         }
 
         for file_key in self.files:
-            corpus_dict['files'][file_key] = self.files[file_key].to_dict()
+            corpus_dict['files'][file_key] = self.files[file_key].to_dict(parent_uri=self.uri)
 
         for ct_name in self.content_types:
             corpus_dict['content_types'][ct_name] = self.content_types[ct_name].to_dict()
+
+        corpus_dict['provenance'] = [prov.to_dict() for prov in self.provenance]
 
         return corpus_dict
 
@@ -1585,21 +1668,37 @@ class Content(mongoengine.Document):
         for field in self._ct.fields:
             if field.in_lists:
                 field_value = getattr(self, field.name)
-                if field_value and not field.type == 'embedded':
+                if field_value:
                     if field.cross_reference_type:
                         if field.multiple:
-                            multivals = [{'label': val.label, 'uri': val.uri} for val in field_value]
-                            index_obj[field.name] = json.dumps(multivals)
+                            field_value = []
+                            for xref in getattr(self, field.name):
+                                xref_dict = {
+                                    'id': str(xref.id),
+                                    'label': xref.label,
+                                    'uri': xref.uri
+                                }
+
+                                for xref_field in self._corpus.content_types[field.cross_reference_type].fields:
+                                    if xref_field.in_lists:
+                                        xref_dict[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
+                                field_value.append(xref_dict)
                         else:
-                            index_obj[field.name] = json.dumps({
-                                'label': field_value.label,
-                                'uri': field_value.uri
-                            })
+                            xref = field_value
+                            field_value = {
+                                'id': str(xref.id),
+                                'label': xref.label,
+                                'uri': xref.uri
+                            }
+
+                            for xref_field in self._corpus.content_types[field.cross_reference_type].fields:
+                                if xref_field.in_lists:
+                                    field_value[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
+
+                        index_obj[field.name] = field_value
+
                     elif field.type not in ['file']:
-                        if field.multiple and field.type != 'number':
-                            index_obj[field.name] = " ".join(field_value)
-                        else:
-                            index_obj[field.name] = field_value
+                        index_obj[field.name] = field.get_dict_value(field_value, self.uri)
 
         index_obj['label'] = self.label
         index_obj['uri'] = self.uri

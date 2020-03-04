@@ -142,6 +142,34 @@ class Corpora {
         )
     }
 
+    get_corpus_files(corpus_id, path, filter, callback) {
+        let endpoint = `/api/corpus/${corpus_id}/files/`;
+
+        this.make_request(
+            endpoint,
+            "GET",
+            {
+                path: path,
+                filter: filter
+            },
+            callback
+        );
+    }
+
+    make_corpus_file_dir(corpus_id, path, new_dir, callback) {
+        let endpoint = `/api/corpus/${corpus_id}/files/`;
+
+        this.make_request(
+            endpoint,
+            "POST",
+            {
+                path: path,
+                newdir: new_dir
+            },
+            callback
+        );
+    }
+
     get_content_files(corpus_id, content_type, content_id, path, filter, callback) {
         let endpoint = `/api/corpus/${corpus_id}/${content_type}/files/`;
         if (content_id) {

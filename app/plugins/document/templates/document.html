@@ -7,6 +7,52 @@
 {% endblock %}
 
 {% block modals %}
+    <!-- UPLOAD DOCUMENT FILES MODAL -->
+    <div class="modal fade" id="file-upload-modal" tabindex="-1" role="dialog" aria-labelledby="file-upload-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="file-upload-modal-label">Import Document File(s)</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="import-document-files-form" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" id="import-document-files" name="import-document-files"/>
+                    </form>
+                    <div class="alert alert-light">
+                        <table class="table table-striped">
+                            <thead class="thead-dark">
+                                <th scope="col">Path: <span id="file-upload-modal-table-header">/</span></th>
+                            </thead>
+                            <tbody id="file-upload-modal-table-body">
+                                <tr><td>Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <input type="file" class="filepond" id="import-document-filepond">
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="file-upload-modal-new-folder-box" aria-placeholder="New Folder" placeholder="New Folder">
+                                <span class="input-group-btn ml-1"><a href="javascript:handle_folder_creation();" role="button" id="file-upload-modal-new-folder-button" class="btn btn-secondary">Go</a></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" id="file-upload-reset-button" class="btn btn-secondary">Reset</button>
+                    <button type="button" id="file-upload-import-button" class="btn btn-primary" disabled>Import</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Import Pages Modal -->
     <div class="modal fade" id="import-pages-modal" tabindex="-1" role="dialog" aria-labelledby="import-pages-modal-label" aria-hidden="true">
         <div class="modal-dialog" role="document">
@@ -280,7 +326,10 @@
             <div class="col-12">
                 <div class="card mb-3">
                     <div class="card-header">
-                        <h4>Document Files</h4>
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h4>Document Files</h4>
+                            <button id="import-document-files-button" class="btn btn-primary rounded" type="button">Import</button>
+                        </div>
                     </div>
                     <div class="card-body" id="doc-files-div">
                         <div class="alert alert-info">
@@ -392,6 +441,10 @@
 
         var is_admin = {% if response.scholar.is_admin %}true{% else %}false{% endif %};
 
+        var file_upload_path = '';
+        var file_uploads = [];
+        var import_files = [];
+
         var import_pages_files = [];
         var check_jobs_timer;
         var check_jobs_interval = 10;
@@ -405,15 +458,39 @@
         };
         var ref_no = 1;
 
-        const pond = FilePond.create(document.querySelector('.filepond'), {
+        // CREATE FILE POND FOR IMPORT PAGES MODAL
+        const import_pages_pond = FilePond.create(document.querySelector('#import-pages-filepond'), {
             allowMultiple: true,
             allowRevert: false
         });
-
-        pond.on('processfile', (error, file) => {
+        import_pages_pond.on('processfile', (error, file) => {
             if(!error) {
                 $("#import-pages-submit-button").attr('disabled', false);
                 import_pages_files.push(file.filename.replace(new RegExp('[^a-zA-Z0-9\\.\\-]', "gm"), '_'));
+            }
+        });
+
+        // CREATE FILE POND FOR IMPORT DOCUMENT FILES (SELECT FILE) MODAL
+        const import_document_file_pond = FilePond.create(document.querySelector('#import-document-filepond'), {
+            allowMultiple: true,
+            allowRevert: false
+        });
+        import_document_file_pond.on('addfile', (error, file) => {
+            if(!error) {
+                file_uploads.push(file.filename);
+            }
+        });
+        import_document_file_pond.on('processfile', (error, file) => {
+            if(!error) {
+                import_files.push(`${file_upload_path}/${file.filename}`);
+                let import_button = $('#file-upload-import-button');
+                import_button.html(`Import ${import_files.length} File(s)`);
+                import_button.attr('disabled', false);
+                let index = file_uploads.indexOf(file.filename);
+                if (index !== -1) { file_uploads.splice(index, 1); }
+                if (file_uploads.length === 0) {
+                    upload_file(file_upload_path);
+                }
             }
         });
 
@@ -547,6 +624,11 @@
                                     `);
                                 }
                             }
+
+                            // SETUP DOCUMENT FILE IMPORT BUTTON
+                            $('#import-document-files-button').click(function() {
+                                upload_file(doc.path);
+                            });
 
                             // LOAD DOCUMENT PAGESETS
                             let doc_pageset_div = $('#doc-pageset-div');
@@ -987,7 +1069,7 @@
         }
 
         function load_jobsites(modal, task_filter) {
-            $("#ocr-jobsite-selector").html('');
+            $(`#${modal}-jobsite-selector`).html('');
             if (jobsites.length > 0) {
                 for (let x = 0; x < jobsites.length; x++) {
                     $(`#${modal}-jobsite-selector`).append(`
@@ -1172,5 +1254,83 @@
                 check_jobs();
             }, check_jobs_interval * 1000);
         }
+
+        // FILE UPLOAD FUNCTIONALITY
+        function upload_file(path='', filter='', select='file') {
+            corpora.get_content_files(corpus_id, 'Document', document_id, path, filter, function (data) {
+                file_upload_path = path;
+
+                let url = `/api/corpus/${corpus_id}/Document/${document_id}/files/`;
+
+                import_document_file_pond.setOptions({
+                    server: {
+                        process: {
+                            url: `${url}?path=${path}`,
+                            headers: {
+                                'X-CSRFToken': '{{ csrf_token }}'
+                            }
+                        },
+                        fetch: null,
+                        revert: null
+                    }
+                });
+                import_document_file_pond.removeFiles();
+                file_uploads = [];
+
+                $('#file-upload-modal-table-body').html('');
+                $('#file-upload-modal-table-header').html(path + '/');
+                if (path) {
+                    let up_directory = '/' + path.split('/').slice(1, -1).join('/');
+                    if (up_directory === '/') { up_directory = ''; }
+                    if (select === 'file') {
+                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`);
+                    } else {
+                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}', '', 'dir');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`);
+                    }
+                }
+                for (let x = 0; x < data.length; x++) {
+                    if(select === 'file') {
+                        if (data[x].type === 'file') {
+                            $('#file-upload-modal-table-body').append(`
+                                <tr><td>${data[x].filename}</td></tr>
+                            `);
+                        } else {
+                            $('#file-upload-modal-table-body').append(`
+                                <tr><td><span class="fas fa-folder-open"></span> ${data[x].filename} <a class="btn btn-sm btn-primary text-white float-right" role="button" href="javascript:upload_file('${data[x].path}');">Browse</a></td></tr>
+                            `);
+                        }
+                    } else {
+                        if (data[x].type === 'dir') {
+                            $('#file-upload-modal-table-body').append(`
+                                <tr><td><span class="fas fa-folder-open"></span> <a href="javascript:handle_file_upload('${data[x].path}', '');">${data[x].filename}</a> <a class="btn btn-sm btn-primary text-white float-right" role="button" href="javascript:upload_file(file_upload_input_id, '${data[x].path}', '', 'dir');">Browse</a></td></tr>
+                            `);
+                        }
+                    }
+                }
+
+                $('#file-upload-modal').modal();
+            });
+        }
+
+        function handle_folder_creation() {
+            let dirname = pep8_variable_format($('#file-upload-modal-new-folder-box').val());
+            corpora.make_content_file_dir(corpus_id, 'Document', document_id, file_upload_path, dirname, function() {
+                $('#file-upload-modal-new-folder-box').val('');
+                upload_file(path=file_upload_path);
+            });
+        }
+
+        $('#file-upload-reset-button').click(function() {
+            let import_button = $('#file-upload-import-button');
+
+            import_files = [];
+            import_button.html('Import');
+            import_button.attr('disabled', true);
+        });
+
+        $('#file-upload-import-button').click(function() {
+            $('#import-document-files').val(JSON.stringify(import_files));
+            $('#import-document-files-form').submit();
+        });
     </script>
 {% endblock %}
