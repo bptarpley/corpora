@@ -1,10 +1,12 @@
 from subprocess import call
 from PIL import Image
+
 from django.utils.text import slugify
 from huey.contrib.djhuey import db_task
 from corpus import *
-
+import os
 import re
+
 
 REGISTRY = {
     "OCR Document with Calamari": {
@@ -47,6 +49,7 @@ def ocr_document_with_calamari(job_id):
     num_pages = len(page_files.ordered_ref_nos)
     pages_per_worker = 5
     # what is pages allocated?
+
     pages_allocated = 0
     # understand following part
     while pages_allocated < num_pages:
@@ -62,6 +65,7 @@ def ocr_document_with_calamari(job_id):
 @db_task(priority=1, context=True)
 def ocr_pages_with_calamari(job_id, starting_page, ending_page, primary_witness, task=None):
     job = Job(job_id)
+    model_path = "model.ckpt.json"
     page_file_collection_key = job.configuration['parameters']['collection']['value']
     page_files = job.content.get_page_file_collection(job.corpus_id, job.content_id, page_file_collection_key)['page_files']
     assigned_pages = page_files.ordered_ref_nos[starting_page:ending_page + 1]
@@ -98,6 +102,7 @@ def ocr_pages_with_calamari(job_id, starting_page, ending_page, primary_witness,
                     # if txt_file_obj:
                     #     job.content.save_page_file(ref_no, txt_file_obj)
 
+
                     hocr_file_obj = File.process(
                         page_file_results + '.hocr',
                         desc='HOCR',
@@ -106,9 +111,16 @@ def ocr_pages_with_calamari(job_id, starting_page, ending_page, primary_witness,
                         primary=primary_witness
                     )
 
+
                     if hocr_file_obj:
                         job.content.save_page_file(ref_no, hocr_file_obj)
-                    lines_folder = ocr_segment_page_into_lines(job_id, page_file_results + '.hocr', file['path'])
+                    lines_folder = ocr_segment_page_into_lines(job_id, page_file_results + '.hocr', file['path'], ref_no)
+
+                    if lines_folder is not None:
+                        ocr_lines_with_calamari(job_id, lines_folder, model_path)
+
+
+
 
 
 
@@ -116,34 +128,54 @@ def ocr_pages_with_calamari(job_id, starting_page, ending_page, primary_witness,
         job.complete_process(task.id)
 
 
-def ocr_segment_page_into_lines(job_id, hocr_file_name, page_file_path):
+
+def ocr_segment_page_into_lines(job_id, hocr_file_name, page_file_path, ref_no):
+    job = Job(job_id)
+    output_path = job.content.path + "/pages/" + ref_no + "/lines/"
+    if not os.path.exists(output_path):
+        os.mkdir(output_path)
     im = Image.open(page_file_path)
     f = open(hocr_file_name)
+    file_name = job.configuration['parameters']['collection']['value']
+    count = 0
     try:
         for line in f:
-        listnew = re.findall('<TextLine .* WIDTH="(\\d*)" HEIGHT="(\\d*)" HPOS="(\\d*)" VPOS="(\\d*)"', line)
-        if listnew:
-            # print (int(listnew[0][0]))
-            vpos = int(listnew[0][2])
-            hpos = int(listnew[0][3])
-            height = int(listnew[0][1])
-            width = int(listnew[0][0])
-            linefile = "{}_{}.png".format(file[:-9], count)
-            print(linefile)
-            im_crop = im.crop((hpos, vpos, hpos + width, vpos + height)).save("{}/{}".format(output_path, linefile),
-                                                                              quality=95)
-            # im_crop.show()
-            count += 1
+            listnew = re.findall('<span class=\'ocr_line\' id.* title=\"bbox (\\d*) (\\d*) (\\d*) (\\d*); baseline.*', line)
+            if listnew:
+                # print (int(listnew[0][0]))
+                left = int(listnew[0][0])
+                upper = int(listnew[0][1])
+                right = int(listnew[0][2])
+                lower = int(listnew[0][3])
+                # im_crop = im.crop((hpos, vpos, hpos + width, vpos + height)).save("{}/{}".format(output_path, linefile),
+                if lower - upper > 100:
+                    im_crop = im.crop((left, upper, right, lower)).save(
+                        "{}/{}_{}_{}.png".format(output_path, file_name, ref_no, count), quality=95)
+                count += 1
+    except Exception as e:
+        print(e)
+    job.set_status('running')
+    return output_path
 
-    return lines_folder
-# def ocr_lines_with_calamari(job_id, lines_folder, model_path):
-#     for line in lines_folder:
-#         print line
-# #         calamari predict on model command
-#
-# def ocr_compile_lines_calamari(job_id, lines_results):
-# #     compile and save as a document per page (or per book, how?)
-#     print job_id
+def ocr_lines_with_calamari(job_id, lines_folder, model_path):
+    job = Job(job_id)
+    line_file_names = os.listdir(lines_folder)
+    command = [
+        "calamari-predict --checkpoint",
+        model_path,
+        "--files",
+        lines_folder, "*.png"
+    ]
+    # calamari-predict --checkpoint checkpoints_102519/model_00006918.ckpt.json --files alto/Test/*.png
+    if call(command) == 0:
+        print(command)
+        print("command executed")
+
+#         calamari predict on model command
+
+def ocr_compile_lines_calamari(job_id, lines_results):
+#     compile and save as a document per page (or per book, how?)
+    print job_id
 
 @db_task(priority=2)
 def complete_ocr_document_with_calamari(job_id):
