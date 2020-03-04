@@ -18,4 +18,4 @@ This is a barebones readme that needs a lot of work :) Right now it just has qui
    * `docker-compose up -d` (This will bring up the containers but will not spit out logs. To stop the containers, you'll need to run `docker-compose stop`)
    * `docker-compose up -d && docker-compose logs -f corpora` (This will bring up all containers and only show logs for the Django web application. Hitting ctrl+c will only stop the logs.)
 
-Note that when Corpora fires up for the first time, it will create a default user according to the environment variables specified in docker-compose.yml for the "corpora" service. By default, that user's credentials are "corpora" (both username and password).
+Note that when Corpora fires up for the first time, it will create a default user according to the environment variables specified in docker-compose.yml for the "corpora" service. By default, that user's credentials are "corpora" (both username and password). Once it finishes the setup process, you can access Corpora's web interface at http://localhost
