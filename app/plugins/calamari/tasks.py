@@ -65,7 +65,7 @@ def ocr_document_with_calamari(job_id):
 @db_task(priority=1, context=True)
 def ocr_pages_with_calamari(job_id, starting_page, ending_page, primary_witness, task=None):
     job = Job(job_id)
-    model_path = "model.ckpt.json"
+    model_path = "/Users/janvipalan/new_corpora/corpora/app/plugins/calamari/model.ckpt.json"
     page_file_collection_key = job.configuration['parameters']['collection']['value']
     page_files = job.content.get_page_file_collection(job.corpus_id, job.content_id, page_file_collection_key)['page_files']
     assigned_pages = page_files.ordered_ref_nos[starting_page:ending_page + 1]
@@ -118,17 +118,11 @@ def ocr_pages_with_calamari(job_id, starting_page, ending_page, primary_witness,
 
                     if lines_folder is not None:
                         ocr_lines_with_calamari(job_id, lines_folder, model_path)
-
-
-
-
-
-
     if task:
         job.complete_process(task.id)
 
 
-
+# @db_task(priority=2, context=True)
 def ocr_segment_page_into_lines(job_id, hocr_file_name, page_file_path, ref_no):
     job = Job(job_id)
     output_path = job.content.path + "/pages/" + ref_no + "/lines/"
@@ -154,28 +148,35 @@ def ocr_segment_page_into_lines(job_id, hocr_file_name, page_file_path, ref_no):
                 count += 1
     except Exception as e:
         print(e)
-    job.set_status('running')
+    # job.set_status('running')
     return output_path
 
-def ocr_lines_with_calamari(job_id, lines_folder, model_path):
-    job = Job(job_id)
-    line_file_names = os.listdir(lines_folder)
-    command = [
-        "calamari-predict --checkpoint",
-        model_path,
-        "--files",
-        lines_folder, "*.png"
-    ]
-    # calamari-predict --checkpoint checkpoints_102519/model_00006918.ckpt.json --files alto/Test/*.png
-    if call(command) == 0:
-        print(command)
-        print("command executed")
 
+# @db_task(priority=3, context=True)
+def ocr_lines_with_calamari(job_id, lines_folder, model_path):
+    try:
+        job = Job(job_id)
+        line_file_names = os.listdir(lines_folder)
+        print(lines_folder)
+        command = [
+            "calamari-predict",
+            "--checkpoint",
+            model_path,
+            "--files",
+            lines_folder, "*.png"
+        ]
+        print (command)
+        if call(command) == 0:
+            print(command)
+            print("command executed")
+    except Exception as e:
+        print (e)
 #         calamari predict on model command
 
-def ocr_compile_lines_calamari(job_id, lines_results):
-#     compile and save as a document per page (or per book, how?)
-    print job_id
+# def ocr_compile_lines_calamari(job_id, lines_results):
+# #     compile and save as a document per page (or per book, how?)
+#     print job_id
+
 
 @db_task(priority=2)
 def complete_ocr_document_with_calamari(job_id):
