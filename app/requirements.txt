@@ -22,5 +22,7 @@ neo4j
 elasticsearch-dsl>=7.0.0,<8.0.0
 lxml
 python-dateutil
-calamari_ocr
-tensorflow
+tensorflow<2.0
+calamari_ocr<1.0
+
+

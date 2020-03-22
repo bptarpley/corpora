@@ -6,6 +6,7 @@ from huey.contrib.djhuey import db_task
 from corpus import *
 import os
 import re
+import numpy as np
 
 
 REGISTRY = {
@@ -65,7 +66,8 @@ def ocr_document_with_calamari(job_id):
 @db_task(priority=1, context=True)
 def ocr_pages_with_calamari(job_id, starting_page, ending_page, primary_witness, task=None):
     job = Job(job_id)
-    model_path = "/Users/janvipalan/new_corpora/corpora/app/plugins/calamari/model.ckpt.json"
+    model_path = "/corpora/model_00023716.ckpt.json"
+
     page_file_collection_key = job.configuration['parameters']['collection']['value']
     page_files = job.content.get_page_file_collection(job.corpus_id, job.content_id, page_file_collection_key)['page_files']
     assigned_pages = page_files.ordered_ref_nos[starting_page:ending_page + 1]
@@ -75,6 +77,8 @@ def ocr_pages_with_calamari(job_id, starting_page, ending_page, primary_witness,
             os.makedirs("{0}/pages/{1}".format(job.content.path, ref_no), exist_ok=True)
 
             if os.path.exists(file['path']):
+                print("file basename is: " + file['basename'])
+                file_page_name = file['basename'][:-4]
                 # base path for different outputs
                 page_file_results = "{0}/pages/{1}/{2}_Calamari_{3}".format(
                     job.content.path,
@@ -114,16 +118,18 @@ def ocr_pages_with_calamari(job_id, starting_page, ending_page, primary_witness,
 
                     if hocr_file_obj:
                         job.content.save_page_file(ref_no, hocr_file_obj)
-                    lines_folder = ocr_segment_page_into_lines(job_id, page_file_results + '.hocr', file['path'], ref_no)
+                    lines_folder = ocr_segment_page_into_lines(job_id, page_file_results + '.hocr', file['path'], ref_no,
+                                                               file_page_name)
 
                     if lines_folder is not None:
                         ocr_lines_with_calamari(job_id, lines_folder, model_path)
+                        ocr_combine_output_files(job_id, lines_folder, file_page_name, ref_no )
     if task:
         job.complete_process(task.id)
 
 
 # @db_task(priority=2, context=True)
-def ocr_segment_page_into_lines(job_id, hocr_file_name, page_file_path, ref_no):
+def ocr_segment_page_into_lines(job_id, hocr_file_name, page_file_path, ref_no, file_page_name):
     job = Job(job_id)
     output_path = job.content.path + "/pages/" + ref_no + "/lines/"
     if not os.path.exists(output_path):
@@ -142,9 +148,9 @@ def ocr_segment_page_into_lines(job_id, hocr_file_name, page_file_path, ref_no):
                 right = int(listnew[0][2])
                 lower = int(listnew[0][3])
                 # im_crop = im.crop((hpos, vpos, hpos + width, vpos + height)).save("{}/{}".format(output_path, linefile),
-                if lower - upper > 100:
+                if lower - upper > 10:
                     im_crop = im.crop((left, upper, right, lower)).save(
-                        "{}/{}_{}_{}.png".format(output_path, file_name, ref_no, count), quality=95)
+                        "{}/{}_{}.png".format(output_path, file_page_name, count), quality=95)
                 count += 1
     except Exception as e:
         print(e)
@@ -158,12 +164,13 @@ def ocr_lines_with_calamari(job_id, lines_folder, model_path):
         job = Job(job_id)
         line_file_names = os.listdir(lines_folder)
         print(lines_folder)
+        lines_folder = lines_folder + "/*.png"
         command = [
             "calamari-predict",
             "--checkpoint",
             model_path,
             "--files",
-            lines_folder, "*.png"
+            lines_folder
         ]
         print (command)
         if call(command) == 0:
@@ -176,6 +183,26 @@ def ocr_lines_with_calamari(job_id, lines_folder, model_path):
 # def ocr_compile_lines_calamari(job_id, lines_results):
 # #     compile and save as a document per page (or per book, how?)
 #     print job_id
+
+
+def ocr_combine_output_files(job_id, lines_folder, file_page_name, ref_no):
+    print("Combining files for the page {}".format(file_page_name))
+    f_write = open(lines_folder[:-6] + file_page_name + ".txt", "w+")
+    try:
+        all_files = os.listdir(lines_folder)
+        for line_no in range(0, len(all_files)):
+            curr_file = "{}_{}.pred.txt".format(file_page_name, line_no)
+            if curr_file in all_files:
+                # print("Currently combining {}".format(curr_file))
+                f_read = open(lines_folder + curr_file, "r")
+                f_write.write(f_read.read() + "\n")
+                f_read.close()
+    except Exception as e:
+        print(e)
+
+
+
+
 
 
 @db_task(priority=2)
