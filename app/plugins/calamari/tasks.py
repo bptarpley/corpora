@@ -77,7 +77,7 @@ def ocr_pages_with_calamari(job_id, starting_page, ending_page, primary_witness,
             os.makedirs("{0}/pages/{1}".format(job.content.path, ref_no), exist_ok=True)
 
             if os.path.exists(file['path']):
-                print("file basename is: " + file['basename'])
+                print("file basename is the following : " + file['basename'])
                 file_page_name = file['basename'][:-4]
                 # base path for different outputs
                 page_file_results = "{0}/pages/{1}/{2}_Calamari_{3}".format(
