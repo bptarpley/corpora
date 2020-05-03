@@ -1,0 +1,1019 @@
+Attaching to corpora_corpora_1
+[36mcorpora_1  |[0m WAITING FOR DATABASES...
+[36mcorpora_1  |[0m Neo4J database uninitialized.
+[36mcorpora_1  |[0m No changes detected
+[36mcorpora_1  |[0m Neo4J database uninitialized.
+[36mcorpora_1  |[0m Operations to perform:
+[36mcorpora_1  |[0m   Apply all migrations: admin, auth, authtoken, contenttypes, sessions
+[36mcorpora_1  |[0m Running migrations:
+[36mcorpora_1  |[0m   No migrations to apply.
+[36mcorpora_1  |[0m Neo4J database uninitialized.
+[36mcorpora_1  |[0m 
+[36mcorpora_1  |[0m 1 static file copied to '/static', 885 unmodified.
+[36mcorpora_1  |[0m Neo4J database uninitialized.
+[36mcorpora_1  |[0m ---------------------------
+[36mcorpora_1  |[0m  INITIALIZING CORPORA
+[36mcorpora_1  |[0m ---------------------------
+[36mcorpora_1  |[0m 
+[36mcorpora_1  |[0m 	-- ERROR INITIALIZING CORPORA:
+[36mcorpora_1  |[0m Traceback (most recent call last):
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 831, in _connect
+[36mcorpora_1  |[0m     s.connect(resolved_address)
+[36mcorpora_1  |[0m ConnectionRefusedError: [Errno 111] Connection refused
+[36mcorpora_1  |[0m 
+[36mcorpora_1  |[0m During handling of the above exception, another exception occurred:
+[36mcorpora_1  |[0m 
+[36mcorpora_1  |[0m Traceback (most recent call last):
+[36mcorpora_1  |[0m   File "/apps/corpora/manager/management/commands/initialize_corpora.py", line 23, in handle
+[36mcorpora_1  |[0m     initialized = self._initialize()
+[36mcorpora_1  |[0m   File "/apps/corpora/manager/management/commands/initialize_corpora.py", line 47, in _initialize
+[36mcorpora_1  |[0m     auth=('neo4j', 'neo4j')
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neo4j/__init__.py", line 120, in driver
+[36mcorpora_1  |[0m     return Driver(uri, **config)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neo4j/__init__.py", line 161, in __new__
+[36mcorpora_1  |[0m     return subclass(uri, **config)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neo4j/__init__.py", line 235, in __new__
+[36mcorpora_1  |[0m     pool.release(pool.acquire())
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 715, in acquire
+[36mcorpora_1  |[0m     return self.acquire_direct(self.address)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 608, in acquire_direct
+[36mcorpora_1  |[0m     connection = self.connector(address, error_handler=self.connection_error_handler)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neo4j/__init__.py", line 232, in connector
+[36mcorpora_1  |[0m     return connect(address, **dict(config, **kwargs))
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 972, in connect
+[36mcorpora_1  |[0m     raise last_error
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 962, in connect
+[36mcorpora_1  |[0m     s = _connect(resolved_address, **config)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 843, in _connect
+[36mcorpora_1  |[0m     raise ServiceUnavailable("Failed to establish connection to {!r} (reason {})".format(resolved_address, error))
+[36mcorpora_1  |[0m neobolt.exceptions.ServiceUnavailable: Failed to establish connection to ('172.20.0.5', 7687) (reason [Errno 111] Connection refused)
+[36mcorpora_1  |[0m 
+[36mcorpora_1  |[0m 	-- TRYING AGAIN IN 10 SECONDS...
+[36mcorpora_1  |[0m ---------------------------
+[36mcorpora_1  |[0m  INITIALIZING CORPORA
+[36mcorpora_1  |[0m ---------------------------
+[36mcorpora_1  |[0m 
+[36mcorpora_1  |[0m 	-- ERROR INITIALIZING CORPORA:
+[36mcorpora_1  |[0m Traceback (most recent call last):
+[36mcorpora_1  |[0m   File "/apps/corpora/manager/management/commands/initialize_corpora.py", line 23, in handle
+[36mcorpora_1  |[0m     initialized = self._initialize()
+[36mcorpora_1  |[0m   File "/apps/corpora/manager/management/commands/initialize_corpora.py", line 47, in _initialize
+[36mcorpora_1  |[0m     auth=('neo4j', 'neo4j')
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neo4j/__init__.py", line 120, in driver
+[36mcorpora_1  |[0m     return Driver(uri, **config)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neo4j/__init__.py", line 161, in __new__
+[36mcorpora_1  |[0m     return subclass(uri, **config)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neo4j/__init__.py", line 235, in __new__
+[36mcorpora_1  |[0m     pool.release(pool.acquire())
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 715, in acquire
+[36mcorpora_1  |[0m     return self.acquire_direct(self.address)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 608, in acquire_direct
+[36mcorpora_1  |[0m     connection = self.connector(address, error_handler=self.connection_error_handler)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neo4j/__init__.py", line 232, in connector
+[36mcorpora_1  |[0m     return connect(address, **dict(config, **kwargs))
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 972, in connect
+[36mcorpora_1  |[0m     raise last_error
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 964, in connect
+[36mcorpora_1  |[0m     connection = _handshake(s, address, der_encoded_server_certificate, **config)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 932, in _handshake
+[36mcorpora_1  |[0m     connection.hello()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 249, in hello
+[36mcorpora_1  |[0m     self.sync()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 527, in sync
+[36mcorpora_1  |[0m     detail_delta, summary_delta = self.fetch()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 419, in fetch
+[36mcorpora_1  |[0m     return self._fetch()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 461, in _fetch
+[36mcorpora_1  |[0m     response.on_failure(summary_metadata or {})
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 774, in on_failure
+[36mcorpora_1  |[0m     raise AuthError(message)
+[36mcorpora_1  |[0m neobolt.exceptions.AuthError: The client is unauthorized due to authentication failure.
+[36mcorpora_1  |[0m 
+[36mcorpora_1  |[0m 	-- UNABLE TO INITIALIZE CORPORA:
+[36mcorpora_1  |[0m 
+[36mcorpora_1  |[0m Traceback (most recent call last):
+[36mcorpora_1  |[0m   File "/apps/corpora/manager/management/commands/initialize_corpora.py", line 23, in handle
+[36mcorpora_1  |[0m     initialized = self._initialize()
+[36mcorpora_1  |[0m   File "/apps/corpora/manager/management/commands/initialize_corpora.py", line 47, in _initialize
+[36mcorpora_1  |[0m     auth=('neo4j', 'neo4j')
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neo4j/__init__.py", line 120, in driver
+[36mcorpora_1  |[0m     return Driver(uri, **config)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neo4j/__init__.py", line 161, in __new__
+[36mcorpora_1  |[0m     return subclass(uri, **config)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neo4j/__init__.py", line 235, in __new__
+[36mcorpora_1  |[0m     pool.release(pool.acquire())
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 715, in acquire
+[36mcorpora_1  |[0m     return self.acquire_direct(self.address)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 608, in acquire_direct
+[36mcorpora_1  |[0m     connection = self.connector(address, error_handler=self.connection_error_handler)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neo4j/__init__.py", line 232, in connector
+[36mcorpora_1  |[0m     return connect(address, **dict(config, **kwargs))
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 972, in connect
+[36mcorpora_1  |[0m     raise last_error
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 964, in connect
+[36mcorpora_1  |[0m     connection = _handshake(s, address, der_encoded_server_certificate, **config)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 932, in _handshake
+[36mcorpora_1  |[0m     connection.hello()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 249, in hello
+[36mcorpora_1  |[0m     self.sync()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 527, in sync
+[36mcorpora_1  |[0m     detail_delta, summary_delta = self.fetch()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 419, in fetch
+[36mcorpora_1  |[0m     return self._fetch()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 461, in _fetch
+[36mcorpora_1  |[0m     response.on_failure(summary_metadata or {})
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/neobolt/direct.py", line 774, in on_failure
+[36mcorpora_1  |[0m     raise AuthError(message)
+[36mcorpora_1  |[0m neobolt.exceptions.AuthError: The client is unauthorized due to authentication failure.
+[36mcorpora_1  |[0m 
+[36mcorpora_1  |[0m Traceback (most recent call last):
+[36mcorpora_1  |[0m   File "manage.py", line 15, in <module>
+[36mcorpora_1  |[0m     execute_from_command_line(sys.argv)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/django/core/management/__init__.py", line 381, in execute_from_command_line
+[36mcorpora_1  |[0m     utility.execute()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/django/core/management/__init__.py", line 375, in execute
+[36mcorpora_1  |[0m     self.fetch_command(subcommand).run_from_argv(self.argv)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/django/core/management/base.py", line 316, in run_from_argv
+[36mcorpora_1  |[0m     self.execute(*args, **cmd_options)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/django/core/management/base.py", line 353, in execute
+[36mcorpora_1  |[0m     output = self.handle(*args, **options)
+[36mcorpora_1  |[0m   File "/apps/corpora/manager/management/commands/initialize_corpora.py", line 35, in handle
+[36mcorpora_1  |[0m     settings.NEO4J.close()
+[36mcorpora_1  |[0m AttributeError: 'NoneType' object has no attribute 'close'
+[36mcorpora_1  |[0m Starting Gunicorn.
+[36mcorpora_1  |[0m [2020-03-06 18:58:34 +0000] [32] [INFO] Starting gunicorn 20.0.4
+[36mcorpora_1  |[0m [2020-03-06 18:58:34 +0000] [32] [INFO] Listening at: http://0.0.0.0:8000 (32)
+[36mcorpora_1  |[0m [2020-03-06 18:58:34 +0000] [32] [INFO] Using worker: sync
+[36mcorpora_1  |[0m [2020-03-06 18:58:34 +0000] [38] [INFO] Booting worker with pid: 38
+[36mcorpora_1  |[0m [2020-03-06 18:58:34 +0000] [39] [INFO] Booting worker with pid: 39
+[36mcorpora_1  |[0m [2020-03-06 18:58:35 +0000] [40] [INFO] Booting worker with pid: 40
+[36mcorpora_1  |[0m [2020-03-06 18:58:40,588] INFO:huey.consumer:MainThread:Huey consumer started with 10 thread, PID 33 at 2020-03-06 18:58:40.588165
+[36mcorpora_1  |[0m [2020-03-06 18:58:40,590] INFO:huey.consumer:MainThread:Scheduler runs every 1 second(s).
+[36mcorpora_1  |[0m [2020-03-06 18:58:40,599] INFO:huey.consumer:MainThread:Periodic tasks are enabled.
+[36mcorpora_1  |[0m [2020-03-06 18:58:40,603] INFO:huey.consumer:MainThread:The following commands are available:
+[36mcorpora_1  |[0m + manager.tasks.run_job
+[36mcorpora_1  |[0m + manager.tasks.check_jobs
+[36mcorpora_1  |[0m + manager.tasks.adjust_content
+[36mcorpora_1  |[0m + manager.tasks.delete_content_type
+[36mcorpora_1  |[0m + manager.tasks.delete_content_type_field
+[36mcorpora_1  |[0m + manager.tasks.delete_corpus
+[36mcorpora_1  |[0m + plugins.document.tasks.rebuild_corpus_index
+[36mcorpora_1  |[0m + plugins.document.tasks.zip_up_page_file_collection
+[36mcorpora_1  |[0m + plugins.document.tasks.import_document
+[36mcorpora_1  |[0m + plugins.document.tasks.extract_pdf_pages
+[36mcorpora_1  |[0m + plugins.document.tasks.extract_pdf_page
+[36mcorpora_1  |[0m + plugins.document.tasks.extract_embedded_pdf_text
+[36mcorpora_1  |[0m + plugins.document.tasks.complete_pdf_page_extraction
+[36mcorpora_1  |[0m + plugins.document.tasks.index_document_pages
+[36mcorpora_1  |[0m + plugins.document.tasks.cache_page_file_collections
+[36mcorpora_1  |[0m + plugins.tesseract.tasks.ocr_document_with_tesseract
+[36mcorpora_1  |[0m + plugins.tesseract.tasks.ocr_pages_with_tesseract
+[36mcorpora_1  |[0m + plugins.tesseract.tasks.complete_ocr_document_with_tesseract
+[36mcorpora_1  |[0m + plugins.calamari.tasks.ocr_document_with_calamari
+[36mcorpora_1  |[0m + plugins.calamari.tasks.ocr_pages_with_calamari
+[36mcorpora_1  |[0m + plugins.calamari.tasks.complete_ocr_document_with_calamari
+[36mcorpora_1  |[0m [2020-03-06 18:58:40,627] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 11590459-7110-4228-926c-e442a8c9e341 p=4.
+[36mcorpora_1  |[0m [2020-03-06 18:58:40,635] INFO:huey:Worker-1:Executing manager.tasks.check_jobs: 11590459-7110-4228-926c-e442a8c9e341 p=4
+[36mcorpora_1  |[0m [2020-03-06 18:58:44,503] INFO:huey:Worker-1:manager.tasks.check_jobs: 11590459-7110-4228-926c-e442a8c9e341 p=4 executed in 3.865s
+[36mcorpora_1  |[0m [2020-03-06 18:59:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 23cef25e-c4c1-4d5c-a536-a8f04834e651 p=4.
+[36mcorpora_1  |[0m [2020-03-06 18:59:40,593] INFO:huey:Worker-1:Executing manager.tasks.check_jobs: 23cef25e-c4c1-4d5c-a536-a8f04834e651 p=4
+[36mcorpora_1  |[0m [2020-03-06 18:59:40,836] INFO:huey:Worker-1:manager.tasks.check_jobs: 23cef25e-c4c1-4d5c-a536-a8f04834e651 p=4 executed in 0.242s
+[36mcorpora_1  |[0m {
+[36mcorpora_1  |[0m     "query": {
+[36mcorpora_1  |[0m         "bool": {
+[36mcorpora_1  |[0m             "should": [
+[36mcorpora_1  |[0m                 {
+[36mcorpora_1  |[0m                     "simple_query_string": {
+[36mcorpora_1  |[0m                         "query": "*"
+[36mcorpora_1  |[0m                     }
+[36mcorpora_1  |[0m                 }
+[36mcorpora_1  |[0m             ]
+[36mcorpora_1  |[0m         }
+[36mcorpora_1  |[0m     },
+[36mcorpora_1  |[0m     "track_total_hits": true,
+[36mcorpora_1  |[0m     "from": 0,
+[36mcorpora_1  |[0m     "size": 50
+[36mcorpora_1  |[0m }
+[36mcorpora_1  |[0m {
+[36mcorpora_1  |[0m     "query": {
+[36mcorpora_1  |[0m         "bool": {
+[36mcorpora_1  |[0m             "should": [
+[36mcorpora_1  |[0m                 {
+[36mcorpora_1  |[0m                     "simple_query_string": {
+[36mcorpora_1  |[0m                         "query": "*"
+[36mcorpora_1  |[0m                     }
+[36mcorpora_1  |[0m                 }
+[36mcorpora_1  |[0m             ]
+[36mcorpora_1  |[0m         }
+[36mcorpora_1  |[0m     },
+[36mcorpora_1  |[0m     "track_total_hits": true,
+[36mcorpora_1  |[0m     "from": 0,
+[36mcorpora_1  |[0m     "size": 5
+[36mcorpora_1  |[0m }
+[36mcorpora_1  |[0m {
+[36mcorpora_1  |[0m     "took": 10,
+[36mcorpora_1  |[0m     "timed_out": false,
+[36mcorpora_1  |[0m     "_shards": {
+[36mcorpora_1  |[0m         "total": 1,
+[36mcorpora_1  |[0m         "successful": 1,
+[36mcorpora_1  |[0m         "skipped": 0,
+[36mcorpora_1  |[0m         "failed": 0
+[36mcorpora_1  |[0m     },
+[36mcorpora_1  |[0m     "hits": {
+[36mcorpora_1  |[0m         "total": {
+[36mcorpora_1  |[0m             "value": 3,
+[36mcorpora_1  |[0m             "relation": "eq"
+[36mcorpora_1  |[0m         },
+[36mcorpora_1  |[0m         "max_score": 1.0,
+[36mcorpora_1  |[0m         "hits": [
+[36mcorpora_1  |[0m             {
+[36mcorpora_1  |[0m                 "_index": "corpus-5e600695551e85329223113c-document",
+[36mcorpora_1  |[0m                 "_type": "_doc",
+[36mcorpora_1  |[0m                 "_id": "5e6006ae551e85329223113e",
+[36mcorpora_1  |[0m                 "_score": 1.0,
+[36mcorpora_1  |[0m                 "_source": {
+[36mcorpora_1  |[0m                     "title": "DFA",
+[36mcorpora_1  |[0m                     "author": "d",
+[36mcorpora_1  |[0m                     "label": "DFA (d)",
+[36mcorpora_1  |[0m                     "uri": "/corpus/5e600695551e85329223113c/Document/5e6006ae551e85329223113e"
+[36mcorpora_1  |[0m                 }
+[36mcorpora_1  |[0m             },
+[36mcorpora_1  |[0m             {
+[36mcorpora_1  |[0m                 "_index": "corpus-5e600695551e85329223113c-document",
+[36mcorpora_1  |[0m                 "_type": "_doc",
+[36mcorpora_1  |[0m                 "_id": "5e601f1d551e853292231143",
+[36mcorpora_1  |[0m                 "_score": 1.0,
+[36mcorpora_1  |[0m                 "_source": {
+[36mcorpora_1  |[0m                     "title": "test2",
+[36mcorpora_1  |[0m                     "author": "af",
+[36mcorpora_1  |[0m                     "label": "test2 (af)",
+[36mcorpora_1  |[0m                     "uri": "/corpus/5e600695551e85329223113c/Document/5e601f1d551e853292231143"
+[36mcorpora_1  |[0m                 }
+[36mcorpora_1  |[0m             },
+[36mcorpora_1  |[0m             {
+[36mcorpora_1  |[0m                 "_index": "corpus-5e600695551e85329223113c-document",
+[36mcorpora_1  |[0m                 "_type": "_doc",
+[36mcorpora_1  |[0m                 "_id": "5e62981e551e853291919761",
+[36mcorpora_1  |[0m                 "_score": 1.0,
+[36mcorpora_1  |[0m                 "_source": {
+[36mcorpora_1  |[0m                     "title": "test3",
+[36mcorpora_1  |[0m                     "author": "ad",
+[36mcorpora_1  |[0m                     "label": "test3 (ad)",
+[36mcorpora_1  |[0m                     "uri": "/corpus/5e600695551e85329223113c/Document/5e62981e551e853291919761"
+[36mcorpora_1  |[0m                 }
+[36mcorpora_1  |[0m             }
+[36mcorpora_1  |[0m         ]
+[36mcorpora_1  |[0m     }
+[36mcorpora_1  |[0m }
+[36mcorpora_1  |[0m uri: /corpus/5e600695551e85329223113c/Document/5e62981e551e853291919761
+[36mcorpora_1  |[0m uri: /corpus/5e600695551e85329223113c/Document/5e62981e551e853291919761
+[36mcorpora_1  |[0m [2020-03-06 19:00:26,956] INFO:huey:Worker-8:Executing manager.tasks.run_job: 21622ed0-dc8f-4c37-b45f-58d1f4df03f1 p=3
+[36mcorpora_1  |[0m [2020-03-06 19:00:27,140] INFO:huey:Worker-2:Executing plugins.calamari.tasks.ocr_document_with_calamari: ed739786-7762-40b8-ad25-093a25f7f54b p=2
+[36mcorpora_1  |[0m [2020-03-06 19:00:27,158] INFO:huey:Worker-8:manager.tasks.run_job: 21622ed0-dc8f-4c37-b45f-58d1f4df03f1 p=3 executed in 0.202s
+[36mcorpora_1  |[0m [2020-03-06 19:00:27,380] INFO:huey:Worker-1:Executing plugins.calamari.tasks.ocr_pages_with_calamari: 80a6a8b6-fe8b-44d7-a5bf-f573ee2a86b5 p=1
+[36mcorpora_1  |[0m Tesseract Open Source OCR Engine v4.0.0 with Leptonica
+[36mcorpora_1  |[0m [2020-03-06 19:00:27,853] INFO:huey:Worker-2:plugins.calamari.tasks.ocr_document_with_calamari: ed739786-7762-40b8-ad25-093a25f7f54b p=2 executed in 0.703s
+[36mcorpora_1  |[0m uri: /corpus/5e600695551e85329223113c/Document/5e62981e551e853291919761
+[36mcorpora_1  |[0m Warning: Invalid resolution 0 dpi. Using 70 instead.
+[36mcorpora_1  |[0m uri: /corpus/5e600695551e85329223113c/Document/5e62981e551e853291919761
+[36mcorpora_1  |[0m Estimating resolution as 1311
+[36mcorpora_1  |[0m Image too small to scale!! (2x36 vs min width of 3)
+[36mcorpora_1  |[0m Line cannot be recognized!!
+[36mcorpora_1  |[0m [2020-03-06 19:00:40,276] ERROR:huey:Worker-1:Unhandled exception in task 80a6a8b6-fe8b-44d7-a5bf-f573ee2a86b5.
+[36mcorpora_1  |[0m Traceback (most recent call last):
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/api.py", line 325, in _execute
+[36mcorpora_1  |[0m     task_value = task.execute()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/api.py", line 673, in execute
+[36mcorpora_1  |[0m     return func(*args, **kwargs)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/contrib/djhuey/__init__.py", line 128, in inner
+[36mcorpora_1  |[0m     return fn(*args, **kwargs)
+[36mcorpora_1  |[0m   File "/apps/corpora/plugins/calamari/tasks.py", line 120, in ocr_pages_with_calamari
+[36mcorpora_1  |[0m     ocr_lines_with_calamari(job_id, lines_folder, model_path)
+[36mcorpora_1  |[0m   File "/apps/corpora/plugins/calamari/tasks.py", line 165, in ocr_lines_with_calamari
+[36mcorpora_1  |[0m     if call(command) == 0:
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/subprocess.py", line 339, in call
+[36mcorpora_1  |[0m     with Popen(*popenargs, **kwargs) as p:
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/subprocess.py", line 800, in __init__
+[36mcorpora_1  |[0m     restore_signals, start_new_session)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/subprocess.py", line 1551, in _execute_child
+[36mcorpora_1  |[0m     raise child_exception_type(errno_num, err_msg, err_filename)
+[36mcorpora_1  |[0m FileNotFoundError: [Errno 2] No such file or directory: 'calamari-predict --checkpoint': 'calamari-predict --checkpoint'
+[36mcorpora_1  |[0m [2020-03-06 19:00:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 5f257dbf-17a3-4863-ad9b-b1d2b8c192d2 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:00:40,597] INFO:huey:Worker-2:Executing manager.tasks.check_jobs: 5f257dbf-17a3-4863-ad9b-b1d2b8c192d2 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:00:40,736] INFO:huey:Worker-2:manager.tasks.check_jobs: 5f257dbf-17a3-4863-ad9b-b1d2b8c192d2 p=4 executed in 0.137s
+[36mcorpora_1  |[0m [2020-03-06 19:01:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 8b734809-2b9c-42b7-a63c-f215f81c67e2 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:01:40,603] INFO:huey:Worker-7:Executing manager.tasks.check_jobs: 8b734809-2b9c-42b7-a63c-f215f81c67e2 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:01:40,736] INFO:huey:Worker-7:manager.tasks.check_jobs: 8b734809-2b9c-42b7-a63c-f215f81c67e2 p=4 executed in 0.133s
+[36mcorpora_1  |[0m [2020-03-06 19:02:40,589] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 29d12223-1c68-4a6f-b8eb-2c2a629ad7ed p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:02:40,606] INFO:huey:Worker-6:Executing manager.tasks.check_jobs: 29d12223-1c68-4a6f-b8eb-2c2a629ad7ed p=4
+[36mcorpora_1  |[0m [2020-03-06 19:02:40,811] INFO:huey:Worker-6:manager.tasks.check_jobs: 29d12223-1c68-4a6f-b8eb-2c2a629ad7ed p=4 executed in 0.205s
+[36mcorpora_1  |[0m [2020-03-06 19:02:42,577] INFO:huey:Worker-7:Executing manager.tasks.run_job: c4948dfb-0285-47ec-8369-21d43655a0b3 p=3
+[36mcorpora_1  |[0m [2020-03-06 19:02:42,791] INFO:huey:Worker-3:Executing plugins.calamari.tasks.ocr_document_with_calamari: cea63f5a-82fe-4503-9761-54aeb88f4252 p=2
+[36mcorpora_1  |[0m [2020-03-06 19:02:42,803] INFO:huey:Worker-7:manager.tasks.run_job: c4948dfb-0285-47ec-8369-21d43655a0b3 p=3 executed in 0.226s
+[36mcorpora_1  |[0m [2020-03-06 19:02:42,904] INFO:huey:Worker-8:Executing plugins.calamari.tasks.ocr_pages_with_calamari: 94482946-33f6-4b5d-bbd8-0c7e1018aa1c p=1
+[36mcorpora_1  |[0m [2020-03-06 19:02:43,169] INFO:huey:Worker-3:plugins.calamari.tasks.ocr_document_with_calamari: cea63f5a-82fe-4503-9761-54aeb88f4252 p=2 executed in 0.378s
+[36mcorpora_1  |[0m Tesseract Open Source OCR Engine v4.0.0 with Leptonica
+[36mcorpora_1  |[0m uri: /corpus/5e600695551e85329223113c/Document/5e62981e551e853291919761
+[36mcorpora_1  |[0m uri: /corpus/5e600695551e85329223113c/Document/5e62981e551e853291919761
+[36mcorpora_1  |[0m Warning: Invalid resolution 0 dpi. Using 70 instead.
+[36mcorpora_1  |[0m Estimating resolution as 1311
+[36mcorpora_1  |[0m Image too small to scale!! (2x36 vs min width of 3)
+[36mcorpora_1  |[0m Line cannot be recognized!!
+[36mcorpora_1  |[0m [2020-03-06 19:02:58,962] ERROR:huey:Worker-8:Unhandled exception in task 94482946-33f6-4b5d-bbd8-0c7e1018aa1c.
+[36mcorpora_1  |[0m Traceback (most recent call last):
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/api.py", line 325, in _execute
+[36mcorpora_1  |[0m     task_value = task.execute()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/api.py", line 673, in execute
+[36mcorpora_1  |[0m     return func(*args, **kwargs)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/contrib/djhuey/__init__.py", line 128, in inner
+[36mcorpora_1  |[0m     return fn(*args, **kwargs)
+[36mcorpora_1  |[0m   File "/apps/corpora/plugins/calamari/tasks.py", line 120, in ocr_pages_with_calamari
+[36mcorpora_1  |[0m     ocr_lines_with_calamari(job_id, lines_folder, model_path)
+[36mcorpora_1  |[0m   File "/apps/corpora/plugins/calamari/tasks.py", line 165, in ocr_lines_with_calamari
+[36mcorpora_1  |[0m     if call(command) == 0:
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/subprocess.py", line 339, in call
+[36mcorpora_1  |[0m     with Popen(*popenargs, **kwargs) as p:
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/subprocess.py", line 800, in __init__
+[36mcorpora_1  |[0m     restore_signals, start_new_session)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/subprocess.py", line 1551, in _execute_child
+[36mcorpora_1  |[0m     raise child_exception_type(errno_num, err_msg, err_filename)
+[36mcorpora_1  |[0m FileNotFoundError: [Errno 2] No such file or directory: 'calamari-predict --checkpoint': 'calamari-predict --checkpoint'
+[36mcorpora_1  |[0m [2020-03-06 19:03:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 6398f7f0-7fa5-4b57-ab42-03be55459ccb p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:03:40,601] INFO:huey:Worker-6:Executing manager.tasks.check_jobs: 6398f7f0-7fa5-4b57-ab42-03be55459ccb p=4
+[36mcorpora_1  |[0m [2020-03-06 19:03:40,725] INFO:huey:Worker-6:manager.tasks.check_jobs: 6398f7f0-7fa5-4b57-ab42-03be55459ccb p=4 executed in 0.123s
+[36mcorpora_1  |[0m [2020-03-06 19:04:40,592] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 76587cfc-4279-4bc7-ad71-fd8791ea916d p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:04:40,596] INFO:huey:Worker-6:Executing manager.tasks.check_jobs: 76587cfc-4279-4bc7-ad71-fd8791ea916d p=4
+[36mcorpora_1  |[0m [2020-03-06 19:04:40,762] INFO:huey:Worker-6:manager.tasks.check_jobs: 76587cfc-4279-4bc7-ad71-fd8791ea916d p=4 executed in 0.165s
+[36mcorpora_1  |[0m [2020-03-06 19:05:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: b8d7c850-9ad4-4eca-9db3-01bbe05c45f1 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:05:40,595] INFO:huey:Worker-9:Executing manager.tasks.check_jobs: b8d7c850-9ad4-4eca-9db3-01bbe05c45f1 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:05:40,722] INFO:huey:Worker-9:manager.tasks.check_jobs: b8d7c850-9ad4-4eca-9db3-01bbe05c45f1 p=4 executed in 0.126s
+[36mcorpora_1  |[0m [2020-03-06 19:06:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 47ab9cdd-e81a-45c3-b2d8-572c801345f7 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:06:40,596] INFO:huey:Worker-1:Executing manager.tasks.check_jobs: 47ab9cdd-e81a-45c3-b2d8-572c801345f7 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:06:40,712] INFO:huey:Worker-1:manager.tasks.check_jobs: 47ab9cdd-e81a-45c3-b2d8-572c801345f7 p=4 executed in 0.116s
+[36mcorpora_1  |[0m [2020-03-06 19:07:40,592] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 2d765cf6-3078-4e8d-887d-cef14e0e6662 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:07:40,600] INFO:huey:Worker-9:Executing manager.tasks.check_jobs: 2d765cf6-3078-4e8d-887d-cef14e0e6662 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:07:40,699] INFO:huey:Worker-9:manager.tasks.check_jobs: 2d765cf6-3078-4e8d-887d-cef14e0e6662 p=4 executed in 0.096s
+[36mcorpora_1  |[0m [2020-03-06 19:08:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: fd498210-e7cf-440b-88c2-f726341ad259 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:08:40,594] INFO:huey:Worker-8:Executing manager.tasks.check_jobs: fd498210-e7cf-440b-88c2-f726341ad259 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:08:40,699] INFO:huey:Worker-8:manager.tasks.check_jobs: fd498210-e7cf-440b-88c2-f726341ad259 p=4 executed in 0.104s
+[36mcorpora_1  |[0m {
+[36mcorpora_1  |[0m     "query": {
+[36mcorpora_1  |[0m         "bool": {
+[36mcorpora_1  |[0m             "should": [
+[36mcorpora_1  |[0m                 {
+[36mcorpora_1  |[0m                     "simple_query_string": {
+[36mcorpora_1  |[0m                         "query": "*"
+[36mcorpora_1  |[0m                     }
+[36mcorpora_1  |[0m                 }
+[36mcorpora_1  |[0m             ]
+[36mcorpora_1  |[0m         }
+[36mcorpora_1  |[0m     },
+[36mcorpora_1  |[0m     "track_total_hits": true,
+[36mcorpora_1  |[0m     "from": 0,
+[36mcorpora_1  |[0m     "size": 50
+[36mcorpora_1  |[0m }
+[36mcorpora_1  |[0m [2020-03-06 19:09:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: abd6ba4c-ff84-4d60-8ce3-4f8bd3f5ea42 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:09:40,597] INFO:huey:Worker-9:Executing manager.tasks.check_jobs: abd6ba4c-ff84-4d60-8ce3-4f8bd3f5ea42 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:09:40,685] INFO:huey:Worker-9:manager.tasks.check_jobs: abd6ba4c-ff84-4d60-8ce3-4f8bd3f5ea42 p=4 executed in 0.087s
+[36mcorpora_1  |[0m [2020-03-06 19:10:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: a5217226-7ce3-4b45-af41-fc6a8615d5be p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:10:40,593] INFO:huey:Worker-10:Executing manager.tasks.check_jobs: a5217226-7ce3-4b45-af41-fc6a8615d5be p=4
+[36mcorpora_1  |[0m [2020-03-06 19:10:40,690] INFO:huey:Worker-10:manager.tasks.check_jobs: a5217226-7ce3-4b45-af41-fc6a8615d5be p=4 executed in 0.096s
+[36mcorpora_1  |[0m [2020-03-06 19:11:40,593] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 9424d8e1-f6a9-488b-aaa3-f5ac0abb64b8 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:11:40,597] INFO:huey:Worker-7:Executing manager.tasks.check_jobs: 9424d8e1-f6a9-488b-aaa3-f5ac0abb64b8 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:11:40,696] INFO:huey:Worker-7:manager.tasks.check_jobs: 9424d8e1-f6a9-488b-aaa3-f5ac0abb64b8 p=4 executed in 0.098s
+[36mcorpora_1  |[0m [2020-03-06 19:12:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: c072c71a-7260-45d7-bccf-79834eeac5de p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:12:40,593] INFO:huey:Worker-5:Executing manager.tasks.check_jobs: c072c71a-7260-45d7-bccf-79834eeac5de p=4
+[36mcorpora_1  |[0m [2020-03-06 19:12:40,687] INFO:huey:Worker-5:manager.tasks.check_jobs: c072c71a-7260-45d7-bccf-79834eeac5de p=4 executed in 0.093s
+[36mcorpora_1  |[0m [2020-03-06 19:13:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 64e1a7d8-9b32-4370-bc7f-94158d0d59f7 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:13:40,594] INFO:huey:Worker-2:Executing manager.tasks.check_jobs: 64e1a7d8-9b32-4370-bc7f-94158d0d59f7 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:13:40,683] INFO:huey:Worker-2:manager.tasks.check_jobs: 64e1a7d8-9b32-4370-bc7f-94158d0d59f7 p=4 executed in 0.088s
+[36mcorpora_1  |[0m [2020-03-06 19:14:40,593] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: c3424bf3-ff60-4347-be47-24c4a88bd536 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:14:40,596] INFO:huey:Worker-1:Executing manager.tasks.check_jobs: c3424bf3-ff60-4347-be47-24c4a88bd536 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:14:40,685] INFO:huey:Worker-1:manager.tasks.check_jobs: c3424bf3-ff60-4347-be47-24c4a88bd536 p=4 executed in 0.087s
+[36mcorpora_1  |[0m [2020-03-06 19:15:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 9ce56bc8-664c-460b-8a90-d4cd0d68bd53 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:15:40,592] INFO:huey:Worker-1:Executing manager.tasks.check_jobs: 9ce56bc8-664c-460b-8a90-d4cd0d68bd53 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:15:40,698] INFO:huey:Worker-1:manager.tasks.check_jobs: 9ce56bc8-664c-460b-8a90-d4cd0d68bd53 p=4 executed in 0.106s
+[36mcorpora_1  |[0m [2020-03-06 19:16:40,589] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: d1ea92f5-d274-4387-9204-c3eab44787b0 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:16:40,592] INFO:huey:Worker-6:Executing manager.tasks.check_jobs: d1ea92f5-d274-4387-9204-c3eab44787b0 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:16:40,682] INFO:huey:Worker-6:manager.tasks.check_jobs: d1ea92f5-d274-4387-9204-c3eab44787b0 p=4 executed in 0.090s
+[36mcorpora_1  |[0m [2020-03-06 19:17:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 2bb65e02-a36f-46e8-8a8c-25947e188e87 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:17:40,597] INFO:huey:Worker-7:Executing manager.tasks.check_jobs: 2bb65e02-a36f-46e8-8a8c-25947e188e87 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:17:40,692] INFO:huey:Worker-7:manager.tasks.check_jobs: 2bb65e02-a36f-46e8-8a8c-25947e188e87 p=4 executed in 0.094s
+[36mcorpora_1  |[0m [2020-03-06 19:18:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 909a9f23-c63a-4348-8d63-8284dc9bf1a2 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:18:40,594] INFO:huey:Worker-5:Executing manager.tasks.check_jobs: 909a9f23-c63a-4348-8d63-8284dc9bf1a2 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:18:40,710] INFO:huey:Worker-5:manager.tasks.check_jobs: 909a9f23-c63a-4348-8d63-8284dc9bf1a2 p=4 executed in 0.116s
+[36mcorpora_1  |[0m [2020-03-06 19:19:40,592] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: b70e509e-c40f-4a6f-af96-340922aaf7aa p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:19:40,596] INFO:huey:Worker-7:Executing manager.tasks.check_jobs: b70e509e-c40f-4a6f-af96-340922aaf7aa p=4
+[36mcorpora_1  |[0m [2020-03-06 19:19:40,704] INFO:huey:Worker-7:manager.tasks.check_jobs: b70e509e-c40f-4a6f-af96-340922aaf7aa p=4 executed in 0.107s
+[36mcorpora_1  |[0m [2020-03-06 19:20:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: b1303af4-b61f-4394-90a7-4c04637cdde6 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:20:40,597] INFO:huey:Worker-1:Executing manager.tasks.check_jobs: b1303af4-b61f-4394-90a7-4c04637cdde6 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:20:40,697] INFO:huey:Worker-1:manager.tasks.check_jobs: b1303af4-b61f-4394-90a7-4c04637cdde6 p=4 executed in 0.100s
+[36mcorpora_1  |[0m [2020-03-06 19:21:40,589] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 4c95a7c8-92cc-433f-881a-fb3434ce6302 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:21:40,593] INFO:huey:Worker-4:Executing manager.tasks.check_jobs: 4c95a7c8-92cc-433f-881a-fb3434ce6302 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:21:40,710] INFO:huey:Worker-4:manager.tasks.check_jobs: 4c95a7c8-92cc-433f-881a-fb3434ce6302 p=4 executed in 0.116s
+[36mcorpora_1  |[0m [2020-03-06 19:22:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 2b156aee-797d-412b-8c78-cdf171efd876 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:22:40,594] INFO:huey:Worker-4:Executing manager.tasks.check_jobs: 2b156aee-797d-412b-8c78-cdf171efd876 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:22:40,700] INFO:huey:Worker-4:manager.tasks.check_jobs: 2b156aee-797d-412b-8c78-cdf171efd876 p=4 executed in 0.105s
+[36mcorpora_1  |[0m [2020-03-06 19:23:40,589] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 0e3c9d62-d0b0-43f7-960d-5109659a1b8a p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:23:40,595] INFO:huey:Worker-7:Executing manager.tasks.check_jobs: 0e3c9d62-d0b0-43f7-960d-5109659a1b8a p=4
+[36mcorpora_1  |[0m [2020-03-06 19:23:40,717] INFO:huey:Worker-7:manager.tasks.check_jobs: 0e3c9d62-d0b0-43f7-960d-5109659a1b8a p=4 executed in 0.120s
+[36mcorpora_1  |[0m [2020-03-06 19:24:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: ec543a05-36e8-4798-85cb-0f42f874a10f p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:24:40,599] INFO:huey:Worker-8:Executing manager.tasks.check_jobs: ec543a05-36e8-4798-85cb-0f42f874a10f p=4
+[36mcorpora_1  |[0m [2020-03-06 19:24:40,698] INFO:huey:Worker-8:manager.tasks.check_jobs: ec543a05-36e8-4798-85cb-0f42f874a10f p=4 executed in 0.098s
+[36mcorpora_1  |[0m [2020-03-06 19:25:40,595] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: de09057d-0d0e-4b2e-8a01-b56fddf2c35e p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:25:40,603] INFO:huey:Worker-8:Executing manager.tasks.check_jobs: de09057d-0d0e-4b2e-8a01-b56fddf2c35e p=4
+[36mcorpora_1  |[0m [2020-03-06 19:25:40,705] INFO:huey:Worker-8:manager.tasks.check_jobs: de09057d-0d0e-4b2e-8a01-b56fddf2c35e p=4 executed in 0.100s
+[36mcorpora_1  |[0m [2020-03-06 19:26:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: e9ade6e5-1910-462a-995e-6a44cc118f91 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:26:40,597] INFO:huey:Worker-5:Executing manager.tasks.check_jobs: e9ade6e5-1910-462a-995e-6a44cc118f91 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:26:40,699] INFO:huey:Worker-5:manager.tasks.check_jobs: e9ade6e5-1910-462a-995e-6a44cc118f91 p=4 executed in 0.102s
+[36mcorpora_1  |[0m [2020-03-06 19:27:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 0df4489a-b8ee-463f-b3a8-4625d4d6c255 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:27:40,597] INFO:huey:Worker-7:Executing manager.tasks.check_jobs: 0df4489a-b8ee-463f-b3a8-4625d4d6c255 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:27:40,722] INFO:huey:Worker-7:manager.tasks.check_jobs: 0df4489a-b8ee-463f-b3a8-4625d4d6c255 p=4 executed in 0.125s
+[36mcorpora_1  |[0m [2020-03-06 19:28:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 926b8b51-d02f-42d6-a0a4-f9a83424d1bf p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:28:40,596] INFO:huey:Worker-7:Executing manager.tasks.check_jobs: 926b8b51-d02f-42d6-a0a4-f9a83424d1bf p=4
+[36mcorpora_1  |[0m [2020-03-06 19:28:40,680] INFO:huey:Worker-7:manager.tasks.check_jobs: 926b8b51-d02f-42d6-a0a4-f9a83424d1bf p=4 executed in 0.083s
+[36mcorpora_1  |[0m [2020-03-06 19:29:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: ff5d5d40-571f-42bb-898c-766ee01b4201 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:29:40,595] INFO:huey:Worker-2:Executing manager.tasks.check_jobs: ff5d5d40-571f-42bb-898c-766ee01b4201 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:29:40,679] INFO:huey:Worker-2:manager.tasks.check_jobs: ff5d5d40-571f-42bb-898c-766ee01b4201 p=4 executed in 0.083s
+[36mcorpora_1  |[0m [2020-03-06 19:30:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 040337dd-b0e7-4fb6-ab3e-3665452767f1 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:30:40,599] INFO:huey:Worker-1:Executing manager.tasks.check_jobs: 040337dd-b0e7-4fb6-ab3e-3665452767f1 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:30:40,679] INFO:huey:Worker-1:manager.tasks.check_jobs: 040337dd-b0e7-4fb6-ab3e-3665452767f1 p=4 executed in 0.079s
+[36mcorpora_1  |[0m [2020-03-06 19:31:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: c72f15dc-4fb7-49ec-a1a1-a548307557b9 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:31:40,597] INFO:huey:Worker-1:Executing manager.tasks.check_jobs: c72f15dc-4fb7-49ec-a1a1-a548307557b9 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:31:40,682] INFO:huey:Worker-1:manager.tasks.check_jobs: c72f15dc-4fb7-49ec-a1a1-a548307557b9 p=4 executed in 0.085s
+[36mcorpora_1  |[0m [2020-03-06 19:32:40,593] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: a5a2dc73-76f1-4436-910f-f07174900c74 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:32:40,597] INFO:huey:Worker-3:Executing manager.tasks.check_jobs: a5a2dc73-76f1-4436-910f-f07174900c74 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:32:40,675] INFO:huey:Worker-3:manager.tasks.check_jobs: a5a2dc73-76f1-4436-910f-f07174900c74 p=4 executed in 0.077s
+[36mcorpora_1  |[0m [2020-03-06 19:33:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 0bc09a02-2edd-4a50-a73c-17a5e291bc93 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:33:40,595] INFO:huey:Worker-1:Executing manager.tasks.check_jobs: 0bc09a02-2edd-4a50-a73c-17a5e291bc93 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:33:40,676] INFO:huey:Worker-1:manager.tasks.check_jobs: 0bc09a02-2edd-4a50-a73c-17a5e291bc93 p=4 executed in 0.081s
+[36mcorpora_1  |[0m [2020-03-06 19:34:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 1603b50c-e366-435b-bee1-b6e54667bf4b p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:34:40,597] INFO:huey:Worker-5:Executing manager.tasks.check_jobs: 1603b50c-e366-435b-bee1-b6e54667bf4b p=4
+[36mcorpora_1  |[0m [2020-03-06 19:34:40,683] INFO:huey:Worker-5:manager.tasks.check_jobs: 1603b50c-e366-435b-bee1-b6e54667bf4b p=4 executed in 0.085s
+[36mcorpora_1  |[0m [2020-03-06 19:35:40,592] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 6032986b-cd64-4176-8d7c-605bc225d6d7 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:35:40,599] INFO:huey:Worker-4:Executing manager.tasks.check_jobs: 6032986b-cd64-4176-8d7c-605bc225d6d7 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:35:40,680] INFO:huey:Worker-4:manager.tasks.check_jobs: 6032986b-cd64-4176-8d7c-605bc225d6d7 p=4 executed in 0.079s
+[36mcorpora_1  |[0m [2020-03-06 19:36:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: f37597af-a676-4c23-9f49-42adb3fa6ede p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:36:40,593] INFO:huey:Worker-4:Executing manager.tasks.check_jobs: f37597af-a676-4c23-9f49-42adb3fa6ede p=4
+[36mcorpora_1  |[0m [2020-03-06 19:36:40,693] INFO:huey:Worker-4:manager.tasks.check_jobs: f37597af-a676-4c23-9f49-42adb3fa6ede p=4 executed in 0.099s
+[36mcorpora_1  |[0m [2020-03-06 19:37:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 222c0aaf-8b07-462f-9ec9-706f90135ecd p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:37:40,596] INFO:huey:Worker-4:Executing manager.tasks.check_jobs: 222c0aaf-8b07-462f-9ec9-706f90135ecd p=4
+[36mcorpora_1  |[0m [2020-03-06 19:37:40,676] INFO:huey:Worker-4:manager.tasks.check_jobs: 222c0aaf-8b07-462f-9ec9-706f90135ecd p=4 executed in 0.078s
+[36mcorpora_1  |[0m [2020-03-06 19:38:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: a10885ba-760a-436e-8d92-d88bb37cb2ea p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:38:40,604] INFO:huey:Worker-6:Executing manager.tasks.check_jobs: a10885ba-760a-436e-8d92-d88bb37cb2ea p=4
+[36mcorpora_1  |[0m [2020-03-06 19:38:40,815] INFO:huey:Worker-6:manager.tasks.check_jobs: a10885ba-760a-436e-8d92-d88bb37cb2ea p=4 executed in 0.207s
+[36mcorpora_1  |[0m [2020-03-06 19:39:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 39c52268-3e1d-451e-b3f5-2ed87c9885f4 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:39:40,596] INFO:huey:Worker-5:Executing manager.tasks.check_jobs: 39c52268-3e1d-451e-b3f5-2ed87c9885f4 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:39:40,809] INFO:huey:Worker-5:manager.tasks.check_jobs: 39c52268-3e1d-451e-b3f5-2ed87c9885f4 p=4 executed in 0.213s
+[36mcorpora_1  |[0m {
+[36mcorpora_1  |[0m     "query": {
+[36mcorpora_1  |[0m         "bool": {
+[36mcorpora_1  |[0m             "should": [
+[36mcorpora_1  |[0m                 {
+[36mcorpora_1  |[0m                     "simple_query_string": {
+[36mcorpora_1  |[0m                         "query": "*"
+[36mcorpora_1  |[0m                     }
+[36mcorpora_1  |[0m                 }
+[36mcorpora_1  |[0m             ]
+[36mcorpora_1  |[0m         }
+[36mcorpora_1  |[0m     },
+[36mcorpora_1  |[0m     "track_total_hits": true,
+[36mcorpora_1  |[0m     "from": 0,
+[36mcorpora_1  |[0m     "size": 50
+[36mcorpora_1  |[0m }
+[36mcorpora_1  |[0m Internal Server Error: /
+[36mcorpora_1  |[0m Traceback (most recent call last):
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/mongoengine/document.py", line 412, in save
+[36mcorpora_1  |[0m     object_id = self._save_create(doc, force_insert, write_concern)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/mongoengine/document.py", line 477, in _save_create
+[36mcorpora_1  |[0m     object_id = wc_collection.insert_one(doc).inserted_id
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/pymongo/collection.py", line 693, in insert_one
+[36mcorpora_1  |[0m     session=session),
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/pymongo/collection.py", line 607, in _insert
+[36mcorpora_1  |[0m     bypass_doc_val, session)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/pymongo/collection.py", line 595, in _insert_one
+[36mcorpora_1  |[0m     acknowledged, _insert_command, session)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/pymongo/mongo_client.py", line 1248, in _retryable_write
+[36mcorpora_1  |[0m     return self._retry_with_session(retryable, func, s, None)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/pymongo/mongo_client.py", line 1201, in _retry_with_session
+[36mcorpora_1  |[0m     return func(session, sock_info, retryable)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/pymongo/collection.py", line 592, in _insert_command
+[36mcorpora_1  |[0m     _check_write_command_response(result)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/pymongo/helpers.py", line 217, in _check_write_command_response
+[36mcorpora_1  |[0m     _raise_last_write_error(write_errors)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/pymongo/helpers.py", line 198, in _raise_last_write_error
+[36mcorpora_1  |[0m     raise DuplicateKeyError(error.get("errmsg"), 11000, error)
+[36mcorpora_1  |[0m pymongo.errors.DuplicateKeyError: E11000 duplicate key error collection: corpora.corpus index: name_1 dup key: { : "test12" }
+[36mcorpora_1  |[0m 
+[36mcorpora_1  |[0m During handling of the above exception, another exception occurred:
+[36mcorpora_1  |[0m 
+[36mcorpora_1  |[0m Traceback (most recent call last):
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/django/core/handlers/exception.py", line 34, in inner
+[36mcorpora_1  |[0m     response = get_response(request)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/django/core/handlers/base.py", line 126, in _get_response
+[36mcorpora_1  |[0m     response = self.process_exception_by_middleware(e, request)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/django/core/handlers/base.py", line 124, in _get_response
+[36mcorpora_1  |[0m     response = wrapped_callback(request, *callback_args, **callback_kwargs)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/django/contrib/auth/decorators.py", line 21, in _wrapped_view
+[36mcorpora_1  |[0m     return view_func(request, *args, **kwargs)
+[36mcorpora_1  |[0m   File "/apps/corpora/manager/views.py", line 40, in corpora
+[36mcorpora_1  |[0m     c.save()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/mongoengine/document.py", line 435, in save
+[36mcorpora_1  |[0m     raise NotUniqueError(message % six.text_type(err))
+[36mcorpora_1  |[0m mongoengine.errors.NotUniqueError: Tried to save duplicate unique keys (E11000 duplicate key error collection: corpora.corpus index: name_1 dup key: { : "test12" })
+[36mcorpora_1  |[0m {
+[36mcorpora_1  |[0m     "query": {
+[36mcorpora_1  |[0m         "bool": {
+[36mcorpora_1  |[0m             "should": [
+[36mcorpora_1  |[0m                 {
+[36mcorpora_1  |[0m                     "simple_query_string": {
+[36mcorpora_1  |[0m                         "query": "*"
+[36mcorpora_1  |[0m                     }
+[36mcorpora_1  |[0m                 }
+[36mcorpora_1  |[0m             ]
+[36mcorpora_1  |[0m         }
+[36mcorpora_1  |[0m     },
+[36mcorpora_1  |[0m     "track_total_hits": true,
+[36mcorpora_1  |[0m     "from": 0,
+[36mcorpora_1  |[0m     "size": 50
+[36mcorpora_1  |[0m }
+[36mcorpora_1  |[0m {
+[36mcorpora_1  |[0m     "query": {
+[36mcorpora_1  |[0m         "bool": {
+[36mcorpora_1  |[0m             "should": [
+[36mcorpora_1  |[0m                 {
+[36mcorpora_1  |[0m                     "simple_query_string": {
+[36mcorpora_1  |[0m                         "query": "*"
+[36mcorpora_1  |[0m                     }
+[36mcorpora_1  |[0m                 }
+[36mcorpora_1  |[0m             ]
+[36mcorpora_1  |[0m         }
+[36mcorpora_1  |[0m     },
+[36mcorpora_1  |[0m     "track_total_hits": true,
+[36mcorpora_1  |[0m     "from": 0,
+[36mcorpora_1  |[0m     "size": 5
+[36mcorpora_1  |[0m }
+[36mcorpora_1  |[0m {
+[36mcorpora_1  |[0m     "took": 3,
+[36mcorpora_1  |[0m     "timed_out": false,
+[36mcorpora_1  |[0m     "_shards": {
+[36mcorpora_1  |[0m         "total": 1,
+[36mcorpora_1  |[0m         "successful": 1,
+[36mcorpora_1  |[0m         "skipped": 0,
+[36mcorpora_1  |[0m         "failed": 0
+[36mcorpora_1  |[0m     },
+[36mcorpora_1  |[0m     "hits": {
+[36mcorpora_1  |[0m         "total": {
+[36mcorpora_1  |[0m             "value": 0,
+[36mcorpora_1  |[0m             "relation": "eq"
+[36mcorpora_1  |[0m         },
+[36mcorpora_1  |[0m         "max_score": null,
+[36mcorpora_1  |[0m         "hits": []
+[36mcorpora_1  |[0m     }
+[36mcorpora_1  |[0m }
+[36mcorpora_1  |[0m [2020-03-06 19:40:40,589] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 80bb2ada-3109-477d-94f5-8e3c5d42b7e8 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:40:40,593] INFO:huey:Worker-5:Executing manager.tasks.check_jobs: 80bb2ada-3109-477d-94f5-8e3c5d42b7e8 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:40:40,852] INFO:huey:Worker-7:Executing manager.tasks.run_job: 62c68b08-cb03-4349-9388-729c9ce5c463 p=3
+[36mcorpora_1  |[0m [2020-03-06 19:40:40,868] INFO:huey:Worker-5:manager.tasks.check_jobs: 80bb2ada-3109-477d-94f5-8e3c5d42b7e8 p=4 executed in 0.275s
+[36mcorpora_1  |[0m [2020-03-06 19:40:40,880] INFO:huey:Worker-7:manager.tasks.run_job: 62c68b08-cb03-4349-9388-729c9ce5c463 p=3 executed in 0.028s
+[36mcorpora_1  |[0m [2020-03-06 19:40:40,885] INFO:huey:Worker-1:Executing manager.tasks.adjust_content: e689aa00-9887-4fe7-b073-ed4e7665c138 p=5
+[36mcorpora_1  |[0m [2020-03-06 19:40:41,187] INFO:huey:Worker-1:manager.tasks.adjust_content: e689aa00-9887-4fe7-b073-ed4e7665c138 p=5 executed in 0.293s
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m [2020-03-06 19:41:40,589] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: f127c339-87c1-41bb-8629-3f96a4bcfb7d p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:41:40,599] INFO:huey:Worker-5:Executing manager.tasks.check_jobs: f127c339-87c1-41bb-8629-3f96a4bcfb7d p=4
+[36mcorpora_1  |[0m [2020-03-06 19:41:40,784] INFO:huey:Worker-6:Executing manager.tasks.run_job: 8ec0d8e6-d77f-463f-a1b8-58ac84c1a6d4 p=3
+[36mcorpora_1  |[0m [2020-03-06 19:41:40,817] INFO:huey:Worker-5:manager.tasks.check_jobs: f127c339-87c1-41bb-8629-3f96a4bcfb7d p=4 executed in 0.216s
+[36mcorpora_1  |[0m [2020-03-06 19:41:40,835] INFO:huey:Worker-8:Executing plugins.document.tasks.cache_page_file_collections: ea5a8f03-9317-42b2-a843-c2fe926bd016
+[36mcorpora_1  |[0m [2020-03-06 19:41:40,847] INFO:huey:Worker-6:manager.tasks.run_job: 8ec0d8e6-d77f-463f-a1b8-58ac84c1a6d4 p=3 executed in 0.062s
+[36mcorpora_1  |[0m [2020-03-06 19:41:40,890] INFO:huey:Worker-8:plugins.document.tasks.cache_page_file_collections: ea5a8f03-9317-42b2-a843-c2fe926bd016 executed in 0.054s
+[36mcorpora_1  |[0m [2020-03-06 19:41:52,251] INFO:huey:Worker-7:Executing manager.tasks.run_job: 70e7e4c9-4726-44d8-a434-e26e049bdc5b p=3
+[36mcorpora_1  |[0m [2020-03-06 19:41:52,300] INFO:huey:Worker-9:Executing plugins.document.tasks.extract_pdf_pages: 4f4efde2-6bf6-46e8-9ed2-e68919433329 p=2
+[36mcorpora_1  |[0m [2020-03-06 19:41:52,305] INFO:huey:Worker-7:manager.tasks.run_job: 70e7e4c9-4726-44d8-a434-e26e049bdc5b p=3 executed in 0.052s
+[36mcorpora_1  |[0m [2020-03-06 19:41:52,830] INFO:elasticsearch:Worker-9:PUT http://elastic:9200/corpus-5e62a7178b7af8002784d107-document/_doc/5e62a7498b7af8002784d109 [status:200 request:0.114s]
+[36mcorpora_1  |[0m [2020-03-06 19:41:53,080] INFO:huey:Worker-6:Executing plugins.document.tasks.extract_embedded_pdf_text: 4e854e4e-5c19-4881-9b71-85fa7f36df9a p=1
+[36mcorpora_1  |[0m [2020-03-06 19:41:53,164] INFO:huey:Worker-10:Executing plugins.document.tasks.extract_pdf_page: 620cdf93-a9f5-4628-bcbc-dd14d5879027 p=1
+[36mcorpora_1  |[0m [2020-03-06 19:41:53,381] INFO:huey:Worker-9:plugins.document.tasks.extract_pdf_pages: 4f4efde2-6bf6-46e8-9ed2-e68919433329 p=2 executed in 1.080s
+[36mcorpora_1  |[0m [2020-03-06 19:41:53,588] INFO:huey:Worker-6:plugins.document.tasks.extract_embedded_pdf_text: 4e854e4e-5c19-4881-9b71-85fa7f36df9a p=1 executed in 0.506s
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m convert-im6.q16: profile 'icc': 'RGB ': RGB color space not permitted on grayscale PNG `/corpora/5e62a7178b7af8002784d107/Document/84d1/5e62a7498b7af8002784d109/pages/1/testimg_1.png' @ warning/png.c/MagickPNGWarningHandler/1667.
+[36mcorpora_1  |[0m [2020-03-06 19:42:04,337] INFO:huey:Worker-10:plugins.document.tasks.extract_pdf_page: 620cdf93-a9f5-4628-bcbc-dd14d5879027 p=1 executed in 11.173s
+[36mcorpora_1  |[0m [2020-03-06 19:42:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: c5fcebef-a77f-4fe4-aec6-a1da72a43a85 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:42:40,593] INFO:huey:Worker-1:Executing manager.tasks.check_jobs: c5fcebef-a77f-4fe4-aec6-a1da72a43a85 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:42:41,090] INFO:huey:Worker-4:Executing plugins.document.tasks.complete_pdf_page_extraction: cf08c975-1864-4cd1-ae9b-de763284b5f1 p=1
+[36mcorpora_1  |[0m [2020-03-06 19:42:41,145] INFO:huey:Worker-3:Executing manager.tasks.run_job: 388e8977-9269-4b2a-b184-7827a6f46b57 p=3
+[36mcorpora_1  |[0m [2020-03-06 19:42:41,211] INFO:huey:Worker-9:Executing plugins.document.tasks.cache_page_file_collections: 152364d8-e2fa-4b63-aba7-b1b3ea3db989
+[36mcorpora_1  |[0m [2020-03-06 19:42:41,246] INFO:huey:Worker-3:manager.tasks.run_job: 388e8977-9269-4b2a-b184-7827a6f46b57 p=3 executed in 0.095s
+[36mcorpora_1  |[0m [2020-03-06 19:42:41,266] INFO:huey:Worker-1:manager.tasks.check_jobs: c5fcebef-a77f-4fe4-aec6-a1da72a43a85 p=4 executed in 0.672s
+[36mcorpora_1  |[0m [2020-03-06 19:42:41,312] INFO:elasticsearch:Worker-4:PUT http://elastic:9200/corpus-5e62a7178b7af8002784d107-document/_doc/5e62a7498b7af8002784d109 [status:200 request:0.039s]
+[36mcorpora_1  |[0m [2020-03-06 19:42:41,322] INFO:huey:Worker-9:plugins.document.tasks.cache_page_file_collections: 152364d8-e2fa-4b63-aba7-b1b3ea3db989 executed in 0.110s
+[36mcorpora_1  |[0m [2020-03-06 19:42:41,483] INFO:elasticsearch:Worker-4:PUT http://elastic:9200/corpus-5e62a7178b7af8002784d107-document/_doc/5e62a7498b7af8002784d109 [status:200 request:0.061s]
+[36mcorpora_1  |[0m [2020-03-06 19:42:41,572] INFO:huey:Worker-4:plugins.document.tasks.complete_pdf_page_extraction: cf08c975-1864-4cd1-ae9b-de763284b5f1 p=1 executed in 0.481s
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m [2020-03-06 19:42:55,294] INFO:huey:Worker-1:Executing manager.tasks.run_job: 2bb87cf2-dee8-4656-b2d2-c38379ab1be9 p=3
+[36mcorpora_1  |[0m [2020-03-06 19:42:55,340] INFO:huey:Worker-1:manager.tasks.run_job: 2bb87cf2-dee8-4656-b2d2-c38379ab1be9 p=3 executed in 0.045s
+[36mcorpora_1  |[0m [2020-03-06 19:42:55,345] INFO:huey:Worker-10:Executing plugins.calamari.tasks.ocr_document_with_calamari: dd1ed4ed-174b-412c-8aa0-b6b4590e78cc p=2
+[36mcorpora_1  |[0m [2020-03-06 19:42:55,406] ERROR:huey:Worker-10:Unhandled exception in task dd1ed4ed-174b-412c-8aa0-b6b4590e78cc.
+[36mcorpora_1  |[0m Traceback (most recent call last):
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/api.py", line 325, in _execute
+[36mcorpora_1  |[0m     task_value = task.execute()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/api.py", line 673, in execute
+[36mcorpora_1  |[0m     return func(*args, **kwargs)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/contrib/djhuey/__init__.py", line 128, in inner
+[36mcorpora_1  |[0m     return fn(*args, **kwargs)
+[36mcorpora_1  |[0m   File "/apps/corpora/plugins/calamari/tasks.py", line 47, in ocr_document_with_calamari
+[36mcorpora_1  |[0m     page_files = job.content.get_page_file_collection(job.corpus_id, job.content_id, page_file_collection_key)['page_files']
+[36mcorpora_1  |[0m KeyError: 'page_files'
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m [2020-03-06 19:43:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 4a0c7b5b-a879-48e1-8270-9bfbf7cd6810 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:43:40,601] INFO:huey:Worker-9:Executing manager.tasks.check_jobs: 4a0c7b5b-a879-48e1-8270-9bfbf7cd6810 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:43:40,713] INFO:huey:Worker-1:Executing manager.tasks.run_job: e3567f8d-b35e-4768-87bc-4f981db29af5 p=3
+[36mcorpora_1  |[0m [2020-03-06 19:43:40,727] INFO:huey:Worker-10:Executing plugins.document.tasks.cache_page_file_collections: 40c25eaf-82f4-4358-a1d7-d3d86d7522bc
+[36mcorpora_1  |[0m [2020-03-06 19:43:40,734] INFO:huey:Worker-1:manager.tasks.run_job: e3567f8d-b35e-4768-87bc-4f981db29af5 p=3 executed in 0.019s
+[36mcorpora_1  |[0m [2020-03-06 19:43:40,779] INFO:huey:Worker-6:Executing manager.tasks.run_job: 6c310575-4bac-4e59-a9d6-524791b5dec0 p=3
+[36mcorpora_1  |[0m [2020-03-06 19:43:40,793] INFO:huey:Worker-9:manager.tasks.check_jobs: 4a0c7b5b-a879-48e1-8270-9bfbf7cd6810 p=4 executed in 0.187s
+[36mcorpora_1  |[0m [2020-03-06 19:43:40,811] INFO:huey:Worker-6:manager.tasks.run_job: 6c310575-4bac-4e59-a9d6-524791b5dec0 p=3 executed in 0.032s
+[36mcorpora_1  |[0m [2020-03-06 19:43:40,822] INFO:huey:Worker-5:Executing plugins.document.tasks.cache_page_file_collections: d04055bd-2b92-451c-a0dd-321a58baff9d
+[36mcorpora_1  |[0m [2020-03-06 19:43:40,956] INFO:huey:Worker-10:plugins.document.tasks.cache_page_file_collections: 40c25eaf-82f4-4358-a1d7-d3d86d7522bc executed in 0.229s
+[36mcorpora_1  |[0m [2020-03-06 19:43:40,978] INFO:huey:Worker-5:plugins.document.tasks.cache_page_file_collections: d04055bd-2b92-451c-a0dd-321a58baff9d executed in 0.154s
+[36mcorpora_1  |[0m [2020-03-06 19:44:40,589] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 89d283aa-5dfe-4ec0-8e8a-f1dfba2ef5be p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:44:40,595] INFO:huey:Worker-8:Executing manager.tasks.check_jobs: 89d283aa-5dfe-4ec0-8e8a-f1dfba2ef5be p=4
+[36mcorpora_1  |[0m [2020-03-06 19:44:40,775] INFO:huey:Worker-8:manager.tasks.check_jobs: 89d283aa-5dfe-4ec0-8e8a-f1dfba2ef5be p=4 executed in 0.180s
+[36mcorpora_1  |[0m [2020-03-06 19:45:40,589] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 077a1aef-be24-480c-a780-aaa605e5375a p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:45:40,596] INFO:huey:Worker-9:Executing manager.tasks.check_jobs: 077a1aef-be24-480c-a780-aaa605e5375a p=4
+[36mcorpora_1  |[0m [2020-03-06 19:45:40,700] INFO:huey:Worker-9:manager.tasks.check_jobs: 077a1aef-be24-480c-a780-aaa605e5375a p=4 executed in 0.102s
+[36mcorpora_1  |[0m [2020-03-06 19:46:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: d2f24621-12b3-4760-a08a-1b6774255fe1 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:46:40,593] INFO:huey:Worker-4:Executing manager.tasks.check_jobs: d2f24621-12b3-4760-a08a-1b6774255fe1 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:46:40,683] INFO:huey:Worker-4:manager.tasks.check_jobs: d2f24621-12b3-4760-a08a-1b6774255fe1 p=4 executed in 0.090s
+[36mcorpora_1  |[0m [2020-03-06 19:47:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: bb175b48-52fb-49a3-8d33-3988a2247ba9 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:47:40,594] INFO:huey:Worker-8:Executing manager.tasks.check_jobs: bb175b48-52fb-49a3-8d33-3988a2247ba9 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:47:40,683] INFO:huey:Worker-8:manager.tasks.check_jobs: bb175b48-52fb-49a3-8d33-3988a2247ba9 p=4 executed in 0.089s
+[36mcorpora_1  |[0m [2020-03-06 19:48:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: f2e2bdb5-dedb-4323-92f1-d13849885030 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:48:40,595] INFO:huey:Worker-8:Executing manager.tasks.check_jobs: f2e2bdb5-dedb-4323-92f1-d13849885030 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:48:40,711] INFO:huey:Worker-8:manager.tasks.check_jobs: f2e2bdb5-dedb-4323-92f1-d13849885030 p=4 executed in 0.115s
+[36mcorpora_1  |[0m [2020-03-06 19:49:40,592] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: b62ceff3-a9d5-40fb-87b3-669e39e1ab13 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:49:40,598] INFO:huey:Worker-8:Executing manager.tasks.check_jobs: b62ceff3-a9d5-40fb-87b3-669e39e1ab13 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:49:40,702] INFO:huey:Worker-8:manager.tasks.check_jobs: b62ceff3-a9d5-40fb-87b3-669e39e1ab13 p=4 executed in 0.102s
+[36mcorpora_1  |[0m [2020-03-06 19:50:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 5b4837af-deec-4db6-a5c0-79455a8ad5da p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:50:40,595] INFO:huey:Worker-9:Executing manager.tasks.check_jobs: 5b4837af-deec-4db6-a5c0-79455a8ad5da p=4
+[36mcorpora_1  |[0m [2020-03-06 19:50:40,684] INFO:huey:Worker-9:manager.tasks.check_jobs: 5b4837af-deec-4db6-a5c0-79455a8ad5da p=4 executed in 0.087s
+[36mcorpora_1  |[0m [2020-03-06 19:51:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 479fee72-ab25-418c-a1a9-b9aa98deb545 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:51:40,597] INFO:huey:Worker-8:Executing manager.tasks.check_jobs: 479fee72-ab25-418c-a1a9-b9aa98deb545 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:51:40,693] INFO:huey:Worker-8:manager.tasks.check_jobs: 479fee72-ab25-418c-a1a9-b9aa98deb545 p=4 executed in 0.094s
+[36mcorpora_1  |[0m [2020-03-06 19:52:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 950012e4-2e80-45ad-a687-b685b023186b p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:52:40,597] INFO:huey:Worker-9:Executing manager.tasks.check_jobs: 950012e4-2e80-45ad-a687-b685b023186b p=4
+[36mcorpora_1  |[0m [2020-03-06 19:52:40,695] INFO:huey:Worker-9:manager.tasks.check_jobs: 950012e4-2e80-45ad-a687-b685b023186b p=4 executed in 0.097s
+[36mcorpora_1  |[0m [2020-03-06 19:53:19,279] INFO:huey:Worker-7:Executing manager.tasks.run_job: 2fbc1305-0736-4f3f-aa41-96cbce743366 p=3
+[36mcorpora_1  |[0m [2020-03-06 19:53:19,317] INFO:huey:Worker-7:manager.tasks.run_job: 2fbc1305-0736-4f3f-aa41-96cbce743366 p=3 executed in 0.037s
+[36mcorpora_1  |[0m [2020-03-06 19:53:19,321] INFO:huey:Worker-6:Executing plugins.tesseract.tasks.ocr_document_with_tesseract: 93a104d7-0e87-44c1-8200-1b47cafd3855 p=2
+[36mcorpora_1  |[0m [2020-03-06 19:53:19,372] INFO:huey:Worker-10:Executing plugins.tesseract.tasks.ocr_pages_with_tesseract: dfa3253a-4e90-4ccc-8b21-1943a780c889 p=1
+[36mcorpora_1  |[0m [2020-03-06 19:53:19,428] INFO:huey:Worker-6:plugins.tesseract.tasks.ocr_document_with_tesseract: 93a104d7-0e87-44c1-8200-1b47cafd3855 p=2 executed in 0.106s
+[36mcorpora_1  |[0m Tesseract Open Source OCR Engine v4.0.0 with Leptonica
+[36mcorpora_1  |[0m Warning: Invalid resolution 0 dpi. Using 70 instead.
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m Estimating resolution as 1311
+[36mcorpora_1  |[0m Image too small to scale!! (2x36 vs min width of 3)
+[36mcorpora_1  |[0m Line cannot be recognized!!
+[36mcorpora_1  |[0m [2020-03-06 19:53:33,433] INFO:huey:Worker-10:plugins.tesseract.tasks.ocr_pages_with_tesseract: dfa3253a-4e90-4ccc-8b21-1943a780c889 p=1 executed in 14.061s
+[36mcorpora_1  |[0m [2020-03-06 19:53:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 1618a465-0644-45ea-b1f7-ec039759e843 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:53:40,614] INFO:huey:Worker-8:Executing manager.tasks.check_jobs: 1618a465-0644-45ea-b1f7-ec039759e843 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:53:40,847] INFO:huey:Worker-8:manager.tasks.check_jobs: 1618a465-0644-45ea-b1f7-ec039759e843 p=4 executed in 0.232s
+[36mcorpora_1  |[0m [2020-03-06 19:53:40,850] INFO:huey:Worker-10:Executing plugins.tesseract.tasks.complete_ocr_document_with_tesseract: f17c40aa-259c-443f-a58a-0c357a336320 p=2
+[36mcorpora_1  |[0m [2020-03-06 19:53:40,976] INFO:elasticsearch:Worker-10:PUT http://elastic:9200/corpus-5e62a7178b7af8002784d107-document/_doc/5e62a7498b7af8002784d109 [status:200 request:0.052s]
+[36mcorpora_1  |[0m [2020-03-06 19:53:41,162] INFO:elasticsearch:Worker-10:PUT http://elastic:9200/corpus-5e62a7178b7af8002784d107-document/_doc/5e62a7498b7af8002784d109 [status:200 request:0.030s]
+[36mcorpora_1  |[0m [2020-03-06 19:53:41,247] INFO:huey:Worker-10:plugins.tesseract.tasks.complete_ocr_document_with_tesseract: f17c40aa-259c-443f-a58a-0c357a336320 p=2 executed in 0.394s
+[36mcorpora_1  |[0m [2020-03-06 19:54:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: c2ece647-e37e-40dc-bd26-5f827b1e0f98 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:54:40,596] INFO:huey:Worker-10:Executing manager.tasks.check_jobs: c2ece647-e37e-40dc-bd26-5f827b1e0f98 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:54:40,704] INFO:huey:Worker-10:manager.tasks.check_jobs: c2ece647-e37e-40dc-bd26-5f827b1e0f98 p=4 executed in 0.108s
+[36mcorpora_1  |[0m [2020-03-06 19:55:40,592] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: e6eb122e-c0a5-46f1-a1ab-68a183246f5f p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:55:40,599] INFO:huey:Worker-9:Executing manager.tasks.check_jobs: e6eb122e-c0a5-46f1-a1ab-68a183246f5f p=4
+[36mcorpora_1  |[0m [2020-03-06 19:55:40,697] INFO:huey:Worker-9:manager.tasks.check_jobs: e6eb122e-c0a5-46f1-a1ab-68a183246f5f p=4 executed in 0.096s
+[36mcorpora_1  |[0m [2020-03-06 19:56:40,592] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 5cab6c7c-fc69-4e9b-95c7-ddcae7f0b238 p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:56:40,598] INFO:huey:Worker-9:Executing manager.tasks.check_jobs: 5cab6c7c-fc69-4e9b-95c7-ddcae7f0b238 p=4
+[36mcorpora_1  |[0m [2020-03-06 19:56:40,712] INFO:huey:Worker-9:manager.tasks.check_jobs: 5cab6c7c-fc69-4e9b-95c7-ddcae7f0b238 p=4 executed in 0.114s
+[36mcorpora_1  |[0m [2020-03-06 19:57:40,589] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: c2cfb282-6f37-4fba-8ec1-d66fdaa23c7b p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:57:40,593] INFO:huey:Worker-9:Executing manager.tasks.check_jobs: c2cfb282-6f37-4fba-8ec1-d66fdaa23c7b p=4
+[36mcorpora_1  |[0m [2020-03-06 19:57:40,692] INFO:huey:Worker-9:manager.tasks.check_jobs: c2cfb282-6f37-4fba-8ec1-d66fdaa23c7b p=4 executed in 0.098s
+[36mcorpora_1  |[0m [2020-03-06 19:58:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 9e1b9a53-e90d-4e4a-8b86-44ef59bf433e p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:58:40,596] INFO:huey:Worker-7:Executing manager.tasks.check_jobs: 9e1b9a53-e90d-4e4a-8b86-44ef59bf433e p=4
+[36mcorpora_1  |[0m [2020-03-06 19:58:40,695] INFO:huey:Worker-7:manager.tasks.check_jobs: 9e1b9a53-e90d-4e4a-8b86-44ef59bf433e p=4 executed in 0.098s
+[36mcorpora_1  |[0m [2020-03-06 19:59:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 78099166-1c4a-4cba-abee-275a852863da p=4.
+[36mcorpora_1  |[0m [2020-03-06 19:59:40,600] INFO:huey:Worker-9:Executing manager.tasks.check_jobs: 78099166-1c4a-4cba-abee-275a852863da p=4
+[36mcorpora_1  |[0m [2020-03-06 19:59:40,703] INFO:huey:Worker-9:manager.tasks.check_jobs: 78099166-1c4a-4cba-abee-275a852863da p=4 executed in 0.101s
+[36mcorpora_1  |[0m [2020-03-06 20:00:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 459b8124-d1ae-4b1b-8990-35d3e8c644c4 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:00:40,598] INFO:huey:Worker-7:Executing manager.tasks.check_jobs: 459b8124-d1ae-4b1b-8990-35d3e8c644c4 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:00:40,709] INFO:huey:Worker-7:manager.tasks.check_jobs: 459b8124-d1ae-4b1b-8990-35d3e8c644c4 p=4 executed in 0.108s
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m [2020-03-06 20:01:21,189] INFO:huey:Worker-3:Executing manager.tasks.run_job: af4efc40-266e-401e-b22d-9cd0b6ff137d p=3
+[36mcorpora_1  |[0m [2020-03-06 20:01:21,233] INFO:huey:Worker-9:Executing plugins.calamari.tasks.ocr_document_with_calamari: e1bfeca6-20ee-415d-b12c-fb29ee160ebd p=2
+[36mcorpora_1  |[0m [2020-03-06 20:01:21,239] INFO:huey:Worker-3:manager.tasks.run_job: af4efc40-266e-401e-b22d-9cd0b6ff137d p=3 executed in 0.036s
+[36mcorpora_1  |[0m [2020-03-06 20:01:21,340] INFO:huey:Worker-2:Executing plugins.calamari.tasks.ocr_pages_with_calamari: 01c73c9c-2831-4878-9096-5737405ef990 p=1
+[36mcorpora_1  |[0m [2020-03-06 20:01:21,589] INFO:huey:Worker-9:plugins.calamari.tasks.ocr_document_with_calamari: e1bfeca6-20ee-415d-b12c-fb29ee160ebd p=2 executed in 0.355s
+[36mcorpora_1  |[0m Tesseract Open Source OCR Engine v4.0.0 with Leptonica
+[36mcorpora_1  |[0m Warning: Invalid resolution 0 dpi. Using 70 instead.
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m Estimating resolution as 1311
+[36mcorpora_1  |[0m Image too small to scale!! (2x36 vs min width of 3)
+[36mcorpora_1  |[0m Line cannot be recognized!!
+[36mcorpora_1  |[0m [2020-03-06 20:01:37,926] ERROR:huey:Worker-2:Unhandled exception in task 01c73c9c-2831-4878-9096-5737405ef990.
+[36mcorpora_1  |[0m Traceback (most recent call last):
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/api.py", line 325, in _execute
+[36mcorpora_1  |[0m     task_value = task.execute()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/api.py", line 673, in execute
+[36mcorpora_1  |[0m     return func(*args, **kwargs)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/contrib/djhuey/__init__.py", line 128, in inner
+[36mcorpora_1  |[0m     return fn(*args, **kwargs)
+[36mcorpora_1  |[0m   File "/apps/corpora/plugins/calamari/tasks.py", line 120, in ocr_pages_with_calamari
+[36mcorpora_1  |[0m     ocr_lines_with_calamari(job_id, lines_folder, model_path)
+[36mcorpora_1  |[0m   File "/apps/corpora/plugins/calamari/tasks.py", line 165, in ocr_lines_with_calamari
+[36mcorpora_1  |[0m     if call(command) == 0:
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/subprocess.py", line 339, in call
+[36mcorpora_1  |[0m     with Popen(*popenargs, **kwargs) as p:
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/subprocess.py", line 800, in __init__
+[36mcorpora_1  |[0m     restore_signals, start_new_session)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/subprocess.py", line 1551, in _execute_child
+[36mcorpora_1  |[0m     raise child_exception_type(errno_num, err_msg, err_filename)
+[36mcorpora_1  |[0m FileNotFoundError: [Errno 2] No such file or directory: 'calamari-predict --checkpoint': 'calamari-predict --checkpoint'
+[36mcorpora_1  |[0m [2020-03-06 20:01:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: c1f008bd-e314-4eff-ade8-816235a4d16d p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:01:40,603] INFO:huey:Worker-4:Executing manager.tasks.check_jobs: c1f008bd-e314-4eff-ade8-816235a4d16d p=4
+[36mcorpora_1  |[0m [2020-03-06 20:01:40,752] INFO:huey:Worker-9:Executing manager.tasks.run_job: 37f84c67-5086-4281-8f32-3a2e52ec4440 p=3
+[36mcorpora_1  |[0m [2020-03-06 20:01:40,765] INFO:huey:Worker-4:manager.tasks.check_jobs: c1f008bd-e314-4eff-ade8-816235a4d16d p=4 executed in 0.160s
+[36mcorpora_1  |[0m [2020-03-06 20:01:40,777] INFO:huey:Worker-3:Executing manager.tasks.run_job: 238dd757-2f02-4135-8987-6911761f2a2e p=3
+[36mcorpora_1  |[0m [2020-03-06 20:01:40,785] INFO:huey:Worker-9:manager.tasks.run_job: 37f84c67-5086-4281-8f32-3a2e52ec4440 p=3 executed in 0.029s
+[36mcorpora_1  |[0m [2020-03-06 20:01:40,788] INFO:huey:Worker-2:Executing plugins.document.tasks.cache_page_file_collections: 55eae143-4484-4b2d-a520-bb13310141af
+[36mcorpora_1  |[0m [2020-03-06 20:01:40,805] INFO:huey:Worker-8:Executing plugins.document.tasks.cache_page_file_collections: 68ce32bd-1c08-4aa5-a9ef-6ca0289c50f1
+[36mcorpora_1  |[0m [2020-03-06 20:01:40,816] INFO:huey:Worker-3:manager.tasks.run_job: 238dd757-2f02-4135-8987-6911761f2a2e p=3 executed in 0.038s
+[36mcorpora_1  |[0m [2020-03-06 20:01:40,896] INFO:huey:Worker-2:plugins.document.tasks.cache_page_file_collections: 55eae143-4484-4b2d-a520-bb13310141af executed in 0.108s
+[36mcorpora_1  |[0m [2020-03-06 20:01:40,906] INFO:huey:Worker-8:plugins.document.tasks.cache_page_file_collections: 68ce32bd-1c08-4aa5-a9ef-6ca0289c50f1 executed in 0.099s
+[36mcorpora_1  |[0m [2020-03-06 20:02:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 8b58f2a8-1f3b-444f-a1ca-1712231dda6b p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:02:40,605] INFO:huey:Worker-9:Executing manager.tasks.check_jobs: 8b58f2a8-1f3b-444f-a1ca-1712231dda6b p=4
+[36mcorpora_1  |[0m [2020-03-06 20:02:40,710] INFO:huey:Worker-9:manager.tasks.check_jobs: 8b58f2a8-1f3b-444f-a1ca-1712231dda6b p=4 executed in 0.104s
+[36mcorpora_1  |[0m [2020-03-06 20:03:40,592] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: fd7c8312-3cc5-4aa6-8352-07719fc294c9 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:03:40,603] INFO:huey:Worker-9:Executing manager.tasks.check_jobs: fd7c8312-3cc5-4aa6-8352-07719fc294c9 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:03:40,707] INFO:huey:Worker-9:manager.tasks.check_jobs: fd7c8312-3cc5-4aa6-8352-07719fc294c9 p=4 executed in 0.102s
+[36mcorpora_1  |[0m [2020-03-06 20:04:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 4153928e-eefa-4769-83e1-cb87ee647420 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:04:40,599] INFO:huey:Worker-4:Executing manager.tasks.check_jobs: 4153928e-eefa-4769-83e1-cb87ee647420 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:04:40,716] INFO:huey:Worker-4:manager.tasks.check_jobs: 4153928e-eefa-4769-83e1-cb87ee647420 p=4 executed in 0.117s
+[36mcorpora_1  |[0m [2020-03-06 20:05:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 65a5808a-28af-4256-97ff-0842d6e8c8ba p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:05:40,593] INFO:huey:Worker-10:Executing manager.tasks.check_jobs: 65a5808a-28af-4256-97ff-0842d6e8c8ba p=4
+[36mcorpora_1  |[0m [2020-03-06 20:05:40,735] INFO:huey:Worker-10:manager.tasks.check_jobs: 65a5808a-28af-4256-97ff-0842d6e8c8ba p=4 executed in 0.141s
+[36mcorpora_1  |[0m [2020-03-06 20:06:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: a5dc9803-6195-4e27-a42e-7a02fff216d6 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:06:40,595] INFO:huey:Worker-3:Executing manager.tasks.check_jobs: a5dc9803-6195-4e27-a42e-7a02fff216d6 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:06:40,716] INFO:huey:Worker-3:manager.tasks.check_jobs: a5dc9803-6195-4e27-a42e-7a02fff216d6 p=4 executed in 0.121s
+[36mcorpora_1  |[0m [2020-03-06 20:07:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: ea69bcfb-9f88-409d-9f10-227e9ea0b5a7 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:07:40,600] INFO:huey:Worker-9:Executing manager.tasks.check_jobs: ea69bcfb-9f88-409d-9f10-227e9ea0b5a7 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:07:40,708] INFO:huey:Worker-9:manager.tasks.check_jobs: ea69bcfb-9f88-409d-9f10-227e9ea0b5a7 p=4 executed in 0.105s
+[36mcorpora_1  |[0m [2020-03-06 20:08:40,594] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 2f2b8244-7bbb-4c33-9377-81b153cdd55b p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:08:40,604] INFO:huey:Worker-5:Executing manager.tasks.check_jobs: 2f2b8244-7bbb-4c33-9377-81b153cdd55b p=4
+[36mcorpora_1  |[0m [2020-03-06 20:08:40,709] INFO:huey:Worker-5:manager.tasks.check_jobs: 2f2b8244-7bbb-4c33-9377-81b153cdd55b p=4 executed in 0.103s
+[36mcorpora_1  |[0m [2020-03-06 20:09:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 2685a515-b4c1-4aa8-a4f4-0adca6e8bdef p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:09:40,597] INFO:huey:Worker-3:Executing manager.tasks.check_jobs: 2685a515-b4c1-4aa8-a4f4-0adca6e8bdef p=4
+[36mcorpora_1  |[0m [2020-03-06 20:09:40,697] INFO:huey:Worker-3:manager.tasks.check_jobs: 2685a515-b4c1-4aa8-a4f4-0adca6e8bdef p=4 executed in 0.099s
+[36mcorpora_1  |[0m [2020-03-06 20:10:40,588] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 86405edb-93f1-4419-adb5-d660d7e1a1fe p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:10:40,591] INFO:huey:Worker-5:Executing manager.tasks.check_jobs: 86405edb-93f1-4419-adb5-d660d7e1a1fe p=4
+[36mcorpora_1  |[0m [2020-03-06 20:10:40,683] INFO:huey:Worker-5:manager.tasks.check_jobs: 86405edb-93f1-4419-adb5-d660d7e1a1fe p=4 executed in 0.092s
+[36mcorpora_1  |[0m [2020-03-06 20:11:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: f9d1ac4c-c7ee-4fc9-a9f9-223490023318 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:11:40,594] INFO:huey:Worker-2:Executing manager.tasks.check_jobs: f9d1ac4c-c7ee-4fc9-a9f9-223490023318 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:11:40,686] INFO:huey:Worker-2:manager.tasks.check_jobs: f9d1ac4c-c7ee-4fc9-a9f9-223490023318 p=4 executed in 0.092s
+[36mcorpora_1  |[0m [2020-03-06 20:12:40,589] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: e97e0921-a9a8-4e1c-82a1-7a6010d2756e p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:12:40,595] INFO:huey:Worker-5:Executing manager.tasks.check_jobs: e97e0921-a9a8-4e1c-82a1-7a6010d2756e p=4
+[36mcorpora_1  |[0m [2020-03-06 20:12:40,691] INFO:huey:Worker-5:manager.tasks.check_jobs: e97e0921-a9a8-4e1c-82a1-7a6010d2756e p=4 executed in 0.096s
+[36mcorpora_1  |[0m [2020-03-06 20:13:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 9e116e15-f7e9-4fbd-bfc5-02b95366375a p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:13:40,595] INFO:huey:Worker-3:Executing manager.tasks.check_jobs: 9e116e15-f7e9-4fbd-bfc5-02b95366375a p=4
+[36mcorpora_1  |[0m [2020-03-06 20:13:40,683] INFO:huey:Worker-3:manager.tasks.check_jobs: 9e116e15-f7e9-4fbd-bfc5-02b95366375a p=4 executed in 0.086s
+[36mcorpora_1  |[0m {
+[36mcorpora_1  |[0m     "query": {
+[36mcorpora_1  |[0m         "bool": {
+[36mcorpora_1  |[0m             "should": [
+[36mcorpora_1  |[0m                 {
+[36mcorpora_1  |[0m                     "simple_query_string": {
+[36mcorpora_1  |[0m                         "query": "*"
+[36mcorpora_1  |[0m                     }
+[36mcorpora_1  |[0m                 }
+[36mcorpora_1  |[0m             ]
+[36mcorpora_1  |[0m         }
+[36mcorpora_1  |[0m     },
+[36mcorpora_1  |[0m     "track_total_hits": true,
+[36mcorpora_1  |[0m     "from": 0,
+[36mcorpora_1  |[0m     "size": 50
+[36mcorpora_1  |[0m }
+[36mcorpora_1  |[0m {
+[36mcorpora_1  |[0m     "query": {
+[36mcorpora_1  |[0m         "bool": {
+[36mcorpora_1  |[0m             "should": [
+[36mcorpora_1  |[0m                 {
+[36mcorpora_1  |[0m                     "simple_query_string": {
+[36mcorpora_1  |[0m                         "query": "*"
+[36mcorpora_1  |[0m                     }
+[36mcorpora_1  |[0m                 }
+[36mcorpora_1  |[0m             ]
+[36mcorpora_1  |[0m         }
+[36mcorpora_1  |[0m     },
+[36mcorpora_1  |[0m     "track_total_hits": true,
+[36mcorpora_1  |[0m     "from": 0,
+[36mcorpora_1  |[0m     "size": 5
+[36mcorpora_1  |[0m }
+[36mcorpora_1  |[0m {
+[36mcorpora_1  |[0m     "took": 8,
+[36mcorpora_1  |[0m     "timed_out": false,
+[36mcorpora_1  |[0m     "_shards": {
+[36mcorpora_1  |[0m         "total": 1,
+[36mcorpora_1  |[0m         "successful": 1,
+[36mcorpora_1  |[0m         "skipped": 0,
+[36mcorpora_1  |[0m         "failed": 0
+[36mcorpora_1  |[0m     },
+[36mcorpora_1  |[0m     "hits": {
+[36mcorpora_1  |[0m         "total": {
+[36mcorpora_1  |[0m             "value": 1,
+[36mcorpora_1  |[0m             "relation": "eq"
+[36mcorpora_1  |[0m         },
+[36mcorpora_1  |[0m         "max_score": 1.0,
+[36mcorpora_1  |[0m         "hits": [
+[36mcorpora_1  |[0m             {
+[36mcorpora_1  |[0m                 "_index": "corpus-5e62a7178b7af8002784d107-document",
+[36mcorpora_1  |[0m                 "_type": "_doc",
+[36mcorpora_1  |[0m                 "_id": "5e62a7498b7af8002784d109",
+[36mcorpora_1  |[0m                 "_score": 1.0,
+[36mcorpora_1  |[0m                 "_source": {
+[36mcorpora_1  |[0m                     "title": "JANVI_NC",
+[36mcorpora_1  |[0m                     "author": "Janvi",
+[36mcorpora_1  |[0m                     "label": "JANVI_NC (Janvi)",
+[36mcorpora_1  |[0m                     "uri": "/corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109"
+[36mcorpora_1  |[0m                 }
+[36mcorpora_1  |[0m             }
+[36mcorpora_1  |[0m         ]
+[36mcorpora_1  |[0m     }
+[36mcorpora_1  |[0m }
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m [2020-03-06 20:14:35,133] INFO:huey:Worker-1:Executing manager.tasks.run_job: 35a0124c-419b-45e3-93aa-3886db4660f0 p=3
+[36mcorpora_1  |[0m [2020-03-06 20:14:35,169] INFO:huey:Worker-1:manager.tasks.run_job: 35a0124c-419b-45e3-93aa-3886db4660f0 p=3 executed in 0.036s
+[36mcorpora_1  |[0m [2020-03-06 20:14:35,180] INFO:huey:Worker-5:Executing plugins.calamari.tasks.ocr_document_with_calamari: 19cbb74b-79e3-491f-bae4-ce781091d6ca p=2
+[36mcorpora_1  |[0m [2020-03-06 20:14:35,324] INFO:huey:Worker-7:Executing plugins.calamari.tasks.ocr_pages_with_calamari: 6179b347-c2f9-4d8d-985c-d52141dcb15f p=1
+[36mcorpora_1  |[0m [2020-03-06 20:14:35,392] INFO:huey:Worker-5:plugins.calamari.tasks.ocr_document_with_calamari: 19cbb74b-79e3-491f-bae4-ce781091d6ca p=2 executed in 0.210s
+[36mcorpora_1  |[0m Tesseract Open Source OCR Engine v4.0.0 with Leptonica
+[36mcorpora_1  |[0m Error in fopenReadStream: file not found
+[36mcorpora_1  |[0m Error in pixRead: image file not found: <?xml version="1.0" encoding="UTF-8"?>
+[36mcorpora_1  |[0m Image file <?xml version="1.0" encoding="UTF-8"?> cannot be read!
+[36mcorpora_1  |[0m Error during processing.
+[36mcorpora_1  |[0m [2020-03-06 20:14:35,700] INFO:huey:Worker-7:plugins.calamari.tasks.ocr_pages_with_calamari: 6179b347-c2f9-4d8d-985c-d52141dcb15f p=1 executed in 0.371s
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m [2020-03-06 20:14:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 8296b2aa-9ad6-45c8-b4fa-2cbe045180da p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:14:40,617] INFO:huey:Worker-5:Executing manager.tasks.check_jobs: 8296b2aa-9ad6-45c8-b4fa-2cbe045180da p=4
+[36mcorpora_1  |[0m [2020-03-06 20:14:40,810] INFO:huey:Worker-9:Executing plugins.calamari.tasks.complete_ocr_document_with_calamari: e893d036-ab54-481d-bfc8-5c3a0a8ed06f p=2
+[36mcorpora_1  |[0m [2020-03-06 20:14:40,847] INFO:huey:Worker-5:manager.tasks.check_jobs: 8296b2aa-9ad6-45c8-b4fa-2cbe045180da p=4 executed in 0.230s
+[36mcorpora_1  |[0m [2020-03-06 20:14:40,922] INFO:elasticsearch:Worker-9:PUT http://elastic:9200/corpus-5e62a7178b7af8002784d107-document/_doc/5e62a7498b7af8002784d109 [status:200 request:0.040s]
+[36mcorpora_1  |[0m [2020-03-06 20:14:41,046] INFO:elasticsearch:Worker-9:PUT http://elastic:9200/corpus-5e62a7178b7af8002784d107-document/_doc/5e62a7498b7af8002784d109 [status:200 request:0.021s]
+[36mcorpora_1  |[0m [2020-03-06 20:14:41,132] INFO:huey:Worker-9:plugins.calamari.tasks.complete_ocr_document_with_calamari: e893d036-ab54-481d-bfc8-5c3a0a8ed06f p=2 executed in 0.320s
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m [2020-03-06 20:15:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 9c073728-13df-4803-9b89-302ce460342a p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:15:40,603] INFO:huey:Worker-8:Executing manager.tasks.check_jobs: 9c073728-13df-4803-9b89-302ce460342a p=4
+[36mcorpora_1  |[0m [2020-03-06 20:15:40,713] INFO:huey:Worker-5:Executing manager.tasks.run_job: 02f5f404-a269-4519-bdb0-df72ad427766 p=3
+[36mcorpora_1  |[0m [2020-03-06 20:15:40,719] INFO:huey:Worker-8:manager.tasks.check_jobs: 9c073728-13df-4803-9b89-302ce460342a p=4 executed in 0.116s
+[36mcorpora_1  |[0m [2020-03-06 20:15:40,734] INFO:huey:Worker-5:manager.tasks.run_job: 02f5f404-a269-4519-bdb0-df72ad427766 p=3 executed in 0.021s
+[36mcorpora_1  |[0m [2020-03-06 20:15:40,736] INFO:huey:Worker-10:Executing plugins.document.tasks.cache_page_file_collections: c8cc6f68-2cd0-4b5f-b471-2d924bb461ca
+[36mcorpora_1  |[0m [2020-03-06 20:15:40,798] INFO:huey:Worker-10:plugins.document.tasks.cache_page_file_collections: c8cc6f68-2cd0-4b5f-b471-2d924bb461ca executed in 0.061s
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62a7498b7af8002784d109
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62af8e8b7af800281597fd
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62af8e8b7af800281597fd
+[36mcorpora_1  |[0m [2020-03-06 20:16:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 0db39526-88a5-4e58-a487-df33d67b5ce7 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:16:40,596] INFO:huey:Worker-7:Executing manager.tasks.check_jobs: 0db39526-88a5-4e58-a487-df33d67b5ce7 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:16:40,684] INFO:huey:Worker-8:Executing manager.tasks.run_job: 878e9521-f665-44ea-af07-53faf57fd7bc p=3
+[36mcorpora_1  |[0m [2020-03-06 20:16:40,686] INFO:huey:Worker-7:manager.tasks.check_jobs: 0db39526-88a5-4e58-a487-df33d67b5ce7 p=4 executed in 0.089s
+[36mcorpora_1  |[0m [2020-03-06 20:16:40,696] INFO:huey:Worker-10:Executing plugins.document.tasks.cache_page_file_collections: be49dcb4-9c6e-43b6-bfef-ded890418d7b
+[36mcorpora_1  |[0m [2020-03-06 20:16:40,698] INFO:huey:Worker-8:manager.tasks.run_job: 878e9521-f665-44ea-af07-53faf57fd7bc p=3 executed in 0.014s
+[36mcorpora_1  |[0m [2020-03-06 20:16:40,715] INFO:huey:Worker-10:plugins.document.tasks.cache_page_file_collections: be49dcb4-9c6e-43b6-bfef-ded890418d7b executed in 0.019s
+[36mcorpora_1  |[0m [2020-03-06 20:17:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 12c378a5-47e3-4c34-82ab-c3c80e655182 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:17:40,597] INFO:huey:Worker-8:Executing manager.tasks.check_jobs: 12c378a5-47e3-4c34-82ab-c3c80e655182 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:17:40,683] INFO:huey:Worker-8:manager.tasks.check_jobs: 12c378a5-47e3-4c34-82ab-c3c80e655182 p=4 executed in 0.086s
+[36mcorpora_1  |[0m [2020-03-06 20:18:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: d538f212-7d5b-4b05-b23a-6c0a657c0e20 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:18:40,595] INFO:huey:Worker-8:Executing manager.tasks.check_jobs: d538f212-7d5b-4b05-b23a-6c0a657c0e20 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:18:40,738] INFO:huey:Worker-8:manager.tasks.check_jobs: d538f212-7d5b-4b05-b23a-6c0a657c0e20 p=4 executed in 0.143s
+[36mcorpora_1  |[0m [2020-03-06 20:18:49,668] INFO:huey:Worker-10:Executing manager.tasks.run_job: 4b8a0cd6-92af-4602-b518-23133ff83c57 p=3
+[36mcorpora_1  |[0m [2020-03-06 20:18:49,701] INFO:huey:Worker-10:manager.tasks.run_job: 4b8a0cd6-92af-4602-b518-23133ff83c57 p=3 executed in 0.031s
+[36mcorpora_1  |[0m [2020-03-06 20:18:49,702] INFO:huey:Worker-7:Executing plugins.document.tasks.extract_pdf_pages: 2354a1de-a3ab-428a-877f-3202a2a8f6cc p=2
+[36mcorpora_1  |[0m [2020-03-06 20:18:49,895] INFO:elasticsearch:Worker-7:PUT http://elastic:9200/corpus-5e62a7178b7af8002784d107-document/_doc/5e62af8e8b7af800281597fd [status:200 request:0.032s]
+[36mcorpora_1  |[0m [2020-03-06 20:18:49,943] INFO:huey:Worker-5:Executing plugins.document.tasks.extract_embedded_pdf_text: 0015a319-9806-4096-858a-74ac7f56bafd p=1
+[36mcorpora_1  |[0m [2020-03-06 20:18:49,990] INFO:huey:Worker-2:Executing plugins.document.tasks.extract_pdf_page: 715e2f7a-30a6-4423-ad9e-c4f589ca56d6 p=1
+[36mcorpora_1  |[0m [2020-03-06 20:18:50,076] INFO:huey:Worker-7:plugins.document.tasks.extract_pdf_pages: 2354a1de-a3ab-428a-877f-3202a2a8f6cc p=2 executed in 0.374s
+[36mcorpora_1  |[0m [2020-03-06 20:18:50,080] INFO:huey:Worker-5:plugins.document.tasks.extract_embedded_pdf_text: 0015a319-9806-4096-858a-74ac7f56bafd p=1 executed in 0.137s
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62af8e8b7af800281597fd
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62af8e8b7af800281597fd
+[36mcorpora_1  |[0m convert-im6.q16: profile 'icc': 'RGB ': RGB color space not permitted on grayscale PNG `/corpora/5e62a7178b7af8002784d107/Document/1597/5e62af8e8b7af800281597fd/pages/1/testimg_1.png' @ warning/png.c/MagickPNGWarningHandler/1667.
+[36mcorpora_1  |[0m [2020-03-06 20:18:56,880] INFO:huey:Worker-2:plugins.document.tasks.extract_pdf_page: 715e2f7a-30a6-4423-ad9e-c4f589ca56d6 p=1 executed in 6.887s
+[36mcorpora_1  |[0m [2020-03-06 20:19:40,592] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 85b81f15-d1e1-4e68-9faa-c8c5f946df6d p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:19:40,600] INFO:huey:Worker-4:Executing manager.tasks.check_jobs: 85b81f15-d1e1-4e68-9faa-c8c5f946df6d p=4
+[36mcorpora_1  |[0m [2020-03-06 20:19:40,699] INFO:huey:Worker-1:Executing manager.tasks.run_job: 3a04499a-cba7-46eb-a7ae-19fccb069bed p=3
+[36mcorpora_1  |[0m [2020-03-06 20:19:40,722] INFO:huey:Worker-1:manager.tasks.run_job: 3a04499a-cba7-46eb-a7ae-19fccb069bed p=3 executed in 0.022s
+[36mcorpora_1  |[0m [2020-03-06 20:19:40,723] INFO:huey:Worker-8:Executing plugins.document.tasks.cache_page_file_collections: 55dd16b7-e460-472b-8e11-0ba215573ea8
+[36mcorpora_1  |[0m [2020-03-06 20:19:40,727] INFO:huey:Worker-9:Executing plugins.document.tasks.complete_pdf_page_extraction: 0795f40a-edf6-4f1b-be90-74f93803ea0d p=1
+[36mcorpora_1  |[0m [2020-03-06 20:19:40,730] INFO:huey:Worker-4:manager.tasks.check_jobs: 85b81f15-d1e1-4e68-9faa-c8c5f946df6d p=4 executed in 0.130s
+[36mcorpora_1  |[0m [2020-03-06 20:19:40,755] INFO:huey:Worker-8:plugins.document.tasks.cache_page_file_collections: 55dd16b7-e460-472b-8e11-0ba215573ea8 executed in 0.030s
+[36mcorpora_1  |[0m [2020-03-06 20:19:40,779] INFO:elasticsearch:Worker-9:PUT http://elastic:9200/corpus-5e62a7178b7af8002784d107-document/_doc/5e62af8e8b7af800281597fd [status:200 request:0.015s]
+[36mcorpora_1  |[0m [2020-03-06 20:19:40,828] INFO:elasticsearch:Worker-9:PUT http://elastic:9200/corpus-5e62a7178b7af8002784d107-document/_doc/5e62af8e8b7af800281597fd [status:200 request:0.012s]
+[36mcorpora_1  |[0m [2020-03-06 20:19:40,860] INFO:huey:Worker-9:plugins.document.tasks.complete_pdf_page_extraction: 0795f40a-edf6-4f1b-be90-74f93803ea0d p=1 executed in 0.132s
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62af8e8b7af800281597fd
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62af8e8b7af800281597fd
+[36mcorpora_1  |[0m [2020-03-06 20:20:35,876] INFO:huey:Worker-2:Executing manager.tasks.run_job: 5ad9ac12-73b8-467f-84e2-496e5123b9ca p=3
+[36mcorpora_1  |[0m [2020-03-06 20:20:35,917] INFO:huey:Worker-10:Executing plugins.calamari.tasks.ocr_document_with_calamari: a8da9890-3f67-41ea-a301-eb8eaf039944 p=2
+[36mcorpora_1  |[0m [2020-03-06 20:20:35,923] INFO:huey:Worker-2:manager.tasks.run_job: 5ad9ac12-73b8-467f-84e2-496e5123b9ca p=3 executed in 0.047s
+[36mcorpora_1  |[0m [2020-03-06 20:20:36,023] ERROR:huey:Worker-10:Unhandled exception in task a8da9890-3f67-41ea-a301-eb8eaf039944.
+[36mcorpora_1  |[0m Traceback (most recent call last):
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/api.py", line 325, in _execute
+[36mcorpora_1  |[0m     task_value = task.execute()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/api.py", line 673, in execute
+[36mcorpora_1  |[0m     return func(*args, **kwargs)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/contrib/djhuey/__init__.py", line 128, in inner
+[36mcorpora_1  |[0m     return fn(*args, **kwargs)
+[36mcorpora_1  |[0m   File "/apps/corpora/plugins/calamari/tasks.py", line 47, in ocr_document_with_calamari
+[36mcorpora_1  |[0m     page_files = job.content.get_page_file_collection(job.corpus_id, job.content_id, page_file_collection_key)['page_files']
+[36mcorpora_1  |[0m KeyError: 'page_files'
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62af8e8b7af800281597fd
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62af8e8b7af800281597fd
+[36mcorpora_1  |[0m [2020-03-06 20:20:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 44e72b06-554a-49e7-bcb2-0806bf58fa86 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:20:40,607] INFO:huey:Worker-7:Executing manager.tasks.check_jobs: 44e72b06-554a-49e7-bcb2-0806bf58fa86 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:20:40,805] INFO:huey:Worker-8:Executing manager.tasks.run_job: 3f38fe0b-3e91-4ae4-bc36-e66688910b3b p=3
+[36mcorpora_1  |[0m [2020-03-06 20:20:40,812] INFO:huey:Worker-1:Executing manager.tasks.run_job: b57e0676-cad8-4834-af7f-14bd375b7f7c p=3
+[36mcorpora_1  |[0m [2020-03-06 20:20:40,841] INFO:huey:Worker-1:manager.tasks.run_job: b57e0676-cad8-4834-af7f-14bd375b7f7c p=3 executed in 0.029s
+[36mcorpora_1  |[0m [2020-03-06 20:20:40,852] INFO:huey:Worker-7:manager.tasks.check_jobs: 44e72b06-554a-49e7-bcb2-0806bf58fa86 p=4 executed in 0.243s
+[36mcorpora_1  |[0m [2020-03-06 20:20:40,853] INFO:huey:Worker-3:Executing plugins.document.tasks.cache_page_file_collections: 601d10da-db74-43d0-8609-e53a8e90d21d
+[36mcorpora_1  |[0m [2020-03-06 20:20:40,857] INFO:huey:Worker-8:manager.tasks.run_job: 3f38fe0b-3e91-4ae4-bc36-e66688910b3b p=3 executed in 0.047s
+[36mcorpora_1  |[0m [2020-03-06 20:20:40,860] INFO:huey:Worker-5:Executing plugins.document.tasks.cache_page_file_collections: d0e362c1-968f-4bdf-b3ce-4e1bf8d54d20
+[36mcorpora_1  |[0m [2020-03-06 20:20:40,928] INFO:huey:Worker-5:plugins.document.tasks.cache_page_file_collections: d0e362c1-968f-4bdf-b3ce-4e1bf8d54d20 executed in 0.061s
+[36mcorpora_1  |[0m [2020-03-06 20:20:40,936] INFO:huey:Worker-3:plugins.document.tasks.cache_page_file_collections: 601d10da-db74-43d0-8609-e53a8e90d21d executed in 0.079s
+[36mcorpora_1  |[0m [2020-03-06 20:21:08,748] INFO:huey:Worker-3:Executing manager.tasks.run_job: 19b6b209-d29e-4970-84b4-427f8acaf286 p=3
+[36mcorpora_1  |[0m [2020-03-06 20:21:08,794] INFO:huey:Worker-3:manager.tasks.run_job: 19b6b209-d29e-4970-84b4-427f8acaf286 p=3 executed in 0.046s
+[36mcorpora_1  |[0m [2020-03-06 20:21:08,796] INFO:huey:Worker-9:Executing plugins.calamari.tasks.ocr_document_with_calamari: 5ecd7b32-1363-4d41-9862-1d6b6d108533 p=2
+[36mcorpora_1  |[0m [2020-03-06 20:21:09,027] INFO:huey:Worker-2:Executing plugins.calamari.tasks.ocr_pages_with_calamari: 1efe90ed-8b2b-493e-a970-36fc90e5d4a4 p=1
+[36mcorpora_1  |[0m [2020-03-06 20:21:09,077] INFO:huey:Worker-9:plugins.calamari.tasks.ocr_document_with_calamari: 5ecd7b32-1363-4d41-9862-1d6b6d108533 p=2 executed in 0.281s
+[36mcorpora_1  |[0m Tesseract Open Source OCR Engine v4.0.0 with Leptonica
+[36mcorpora_1  |[0m Warning: Invalid resolution 0 dpi. Using 70 instead.
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62af8e8b7af800281597fd
+[36mcorpora_1  |[0m uri: /corpus/5e62a7178b7af8002784d107/Document/5e62af8e8b7af800281597fd
+[36mcorpora_1  |[0m Estimating resolution as 1311
+[36mcorpora_1  |[0m Image too small to scale!! (2x36 vs min width of 3)
+[36mcorpora_1  |[0m Line cannot be recognized!!
+[36mcorpora_1  |[0m [2020-03-06 20:21:25,167] ERROR:huey:Worker-2:Unhandled exception in task 1efe90ed-8b2b-493e-a970-36fc90e5d4a4.
+[36mcorpora_1  |[0m Traceback (most recent call last):
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/api.py", line 325, in _execute
+[36mcorpora_1  |[0m     task_value = task.execute()
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/api.py", line 673, in execute
+[36mcorpora_1  |[0m     return func(*args, **kwargs)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/site-packages/huey/contrib/djhuey/__init__.py", line 128, in inner
+[36mcorpora_1  |[0m     return fn(*args, **kwargs)
+[36mcorpora_1  |[0m   File "/apps/corpora/plugins/calamari/tasks.py", line 120, in ocr_pages_with_calamari
+[36mcorpora_1  |[0m     ocr_lines_with_calamari(job_id, lines_folder, model_path)
+[36mcorpora_1  |[0m   File "/apps/corpora/plugins/calamari/tasks.py", line 165, in ocr_lines_with_calamari
+[36mcorpora_1  |[0m     lines_folder, "*.png"
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/subprocess.py", line 339, in call
+[36mcorpora_1  |[0m     with Popen(*popenargs, **kwargs) as p:
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/subprocess.py", line 800, in __init__
+[36mcorpora_1  |[0m     restore_signals, start_new_session)
+[36mcorpora_1  |[0m   File "/usr/local/lib/python3.7/subprocess.py", line 1551, in _execute_child
+[36mcorpora_1  |[0m     raise child_exception_type(errno_num, err_msg, err_filename)
+[36mcorpora_1  |[0m FileNotFoundError: [Errno 2] No such file or directory: 'calamari-predict --checkpoint': 'calamari-predict --checkpoint'
+[36mcorpora_1  |[0m [2020-03-06 20:21:40,589] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 19170768-5eb5-4375-8a1d-50ba60f3277e p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:21:40,596] INFO:huey:Worker-1:Executing manager.tasks.check_jobs: 19170768-5eb5-4375-8a1d-50ba60f3277e p=4
+[36mcorpora_1  |[0m [2020-03-06 20:21:40,737] INFO:huey:Worker-1:manager.tasks.check_jobs: 19170768-5eb5-4375-8a1d-50ba60f3277e p=4 executed in 0.140s
+[36mcorpora_1  |[0m [2020-03-06 20:22:40,589] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 4fb07f3b-f8f6-4105-b60f-92878539ab32 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:22:40,593] INFO:huey:Worker-2:Executing manager.tasks.check_jobs: 4fb07f3b-f8f6-4105-b60f-92878539ab32 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:22:40,736] INFO:huey:Worker-2:manager.tasks.check_jobs: 4fb07f3b-f8f6-4105-b60f-92878539ab32 p=4 executed in 0.142s
+[36mcorpora_1  |[0m [2020-03-06 20:23:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: b9d6d06a-47e5-41d4-a4b6-50bc20c73a75 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:23:40,600] INFO:huey:Worker-2:Executing manager.tasks.check_jobs: b9d6d06a-47e5-41d4-a4b6-50bc20c73a75 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:23:40,735] INFO:huey:Worker-2:manager.tasks.check_jobs: b9d6d06a-47e5-41d4-a4b6-50bc20c73a75 p=4 executed in 0.134s
+[36mcorpora_1  |[0m [2020-03-06 20:24:40,592] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 9fcbeb3d-e3b3-41e4-a994-846cf0b91e22 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:24:40,611] INFO:huey:Worker-1:Executing manager.tasks.check_jobs: 9fcbeb3d-e3b3-41e4-a994-846cf0b91e22 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:24:41,411] INFO:huey:Worker-1:manager.tasks.check_jobs: 9fcbeb3d-e3b3-41e4-a994-846cf0b91e22 p=4 executed in 0.799s
+[36mcorpora_1  |[0m [2020-03-06 20:25:40,589] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: a00a4f76-8d5b-42bb-9e87-0644ef24d02a p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:25:40,592] INFO:huey:Worker-7:Executing manager.tasks.check_jobs: a00a4f76-8d5b-42bb-9e87-0644ef24d02a p=4
+[36mcorpora_1  |[0m [2020-03-06 20:25:40,691] INFO:huey:Worker-7:manager.tasks.check_jobs: a00a4f76-8d5b-42bb-9e87-0644ef24d02a p=4 executed in 0.099s
+[36mcorpora_1  |[0m [2020-03-06 20:26:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: e6f191d9-2362-460d-bf3a-2f76173b5383 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:26:40,594] INFO:huey:Worker-3:Executing manager.tasks.check_jobs: e6f191d9-2362-460d-bf3a-2f76173b5383 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:26:40,685] INFO:huey:Worker-3:manager.tasks.check_jobs: e6f191d9-2362-460d-bf3a-2f76173b5383 p=4 executed in 0.091s
+[36mcorpora_1  |[0m [2020-03-06 20:27:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 48161c1f-11db-4c72-99a3-9ad4a961ea23 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:27:40,596] INFO:huey:Worker-5:Executing manager.tasks.check_jobs: 48161c1f-11db-4c72-99a3-9ad4a961ea23 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:27:40,693] INFO:huey:Worker-5:manager.tasks.check_jobs: 48161c1f-11db-4c72-99a3-9ad4a961ea23 p=4 executed in 0.096s
+[36mcorpora_1  |[0m [2020-03-06 20:28:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 3e344084-4fa5-4e36-9494-53c837caf130 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:28:40,594] INFO:huey:Worker-3:Executing manager.tasks.check_jobs: 3e344084-4fa5-4e36-9494-53c837caf130 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:28:40,677] INFO:huey:Worker-3:manager.tasks.check_jobs: 3e344084-4fa5-4e36-9494-53c837caf130 p=4 executed in 0.082s
+[36mcorpora_1  |[0m [2020-03-06 20:29:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: 644c66af-7104-47f7-9f17-455494b9f7cb p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:29:40,597] INFO:huey:Worker-9:Executing manager.tasks.check_jobs: 644c66af-7104-47f7-9f17-455494b9f7cb p=4
+[36mcorpora_1  |[0m [2020-03-06 20:29:40,753] INFO:huey:Worker-9:manager.tasks.check_jobs: 644c66af-7104-47f7-9f17-455494b9f7cb p=4 executed in 0.156s
+[36mcorpora_1  |[0m [2020-03-06 20:30:40,591] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: f35111f3-4d9d-4391-a33f-c1cde18126f2 p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:30:40,596] INFO:huey:Worker-5:Executing manager.tasks.check_jobs: f35111f3-4d9d-4391-a33f-c1cde18126f2 p=4
+[36mcorpora_1  |[0m [2020-03-06 20:30:40,697] INFO:huey:Worker-5:manager.tasks.check_jobs: f35111f3-4d9d-4391-a33f-c1cde18126f2 p=4 executed in 0.101s
+[36mcorpora_1  |[0m [2020-03-06 20:31:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: deec6da9-7d21-4f54-a81c-18ab7d2f007f p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:31:40,595] INFO:huey:Worker-3:Executing manager.tasks.check_jobs: deec6da9-7d21-4f54-a81c-18ab7d2f007f p=4
+[36mcorpora_1  |[0m [2020-03-06 20:31:40,704] INFO:huey:Worker-3:manager.tasks.check_jobs: deec6da9-7d21-4f54-a81c-18ab7d2f007f p=4 executed in 0.109s
+[36mcorpora_1  |[0m [2020-03-06 20:32:40,590] INFO:huey.consumer.Scheduler:Scheduler:Enqueueing periodic task manager.tasks.check_jobs: c3a17ee7-f03f-42d9-8027-18553e70667e p=4.
+[36mcorpora_1  |[0m [2020-03-06 20:32:40,595] INFO:huey:Worker-10:Executing manager.tasks.check_jobs: c3a17ee7-f03f-42d9-8027-18553e70667e p=4
+[36mcorpora_1  |[0m [2020-03-06 20:32:40,810] INFO:huey:Worker-10:manager.tasks.check_jobs: c3a17ee7-f03f-42d9-8027-18553e70667e p=4 executed in 0.214s
