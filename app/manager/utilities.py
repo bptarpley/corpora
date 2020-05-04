@@ -20,7 +20,7 @@ def get_scholar_corpora(scholar, only=[], page=1, page_size=50):
         if scholar.is_admin:
             corpora = Corpus.objects
         else:
-            corpora = Corpus.objects(Q(id__in=[c.pk for c in scholar.available_corpora]) | Q(open_access=True))
+            corpora = Corpus.objects(Q(id__in=[c_id for c_id in scholar.available_corpora.keys()]) | Q(open_access=True))
     else:
         corpora = Corpus.objects(open_access=True)
 
@@ -32,23 +32,19 @@ def get_scholar_corpora(scholar, only=[], page=1, page_size=50):
 
 def get_scholar_corpus(corpus_id, scholar, only=[]):
     corpus = None
+    role = 'Viewer'
+
     if (scholar and scholar.is_admin) or \
-            (scholar and corpus_id in [str(c.pk) for c in scholar.available_corpora]) or \
+            (scholar and corpus_id in scholar.available_corpora.keys()) or \
             corpus_id in get_open_access_corpora():
 
         corpus = get_corpus(corpus_id, only)
+        if scholar and scholar.is_admin:
+            role = 'Admin'
+        elif scholar and corpus_id in scholar.available_corpora.keys():
+            role = scholar.available_corpora[corpus_id]
 
-    return corpus
-
-
-def get_document(scholar, corpus_id, document_id, only=[]):
-    doc = None
-    corpus = get_scholar_corpus(corpus_id, scholar, ['id'])
-
-    if corpus:
-        doc = corpus.get_document(document_id, only)
-
-    return doc
+    return corpus, role
 
 
 def parse_uri(uri):

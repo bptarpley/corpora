@@ -576,7 +576,7 @@ class Scholar(mongoengine.Document):
     fname = mongoengine.StringField()
     lname = mongoengine.StringField()
     email = mongoengine.EmailField()
-    available_corpora = mongoengine.ListField(mongoengine.LazyReferenceField('Corpus'))
+    available_corpora = mongoengine.DictField() # corpus_id: Viewer|Editor
     available_tasks = mongoengine.ListField(mongoengine.LazyReferenceField(Task, reverse_delete_rule=mongoengine.PULL))
     available_jobsites = mongoengine.ListField(mongoengine.LazyReferenceField(JobSite, reverse_delete_rule=mongoengine.PULL))
     is_admin = mongoengine.BooleanField(default=False)
@@ -585,8 +585,9 @@ class Scholar(mongoengine.Document):
 
     def save(self, index_pages=False, **kwargs):
         super().save(**kwargs)
+        permissions = ""
 
-        # Create task node
+        # Create/update scholar node
         run_neo('''
                 MERGE (s:Scholar { uri: $scholar_uri })
                 SET s.username = $scholar_username
@@ -604,18 +605,38 @@ class Scholar(mongoengine.Document):
         )
 
         # Wire up permissions (not relevant if user is admin)
-        for corpus in self.available_corpora:
-            run_neo(
-                '''
-                    MATCH (s:Scholar { uri: $scholar_uri })
-                    MATCH (c:Corpus { uri: $corpus_uri })
-                    MERGE (s) -[:canAccess]-> (c)
-                ''',
-                {
-                    'scholar_uri': "/scholar/{0}".format(self.id),
-                    'corpus_uri': "/corpus/{0}".format(corpus.pk)
-                }
-            )
+        for corpus_id, role in self.available_corpora.items():
+        #    run_neo(
+        #        '''
+        #            MATCH (s:Scholar {{ uri: $scholar_uri }})
+        #            MATCH (c:Corpus {{ uri: $corpus_uri }})
+        #            MERGE (s) -[:is{role}]-> (c)
+        #        '''.format(role=role),
+        #        {
+        #            'scholar_uri': "/scholar/{0}".format(self.id),
+        #            'corpus_uri': "/corpus/{0}".format(corpus_id)
+        #        }
+        #    )
+            permissions += "{0}:{1},".format(corpus_id, role)
+
+
+
+        # Add this scholar to Scholar Elasticsearch index
+        if permissions:
+            permissions = permissions[:-1]
+
+        get_connection().index(
+            index='scholar',
+            id=str(self.id),
+            body={
+                'username': self.username,
+                'fname': self.fname,
+                'lname': self.lname,
+                'email': self.email,
+                'is_admin': self.is_admin,
+                'available_corpora': permissions
+            }
+        )
 
     def get_preference(self, content_type, content_uri, preference):
         results = run_neo(
@@ -650,6 +671,7 @@ class Scholar(mongoengine.Document):
 
     @classmethod
     def _post_delete(cls, sender, document, **kwargs):
+        # Delete Neo4J nodes
         run_neo('''
                 MATCH (s:Scholar { uri: $scholar_uri })
                 DETACH DELETE s
@@ -658,6 +680,10 @@ class Scholar(mongoengine.Document):
                 'scholar_uri': "/scholar/{0}".format(document.id),
             }
         )
+
+        # Remove scholar from ES index
+        es_scholar = Search(index='scholar').query("match", _id=str(document.id))
+        es_scholar.delete()
 
 
 class CompletedTask(mongoengine.EmbeddedDocument):
@@ -836,22 +862,27 @@ class File(mongoengine.EmbeddedDocument):
         return self.extension in settings.VALID_IMAGE_EXTENSIONS
 
     def _do_linking(self, content_type, content_uri):
+        uri_parts = [part for part in content_uri.split('/') if part]
+        if uri_parts[0] == 'corpus' and len(uri_parts) > 1:
+            corpus_id = uri_parts[1]
 
-        run_neo(
-            '''
-                MATCH (n:{content_type} {{ uri: $content_uri }})
-                MERGE (f:File {{ uri: $file_uri }})
-                SET f.path = $file_path
-                SET f.is_image = $is_image
-                MERGE (n) -[rel:hasFile]-> (f)
-            '''.format(content_type=content_type),
-            {
-                'content_uri': content_uri,
-                'file_uri': "{0}/file/{1}".format(content_uri, self.key),
-                'file_path': self.path,
-                'is_image': self.is_image
-            }
-        )
+            run_neo(
+                '''
+                    MATCH (n:{content_type} {{ uri: $content_uri }})
+                    MERGE (f:File {{ uri: $file_uri }})
+                    SET f.path = $file_path
+                    SET f.corpus_id = $corpus_id
+                    SET f.is_image = $is_image
+                    MERGE (n) -[rel:hasFile]-> (f)
+                '''.format(content_type=content_type),
+                {
+                    'content_uri': content_uri,
+                    'file_uri': "{0}/file/{1}".format(content_uri, self.key),
+                    'corpus_id': corpus_id,
+                    'file_path': self.path,
+                    'is_image': self.is_image
+                }
+            )
 
     def _unlink(self, content_uri):
         run_neo(
@@ -1048,9 +1079,9 @@ class Corpus(mongoengine.Document):
                     search_cmd = search_cmd.sort(*adjusted_fields_sort)
 
                 search_cmd = search_cmd[start_index:end_index]
-                print(json.dumps(search_cmd.to_dict(), indent=4))
+                #print(json.dumps(search_cmd.to_dict(), indent=4))
                 search_results = search_cmd.execute().to_dict()
-                print(json.dumps(search_results, indent=4))
+                #print(json.dumps(search_results, indent=4))
                 results['meta']['total'] = search_results['hits']['total']['value']
                 results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
                 results['meta']['has_next_page'] = results['meta']['page'] < results['meta']['num_pages']
@@ -1224,6 +1255,15 @@ class Corpus(mongoengine.Document):
         if valid:
             related_content_types = []
 
+            # ENSURE NEO4J INDEXES ON NEW CONTENT TYPE AND DEPENDENT NODES
+            if not existing:
+                new_node_indexes = [ct_name]
+                if 'dependent_nodes' in schema:
+                    for dependent_node in schema['dependent_nodes']:
+                        new_node_indexes.append(dependent_node)
+
+                ensure_neo_indexes(new_node_indexes)
+
             if 'Label' not in self.content_types[ct_name].templates:
                 template = ContentTemplate()
                 template.template = "{content_type} ({{{{ {content_type}.id }}}})".format(content_type=ct_name)
@@ -1256,7 +1296,8 @@ class Corpus(mongoengine.Document):
                     'content_type': ct_name,
                     'reindex': reindex,
                     'relabel': relabel,
-                    'resave': resave
+                    'resave': resave,
+                    'related_content_types': ','.join(related_content_types)
                 }))
 
             self.save()
@@ -1268,14 +1309,18 @@ class Corpus(mongoengine.Document):
             # Delete Neo4J nodes
             run_neo(
                 '''
-                    MATCH (x)
-                    WHERE EXISTS (x.uri)
-                    AND x.uri STARTS WITH '/corpus/{0}/{1}'
+                    MATCH (n:{0} {{corpus_id: $corpus_id}}) -[*]-> (x {{corpus_id: $corpus_id}})
                     DETACH DELETE x
-                '''.format(
-                    self.id,
-                    content_type
-                ), {}
+                '''.format(content_type),
+                {'corpus_id': str(self.id)}
+            )
+
+            run_neo(
+                '''
+                    MATCH (x:{0} {{corpus_id: $corpus_id}})
+                    DETACH DELETE x
+                '''.format(content_type),
+                {'corpus_id': str(self.id)}
             )
 
             # Delete Elasticsearch index
@@ -1479,11 +1524,12 @@ class Corpus(mongoengine.Document):
 
     @classmethod
     def _pre_delete(cls, sender, document, **kwargs):
+        corpus_id = str(document.id)
 
         # Delete Content Type indexes and collections
         for content_type in document.content_types.keys():
             # Delete ct index
-            index_name = "corpus-{0}-{1}".format(document.id, content_type.lower())
+            index_name = "corpus-{0}-{1}".format(corpus_id, content_type.lower())
             index = Index(index_name)
             if index.exists():
                 index.delete()
@@ -1494,16 +1540,29 @@ class Corpus(mongoengine.Document):
         # Delete all Neo4J nodes associated with corpus
         run_neo(
             '''
-                MATCH (x)
-                WHERE EXISTS (x.uri)
-                AND x.uri STARTS WITH '/corpus/{0}'
+                MATCH (x {corpus_id: $corpus_id})
                 DETACH DELETE x
-            '''.format(document.id),
-            {}
+            ''',
+            {'corpus_id': corpus_id}
+        )
+        run_neo(
+            '''
+                MATCH (x:Corpus {uri: $corpus_uri})
+                DETACH DELETE x
+            ''',
+            {'corpus_uri': '/corpus/{0}'.format(corpus_id)}
         )
 
+        # Delete any available_corpora entries in Scholar objects
+        scholars = Scholar.objects
+        scholars = scholars.batch_size(10)
+        for scholar in scholars:
+            if corpus_id in scholar.available_corpora.keys():
+                del scholar.available_corpora[corpus_id]
+                scholar.save()
+
         # Remove corpus from ES index
-        es_corpus_doc = Search(index='corpora').query("match", _id=str(document.id))
+        es_corpus_doc = Search(index='corpora').query("match", _id=corpus_id)
         es_corpus_doc.delete()
 
         # Delete corpus files
@@ -1579,10 +1638,15 @@ class Content(mongoengine.Document):
                 set__uri=self.uri
             )
 
-        if do_indexing:
-            self._do_indexing()
-        if do_linking:
-            self._do_linking()
+        if do_indexing or do_linking:
+            cx_fields = [field.name for field in self._ct.fields if field.type == 'cross_reference']
+            if cx_fields:
+                self.reload(*cx_fields)
+
+            if do_indexing:
+                self._do_indexing()
+            if do_linking:
+                self._do_linking()
 
     def _make_label(self):
         if not self.label:
@@ -1719,11 +1783,13 @@ class Content(mongoengine.Document):
                 MATCH (c:Corpus {{ uri: $corpus_uri }})
                 MERGE (d:{content_type} {{ uri: $content_uri }})
                 SET d.id = $content_id
+                SET d.corpus_id = $corpus_id
                 SET d.label = $content_label
                 MERGE (c) -[rel:has{content_type}]-> (d)
             '''.format(content_type=self.content_type),
             {
                 'corpus_uri': "/corpus/{0}".format(self.corpus_id),
+                'corpus_id': str(self.corpus_id),
                 'content_uri': self.uri,
                 'content_id': str(self.id),
                 'content_label': self.label
@@ -1809,14 +1875,12 @@ class Content(mongoengine.Document):
     }
 
 
-
-# SIGNALS FOR HANDLING MONGOENGINE DOCUMENT PRE-DELETION (mostly for deleting Neo4J nodes)
+# SIGNALS FOR HANDLING MONGOENGINE DOCUMENT PRE/POST-DELETION (mostly for deleting Neo4J nodes)
 mongoengine.signals.post_save.connect(Corpus._post_save, sender=Corpus)
 mongoengine.signals.post_delete.connect(Scholar._post_delete, sender=Scholar)
 mongoengine.signals.post_delete.connect(Task._post_delete, sender=Task)
 mongoengine.signals.post_delete.connect(JobSite._post_delete, sender=JobSite)
 mongoengine.signals.pre_delete.connect(Corpus._pre_delete, sender=Corpus)
-Scholar.register_delete_rule(Corpus, "available_corpora", mongoengine.PULL)
 
 
 # UTILITY CLASSES / FUNCTIONS
@@ -1869,6 +1933,54 @@ def search_corpora(page=1, page_size=50, general_query="", fields_query=[], fiel
             search_cmd = search_cmd.sort(*fields_sort)
 
         search_cmd = search_cmd[start_index:end_index]
+        search_results = search_cmd.execute().to_dict()
+        results['meta']['total'] = search_results['hits']['total']['value']
+        results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
+        results['meta']['has_next_page'] = results['meta']['page'] < results['meta']['num_pages']
+
+        for hit in search_results['hits']['hits']:
+            record = deepcopy(hit['_source'])
+            record['id'] = hit['_id']
+            record['_search_score'] = hit['_score']
+            results['records'].append(record)
+
+    return results
+
+
+def search_scholars(page=1, page_size=50, general_query="", fields_query=[], fields_sort=[], only=[]):
+    results = {
+        'meta': {
+            'content_type': 'Scholar',
+            'total': 0,
+            'page': page,
+            'page_size': page_size,
+            'num_pages': 1,
+            'has_next_page': False
+        },
+        'records': []
+    }
+
+    start_index = (page - 1) * page_size
+    end_index = page * page_size
+
+    index = "scholar"
+    should = []
+    must = []
+    if general_query:
+        should.append(SimpleQueryString(query=general_query))
+
+    if fields_query:
+        for search_field in fields_query.keys():
+            must.append(Q('match', **{search_field: fields_query[search_field]}))
+
+    if should or must:
+        search_query = Q('bool', should=should, must=must)
+        search_cmd = Search(using=get_connection(), index=index, extra={'track_total_hits': True}).query(search_query)
+
+        if fields_sort:
+            search_cmd = search_cmd.sort(*fields_sort)
+
+        search_cmd = search_cmd[start_index:end_index]
         print(json.dumps(search_cmd.to_dict(), indent=4))
         search_results = search_cmd.execute().to_dict()
         results['meta']['total'] = search_results['hits']['total']['value']
@@ -1881,6 +1993,7 @@ def search_corpora(page=1, page_size=50, general_query="", fields_query=[], fiel
             record['_search_score'] = hit['_score']
             results['records'].append(record)
 
+    print(json.dumps(results, indent=4))
     return results
 
 
@@ -1913,6 +2026,14 @@ def run_neo(cypher, params={}):
         finally:
             neo.close()
     return results
+
+
+def ensure_neo_indexes(node_names):
+    existing_node_indexes = [row['tokenNames'][0] for row in run_neo("CALL db.indexes", {})]
+    for node_name in node_names:
+        if node_name not in existing_node_indexes:
+            run_neo("CREATE CONSTRAINT ON(ct:{0}) ASSERT ct.uri IS UNIQUE".format(node_name), {})
+            run_neo("CREATE INDEX ON :{0}(corpus_id)".format(node_name), {})
 
 
 def parse_date_string(date_string):

@@ -58,10 +58,10 @@ def corpora(request):
 @login_required
 def corpus(request, corpus_id):
     response = _get_context(request)
-    corpus = get_scholar_corpus(corpus_id, response['scholar'])
+    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
     if corpus:
         # HANDLE ADMIN ONLY POST REQUESTS
-        if response['scholar'].is_admin and request.method == 'POST':
+        if (response['scholar'].is_admin or role == 'Editor') and request.method == 'POST':
 
             # HANDLE IMPORT DOCUMENT FILES FORM SUBMISSION
             if 'import-corpus-files' in request.POST:
@@ -193,7 +193,7 @@ def corpus(request, corpus_id):
                 schema.append(corpus.content_types[ct_name].to_dict())
 
             return HttpResponse(
-                json.dumps(schema),
+                json.dumps(schema, indent=4),
                 content_type='application/json'
             )
 
@@ -202,6 +202,7 @@ def corpus(request, corpus_id):
         'corpus.html',
         {
             'corpus_id': corpus_id,
+            'role': role,
             'response': response,
         }
     )
@@ -210,9 +211,9 @@ def corpus(request, corpus_id):
 @login_required
 def edit_content(request, corpus_id, content_type, content_id=None):
     context = _get_context(request)
-    corpus = get_scholar_corpus(corpus_id, context['scholar'])
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
 
-    if context['scholar'].is_admin and corpus and content_type in corpus.content_types:
+    if (context['scholar'].is_admin or role == 'Editor') and corpus and content_type in corpus.content_types:
 
         if request.method == 'POST':
             temp_file_fields = []
@@ -308,11 +309,13 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                 'content_id': content_id,
             }
         )
+    else:
+        raise Http404("You are not authorized to view this page.")
 
 
 def view_content(request, corpus_id, content_type, content_id):
     context = _get_context(request)
-    corpus = get_scholar_corpus(corpus_id, context['scholar'])
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
 
     if not corpus or content_type not in corpus.content_types:
         raise Http404("Corpus does not exist, or you are not authorized to view it.")
@@ -323,10 +326,78 @@ def view_content(request, corpus_id, content_type, content_id):
         {
             'response': context,
             'corpus_id': corpus_id,
+            'role': role,
             'content_type': content_type,
             'content_id': content_id,
         }
     )
+
+
+@login_required
+def scholars(request):
+    response = _get_context(request)
+
+    if response['scholar'].is_admin:
+        if request.method == 'POST':
+            if 'toggle-admin-privs' in request.POST:
+                target_scholar = Scholar.objects(id=request.POST['toggle-admin-privs'])[0]
+                if target_scholar.is_admin:
+                    target_scholar.is_admin = False
+                else:
+                    target_scholar.is_admin = True
+                target_scholar.save()
+                response['messages'].append("Permissions for {0} successfully changed!".format(target_scholar.username))
+
+            elif 'corpus-perms' in request.POST:
+                target_scholar = Scholar.objects(id=request.POST['corpus-perms'])[0]
+                new_perm_corpus_name = request.POST['corpus-name']
+                new_perm_corpus_role = request.POST['corpus-permission']
+
+                if new_perm_corpus_name and new_perm_corpus_role in ['Viewer', 'Editor']:
+                    try:
+                        corpus = Corpus.objects(name=new_perm_corpus_name)[0]
+                        if str(corpus.id) not in target_scholar.available_corpora:
+                            target_scholar.available_corpora[str(corpus.id)] = new_perm_corpus_role
+                            target_scholar.save()
+                    except:
+                        response['errors'].append("No corpus was found with the name provided.")
+
+                for post_param in request.POST.keys():
+                    if post_param not in ['corpus-perms', 'corpus-name', 'corpus-permission'] and post_param.startswith('corpus-'):
+                        corpus_id = post_param.replace('corpus-', '').replace('-permission', '')
+                        corpus_role = request.POST[post_param]
+
+                        if corpus_id in target_scholar.available_corpora and target_scholar.available_corpora[corpus_id] != corpus_role:
+                            if corpus_role == 'None':
+                                del target_scholar.available_corpora[corpus_id]
+                            else:
+                                target_scholar.available_corpora[corpus_id] = corpus_role
+
+                            target_scholar.save()
+                            response['messages'].append("Permissions for {0} successfully changed!".format(target_scholar.username))
+
+            elif 'change-pwd' in request.POST:
+                password = request.POST['password']
+
+                if password == request.POST['password2']:
+                    target_scholar = Scholar.objects(id=request.POST['change-pwd'])[0]
+                    user = User.objects.get(username=target_scholar.username)
+                    user.set_password(password)
+                    user.save()
+                    clear_cached_session_scholar(user.id)
+                    response['messages'].append("Password for {0} successfully changed!".format(target_scholar.username))
+                else:
+                    response['errors'].append("Passwords must match!")
+
+        return render(
+            request,
+            'scholars.html',
+            {
+                'response': response
+            }
+        )
+    else:
+        raise Http404("You are not authorized to view this page.")
 
 
 def scholar(request):
@@ -444,7 +515,7 @@ def get_file(request, file_uri):
     file_path = None
 
     if 'corpus' in uri_dict:
-        if context['scholar'].is_admin or uri_dict['corpus'] in context['scholar'].available_corpora:
+        if context['scholar'].is_admin or uri_dict['corpus'] in context['scholar'].available_corpora.keys():
             results = run_neo(
                 '''
                     MATCH (f:File { uri: $file_uri })
@@ -483,7 +554,7 @@ def get_image(
     file_path = None
 
     if 'corpus' in uri_dict:
-        if context['scholar'].is_admin or uri_dict['corpus'] in context['scholar'].available_corpora:
+        if context['scholar'].is_admin or uri_dict['corpus'] in context['scholar'].available_corpora.keys():
             results = run_neo(
                 '''
                     MATCH (f:File { uri: $image_uri, is_image: true })
@@ -527,7 +598,7 @@ def api_corpora(request):
     if context['scholar'] and context['scholar'].is_admin:
         open_access_only = False
     elif context['scholar']:
-        ids = [str(corpus.pk) for corpus in context['scholar'].available_corpora]
+        ids = [c_id for c_id in context['scholar'].available_corpora.keys()]
 
     corpora = search_corpora(**context['search'], ids=ids, open_access_only=open_access_only)
 
@@ -538,13 +609,60 @@ def api_corpora(request):
 
 
 @api_view(['GET'])
+def api_scholar(request, scholar_id=None):
+    context = _get_context(request)
+
+    if not context['search']:
+        context['search'] = {
+            'general_query': "*"
+        }
+
+    if context['scholar'] and context['scholar'].is_admin:
+        if scholar_id:
+            scholar = Scholar.objects(id=scholar_id)[0]
+            scholar_dict = {
+                'username': scholar.username,
+                'fname': scholar.fname,
+                'lname': scholar.lname,
+                'email': scholar.email,
+                'is_admin': scholar.is_admin,
+                'available_corpora': {}
+            }
+            if scholar.available_corpora:
+                corpora = Corpus.objects(id__in=list(scholar.available_corpora.keys())).only('id', 'name')
+                for corpus in corpora:
+                    scholar_dict['available_corpora'][str(corpus.id)] = {
+                        'name': corpus.name,
+                        'role': scholar.available_corpora[str(corpus.id)]
+                    }
+
+            return HttpResponse(
+                json.dumps(scholar_dict),
+                content_type='application/json'
+            )
+
+        else:
+            scholars = search_scholars(**context['search'])
+
+            return HttpResponse(
+                json.dumps(scholars),
+                content_type='application/json'
+            )
+    else:
+        raise Http404("You are not authorized to access this endpoint.")
+
+
+@api_view(['GET'])
 def api_corpus(request, corpus_id):
     response = _get_context(request)
-    corpus = get_scholar_corpus(corpus_id, response['scholar'])
+    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
 
     if corpus:
+        corpus_dict = corpus.to_dict()
+        corpus_dict['scholar_role'] = role
+
         return HttpResponse(
-            json.dumps(corpus.to_dict()),
+            json.dumps(corpus_dict),
             content_type='application/json'
         )
     else:
@@ -558,7 +676,7 @@ def api_content(request, corpus_id, content_type, content_id=None):
     context = _get_context(request)
     content = {}
 
-    corpus = get_scholar_corpus(corpus_id, context['scholar'])
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
 
     if corpus and content_type in corpus.content_types:
         if content_id:
@@ -579,10 +697,10 @@ def api_content(request, corpus_id, content_type, content_id=None):
 @api_view(['GET', 'POST'])
 def api_content_files(request, corpus_id, content_type=None, content_id=None):
     context = _get_context(request)
-    corpus = get_scholar_corpus(corpus_id, context['scholar'])
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
     files = []
 
-    if context['scholar'].is_admin and corpus:
+    if (context['scholar'].is_admin or role == 'Editor') and corpus:
 
         if content_type:
             base_path = "{corpus_path}/{content_type}/temporary_uploads".format(

@@ -97,6 +97,10 @@ REGISTRY = [
             "save_page",
             "save_page_file"
         ],
+        "dependent_nodes": [
+            "Page",
+            "PageFileCollection"
+        ],
         #"base_mongo_indexes": [
         #    {
         #        'fields': ['id', 'pages.ref_no'],
@@ -190,25 +194,30 @@ class Page(mongoengine.EmbeddedDocument):
         return self._text
 
     def _do_linking(self, content_type, content_uri):
-        page_uri = "{0}/page/{1}".format(content_uri, self.ref_no)
+        uri_parts = [part for part in content_uri.split('/') if part]
+        if uri_parts[0] == 'corpus' and len(uri_parts) > 1:
+            corpus_id = uri_parts[1]
+            page_uri = "{0}/page/{1}".format(content_uri, self.ref_no)
         
-        run_neo('''
-                MATCH (d:{content_type} {{ uri: $doc_uri }})
-                MERGE (p:Page {{ uri: $page_uri }})
-                SET p.label = $page_label
-                SET p.ref_no = $page_ref_no
-                MERGE (d) -[rel:hasPage]-> (p) 
-            '''.format(content_type=content_type),
-            {
-                'doc_uri': content_uri,
-                'page_uri': page_uri,
-                'page_label': self.label if self.label else self.ref_no,
-                'page_ref_no': self.ref_no
-            }
-        )
+            run_neo('''
+                    MATCH (d:{content_type} {{ uri: $doc_uri }})
+                    MERGE (p:Page {{ uri: $page_uri }})
+                    SET p.label = $page_label
+                    SET p.corpus_id = $corpus_id
+                    SET p.ref_no = $page_ref_no
+                    MERGE (d) -[rel:hasPage]-> (p) 
+                '''.format(content_type=content_type),
+                {
+                    'doc_uri': content_uri,
+                    'page_uri': page_uri,
+                    'corpus_id': corpus_id,
+                    'page_label': self.label if self.label else self.ref_no,
+                    'page_ref_no': self.ref_no
+                }
+            )
 
-        for file_key, file in self.files.items():
-            file._do_linking(content_type='Page', content_uri=page_uri)
+            for file_key, file in self.files.items():
+                file._do_linking(content_type='Page', content_uri=page_uri)
 
     def to_dict(self, parent_uri):
         return {

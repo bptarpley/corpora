@@ -45,6 +45,24 @@ class Corpora {
         $.ajax(req);
     }
 
+    get_scholars(search={}, callback) {
+        this.make_request(
+            "/api/scholar/",
+            "GET",
+            search,
+            callback
+        );
+    }
+
+    get_scholar(scholar_id, callback) {
+        this.make_request(
+            `/api/scholar/${scholar_id}/`,
+            "GET",
+            {},
+            callback
+        );
+    }
+
     get_corpora(search={}, callback) {
         this.make_request(
             "/api/corpus/",

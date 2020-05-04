@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+
+{% block modals %}
+
+   <!-- Manage Scholar Modal -->
+    <div class="modal fade" id="scholar-modal" tabindex="-1" role="dialog" aria-labelledby="scholar-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="scholar-modal-label">Manage Scholar</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="scholar-list-group" class="list-group">
+                        <div class="list-group-item">
+                            <strong class="m-2 clear">Username</strong>
+                            <span id="scholar-username-span"></span>
+                        </div>
+                        <div class="list-group-item">
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="toggle-admin-privs" class="scholar-id" />
+                                <button type="submit" id="scholar-admin-privs-button" class="btn btn-primary">Grant Admin Privileges</button>
+                            </form>
+                        </div>
+                        <div id="corpus-permissions-container" class="list-group-item">
+                            <button class="btn btn-link" data-toggle="collapse" data-target="#corpus-permissions-collapsible" aria-expanded="false" aria-controls="corpus-permissions-collapsible">
+                                <span id="corpus-permissions-collapse-indicator" class="fas fa-caret-right"></span>
+                                Corpus permissions
+                            </button>
+                            <div id="corpus-permissions-collapsible" class="collapse" aria-labelledby="corpus-permissions-container" data-parent="#scholar-list-group">
+                                <form method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="corpus-perms" class="scholar-id" />
+                                    <div class="alert alert-info">
+                                        <h4 class="mb-2">Existing Permissions</h4>
+                                        <div id="current-corpus-permissions-div">
+
+                                        </div>
+                                    </div>
+
+                                    <div class="alert alert-info">
+                                        <h4 class="mb-2">New Permission</h4>
+                                        <div class="form-group">
+                                            <label for="corpus-name-box">Corpus Name</label>
+                                            <input type="text" class="form-control" id="corpus-name-box" name="corpus-name" placeholder="Corpus name">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="corpus-permission-selector">Permission</label>
+                                            <select class="form-control" id="corpus-permission-selector" name="corpus-permission">
+                                                <option>Viewer</option>
+                                                <option>Editor</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary">Set Permissions</button>
+                                </form>
+                            </div>
+                        </div>
+                        <div id="set-password-container" class="list-group-item">
+                            <button class="btn btn-link" data-toggle="collapse" data-target="#set-password-collapsible" aria-expanded="false" aria-controls="set-password-collapsible">
+                                <span id="set-password-collapse-indicator" class="fas fa-caret-right"></span>
+                                Change password
+                            </button>
+                            <div id="set-password-collapsible" class="alert alert-info collapse" aria-labelledby="set-password-container" data-parent="#scholar-list-group">
+                                <form method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="change-pwd" class="scholar-id" />
+                                    <div class="form-group">
+                                        <label for="password-box">Password</label>
+                                        <input type="password" class="form-control" id="password-box" name="password">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="password-box2">Confirm Password</label>
+                                        <input type="password" class="form-control" id="password-box2" name="password2">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Change Password</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div> 
+    
+{% endblock %}
+
+{% block main %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h4>Scholars</h4>
+                            <input type="text" class="form-control form-control-sm" id="search-box" placeholder="Search" />
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <table class="table">
+                            <thead class="thead-dark">
+                                <th scope="col">Username</th>
+                                <th scope="col">First Name</th>
+                                <th scope="col">Last Name</th>
+                                <th scope="col">Email</th>
+                                <th scope="col">Admin</th>
+                            </thead>
+                            <tbody id="scholar-table">
+                                <tr>
+                                    <td colspan="2">
+                                        <div class="alert alert-info">
+                                            Loading scholars...
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+{% endblock %}
+
+{% block js %}
+    <script type="application/javascript">
+        var scholars = [];
+        var scholar_search = {};
+
+        $(document).ready(function() {
+            load_scholars();
+
+            $('#corpus-new-button').click(function() {
+                $('#new-corpus-modal').modal();
+            });
+
+            $("#search-box").keypress(function(e){
+                let key = e.which;
+                if (key == 13) {
+                    let query = $("#search-box").val();
+                    if (query) {
+                        scholar_search.q = query + '*';
+                    } else {
+                        scholar_search = {};
+                    }
+                    load_scholars();
+                }
+            });
+        });
+
+        function load_scholars() {
+            corpora.get_scholars(scholar_search, build_scholars);
+        }
+
+        function build_scholars(scholar_data) {
+            scholars = scholar_data.records;
+            let scholar_table = $("#scholar-table");
+            if (scholar_data.meta.total > 0) {
+                scholar_table.html('');
+                scholars.forEach(scholar => {
+                    scholar_table.append(`
+                        <tr>
+                            <td>
+                                <a href="javascript:show_scholar('${scholar.id}');">${scholar.username}</a>
+                            </td>
+                            <td>
+                                ${scholar.fname}
+                            </td>
+                            <td>
+                                ${scholar.lname}
+                            </td>
+                            <td>
+                                ${scholar.email}
+                            </td>
+                            <td>
+                                ${scholar.is_admin ? 'Y' : 'N'}
+                            </td>
+                        </tr>
+                    `);
+                });
+            } else {
+                scholar_table.html(`
+                    <tr>
+                        <td colspan="5">
+                            <div class="alert alert-info">
+                                There are no scholars available to view at this time.
+                            </div>
+                        </td>
+                    </tr>
+                `);
+            }
+
+            hide_loading_overlay();
+        }
+        
+        function show_scholar(scholar_id) {
+            corpora.get_scholar(scholar_id, function(scholar_data) {
+                $('#scholar-username-span').html(scholar_data.username);
+                $('.scholar-id').val(scholar_id);
+
+                let corpus_permissions_div = $('#current-corpus-permissions-div');
+                corpus_permissions_div.html('');
+                for (let corpus_id in scholar_data.available_corpora) {
+                    corpus_permissions_div.append(`
+                        <div class="row">
+                            <div class="col-6">
+                                <strong>${scholar_data.available_corpora[corpus_id].name}</strong>
+                            </div>
+                            <div class="col-6">
+                                <label for="corpus-${corpus_id}-permission-selector" class="sr-only">Permission</label>
+                                <select class="form-control" id="corpus-${corpus_id}-permission-selector" name="corpus-${corpus_id}-permission">
+                                    <option>Viewer</option>
+                                    <option>Editor</option>
+                                    <option>None</option>
+                                </select>
+                            </div>
+                        </div>
+                    `);
+
+                    $(`#corpus-${corpus_id}-permission-selector`).val(scholar_data.available_corpora[corpus_id].role);
+                }
+
+                if (scholar_data.is_admin) {
+                    $('#scholar-admin-privs-button').html('Revoke Admin Privileges');
+                } else {
+                    $('#scholar-admin-privs-button').html('Grant Admin Privileges');
+                }
+
+                $('#scholar-modal').modal();
+            });
+
+        }
+    </script>
+{% endblock %}

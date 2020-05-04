@@ -16,10 +16,10 @@ from bs4 import BeautifulSoup
 @login_required
 def document(request, corpus_id, document_id):
     response = _get_context(request)
-    corpus = get_scholar_corpus(corpus_id, response['scholar'])
+    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
 
     if corpus:
-        if response['scholar'].is_admin and request.method == 'POST':
+        if (response['scholar'].is_admin or role == 'Editor') and request.method == 'POST':
             document = corpus.get_content('Document', document_id)
 
             # HANDLE FILE UPLOADS
@@ -201,6 +201,7 @@ def document(request, corpus_id, document_id):
         'document.html',
         {
             'corpus_id': corpus_id,
+            'role': role,
             'document_id': document_id,
             'response': response,
         }
@@ -210,121 +211,113 @@ def document(request, corpus_id, document_id):
 @login_required
 def edit_xml(request, corpus_id, document_id):
     response = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
     xml_file = None
 
-    if 'path' in request.GET:
-        path = _clean(request.GET, 'path')
-        if path.startswith('/corpora') and '../' not in path and path.lower().split('.')[-1] in ['xml', 'rdf', 'hocr']:
-            xml_file = "/get-file?path={0}".format(path)
+    if corpus and role in ['Editor', 'Admin']:
+        if 'path' in request.GET:
+            path = _clean(request.GET, 'path')
+            if path.startswith('/corpora') and '../' not in path and path.lower().split('.')[-1] in ['xml', 'rdf', 'hocr']:
+                xml_file = "/get-file?path={0}".format(path)
 
-    elif 'use_tei_skeleton' in request.GET:
-        xml_file = "/corpus/{0}/Document/{1}/tei-skeleton".format(corpus_id, document_id)
+        elif 'use_tei_skeleton' in request.GET:
+            xml_file = "/corpus/{0}/Document/{1}/tei-skeleton".format(corpus_id, document_id)
 
-    elif 'pageset' in request.GET:
-        pageset = _clean(request.GET, 'pageset')
-        xml_file = "/corpus/{0}/Document/{1}/tei-skeleton?pageset={2}".format(corpus_id, document_id, pageset)
+        elif 'pageset' in request.GET:
+            pageset = _clean(request.GET, 'pageset')
+            xml_file = "/corpus/{0}/Document/{1}/tei-skeleton?pageset={2}".format(corpus_id, document_id, pageset)
 
-    return render(
-        request,
-        'edit_xml.html',
-        {
-            'response': response,
-            'xml_file': xml_file,
-        }
-    )
+        return render(
+            request,
+            'edit_xml.html',
+            {
+                'response': response,
+                'xml_file': xml_file,
+            }
+        )
+    else:
+        raise Http404("You are not authorized to view this page.")
 
 
 @login_required
 def tei_skeleton(request, corpus_id, document_id):
     response = _get_context(request)
-    corpus = get_scholar_corpus(corpus_id, response['scholar'])
-    document = corpus.get_content('Document', document_id)
-    template_string = ""
-    template_path = "{0}/plugins/document/templates/tei_skeleton.xml".format(settings.BASE_DIR)
-    if os.path.exists(template_path):
-        with open(template_path, 'r', encoding='utf-8') as template_in:
-            template_string = template_in.read()
+    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
 
-    if 'pageset' in request.GET:
-        pageset = _clean(request.GET, 'pageset')
-        if pageset in document.page_sets:
-            document.kvp['_default_pageset'] = pageset
+    if corpus:
+        document = corpus.get_content('Document', document_id)
+        template_string = ""
+        template_path = "{0}/plugins/document/templates/tei_skeleton.xml".format(settings.BASE_DIR)
+        if os.path.exists(template_path):
+            with open(template_path, 'r', encoding='utf-8') as template_in:
+                template_string = template_in.read()
 
-    template = Template(template_string)
-    template_context = Context({
-        'document': document
-    })
-    return HttpResponse(
-        template.render(template_context),
-        content_type="application/xml"
-    )
+        if 'pageset' in request.GET:
+            pageset = _clean(request.GET, 'pageset')
+            if pageset in document.page_sets:
+                document.kvp['_default_pageset'] = pageset
+
+        template = Template(template_string)
+        template_context = Context({
+            'document': document
+        })
+        return HttpResponse(
+            template.render(template_context),
+            content_type="application/xml"
+        )
+    else:
+        raise Http404("Corpus does not exist, or you are not authorized to view it.")
 
 
 @login_required
 def draw_page_regions(request, corpus_id, document_id, ref_no):
     response = _get_context(request)
-    corpus = get_scholar_corpus(corpus_id, response['scholar'])
-    document = corpus.get_content('Document', document_id)
-    image_file = None
-    page_regions = []
-    ocr_file = request.GET.get('ocrfile', None)
+    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
 
-    if document and ref_no in document.pages:
-        page = document.pages[ref_no]
-        if page:
-            if ocr_file and os.path.exists(ocr_file):
-                if ocr_file.lower().endswith('.object'):
-                    page_regions = get_page_regions(ocr_file, 'GCV')
-                elif ocr_file.lower().endswith('.hocr'):
-                    page_regions = get_page_regions(ocr_file, 'HOCR')
+    if corpus and (response['scholar'].is_admin or role == 'Editor'):
+        document = corpus.get_content('Document', document_id)
+        image_file = None
+        page_regions = []
+        ocr_file = request.GET.get('ocrfile', None)
 
-            for file_key, file in page.files.items():
-                if 'Image' in file.description and file.primary_witness:
-                    image_file = file
-                elif not page_regions and 'GCV TextAnnotation Object' in file.description:
-                    ocr_file = file.path
-                    page_regions = get_page_regions(file.path, 'GCV')
-                elif not page_regions and 'HOCR' in file.description:
-                    ocr_file = file.path
-                    page_regions = get_page_regions(file.path, 'HOCR')
+        if document and ref_no in document.pages:
+            page = document.pages[ref_no]
+            if page:
+                if ocr_file and os.path.exists(ocr_file):
+                    if ocr_file.lower().endswith('.object'):
+                        page_regions = get_page_regions(ocr_file, 'GCV')
+                    elif ocr_file.lower().endswith('.hocr'):
+                        page_regions = get_page_regions(ocr_file, 'HOCR')
 
-    return render(
-        request,
-        'draw_regions.html',
-        {
-            'response': response,
-            'image_file': image_file.to_dict(parent_uri="/corpus/{0}/Document/{1}/page/{2}".format(
-                corpus_id,
-                document_id,
-                ref_no
-            )),
-            'page_regions': page_regions,
-            'corpus': corpus,
-            'document': document,
-            'ocr_file': ocr_file,
-            'ref_no': ref_no
-        }
-    )
+                for file_key, file in page.files.items():
+                    if 'Image' in file.description and file.primary_witness:
+                        image_file = file
+                    elif not page_regions and 'GCV TextAnnotation Object' in file.description:
+                        ocr_file = file.path
+                        page_regions = get_page_regions(file.path, 'GCV')
+                    elif not page_regions and 'HOCR' in file.description:
+                        ocr_file = file.path
+                        page_regions = get_page_regions(file.path, 'HOCR')
 
-
-@api_view(['GET', 'POST'])
-def api_document_kvp(request, corpus_id, document_id, key):
-    value = ''
-    response = _get_context(request)
-    corpus = get_scholar_corpus(corpus_id, response['scholar'])
-    if corpus:
-        document = corpus.get_content('Document', document_id, only=['kvp__{0}'.format(key)])
-
-        if request.method == 'GET' and document:
-            value = document.kvp.get(key, '')
-        elif request.method == 'POST' and document and 'value' in request.POST:
-            value = _clean(request.POST, 'value')
-            document.update(**{'set__kvp__{0}'.format(key): value})
-
-    return HttpResponse(
-        json.dumps(value),
-        content_type='application/json'
-    )
+        return render(
+            request,
+            'draw_regions.html',
+            {
+                'response': response,
+                'image_file': image_file.to_dict(parent_uri="/corpus/{0}/Document/{1}/page/{2}".format(
+                    corpus_id,
+                    document_id,
+                    ref_no
+                )),
+                'page_regions': page_regions,
+                'corpus': corpus,
+                'document': document,
+                'ocr_file': ocr_file,
+                'ref_no': ref_no
+            }
+        )
+    else:
+        raise Http404("Corpus does not exist, or you are not authorized to view it.")
 
 
 @api_view(['GET'])
@@ -343,90 +336,67 @@ def api_document_page_file_collections(request, corpus_id, document_id, pfc_slug
 @api_view(['GET'])
 def api_page_region_content(request, corpus_id, document_id, ref_no, x, y, width, height):
     response = _get_context(request)
-    corpus = get_scholar_corpus(corpus_id, response['scholar'])
-    document = corpus.get_content('Document', document_id)
-    content = ""
-    ocr_file = request.GET.get('ocrfile', None)
+    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
+    if corpus:
+        document = corpus.get_content('Document', document_id)
+        content = ""
+        ocr_file = request.GET.get('ocrfile', None)
 
-    if document and ref_no in document.pages:
-        page = document.pages[ref_no]
-        if page:
-            if ocr_file and os.path.exists(ocr_file):
-                if ocr_file.lower().endswith('.object'):
-                    content = get_page_region_content(ocr_file, 'GCV', x, y, width, height)
-                elif ocr_file.lower().endswith('.hocr'):
-                    content = get_page_region_content(ocr_file, 'HOCR', x, y, width, height)
+        if document and ref_no in document.pages:
+            page = document.pages[ref_no]
+            if page:
+                if ocr_file and os.path.exists(ocr_file):
+                    if ocr_file.lower().endswith('.object'):
+                        content = get_page_region_content(ocr_file, 'GCV', x, y, width, height)
+                    elif ocr_file.lower().endswith('.hocr'):
+                        content = get_page_region_content(ocr_file, 'HOCR', x, y, width, height)
 
-    return HttpResponse(
-        json.dumps(content),
-        content_type='application/json'
-    )
+        return HttpResponse(
+            json.dumps(content),
+            content_type='application/json'
+        )
+    else:
+        raise Http404("Corpus does not exist, or you are not authorized to view it.")
 
 
 @login_required
 def get_document_iiif_manifest(request, corpus_id, document_id, collection=None, pageset=None):
     response = _get_context(request)
     iiif_template_path = "{0}/templates/iiif_manifest.json".format(settings.BASE_DIR)
-    corpus = get_scholar_corpus(corpus_id, response['scholar'])
-    document = corpus.get_content('Document', document_id)
-    pfcs = get_document_page_file_collections(response['scholar'], corpus_id, document_id, collection)
-    canvas_width = request.GET.get('width', '1000')
-    canvas_height = request.GET.get('height', '800')
-    component = request.GET.get('component', None)
-    if not collection:
-        for pfc_slug, pfc in pfcs.items():
-            if _contains(pfc['label'].lower(), ['primary', 'image']):
-                collection = pfc_slug
+    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
+    if corpus:
+        document = corpus.get_content('Document', document_id)
+        pfcs = get_document_page_file_collections(response['scholar'], corpus_id, document_id, collection)
+        canvas_width = request.GET.get('width', '1000')
+        canvas_height = request.GET.get('height', '800')
+        component = request.GET.get('component', None)
+        if not collection:
+            for pfc_slug, pfc in pfcs.items():
+                if _contains(pfc['label'].lower(), ['primary', 'image']):
+                    collection = pfc_slug
 
-    if document and collection in pfcs and os.path.exists(iiif_template_path):
-        host = "http{0}://{1}".format('s' if settings.USE_SSL else '', settings.ALLOWED_HOSTS[0])
+        if document and collection in pfcs and os.path.exists(iiif_template_path):
+            host = "http{0}://{1}".format('s' if settings.USE_SSL else '', settings.ALLOWED_HOSTS[0])
 
-        with open(iiif_template_path, 'r') as iiif_in:
-            iiif_template = iiif_in.read()
+            with open(iiif_template_path, 'r') as iiif_in:
+                iiif_template = iiif_in.read()
 
-        template = Template(iiif_template)
-        template_context = Context({
-            'host': host,
-            'document': document
-        })
-        return HttpResponse(
-            template.render(template_context),
-            content_type=template_format.mime_type
-        )
-    return HttpResponse("Not yet implemented.")
-
-
-@login_required
-def get_document_image(request,
-        corpus_id,
-        document_id,
-        image_key,
-        region="full",
-        size="full",
-        rotation="0",
-        quality="default",
-        format="png",
-        ref_no=None):
-    response = _get_context(request)
-    file = get_file(response['scholar'], corpus_id, document_id, image_key, ref_no)
-    if file:
-        mime_type, encoding = mimetypes.guess_type("file.{0}".format(format))
-        response = HttpResponse(content_type=mime_type)
-        response['X-Accel-Redirect'] = "/media/{identifier}/{region}/{size}/{rotation}/{quality}.{format}".format(
-            identifier=file.path[1:].replace('/', '$!$'),
-            region=region,
-            size=size,
-            rotation=rotation,
-            quality=quality,
-            format=format
-        )
-        return response
-    raise Http404("Image not found.")
+            template = Template(iiif_template)
+            template_context = Context({
+                'host': host,
+                'document': document
+            })
+            return HttpResponse(
+                template.render(template_context),
+                content_type=template_format.mime_type
+            )
+    else:
+        raise Http404("Corpus does not exist, or you are not authorized to view it.")
 
 
 def get_document_page_file_collections(scholar, corpus_id, document_id, pfc_slug=None):
     page_file_collections = {}
-    corpus = get_scholar_corpus(corpus_id, scholar, only=['id'])
+    corpus, role = get_scholar_corpus(corpus_id, scholar, only=['id'])
     if corpus:
         if pfc_slug:
             pfc = Document.get_page_file_collection(corpus_id, document_id, pfc_slug)

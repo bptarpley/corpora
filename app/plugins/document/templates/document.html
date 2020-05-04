@@ -265,7 +265,7 @@
                 <div class="card mb-3">
                     <div class="card-header">
                         <h4 class="float-left">Metadata</h4>
-                        {% if response.scholar.is_admin %}
+                        {% if response.scholar.is_admin or role == 'Editor' %}
                             <a href="/corpus/{{ corpus_id }}/Document/{{ document_id }}/edit/" class="float-right">
                                 <span class="fas fa-edit"></span>
                             </a>
@@ -328,7 +328,11 @@
                     <div class="card-header">
                         <div class="d-flex w-100 justify-content-between align-items-center">
                             <h4>Document Files</h4>
-                            <button id="import-document-files-button" class="btn btn-primary rounded" type="button">Import</button>
+                            {% if response.scholar.is_admin or role == 'Editor' %}
+                                <button id="import-document-files-button" class="btn btn-primary rounded" type="button">Import</button>
+                            {% else %}
+                                <span>&nbsp;</span>
+                            {% endif %}
                         </div>
                     </div>
                     <div class="card-body" id="doc-files-div">
@@ -383,7 +387,11 @@
                         <div class="d-flex w-100 justify-content-between align-items-center">
                             <h4>Pages</h4>
                             <span id="page-action-buttons-span">
-                                <button id="import-pages-button" class="btn btn-primary rounded" type="button">Import</button>
+                                {% if response.scholar.is_admin or role == 'Editor' %}
+                                    <button id="import-pages-button" class="btn btn-primary rounded" type="button">Import</button>
+                                {% else %}
+                                    &nbsp;
+                                {% endif %}
                             </span>
                         </div>
                     </div>
@@ -439,7 +447,7 @@
         var document_uri = `/corpus/${corpus_id}/Document/${document_id}`;
         var doc = null;
 
-        var is_admin = {% if response.scholar.is_admin %}true{% else %}false{% endif %};
+        var role = '{{ role }}';
 
         var file_upload_path = '';
         var file_uploads = [];
@@ -542,7 +550,7 @@
                             if (doc.provenance.length > 0) { doc_provenance_div.html(''); }
                             doc.provenance.forEach( prov => {
                                 let retry_form = '';
-                                if (is_admin) {
+                                if (role === 'Admin' || role === 'Editor') {
                                     retry_form = `
                                         <form method="post">
                                             <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
@@ -619,9 +627,13 @@
 
                                 if (doc.has_primary_text) {
                                     doc_files_div.append(`
-                                        <a href="${document_uri}/edit-xml/?use_tei_skeleton=y" class="btn btn-primary ml-1">Create TEI XML</a>
                                         <a href="${document_uri}/tei-skeleton" class="btn btn-primary ml-1" download>Download TEI XML Skeleton</a>
                                     `);
+                                    if (role === 'Admin' || role === 'Editor') {
+                                        doc_files_div.append(`
+                                            <a href="${document_uri}/edit-xml/?use_tei_skeleton=y" class="btn btn-primary ml-1">Create TEI XML</a>
+                                        `);
+                                    }
                                 }
                             }
 
@@ -659,9 +671,11 @@
                                 for (let ps_key in doc.page_sets) {
                                     if (doc.has_primary_text) {
                                         tei_buttons = `
-                                            <a href="${document_uri}/edit-xml/?pageset=${ps_key}" target="_blank" class="btn btn-primary ml-1">Create TEI XML</a>
                                             <a href="${document_uri}/tei-skeleton?pageset=${ps_key}" class="btn btn-primary ml-1" download>Download TEI XML Skeleton</a>
                                         `;
+                                        if (role === 'Admin' || role === 'Editor') {
+                                            tei_buttons += `<a href="${document_uri}/edit-xml/?pageset=${ps_key}" target="_blank" class="btn btn-primary ml-1">Create TEI XML</a>`;
+                                        }
                                     }
 
                                     doc_pageset_tbody.append(`
@@ -702,7 +716,7 @@
                                         page_viewer_left_options.append(`
                                             <a class="dropdown-item" href="javascript: set_collection('left', '${slug}');">${label}</a>
                                         `);
-                                    } else if (label.includes('Plain Text')) {
+                                    } else if (label.includes('Plain Text') && (role === 'Editor' || role === 'Admin')) {
                                         text_consolidation_form = `
                                             <form method="post">
                                                 <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
@@ -729,15 +743,17 @@
                                             }
                                         }
 
-                                        zip_file_form = `
-                                            <form method="post">
-                                                <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
-                                                <input type="hidden" name="collection" value="${slug}"/>
-                                                <input type="hidden" name="jobsite" value="${local_jobsite_id}"/>
-                                                <input type="hidden" name="task" value="${zip_page_file_task_id}"/>
-                                                <button type="submit" class="btn btn-primary">Create a .zip File</button>
-                                            </form>
-                                        `;
+                                        if (role === 'Editor' || role === 'Admin') {
+                                            zip_file_form = `
+                                                <form method="post">
+                                                    <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
+                                                    <input type="hidden" name="collection" value="${slug}"/>
+                                                    <input type="hidden" name="jobsite" value="${local_jobsite_id}"/>
+                                                    <input type="hidden" name="task" value="${zip_page_file_task_id}"/>
+                                                    <button type="submit" class="btn btn-primary">Create a .zip File</button>
+                                                </form>
+                                            `;
+                                        }
                                     }
 
                                     doc_pfc_group.append(`
@@ -790,7 +806,7 @@
                                         if (label.includes('HOCR') || label.includes('GCV TextAnnotation')) {
                                             actions = `<a href="${document_uri}/draw-page-regions/${ref_no}/?ocrfile=${file.path}" target="_blank" class="btn btn-primary ml-1">Fix OCR Regions</a>`;
                                         }
-                                        if (label.includes('HOCR') || label.includes('XML')) {
+                                        if ((label.includes('HOCR') || label.includes('XML')) && (role === 'Editor' || role === 'Admin')) {
                                             actions += `<a href="${document_uri}/edit-xml/?path=${file.path}" class="btn btn-primary ml-1">Edit XML</a>`;
                                         }
 
@@ -838,7 +854,7 @@
                             );
 
                             // SETUP PAGE TASK BUTTONS
-                            if(doc.pages) {
+                            if(doc.pages && (role === 'Editor' || role === 'Admin')) {
                                 $('#page-action-buttons-span').append(`
                                     <button id="create-pageset-button" class="btn btn-primary rounded ml-1" type="button">Create Page Set</button>
                                     <button id="perform-ocr-button" class="btn btn-primary rounded ml-1" type="button">Perform OCR</button>
@@ -934,40 +950,41 @@
                 }
             });
 
-            // ------------------------
-            // SETUP IMPORT PAGES MODAL
-            // ------------------------
-            $("#import-pages-button").click(function() {
-                $("#import-pages-submit-button").attr('disabled', true);
-                $("#import-pages-modal").modal();
-            });
+            if (role === 'Editor' || role === 'Admin') {
+                // ------------------------
+                // SETUP IMPORT PAGES MODAL
+                // ------------------------
+                $("#import-pages-button").click(function () {
+                    $("#import-pages-submit-button").attr('disabled', true);
+                    $("#import-pages-modal").modal();
+                });
 
-            $("input[type=radio][name=import-pages-type]").change(function() {
-                if (this.value == 'pdf') {
-                    $("#import-pages-pdf-options").removeClass("d-none");
-                }
-                else if (this.value == 'images') {
-                    $("#import-pages-pdf-options").addClass("d-none");
-                }
-            });
+                $("input[type=radio][name=import-pages-type]").change(function () {
+                    if (this.value == 'pdf') {
+                        $("#import-pages-pdf-options").removeClass("d-none");
+                    } else if (this.value == 'images') {
+                        $("#import-pages-pdf-options").addClass("d-none");
+                    }
+                });
 
-            $("#import-pages-submit-button").click(function() {
-                $("#import-pages-files").val(JSON.stringify(import_pages_files));
-                $("#import-pages-form").submit();
-            });
+                $("#import-pages-submit-button").click(function () {
+                    $("#import-pages-files").val(JSON.stringify(import_pages_files));
+                    $("#import-pages-form").submit();
+                });
 
-            FilePond.setOptions({
-                server: {
-                    process: {
-                        url: './',
-                        headers: {
-                            'X-CSRFToken': corpora.csrf_token
-                        }
-                    },
-                    fetch: null,
-                    revert: null
-                }
-            });
+                FilePond.setOptions({
+                    server: {
+                        process: {
+                            url: './',
+                            headers: {
+                                'X-CSRFToken': corpora.csrf_token
+                            }
+                        },
+                        fetch: null,
+                        revert: null
+                    }
+                });
+            }
 
             check_jobs();
         });
@@ -1036,7 +1053,7 @@
                     right_col.html(right_col.html().replace("\n", `<br />`));
                 }
 
-                if (pfc_setting.right.includes('ocr') && bbox_collections.length > 0) {
+                if (pfc_setting.right.includes('ocr') && bbox_collections.length > 0 && (role === 'Editor' || role === 'Admin')) {
                     if (!$('#fix-regions-nav').length) {
                         $('#page-viewer-controls').append(`
                             <li id='fix-regions-nav' class='nav-item ml-1'><a id='fix-regions-button' href="${document_uri}/draw-page-regions/${ref_no}/" class="btn btn-primary ml-1">Fix OCR Regions</a></li>

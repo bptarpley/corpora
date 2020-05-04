@@ -353,7 +353,11 @@
                     <div class="card-header">
                         <div class="d-flex w-100 justify-content-between align-items-center">
                             <h4>Jobs</h4>
-                            <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
+                            {% if response.scholar.is_admin or role == 'Editor' %}
+                                <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
+                            {% else %}
+                                <span>&nbsp;</span>
+                            {% endif %}
                         </div>
                     </div>
                     <div class="card-body">
@@ -368,7 +372,11 @@
                     <div class="card-header">
                         <div class="d-flex w-100 justify-content-between align-items-center">
                             <h4>Corpus Files</h4>
-                            <button id="import-corpus-files-button" class="btn btn-primary rounded" type="button">Import</button>
+                            {% if response.scholar.is_admin or role == 'Editor' %}
+                                <button id="import-corpus-files-button" class="btn btn-primary rounded" type="button">Import</button>
+                            {% else %}
+                                <span>&nbsp;</span>
+                            {% endif %}
                         </div>
                     </div>
                     <div class="card-body" id="corpus-files-div">
@@ -385,8 +393,9 @@
             <!-- CONTENT TYPES LISTED HERE -->
 
         </div>
-        <div class="row">
 
+        {% if response.scholar.is_admin or role == 'Editor' %}
+        <div class="row">
             <!-- CONTENT TYPE MANAGER -->
             <div class="col">
                 <div id="type-manager-div" class="card mt-4">
@@ -416,6 +425,7 @@
                 <input type="hidden" name="schema" id="ct-schema" value="">
             </form>
         </div>
+        {% endif %}
 
     {% if response.scholar.is_admin %}
         <div class="row">
@@ -457,12 +467,14 @@
     <script src={% static 'js/beautify/beautify-html.js' %}></script>
     <script type="application/javascript">
         var corpus_id = "{{ corpus_id }}";
+        var role = "{{ role }}";
         var corpus = null;
         var template_formats = null;
         var jobsites = [];
         var local_jobsite_id = null;
         var tasks = [];
         var check_jobs_timer = null;
+        var check_jobs_interval = 10;
         var ct_search = {};
         var selected_content = [];
         var import_editor;
@@ -591,242 +603,255 @@
                     }
                 }
 
-    
-                // setup the editor for importing a content type schema
-                import_editor = ace.edit("import-editor");
-                import_editor.setTheme("ace/theme/monokai");
-                import_editor.getSession().setMode("ace/mode/json");
-    
-                // setup the editor for editing template
-                template_editor = ace.edit("template-editor");
-                template_editor.setTheme("ace/theme/monokai");
-                template_editor.getSession().setMode("ace/mode/django");
-    
-                // setup event for showing schema import modal
-                $('#show-import-modal-button').click(function () {
-                    import_editor.setValue('');
-                    $('#import-modal-label').html('Import Schema');
-                    $('#import-button').removeClass('d-none');
-                    $('#import-modal').modal();
-                });
-    
-                // setup event for clicking "Import" button on schema import modal
-                $('#import-button').click(function () {
-                    let import_schema = JSON.parse(import_editor.getValue());
-                    for (let x = 0; x < import_schema.length; x++) {
-                        if (!corpus.content_types.hasOwnProperty(import_schema[x].name)) {
-                            corpus.content_types[import_schema[x].name] = import_schema[x];
-                            manage_content_type(import_schema[x].name);
-                        }
-                    }
-    
-                    $('#import-modal').modal('hide');
-                });
-    
-                // setup event for saving the content type schema
-                $('#save-content-type-schema-button').click(function () {
-                    $('#save-content-type-schema-button').attr('disabled', true);
-                    let ct_schema = [];
-                    for (let ct_name in corpus.content_types) {
-                        ct_schema.push(corpus.content_types[ct_name]);
-                    }
-                    $('#ct-schema').val(JSON.stringify(ct_schema));
-                    $('#ct-schema-form').submit();
-                });
+                if (role === 'Editor' || role === 'Admin') {
+                    // setup the editor for importing a content type schema
+                    import_editor = ace.edit("import-editor");
+                    import_editor.setTheme("ace/theme/monokai");
+                    import_editor.getSession().setMode("ace/mode/json");
 
-                // PEP8 CLASS FORMAT CONTENT TYPE NAME
-                $('#new-ct-name-box').focusout(function() {
-                    $('#new-ct-name-box').val(pep8_class_format(pep8_variable_format($('#new-ct-name-box').val())));
-                });
+                    // setup the editor for editing template
+                    template_editor = ace.edit("template-editor");
+                    template_editor.setTheme("ace/theme/monokai");
+                    template_editor.getSession().setMode("ace/mode/django");
 
-                // PEP8 VARIABLE FORMAT FIELD NAME
-                $('#new-f-name-box').focusout(function() {
-                    $('#new-f-name-box').val(pep8_variable_format($('#new-f-name-box').val()));
-                });
-                
-                // NEW CONTENT TYPE BUTTON CLICK
-                $('#new-ct-button').click(function() {
-                    $('#new-ct-modal-label').html('Create Content Type');
-                    $('#new-ct-index').val('new');
-                    $('#new-ct-name-box').prop('disabled', false);
-                    $('#new-ct-name-box').val('');
-                    $('#new-ct-plural-name-box').val('');
-                    $('#new-ct-nav-checkbox').prop('checked', true);
-                    $('#new-ct-proxy-field-selector').val('');
-                    $('#new-ct-proxy-field-div').addClass('d-none');
-                    $('#new-ct-modal').modal();
-                });
-                
-                // CREATE/EDIT CONTENT TYPE BUTTON CLICK
-                $('#new-ct-create-button').click(function() {
-                    let ct_name = $('#new-ct-name-box').val();
-                    if (!corpus.content_types.hasOwnProperty(ct_name)) {
-                        corpus.content_types[ct_name] = {
-                            id: '',
-                            name: ct_name,
-                            plural_name: $('#new-ct-plural-name-box').val(),
-                            show_in_nav: $('#new-ct-nav-checkbox').is(':checked'),
-                            proxy_field: '',
-                            fields: [],
-                            is_new: true,
-                            templates: {
-                                Label: {
-                                    template: {% verbatim %}`${ct_name} {{ ${ct_name}.id }}`{% endverbatim %},
-                                    mime_type: "text/html"
-                                }
+                    // setup event for showing schema import modal
+                    $('#show-import-modal-button').click(function () {
+                        import_editor.setValue('');
+                        $('#import-modal-label').html('Import Schema');
+                        $('#import-button').removeClass('d-none');
+                        $('#import-modal').modal();
+                    });
+
+                    // setup event for clicking "Import" button on schema import modal
+                    $('#import-button').click(function () {
+                        let import_schema = JSON.parse(import_editor.getValue());
+                        for (let x = 0; x < import_schema.length; x++) {
+                            if (!corpus.content_types.hasOwnProperty(import_schema[x].name)) {
+                                corpus.content_types[import_schema[x].name] = import_schema[x];
+                                manage_content_type(import_schema[x].name);
                             }
                         }
-                    } else {
-                        corpus.content_types[ct_name].plural_name = $('#new-ct-plural-name-box').val();
-                        corpus.content_types[ct_name].show_in_nav = $('#new-ct-nav-checkbox').is(':checked');
-                        corpus.content_types[ct_name].proxy_field = $('#new-ct-proxy-field-selector').val();
+
+                        $('#import-modal').modal('hide');
+                    });
+
+                    // setup event for saving the content type schema
+                    $('#save-content-type-schema-button').click(function () {
+                        $('#save-content-type-schema-button').attr('disabled', true);
+                        let ct_schema = [];
+                        for (let ct_name in corpus.content_types) {
+                            ct_schema.push(corpus.content_types[ct_name]);
+                        }
+                        $('#ct-schema').val(JSON.stringify(ct_schema));
+                        $('#ct-schema-form').submit();
+                    });
+
+                    // PEP8 CLASS FORMAT CONTENT TYPE NAME
+                    $('#new-ct-name-box').focusout(function () {
+                        $('#new-ct-name-box').val(pep8_class_format(pep8_variable_format($('#new-ct-name-box').val())));
+                    });
+
+                    // PEP8 VARIABLE FORMAT FIELD NAME
+                    $('#new-f-name-box').focusout(function () {
+                        $('#new-f-name-box').val(pep8_variable_format($('#new-f-name-box').val()));
+                    });
+
+                    // NEW CONTENT TYPE BUTTON CLICK
+                    $('#new-ct-button').click(function () {
+                        $('#new-ct-modal-label').html('Create Content Type');
+                        $('#new-ct-index').val('new');
+                        $('#new-ct-name-box').prop('disabled', false);
+                        $('#new-ct-name-box').val('');
+                        $('#new-ct-plural-name-box').val('');
+                        $('#new-ct-nav-checkbox').prop('checked', true);
+                        $('#new-ct-proxy-field-selector').val('');
+                        $('#new-ct-proxy-field-div').addClass('d-none');
+                        $('#new-ct-modal').modal();
+                    });
+
+                    // CREATE/EDIT CONTENT TYPE BUTTON CLICK
+                    $('#new-ct-create-button').click(function () {
+                        let ct_name = $('#new-ct-name-box').val();
+                        if (!corpus.content_types.hasOwnProperty(ct_name)) {
+                            corpus.content_types[ct_name] = {
+                                id: '',
+                                name: ct_name,
+                                plural_name: $('#new-ct-plural-name-box').val(),
+                                show_in_nav: $('#new-ct-nav-checkbox').is(':checked'),
+                                proxy_field: '',
+                                fields: [],
+                                is_new: true,
+                                templates: {
+                                    Label: {
+                                        template: {% verbatim %}`${ct_name} {{ ${ct_name}.id }}`{% endverbatim %},
+                                        mime_type: "text/html"
+                                    }
+                                }
+                            };
+                        } else {
+                            corpus.content_types[ct_name].plural_name = $('#new-ct-plural-name-box').val();
+                            corpus.content_types[ct_name].show_in_nav = $('#new-ct-nav-checkbox').is(':checked');
+                            corpus.content_types[ct_name].proxy_field = $('#new-ct-proxy-field-selector').val();
+                        }
+
+                        $('#new-ct-modal').modal('hide');
+                        manage_content_type(ct_name);
+                    });
+
+                    // FIELD TYPE SELECTION CHANGE
+                    $('#new-f-type-box').change(function () {
+                        let selection = $(this).val();
+
+                        if (selection == 'cross_reference') {
+                            $('#new-f-cross-reference-box').removeClass('d-none');
+                        } else {
+                            $('#new-f-cross-reference-box').addClass('d-none');
+                        }
+                    });
+
+                    // FIELD INDEXED CHECK CHANGE
+                    $('#new-f-indexed-checkbox').change(function () {
+                        if ($(this).is(':checked') && $('#new-f-indexed-with-box option').length > 0) {
+                            $('#new-f-indexed-with-div').removeClass('d-none');
+                            $('#new-f-indexed-with-div').addClass('d-flex');
+                        } else {
+                            $('#new-f-indexed-with-div').removeClass('d-flex');
+                            $('#new-f-indexed-with-div').addClass('d-none');
+                        }
+                    });
+
+                    // FIELD UNIQUE CHECK CHANGE
+                    $('#new-f-unique-checkbox').change(function () {
+                        if ($(this).is(':checked') && $('#new-f-unique-with-box option').length > 0) {
+                            $('#new-f-unique-with-div').removeClass('d-none');
+                            $('#new-f-unique-with-div').addClass('d-flex');
+                        } else {
+                            $('#new-f-unique-with-div').removeClass('d-flex');
+                            $('#new-f-unique-with-div').addClass('d-none');
+                        }
+                    });
+
+                    // CREATE FIELD BUTTON CLICK
+                    $('#new-f-create-button').click(function () {
+                        let cross_reference_type = '';
+                        if ($('#new-f-type-box').val() == 'cross_reference') {
+                            cross_reference_type = $('#new-f-cross-reference-box').val();
+                        }
+
+                        let field = {
+                            name: $('#new-f-name-box').val(),
+                            label: $('#new-f-label-box').val(),
+                            in_lists: $('#new-f-in-lists-checkbox').is(':checked'),
+                            indexed: $('#new-f-indexed-checkbox').is(':checked'),
+                            indexed_with: $('#new-f-indexed-with-box').val(),
+                            unique: $('#new-f-unique-checkbox').is(':checked'),
+                            unique_with: $('#new-f-unique-with-box').val(),
+                            multiple: $('#new-f-multiple-checkbox').is(':checked'),
+                            cross_reference_type: cross_reference_type,
+                            type: $('#new-f-type-box').val(),
+                        };
+
+                        let ct_name = $('#new-f-ct-name').val();
+                        let f_index = $('#new-f-f-id').val();
+                        let action = $('#new-f-action').val();
+
+                        if (action === 'create' && f_index === 'new') {
+                            corpus.content_types[ct_name].fields.push(field);
+                            manage_field(ct_name, corpus.content_types[ct_name].fields.length - 1);
+                        } else {
+                            f_index = parseInt(f_index);
+                            corpus.content_types[ct_name].fields[f_index] = field;
+                            manage_field(ct_name, f_index);
+                        }
+
+                        $('#new-f-modal').modal('hide');
+                    });
+
+                    // TEMPLATE SAVE BUTTON
+                    $(`#template-save-button`).click(function () {
+                        let ct_name = $('#template-ct-name').val();
+                        let template_name = $('#template-name').val();
+
+                        corpus.content_types[ct_name].templates[template_name].template = template_editor.getValue();
+                        corpus.content_types[ct_name].templates[template_name].mime_type = $('#template-mime-type').val();
+
+                        $('#template-modal').modal('hide');
+                    });
+
+                    // BUILD CONTENT TABLES AND SETUP CONTENT TYPE MANAGER
+                    if (corpus.content_types) {
+                        $('#tm-ct-group').html('');
                     }
 
-                    $('#new-ct-modal').modal('hide');
-                    manage_content_type(ct_name);
-                });
+                    // HANDLE CORPUS DELETION EVENTS
+                    $('#corpus-show-delete-confirmation-button').click(function () {
+                        $('#corpus-deletion-name-span').html(corpus.name);
+                        if ($(this).html() === "Delete Corpus") {
+                            $('#corpus-deletion-confirmation-div').removeClass('d-none');
+                            $(this).html("Cancel Corpus Deletion");
+                        } else {
+                            $('#corpus-deletion-confirmation-div').addClass('d-none');
+                            $(this).html("Delete Corpus");
+                        }
+                    });
 
-                // FIELD TYPE SELECTION CHANGE
-                $('#new-f-type-box').change(function() {
-                    let selection = $(this).val();
-
-                    if (selection == 'cross_reference') {
-                        $('#new-f-cross-reference-box').removeClass('d-none');
-                    } else {
-                        $('#new-f-cross-reference-box').addClass('d-none');
-                    }
-                });
-
-                // FIELD INDEXED CHECK CHANGE
-                $('#new-f-indexed-checkbox').change(function() {
-                    if ($(this).is(':checked') && $('#new-f-indexed-with-box option').length > 0) {
-                        $('#new-f-indexed-with-div').removeClass('d-none');
-                        $('#new-f-indexed-with-div').addClass('d-flex');
-                    } else {
-                        $('#new-f-indexed-with-div').removeClass('d-flex');
-                        $('#new-f-indexed-with-div').addClass('d-none');
-                    }
-                });
-
-                // FIELD UNIQUE CHECK CHANGE
-                $('#new-f-unique-checkbox').change(function() {
-                    if ($(this).is(':checked') && $('#new-f-unique-with-box option').length > 0) {
-                        $('#new-f-unique-with-div').removeClass('d-none');
-                        $('#new-f-unique-with-div').addClass('d-flex');
-                    } else {
-                        $('#new-f-unique-with-div').removeClass('d-flex');
-                        $('#new-f-unique-with-div').addClass('d-none');
-                    }
-                });
-
-                // CREATE FIELD BUTTON CLICK
-                $('#new-f-create-button').click(function() {
-                    let cross_reference_type = '';
-                    if ($('#new-f-type-box').val() == 'cross_reference') {
-                        cross_reference_type = $('#new-f-cross-reference-box').val();
-                    }
-
-                    let field = {
-                        name: $('#new-f-name-box').val(),
-                        label: $('#new-f-label-box').val(),
-                        in_lists: $('#new-f-in-lists-checkbox').is(':checked'),
-                        indexed: $('#new-f-indexed-checkbox').is(':checked'),
-                        indexed_with: $('#new-f-indexed-with-box').val(),
-                        unique: $('#new-f-unique-checkbox').is(':checked'),
-                        unique_with: $('#new-f-unique-with-box').val(),
-                        multiple: $('#new-f-multiple-checkbox').is(':checked'),
-                        cross_reference_type: cross_reference_type,
-                        type: $('#new-f-type-box').val(),
-                    };
-
-                    let ct_name = $('#new-f-ct-name').val();
-                    let f_index = $('#new-f-f-id').val();
-                    let action = $('#new-f-action').val();
-
-                    if (action === 'create' && f_index === 'new') {
-                        corpus.content_types[ct_name].fields.push(field);
-                        manage_field(ct_name, corpus.content_types[ct_name].fields.length - 1);
-                    } else {
-                        f_index = parseInt(f_index);
-                        corpus.content_types[ct_name].fields[f_index] = field;
-                        manage_field(ct_name, f_index);
-                    }
-
-                    $('#new-f-modal').modal('hide');
-                });
-
-                // TEMPLATE SAVE BUTTON
-                $(`#template-save-button`).click(function (){
-                    let ct_name = $('#template-ct-name').val();
-                    let template_name = $('#template-name').val();
-
-                    corpus.content_types[ct_name].templates[template_name].template = template_editor.getValue();
-                    corpus.content_types[ct_name].templates[template_name].mime_type = $('#template-mime-type').val();
-
-                    $('#template-modal').modal('hide');
-                });
-
-                // BUILD CONTENT TABLES AND SETUP CONTENT TYPE MANAGER
-                if (corpus.content_types) {
-                    $('#tm-ct-group').html('');
+                    $('#corpus-delete-button').click(function () {
+                        $('#corpus-deletion-form').submit();
+                    });
                 }
 
                 for (let ct_name in corpus.content_types) {
                     build_content_table(ct_name);
-                    manage_content_type(ct_name);
+
+                    if (role === 'Editor' || role === 'Admin') {
+                        manage_content_type(ct_name);
+                    }
                 }
 
-                // HANDLE CORPUS DELETION EVENTS
-                $('#corpus-show-delete-confirmation-button').click(function() {
-                    $('#corpus-deletion-name-span').html(corpus.name);
-                    if ($(this).html() === "Delete Corpus") {
-                        $('#corpus-deletion-confirmation-div').removeClass('d-none');
-                        $(this).html("Cancel Corpus Deletion");
-                    } else {
-                        $('#corpus-deletion-confirmation-div').addClass('d-none');
-                        $(this).html("Delete Corpus");
-                    }
-                });
+                // SETUP JOBS
+                corpora.get_jobsites(function(jobsites_data) {
+                    jobsites = jobsites_data;
 
-                $('#corpus-delete-button').click(function() {
-                    $('#corpus-deletion-form').submit();
+                    if (role === 'Editor' || role === 'Admin') {
+                        let jobsite_selector = $('#jobsite-selector');
+
+                        for (let x = 0; x < jobsites.length; x++) {
+                            jobsite_selector.append(`
+                                <option value="${_id(jobsites[x])}" class="${jobsites[x]["type"]}">
+                                    ${jobsites[x]["name"]}
+                                </option>
+                            `);
+                            if (jobsites[x].name === 'Local') {
+                                local_jobsite_id = _id(jobsites[x]);
+                            }
+                        }
+                    }
+
+                    corpora.get_tasks('Corpus', function(tasks_data) {
+                        tasks = tasks_data.filter(function(value, index, arr) { return value.track_provenance; });
+
+                        if (role === 'Editor' || role === 'Admin') {
+                            load_tasks(local_jobsite_id);
+                            $("#jobsite-selector").on("change", function () {
+                                load_tasks($('#jobsite-selector :selected').val());
+                            });
+
+                            $('#run-job-button').click(function () {
+                                $('#job-modal').modal();
+                            });
+
+                            $('#job-submit-button').click(function () {
+                                $('#job-form').submit();
+                            });
+                        }
+
+                        check_jobs();
+                    });
                 });
 
                 let scroll_location = location.hash;
                 location.hash = '';
                 location.hash = scroll_location;
-            });
-
-            // SETUP JOBS
-            corpora.get_jobsites(function(jobsites_data) {
-                jobsites = jobsites_data;
-                let jobsite_selector = $('#jobsite-selector');
-
-                for (let x = 0; x < jobsites.length; x++) {
-                    jobsite_selector.append(`
-                        <option value="${_id(jobsites[x])}" class="${jobsites[x]["type"]}">
-                            ${jobsites[x]["name"]}
-                        </option>
-                    `);
-                    if (jobsites[x].name === 'Local') {
-                        local_jobsite_id = _id(jobsites[x]);
-                    }
-                }
-                corpora.get_tasks('Corpus', function(tasks_data) {
-                    tasks = tasks_data.filter(function(value, index, arr) { return value.track_provenance; });
-                    load_tasks(local_jobsite_id);
-                    $("#jobsite-selector").on("change", function() {
-                        load_tasks($('#jobsite-selector :selected').val());
-                    });
-
-                    $('#run-job-button').click(function() {
-                        $('#job-modal').modal();
-                    });
-
-                    $('#job-submit-button').click(function() {
-                        $('#job-form').submit();
-                    });
-                });
             });
 
             hide_loading_overlay();
@@ -856,7 +881,7 @@
                                     </div>
 
                                     <button id="ct-${ct.name}-search-clear-button" class="btn btn-primary rounded mr-2 d-none" type="button">Clear Search</button>
-                                    <a role="button" id="ct-${ct.name}-new-button" href="/corpus/${corpus_id}/${ct.name}/" class="btn btn-primary rounded mr-2">New ${ct.name}</a>
+                                    ${ (role === 'Editor' || role === 'Admin') ? `<a role="button" id="ct-${ct.name}-new-button" href="/corpus/${corpus_id}/${ct.name}/" class="btn btn-primary rounded mr-2">New ${ct.name}</a>` : ''}
 
                                     <div class="form-inline mr-2">
                                         <select class="form-control btn-primary d-none" id="ct-${ct.name}-page-selector">
@@ -1112,14 +1137,19 @@
                                     value = `<a href="${value.uri}" target="_blank">${value.label}</a>`;
                                 }
                             } else if (field.multiple) {
-                                let multi_value = '';
-                                for (let y in value) {
-                                    multi_value += `, ${value[y]}`;
+                                if (field.type == 'text' || field.type == 'keyword') {
+                                    value = value.join(' ');
                                 }
-                                if (multi_value) {
-                                    multi_value = multi_value.substring(2);
+                                else {
+                                    let multi_value = '';
+                                    for (let y in value) {
+                                        multi_value += `, ${value[y]}`;
+                                    }
+                                    if (multi_value) {
+                                        multi_value = multi_value.substring(2);
+                                    }
+                                    value = multi_value;
                                 }
-                                value = multi_value;
                             }
 
                             row_html += `
@@ -1689,22 +1719,7 @@
                         note_html = `<span class='text-muted'>${parameters[parameter]['note']}</span>`;
                     }
 
-                    if (parameters[parameter]['type'] == 'page_file_collection') {
-                        let select_options = '';
-                        for (let slug in doc.page_file_collections) {
-                            select_options += `<option value="${slug}">${doc.page_file_collections[slug].label}</option>\n`;
-                        }
-
-                        parameter_html = `
-                            <div class="form-group">
-                                <label for="${modal}-collection-selector">${parameters[parameter]['label']}</label>
-                                <select id="${modal}-collection-selector" class="form-control" name="${parameter}">
-                                    ${select_options}
-                                </select>
-                                ${note_html}
-                            </div>
-                        `;
-                    } else if (parameters[parameter]['type'] == 'corpus_file') {
+                    if (parameters[parameter]['type'] === 'corpus_file') {
                         let select_options = '';
                         Object.keys(corpus.files).forEach(file_key => {
                             select_options += `<option value="${file_key}">${corpus.files[file_key].basename}</option>`;
@@ -1719,7 +1734,7 @@
                                 ${note_html}
                             </div>
                         `;
-                    } else if (parameters[parameter]['type'] == 'choice' && parameters[parameter].hasOwnProperty('choices')) {
+                    } else if (parameters[parameter]['type'] === 'choice' && parameters[parameter].hasOwnProperty('choices')) {
                         let select_options = '';
                         parameters[parameter]['choices'].forEach(choice => {
                             select_options += `<option>${choice}</option>\n`;
@@ -1727,10 +1742,18 @@
 
                         parameter_html = `
                             <div class="form-group">
-                                <label for="${modal}-collection-selector">${parameters[parameter]['label']}</label>
-                                <select id="${modal}-collection-selector" class="form-control" name="${parameter}">
+                                <label for="${parameter}-choice-selector">${parameters[parameter]['label']}</label>
+                                <select id="${parameter}-choice-selector" class="form-control" name="${parameter}">
                                     ${select_options}
                                 </select>
+                                ${note_html}
+                            </div>
+                        `;
+                    } else if (parameters[parameter]['type'] === 'text') {
+                        parameter_html = `
+                            <div class="form-group">
+                                <label for="${parameter}-text-box">${parameters[parameter]['label']}</label>
+                                <input type="text" class="form-control" id="${parameter}-text-box" name="${parameter}" />
                                 ${note_html}
                             </div>
                         `;
@@ -1752,6 +1775,14 @@
 
                 for (let x = 0; x < jobs.length; x++) {
                     if (jobs[x].status == 'running' || jobs[x].status == 'preparing') {
+                        let task_name = "";
+                        for (let task_index = 0; task_index < tasks.length; task_index++) {
+                            if (_id(tasks[task_index]) === jobs[x].task_id) {
+                                task_name = tasks[task_index].name;
+                                break;
+                            }
+                        }
+
                         if (!has_running) {
                             $('#running-jobs-div').html('');
                             has_running = true;
@@ -1774,7 +1805,7 @@
                         } else {
                             let job_html = `
                                 <div id="running-job-${job_id}-div" class="alert alert-info running-job">
-                                    Task: <b>${get_task_name(jobs[x].task_id)}</b>
+                                    Task: <b>${task_name}</b>
                                     <div class="progress">
                                         <div id="running-job-${job_id}-progress-bar"
                                              class="progress-bar progress-bar-striped bg-success progress-bar-animated"

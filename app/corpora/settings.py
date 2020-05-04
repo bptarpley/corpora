@@ -57,7 +57,7 @@ INSTALLED_APPS = [
     #'plugins.google_cloud_vision',
     #'plugins.nlp',
     'plugins.emop',
-    #'plugins.nvs',
+    'plugins.nvs',
     'plugins.cervantes',
     'rest_framework',
     'rest_framework.authtoken',

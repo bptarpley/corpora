@@ -10,6 +10,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', manager_views.corpora),
     path('scholar', manager_views.scholar),
+    path('scholars', manager_views.scholars),
     path('corpus/<str:corpus_id>/', manager_views.corpus),
 ]
 
@@ -32,6 +33,10 @@ urlpatterns += [
     path('api/jobsites/', manager_views.api_jobsites),
     path('api/tasks/', manager_views.api_tasks),
     path('api/tasks/<str:content_type>/', manager_views.api_tasks),
+
+    path('api/scholar/', manager_views.api_scholar),
+    path('api/scholar/<str:scholar_id>/', manager_views.api_scholar),
+
     path('api/corpus/', manager_views.api_corpora),
     path('api/corpus/<str:corpus_id>/', manager_views.api_corpus),
     path('api/corpus/<str:corpus_id>/jobs/', manager_views.api_corpus_jobs),

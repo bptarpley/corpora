@@ -7,7 +7,7 @@ from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
 from neo4j import GraphDatabase
 from django.conf import settings
-from elasticsearch_dsl import Index, Mapping, Keyword, Text, Boolean
+from elasticsearch_dsl import Index, Mapping, Keyword, Text, Boolean, normalizer
 from corpus import *
 
 initialized_file = '/corpora/initialized'
@@ -120,17 +120,9 @@ class Command(BaseCommand):
             if ":Corpus" not in constraints:
                 neo.run("CREATE CONSTRAINT ON(c:Corpus) ASSERT c.uri IS UNIQUE")
                 constraint_created = True
-            if ":Document" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(d:Document) ASSERT d.uri IS UNIQUE")
-                constraint_created = True
-            if ":Page" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(p:Page) ASSERT p.uri IS UNIQUE")
-                constraint_created = True
             if ":File" not in constraints:
                 neo.run("CREATE CONSTRAINT ON(f:File) ASSERT f.uri IS UNIQUE")
-                constraint_created = True
-            if ":PageFileCollection" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(pfc:PageFileCollection) ASSERT pfc.uri IS UNIQUE")
+                neo.run("CREATE INDEX ON :File(corpus_id)")
                 constraint_created = True
             if ":JobSite" not in constraints:
                 neo.run("CREATE CONSTRAINT ON(js:JobSite) ASSERT js.uri IS UNIQUE")
@@ -167,6 +159,48 @@ class Command(BaseCommand):
             local_jobsite.save()
             print("\t-- LOCAL JOB SITE CREATED :)")
 
+        # Ensure Corpora Elasticsearch index exists
+        if Index('corpora').exists():
+            print("\t-- CORPORA INDEX EXISTS :)")
+        else:
+            # Create Corpora Elasticsearch index
+            corpora_analyzer = analyzer(
+                'corpora_analyzer',
+                tokenizer='classic',
+                filter=['stop', 'lowercase', 'classic']
+            )
+
+            mapping = Mapping()
+            mapping.field('name', 'text', analyzer=corpora_analyzer, fields={'raw': Keyword()})
+            mapping.field('description', 'text', analyzer=corpora_analyzer)
+            mapping.field('open_access', Boolean())
+            corpora_index = Index('corpora')
+            corpora_index.mapping(mapping)
+            corpora_index.save()
+            print("\t-- CORPORA INDEX CREATED :)")
+
+        # Ensure Scholar Elasticsearch index exists
+        if Index('scholar').exists():
+            print("\t-- SCHOLAR INDEX EXISTS :)")
+        else:
+            # Create Scholar Elasticsearch index
+            corpora_normalizer = normalizer(
+                'corpora_normalizer',
+                filter=['lowercase']
+            )
+
+            mapping = Mapping()
+            mapping.field('username', Keyword(normalizer=corpora_normalizer))
+            mapping.field('fname', Keyword(normalizer=corpora_normalizer))
+            mapping.field('lname', Keyword(normalizer=corpora_normalizer))
+            mapping.field('email', Keyword(normalizer=corpora_normalizer))
+            mapping.field('is_admin', Boolean())
+            mapping.field('available_corpora', Keyword())
+            scholar_index = Index('scholar')
+            scholar_index.mapping(mapping)
+            scholar_index.save()
+            print("\t-- SCHOLAR INDEX CREATED :)")
+
         # Ensure a user exists
         if User.objects.all().count() > 0:
             print("\t-- USERS EXIST :)")
@@ -193,26 +227,6 @@ class Command(BaseCommand):
             scholar.auth_token = token.key
             scholar.save()
             print("\t-- DEFAULT USER CREATED :)")
-
-        # Ensure Corpora Elasticsearch index exists
-        if Index('corpora').exists():
-            print("\t-- CORPORA INDEX EXISTS :)")
-        else:
-            # Create Corpora Elasticsearch index
-            corpora_analyzer = analyzer(
-                'corpora_analyzer',
-                tokenizer='classic',
-                filter=['stop', 'lowercase', 'classic']
-            )
-
-            mapping = Mapping()
-            mapping.field('name', 'text', analyzer=corpora_analyzer, fields={ 'raw': Keyword() })
-            mapping.field('description', 'text', analyzer=corpora_analyzer)
-            mapping.field('open_access', Boolean())
-            corpora_index = Index('corpora')
-            corpora_index.mapping(mapping)
-            corpora_index.save()
-            print("\t-- CORPORA INDEX CREATED :)")
 
         # Register new plug-in tasks (or update existing with new version)
         jobsites = JobSite.objects()
