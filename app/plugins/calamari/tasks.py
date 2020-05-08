@@ -6,6 +6,8 @@ from huey.contrib.djhuey import db_task
 from corpus import *
 import os
 import re
+import shutil
+
 import numpy as np
 
 
@@ -66,7 +68,7 @@ def ocr_document_with_calamari(job_id):
 @db_task(priority=1, context=True)
 def ocr_pages_with_calamari(job_id, starting_page, ending_page, primary_witness, task=None):
     job = Job(job_id)
-    model_path = "/corpora/models/model_00023716.ckpt.json"
+    model_path = "/corpora/models/model_final.ckpt.json"
     page_file_collection_key = job.configuration['parameters']['collection']['value']
     page_files = job.content.get_page_file_collection(job.corpus_id, job.content_id, page_file_collection_key)['page_files']
     assigned_pages = page_files.ordered_ref_nos[starting_page:ending_page + 1]
@@ -181,10 +183,15 @@ def ocr_combine_output_files(job_id, lines_folder, file_page_name, ref_no):
                 f_read.close()
     except Exception as e:
         print(e)
+    try:
+        shutil.rmtree(lines_folder)
+    except Exception as e:
+        print(e)
 
 
 @db_task(priority=2)
 def complete_ocr_document_with_calamari(job_id):
+
     job = Job(job_id)
     job.content.save(index_pages=True)
     job.complete(status='complete')
