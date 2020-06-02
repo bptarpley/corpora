@@ -1,0 +1,21 @@
+body {
+    background-color: #FFFFFF;
+}
+
+.play-row {
+    border-bottom: solid 4px #fdf4ee;
+}
+
+.play-words {
+    padding-top: 10px;
+    font-family: 'Libre Baskerville', serif;
+    max-width: 800px;
+    color: #070707;
+}
+
+.play-label {
+    padding-top: 15px;
+    background-color: #fbf5f1;
+    font-family: 'Roboto', sans-serif;
+    font-size: 10px;
+}

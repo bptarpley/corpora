@@ -16,7 +16,7 @@ from PIL import Image
 from django.conf import settings
 from elasticsearch_dsl import Index, Mapping, analyzer, Keyword, Text, Integer, Date, \
     Nested, char_filter, Q, Search
-from elasticsearch_dsl.query import SimpleQueryString
+from elasticsearch_dsl.query import SimpleQueryString, Ids
 from elasticsearch_dsl.connections import get_connection
 from django.template import Template, Context
 
@@ -805,6 +805,7 @@ class ContentType(mongoengine.EmbeddedDocument):
         )
 
         mongoengine.signals.pre_save.connect(ct_class._pre_save, sender=ct_class)
+        mongoengine.signals.pre_delete.connect(ct_class._pre_delete, sender=ct_class)
 
         return ct_class
 
@@ -983,6 +984,53 @@ class Corpus(mongoengine.Document):
 
         return content
 
+    def make_link(self, source_uri, target_uri, link_label, cardinality=1):
+        # cardinality values:
+        # 0: source --- target
+        # 1: source --> target
+        # 2: source <-- target
+        # 3: source <-> target
+
+        source_uri_parts = [part for part in source_uri.split('/') if part]
+        target_uri_parts = [part for part in target_uri.split('/') if part]
+
+        if len(source_uri_parts) == 4 and len(target_uri_parts) == 4:
+            if source_uri_parts[1] == str(self.id) and target_uri_parts[1] == source_uri_parts[1]:
+
+                source_content_type = source_uri_parts[2]
+                target_content_type = target_uri_parts[2]
+
+                if source_content_type in self.content_types and target_content_type in self.content_types:
+
+                    relationship_start = '-'
+                    relationship_end = '->'
+
+                    if cardinality == 0:
+                        relationship_end = '-'
+                    elif cardinality == 2:
+                        relationship_start = '<-'
+                        relationship_end = '-'
+                    elif cardinality == 3:
+                        relationship_start = '<-'
+
+                    run_neo(
+                        '''
+                            MATCH (src:{source_content_type} {{ uri: $source_uri }})
+                            MATCH (trg:{target_content_type) {{ uri: $target_uri }})
+                            MERGE (src) {rel_start}[rel:{link_label}]{rel_end} (trg)
+                        '''.format(
+                            source_content_type=source_content_type,
+                            target_content_type=target_content_type,
+                            rel_start=relationship_start,
+                            rel_end=relationship_end,
+                            link_label=link_label
+                        ),
+                        {
+                            'source_uri': source_uri,
+                            'target_uri': target_uri
+                        }
+                    )
+
     def get_content_dbref(self, content_type, content_id):
         if not type(content_id) == ObjectId:
             content_id = ObjectId(content_id)
@@ -991,7 +1039,7 @@ class Corpus(mongoengine.Document):
             content_id
         )
 
-    def search_content(self, content_type, page=1, page_size=50, general_query="", fields_query=[], fields_sort=[], only=[]):
+    def search_content(self, content_type, page=1, page_size=50, general_query="", fields_query=[], fields_filter=[], fields_sort=[], only=[], search_mode="wildcard"):
         results = {
             'meta': {
                 'content_type': content_type,
@@ -1017,18 +1065,37 @@ class Corpus(mongoengine.Document):
 
             if fields_query:
                 for search_field in fields_query.keys():
-                    if '.' in search_field:
-                        field_parts = search_field.split('.')
-                        must.append(Q(
-                            "nested",
-                            path=field_parts[0],
-                            query=Q(
-                                "match_phrase",
-                                **{search_field: fields_query[search_field]}
-                            )
-                        ))
-                    else:
-                        must.append(Q("match_phrase", **{search_field: fields_query[search_field]}))
+                    field_values = [value_part for value_part in fields_query[search_field].split('__') if value_part]
+                    for field_value in field_values:
+                        if '.' in search_field:
+                            field_parts = search_field.split('.')
+                            must.append(Q(
+                                "nested",
+                                path=field_parts[0],
+                                query=Q(
+                                    search_mode,
+                                    **{search_field: field_value}
+                                )
+                            ))
+                        else:
+                            must.append(Q( search_mode, **{search_field: field_value}))
+
+            if fields_filter:
+                for search_field in fields_filter.keys():
+                    field_values = [value_part for value_part in fields_filter[search_field].split('__') if value_part]
+                    for field_value in field_values:
+                        if '.' in search_field:
+                            field_parts = search_field.split('.')
+                            should.append(Q(
+                                "nested",
+                                path=field_parts[0],
+                                query=Q(
+                                    search_mode,
+                                    **{search_field: field_value}
+                                )
+                            ))
+                        else:
+                            should.append(Q( search_mode, **{search_field: field_value}))
 
             if general_query and fields_query:
                 must.append(SimpleQueryString(query=general_query))
@@ -1648,6 +1715,21 @@ class Content(mongoengine.Document):
             if do_linking:
                 self._do_linking()
 
+    @classmethod
+    def _pre_delete(cls, sender, document, **kwargs):
+        run_neo(
+            '''
+                MATCH (d:{content_type} {{ uri: $content_uri }})
+                DETACH DELETE d
+            '''.format(content_type=document.content_type),
+            {
+                'content_uri': document.uri
+            }
+        )
+
+        es_index = "corpus-{0}-{1}".format(document.corpus_id, document.content_type.lower())
+        Search(index=es_index).query("match", _id=str(document.id)).delete()
+
     def _make_label(self):
         if not self.label:
             label_template = Template(self._ct.templates['Label'].template)
@@ -1744,7 +1826,7 @@ class Content(mongoengine.Document):
                                 }
 
                                 for xref_field in self._corpus.content_types[field.cross_reference_type].fields:
-                                    if xref_field.in_lists:
+                                    if xref_field.in_lists and not xref_field.cross_reference_type:
                                         xref_dict[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
                                 field_value.append(xref_dict)
                         else:

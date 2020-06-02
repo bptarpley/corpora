@@ -1704,6 +1704,15 @@
                     }
                 }
             }
+
+            $('#task-selector').change(function() {
+                let selected_task_id = $('#task-selector').val();
+                for (let t_index = 0; t_index < tasks.length; t_index++) {
+                    if (_id(tasks[t_index]) === selected_task_id) {
+                        load_task_parameters(tasks[t_index]);
+                    }
+                }
+            });
         }
 
         function load_task_parameters(task) {

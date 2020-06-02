@@ -27,7 +27,7 @@ class Corpora {
         this.csrf_token = 'csrf_token' in config ? config.csrf_token : "";
     }
 
-    make_request(path, type, params={}, callback) {
+    make_request(path, type, params={}, callback, spool=false, spool_records = []) {
         let req = {
             type: type,
             url: `${this.host}${path}`,
@@ -35,6 +35,37 @@ class Corpora {
             data: params,
             success: callback
         };
+
+        if (spool) {
+            let corpora_instance = this;
+            req.success = function(data) {
+                if (
+                    data.hasOwnProperty('records') &&
+                    data.hasOwnProperty('meta') &&
+                    data.meta.hasOwnProperty('has_next_page') &&
+                    data.meta.hasOwnProperty('page') &&
+                    data.meta.hasOwnProperty('page_size') &&
+                    data.meta.has_next_page
+                ) {
+                    let next_params = Object.assign({}, params);
+                    next_params.page = data.meta.page + 1;
+                    next_params['page-size'] = data.meta.page_size;
+
+                    corpora_instance.make_request(
+                        path,
+                        type,
+                        next_params,
+                        callback,
+                        spool,
+                        spool_records.concat(data.records)
+                    )
+                } else {
+                    data.records = spool_records.concat(data.records);
+                    callback(data);
+                }
+            }
+        }
+
         if (this.auth_token) {
             req['beforeSend'] = function(xhr) { xhr.setRequestHeader("Authorization", `Token ${sender.auth_token}`); }
         } else if (type === 'POST' && this.csrf_token) {
@@ -142,12 +173,13 @@ class Corpora {
         );
     }
 
-    list_content(corpus_id, content_type, search={}, callback) {
+    list_content(corpus_id, content_type, search={}, callback, spool=false) {
         this.make_request(
             `/api/corpus/${corpus_id}/${content_type}/`,
             "GET",
             search,
-            callback
+            callback,
+            spool
         );
     }
 
