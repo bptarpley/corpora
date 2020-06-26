@@ -1,8 +1,10 @@
 import os
 import re
 import difflib
+import logging
 from .content import REGISTRY as NVS_CONTENT_TYPE_SCHEMA
 from plugins.document.content import REGISTRY as DOCUMENT_REGISTRY
+from mongoengine.queryset.visitor import Q as mongoQ
 from corpus import *
 from manager.tasks import run_job
 from manager.utilities import _contains, parse_uri
@@ -102,6 +104,7 @@ nvs_document_fields = [
 
 text_replacements = {}
 
+
 def import_data(job_id):
     job = Job(job_id)
     corpus = job.corpus
@@ -133,6 +136,9 @@ def import_data(job_id):
             nvs_doc_schema['templates']['Label']['template'] = "{{ Document.siglum_label|safe }}"
             corpus.save_content_type(nvs_doc_schema)
 
+        es_logger = logging.getLogger('elasticsearch')
+        es_log_level = es_logger.getEffectiveLevel()
+        es_logger.setLevel(logging.WARNING)
 
         if os.path.exists(driver_file.path):
 
@@ -196,6 +202,9 @@ def import_data(job_id):
                 parse_textualnotes_file(corpus, include_file_paths['textualnotes'])
                 parse_bibliography(corpus, include_file_paths['bibliography'])
                 parse_commentary(corpus, include_file_paths['commentary'])
+                render_lines_html(corpus)
+
+        es_logger.setLevel(es_log_level)
     except:
         print(traceback.format_exc())
 
@@ -371,13 +380,10 @@ def parse_front_file(corpus, front_file_path):
 
 
 def parse_playtext_file(corpus, playtext_file_path, basetext_siglum):
-    playtext_lines = []
     unhandled_tags = []
 
     with open(playtext_file_path, 'r') as tei_in:
         tei = BeautifulSoup(tei_in, "xml")
-        tei_in.seek(0)
-        playtext_lines = tei_in.readlines()
 
     # retrieve basetext document
     basetext = corpus.get_content("Document", {'siglum': basetext_siglum})[0]
@@ -393,625 +399,217 @@ def parse_playtext_file(corpus, playtext_file_path, basetext_siglum):
                 cast_member.role = cast_member.xml_id
             cast_member.save()
 
-        # go line by line to extract thru lines
-        patterns = {
-            'open_milestone': r'<milestone unit="[^"]*" n="([^"]*)">', # can be multi line
-            'close_milestone': r'<\/milestone>',
-            'open_stage': r'<stage type="([^"]*)"[^>]*>', # can be multi line
-            'close_stage': r'<\/stage>',
-            'open_speaker': r'<sp who="([^"]*)"[^>]*>', # can have multiple speakers in who attribute
-            'close_speaker': r'<\/sp>',
-            'open_name': r'<name>',
-            'close_name': r'<\/name>',
-            'line': r'<lb xml:id="([^"]*)" n="([^"]*)"[^>]*>',
-            'act_scene': r'<div type="([^"]*)" n="([^"]*)"[^>]*>',
-            'open_head': r'<head ?[^>]*>',
-            'close_head': r'<\/head>',
-            'open_sp': r'<speaker>',
-            'close_sp': r'<\/speaker>',
-            'open_castlist': r'<castList xml:id="([^"]*)">',
-            'close_castlist': r'<\/castList>',
-            'open_castgroup': r'<castGroup rend="braced_right\(#([^\)]*)\)">',
-            'close_castgroup': r'<\/castGroup>',
-            'open_castitem': r'<castItem>',
-            'close_castitem': r'<\/castItem>',
-            'self_closing_role': r'<role xml:id="([^"]*)"\/>',
-            'open_role': r'<role xml:id="([^"]*)">',
-            'close_role': r'<\/role>',
-            'open_roledesc': r'<roleDesc>',
-            'close_roledesc': r'<\/roleDesc>',
-            'open_roledesc_id': r'<roleDesc xml:id="([^"]*)">',
-            'open_foreign': r'<foreign xml:lang="([^"]*)" rend="italic">',
-            'close_foreign': r'<\/foreign>',
-            'open_italic_p': r'<p rend="italic">',
-            'close_italic_p': r'<\/p>',
-            'open_lg_song': r'<lg type="song" xml:id="([^"]*)" rend="italic">',
-            'open_lg_stanza': r'<lg type="stanza">',
-            'close_lg': r'<\/lg>',
-        }
-
-        word_info = {
-            'line_number': 1,
-            'word_index': 0,
-            'play_line': None,
+        line_info = {
+            'line_number': 0,
+            'line_xml_id': None,
+            'line_label': None,
             'act': None,
             'scene': None,
-            'name_start_index': None,
-            'name_words': [],
-            'line_group_start_index': None,
-            'stage_direction_line_location': None,
-            'stage_direction': None,
-            'speakers': [],
-            'speaker_line_location': None,
             'witness_location_id': None,
+            'witness_count': corpus.get_content('Document', {'nvs_doc_type': 'witness'}).count(),
+            'basetext_id': basetext.id,
+            'saved_lines': {},
+            'playtags': [],
+            'unhandled_tags': [],
+            'words': [],
         }
 
-        milestone_open = False
+        for child in tei.find('div', attrs={'type': 'playtext', 'xml:id': 'div_playtext'}).children:
+            handle_playtext_tag(corpus, child, line_info)
+
+        fakeline = BeautifulSoup('<lb xml:id="fake" n="fake"/>', 'xml')
+        handle_playtext_tag(corpus, fakeline.lb, line_info)
+
+        for playtag_info in line_info['playtags']:
+            start_line = playtag_info['starting_line_no']
+            start_word = playtag_info['starting_word_index']
+            end_line = playtag_info['ending_line_no']
+            end_word = playtag_info['ending_word_index']
+
+            playtag_uri = "/corpus/{0}/PlayTag/{1}".format(corpus.id, playtag_info['id'])
+            line_nos = range(start_line, end_line + 1)
+            for line_no in line_nos:
+                line_uri = "/corpus/{0}/PlayLine/{1}".format(corpus.id, line_info['saved_lines'][line_no]['id'])
+                word_indexes = []
+
+                if line_no == start_line and line_no == end_line:
+                    word_indexes = list(range(start_word, end_word))
+                elif line_no == start_line:
+                    word_indexes = list(range(start_word, line_info['saved_lines'][line_no]['word_length']))
+                elif line_no == end_line:
+                    word_indexes = list(range(0, end_word))
+                else:
+                    word_indexes = list(range(0, line_info['saved_lines'][line_no]['word_length']))
+
+                if word_indexes:
+                    corpus.make_link(
+                        line_uri,
+                        playtag_uri,
+                        'hasTag',
+                        {'word_indexes': word_indexes}
+                    )
 
-        for line in playtext_lines:
-            # prepare line to be split into words by first marking open and close
-            # angle brackets with '|' character (not found in playtext)
-            line = line.replace('<', '|<')
-            line = line.replace('>', '>|')
-
-            # split line by '|' character so as to have a list where items are either
-            # XML tags or text strings
-            elements = [element for element in line.split('|') if element]
-            word_chars = ""
-
-            # iterate through elements
-            for element_index in range(0, len(elements)):
-                element = elements[element_index]
-                # find any XML tag matches for this element
-                match_found = False
-                for pattern_name in patterns.keys():
-                    match = None
-                    match = re.search(patterns[pattern_name], element)
-                    if match:
-                        match_found = True
-
-                        if element_index == len(elements) - 1 and word_chars:
-                            handle_word_addition(word_info, word_chars)
-                            word_chars = ""
-
-                        if pattern_name == 'open_milestone':
-                            witness_location = corpus.get_content('WitnessLocation')
-                            witness_location.witness = basetext.id
-                            witness_location.starting_page = match.group(1)
-                            witness_location.save()
-                            word_info['witness_location_id'] = witness_location.id
-                            milestone_open = True
-
-                        elif pattern_name == 'close_milestone':
-                            milestone_open = False
-
-                        elif pattern_name == 'line':
-                            if word_info['play_line']:
-                                if word_info['play_line'].words:
-                                    word_info['play_line'].save()
-                                else:
-                                    unhandled_tags.append('playline {0} has no words!'.format(word_info['play_line'].xml_id))
-                                word_info['line_number'] += 1
-
-                            word_info['play_line'] = corpus.get_content('PlayLine')
-                            word_info['play_line'].xml_id = match.group(1)
-                            word_info['play_line'].line_label = match.group(2)
-                            word_info['play_line'].line_number = word_info['line_number']
-                            word_info['play_line'].act = word_info['act']
-                            word_info['play_line'].scene = word_info['scene']
-                            word_info['play_line'].witness_locations.append(word_info['witness_location_id'])
-                            word_info['play_line'].words = []
-
-                        elif pattern_name == 'act_scene':
-                            word_info[match.group(1)] = match.group(2)
-
-                        elif pattern_name == 'open_speaker':
-                            speaker_ids = match.group(1).split()
-                            for speaker_id in speaker_ids:
-                                speaker = corpus.get_content("PlayRole", {'xml_id': speaker_id.replace('#', '')})[0]
-                                word_info['speakers'].append(speaker)
-
-                            word_info['speaker_line_location'] = corpus.get_content('LineLocation')
-                            word_info['speaker_line_location'].starting_line_number = word_info['line_number']
-                            word_info['speaker_line_location'].starting_word_index = len(word_info['play_line'].words)
-
-                        elif pattern_name == 'close_speaker':
-                            handle_word_addition(word_info, word_chars)
-                            word_chars = ""
-
-                            word_info['speaker_line_location'].ending_line_number = word_info['line_number']
-                            word_info['speaker_line_location'].ending_word_index = len(word_info['play_line'].words)
-                            word_info['speaker_line_location'].save()
-                            for speaker in word_info['speakers']:
-                                speaker.line_locations.append(word_info['speaker_line_location'].id)
-                                speaker.save()
-
-                            word_info['speakers'] = []
-                            word_info['speaker_line_location'] = None
-
-                        elif pattern_name == 'open_stage':
-                            word_info['stage_direction'] = corpus.get_content('StageDirection')
-                            word_info['stage_direction'].direction_type = match.group(1)
-                            word_info['stage_direction_line_location'] = corpus.get_content('LineLocation')
-                            word_info['stage_direction_line_location'].starting_line_number = word_info['line_number']
-                            word_info['stage_direction_line_location'].starting_word_index = len(word_info['play_line'].words)
-
-                        elif pattern_name == 'close_stage':
-                            handle_word_addition(word_info, word_chars)
-                            word_chars = ""
-
-                            word_info['stage_direction_line_location'].ending_line_number = word_info['line_number']
-                            word_info['stage_direction_line_location'].ending_word_index = len(word_info['play_line'].words)
-                            word_info['stage_direction_line_location'].save()
-                            word_info['stage_direction'].line_location = word_info['stage_direction_line_location'].id
-                            word_info['stage_direction'].save()
-                            word_info['stage_direction'] = None
-                            word_info['stage_direction_line_location'] = None
-                            
-                        elif pattern_name == 'open_head':
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'header',
-                            )
-                            
-                        elif pattern_name == 'close_head':
-                            handle_word_addition(word_info, word_chars)
-                            word_chars = ""
-
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'header',
-                                mode='close'
-                            )
-
-                        elif pattern_name == 'open_sp':
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'speaker-abbreviation',
-                            )
-
-                        elif pattern_name == 'close_sp':
-                            handle_word_addition(word_info, word_chars)
-                            word_chars = ""
-
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'speaker-abbreviation',
-                                mode='close'
-                            )
-
-                        elif pattern_name == 'open_castlist':
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'castlist',
-                                match.group(1)
-                            )
-                            
-                        elif pattern_name == 'close_castlist':
-                            handle_word_addition(word_info, word_chars)
-                            word_chars = ""
-
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'castlist',
-                                mode='close'
-                            )
-                            
-                        elif pattern_name == 'open_castgroup':
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'castgroup',
-                                match.group(1)
-                            )
-
-                        elif pattern_name == 'close_castgroup':
-                            handle_word_addition(word_info, word_chars)
-                            word_chars = ""
-
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'castgroup',
-                                mode='close'
-                            )
-
-                        elif pattern_name == 'open_castitem':
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'castitem',
-                            )
-
-                        elif pattern_name == 'close_castitem':
-                            handle_word_addition(word_info, word_chars)
-                            word_chars = ""
-
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'castitem',
-                                mode='close'
-                            )
-
-                        elif pattern_name == 'self_closing_role':
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'role',
-                                match.group(1)
-                            )
-
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'role',
-                                mode='close'
-                            )
-
-                        elif pattern_name == 'open_role':
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'role',
-                                match.group(1)
-                            )
-
-                        elif pattern_name == 'close_role':
-                            handle_word_addition(word_info, word_chars)
-                            word_chars = ""
-
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'role',
-                                mode='close'
-                            )
-
-                        elif pattern_name == 'open_roledesc':
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'roledesc'
-                            )
-
-                        elif pattern_name == 'open_roledesc_id':
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'roledesc',
-                                match.group(1)
-                            )
-
-                        elif pattern_name == 'close_roledesc':
-                            handle_word_addition(word_info, word_chars)
-                            word_chars = ""
-
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'roledesc',
-                                mode='close'
-                            )
-
-                        elif pattern_name == 'open_foreign':
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'foreign',
-                                match.group(1)
-                            )
-
-                        elif pattern_name == 'close_foreign':
-                            handle_word_addition(word_info, word_chars)
-                            word_chars = ""
-
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'foreign',
-                                mode='close'
-                            )
-
-                        elif pattern_name == 'open_italic_p':
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'italics',
-                            )
-
-                        elif pattern_name == 'close_italic_p' and word_info.get('italics_classes', False):
-                            handle_word_addition(word_info, word_chars)
-                            word_chars = ""
-
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'italics',
-                                mode='close'
-                            )
-
-                        elif pattern_name == 'open_lg_song':
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'song',
-                                match.group(1)
-                            )
-
-                        elif pattern_name == 'open_lg_stanza':
-                            handle_playstyle_tag(
-                                corpus,
-                                word_info,
-                                'stanza',
-                            )
-
-                        elif pattern_name == 'close_lg':
-                            handle_word_addition(word_info, word_chars)
-                            word_chars = ""
-
-                            if word_info.get('stanza_classes', False):
-                                handle_playstyle_tag(
-                                    corpus,
-                                    word_info,
-                                    'stanza',
-                                    mode='close'
-                                )
-                            elif word_info.get('song_classes', False):
-                                handle_playstyle_tag(
-                                    corpus,
-                                    word_info,
-                                    'song',
-                                    mode='close'
-                                )
-
-                if not milestone_open and not match_found:
-                    if element.startswith('<'):
-                        unhandled_tags.append(element)
-
-                    elif word_info['play_line']:
-                        for char_index in range(0, len(element)):
-                            if not element[char_index].isspace():
-                                word_chars += element[char_index]
-                            elif element[char_index].isspace() and word_chars:
-                                handle_word_addition(word_info, word_chars)
-                                word_chars = ""
-
-            handle_word_addition(word_info, word_chars)
-
-        if word_info['play_line'].words:
-            word_info['play_line'].save()
-
-        witness_count = corpus.get_content('Document', {'nvs_doc_type': 'witness'}).count()
-        line_locations = corpus.get_content('LineLocation', all=True)
-        line_locations = list(
-            line_locations.order_by('+starting_line_number', '-ending_line_number', '+starting_word_index',
-                                    '-ending_word_index'))
-        uri_pattern = "/corpus/{0}/LineLocation/{1}"
-        line_location_uris = [uri_pattern.format(corpus.id, ll.id) for ll in line_locations]
-
-        connected_tags = run_neo(
-            '''
-                MATCH (ll:LineLocation) <-[]- (tag)
-                WHERE ll.uri IN $line_location_uris
-                AND (tag:PlayRole or tag:StageDirection or tag:PlayStyle)
-                RETURN tag.uri, ll.uri;
-            ''', {'line_location_uris': line_location_uris}
-        )
-
-        role_ids = []
-        stage_ids = []
-        style_ids = []
-
-        for connected_tag in connected_tags:
-            tag_info = parse_uri(connected_tag[0])
-            ll_info = parse_uri(connected_tag[1])
-
-            tag_type = 'PlayRole'
-            if 'StageDirection' in tag_info:
-                tag_type = 'StageDirection'
-                stage_ids.append(tag_info['StageDirection'])
-            elif 'PlayStyle' in tag_info:
-                tag_type = 'PlayStyle'
-                style_ids.append(tag_info['PlayStyle'])
-            else:
-                role_ids.append(tag_info['PlayRole'])
-
-            for ll_index in range(0, len(line_locations)):
-                if str(line_locations[ll_index].id) == ll_info['LineLocation']:
-                    if not hasattr(line_locations[ll_index], 'tags'):
-                        line_locations[ll_index].tags = []
-
-                    line_locations[ll_index].tags.append({
-                        'type': tag_type,
-                        'id': tag_info[tag_type]
-                    })
-
-        roles = corpus.get_content('PlayRole', {'id__in': role_ids})
-        stages = corpus.get_content('StageDirection', {'id__in': stage_ids})
-        styles = corpus.get_content('PlayStyle', {'id__in': style_ids})
-
-        # consolidate all tags by line location key in dict
-        tags = {}
-        for line_location in line_locations:
-            if hasattr(line_location, "tags"):
-                location_start_key = "{0}:{1}".format(line_location.starting_line_number,
-                                                      line_location.starting_word_index)
-                location_end_key = "{0}:{1}".format(line_location.ending_line_number, line_location.ending_word_index)
-
-                if location_start_key != location_end_key:
-                    if location_start_key not in tags:
-                        tags[location_start_key] = ""
-                    if location_end_key not in tags:
-                        tags[location_end_key] = ""
-
-                    tags[location_start_key] += generate_line_tag_html(line_location, roles, stages, styles)
-                    tags[location_end_key] += generate_line_tag_html(line_location, roles, stages, styles, "close")
-
-        # sort tags for each location key, placing close tags before open tags
-        for location_key in tags.keys():
-            tags_to_sort = tags[location_key].replace('>', '>|')
-            tags_to_sort = tags_to_sort.split('|')
-            tags[location_key] = ''.join(sorted(tags_to_sort))
-
-        lines = corpus.get_content('PlayLine', all=True)
-        lines = lines.order_by('line_number')
-        lines = list(lines)
-
-        line_ids = []
-        for line in lines:
-            line_ids.append(line.id)
-
-        # in order to make lines self-contained, we need to keep track of how to open and close any tags
-        # that transcend line breaks
-
-        line_tags = {
-            'open': [],
-            'close': []
-        }
-
-        for line_index in range(0, len(lines)):
-            line = lines[line_index]
-
-            html = "<a name='{0}'></a>".format(line.xml_id)
-            html += ''.join(line_tags['open'])
-
-            for word_index in range(0, len(line.words) + 1):
-                location_key = "{0}:{1}".format(line.line_number, word_index)
-                if location_key in tags:
-                    html += tags[location_key]
-
-                    adjust_line_tags(line_tags, tags[location_key])
-
-                if word_index < len(line.words):
-                    html += line.words[word_index] + " "
-
-            html += ''.join(line_tags['close'])
-            lines[line_index].rendered_html = html
-            lines[line_index].witness_meter = "0" * witness_count
-            lines[line_index].save()
-
-        '''
-        run_job(corpus.queue_local_job(task_name="Adjust Content", parameters={
-            'content_type': 'LineLocation',
-            'reindex': True,
-            'relabel': True,
-            'resave': False,
-            'related_content_types': "PlayRole,StageDirection"
-        }))
-        '''
     except:
         print(json.dumps(unhandled_tags, indent=4))
         print(traceback.format_exc())
 
 
-def handle_word_addition(word_info, word_chars):
-    if word_chars:
-        if word_chars.strip() in punctuation and word_info['play_line'].words:
-            word_info['play_line'].words[-1] += word_chars.strip()
+def handle_playtext_tag(corpus, tag, line_info):
+
+    if tag.name:
+        # milestone
+        if tag.name == 'milestone' and _contains(tag.attrs, ['unit', 'n']):
+            witness_location = corpus.get_content('WitnessLocation')
+            witness_location.witness = line_info['basetext_id']
+            witness_location.starting_page = tag['n']
+            witness_location.save()
+            line_info['witness_location_id'] = witness_location.id
+
+        # lb
+        elif tag.name == 'lb' and _contains(tag.attrs, ['xml:id', 'n']):
+            if line_info['line_xml_id']:
+                line = corpus.get_content('PlayLine')
+                line.xml_id = line_info['line_xml_id']
+                line.line_label = line_info['line_label']
+                line.line_number = line_info['line_number']
+                line.act = line_info['act']
+                line.scene = line_info['scene']
+                line.witness_locations.append(line_info['witness_location_id'])
+                line.words = line_info['words']
+                line.witness_meter = "0" * line_info['witness_count']
+                line.save()
+
+                line_info['saved_lines'][line.line_number] = {
+                    'id': line.id,
+                    'word_length': len(line.words)
+                }
+
+            line_info['line_number'] += 1
+            line_info['line_xml_id'] = tag['xml:id']
+            line_info['line_label'] = tag['n']
+            line_info['words'] = []
+
+        # div for act/scene
+        elif tag.name == 'div' and _contains(tag.attrs, ['type', 'n']):
+            line_info[tag['type']] = tag['n']
+
+            for child in tag.children:
+                handle_playtext_tag(corpus, child, line_info)
+
+        # all other tags handled by PlayTag convention
         else:
-            word_info['play_line'].words.append(word_chars.strip())
+            playtag = None
+            playtag_name = None
+            playtag_classes = None
+            starting_line_no = line_info['line_number']
+            starting_word_index = len(line_info['words'])
 
+            # stage
+            if tag.name == 'stage' and 'type' in tag.attrs:
+                playtag_name = 'span'
+                playtag_classes = 'stage {0}'.format(tag['type'])
 
-def handle_playstyle_tag(corpus, word_info, tag_type, additional_classes="", mode="open"):
-    ll_key = "{0}_line_location".format(tag_type)
-    class_key = "{0}_classes".format(tag_type)
-    
-    if mode == 'open':
-        if additional_classes:
-            additional_classes = ' ' + additional_classes.strip()
+            # sp
+            elif tag.name == 'sp' and 'who' in tag.attrs:
+                playtag_name = 'span'
+                playtag_classes = 'speech {0}'.format(tag['who'].replace('#', ''))
 
-        word_info[ll_key] = corpus.get_content('LineLocation')
-        word_info[ll_key].starting_line_number = word_info['line_number']
-        word_info[ll_key].starting_word_index = len(word_info['play_line'].words)
-        word_info[class_key] = "{0}{1}".format(tag_type, additional_classes)
+            # name
+            elif tag.name == 'name':
+                playtag_name = 'span'
+                playtag_classes = 'entity'
+
+            # head
+            elif tag.name == 'head':
+                playtag_name = 'h3'
+                playtag_classes = 'heading'
+
+            # speaker
+            elif tag.name == 'speaker':
+                playtag_name = 'span'
+                playtag_classes = 'speaker-abbreviation'
+
+            # castList
+            elif tag.name == 'castList' and 'xml:id' in tag.attrs:
+                playtag_name = 'span'
+                playtag_classes = 'castlist {0}'.format(tag['xml:id'])
+
+            # castGroup
+            elif tag.name == 'castGroup' and 'rend' in tag.attrs:
+                playtag_name = 'span'
+                playtag_classes = 'castgroup {0}'.format(tag['rend'].replace('braced_right(', '').replace(')', ''))
+
+            # castItem
+            elif tag.name == 'castItem':
+                playtag_name = 'span'
+                playtag_classes = 'castitem'
+
+            # role
+            elif tag.name == 'role' and 'xml:id' in tag.attrs:
+                playtag_name = 'span'
+                playtag_classes = 'role {0}'.format(tag['xml:id'])
+
+            # roleDesc
+            elif tag.name == 'roleDesc':
+                playtag_name = 'span'
+                playtag_classes = 'roledesc'
+
+                if 'xml:id' in tag.attrs:
+                    playtag_classes += " {0}".format(tag['xml:id'])
+
+            # foreign
+            elif tag.name == 'foreign':
+                playtag_name = 'span'
+                playtag_classes = 'foreign'
+                if 'xml:lang' in tag.attrs:
+                    playtag_classes += " {0}".format(tag['xml:lang'])
+
+            # p rend=italic
+            elif tag.name == 'p' and 'rend' in tag.attrs and tag['rend'] == 'italic':
+                playtag_name = 'i'
+                playtag_classes = 'italicized'
+
+            # lg
+            elif tag.name == 'lg' and 'type' in tag.attrs:
+                playtag_name = 'span'
+                playtag_classes = 'linegroup {0}'.format(tag['type'])
+                if 'rend' in tag.attrs and tag['rend'] == 'italic':
+                    playtag_classes += " italicized"
+
+            else:
+                line_info['unhandled_tags'].append(tag.name)
+
+            if playtag_name:
+                playtag = corpus.get_content('PlayTag')
+                playtag.name = playtag_name
+                playtag.classes = playtag_classes
+                playtag.order = len(line_info['playtags'])
+                playtag.save()
+
+            for child in tag.children:
+                handle_playtext_tag(corpus, child, line_info)
+
+            ending_line_no = line_info['line_number']
+            ending_word_index = len(line_info['words'])
+
+            if playtag:
+                line_info['playtags'].append({
+                    'id': str(playtag.id),
+                    'starting_line_no': starting_line_no,
+                    'starting_word_index': starting_word_index,
+                    'ending_line_no': ending_line_no,
+                    'ending_word_index': ending_word_index
+                })
+
     else:
-        word_info[ll_key].ending_line_number = word_info['line_number']
-        word_info[ll_key].ending_word_index = len(word_info['play_line'].words)
-        word_info[ll_key].save()
-        playstyle = corpus.get_content('PlayStyle')
-        playstyle.classes = word_info[class_key]
-        playstyle.line_location = word_info[ll_key].id
-        playstyle.save()
-        word_info[ll_key] = None
-        word_info[class_key] = ""
-
-
-def generate_line_tag_html(line_location, roles, stages, styles, mode='open'):
-    html = ""
-
-    for tag in line_location.tags:
-        if tag['type'] == 'PlayRole':
-            if mode == 'open':
-                for role in roles:
-                    if str(role.id) == tag['id']:
-                        html += "<span class='speaker {0}'>".format(role.xml_id)
-                        break
-            else:
-                html += "</span>"
-
-        elif tag['type'] == 'StageDirection':
-            if mode == 'open':
-                for stage in stages:
-                    if str(stage.id) == tag['id']:
-                        html += "<span class='stage_direction {0}'>".format(stage.direction_type)
-                        break
-            else:
-                html += "</span>"
-
-        elif tag['type'] == 'PlayStyle':
-            if mode == 'open':
-                for style in styles:
-                    if str(style.id) == tag['id']:
-                        html += "<span class='{0}'>".format(style.classes)
-                        break
-            else:
-                html += "</span>"
-
-    return html
-
-
-def adjust_line_tags(line_tags, html):
-
-    html_tags = html.split('>')
-    html_tags = [h + '>' for h in html_tags if h]
-
-    for html_tag in html_tags:
-        # handle closing tag
-        if html_tag.startswith('</'):
-            del line_tags['open'][-1]
-            del line_tags['close'][0]
-            '''
-            tag = html_tag.replace('</', '')
-            tag = tag.replace('>', '')
-
-            # remove tag from open list
-            tag_index = len(line_tags['open']) - 1
-            while tag_index >= 0:
-                if '<' + tag in line_tags['open'][tag_index]:
-                    del line_tags['open'][tag_index]
-                    tag_index = -1
-
-            # remove tag from close list
-            for tag_index in range(0, len(line_tags['close'])):
-                if line_tags['close'] == html_tag:
-                    del line_tags['close'][tag_index]
-                    break
-            '''
-
-        # handle open tag
-        else:
-            tag = html_tag.split()[0]
-            tag = tag.replace('<', '')
-
-            line_tags['open'].append(html_tag)
-            line_tags['close'].insert(0, "</" + tag + ">")
+        new_words = str(tag)
+        if new_words:
+            new_words = [word for word in new_words.split() if word]
+            for new_word in new_words:
+                if new_word.strip() in punctuation and line_info['words']:
+                    line_info['words'][-1] += new_word.strip()
+                else:
+                    line_info['words'].append(new_word.strip())
 
 
 def parse_textualnotes_file(corpus, textualnotes_file_path):
@@ -1243,8 +841,6 @@ def get_variant_witness_indicators(witnesses, variant):
 
 
 def combine_witness_indicators(indicators_list):
-    print(json.dumps(indicators_list, indent=4))
-
     combined = []
     for indicator_index in range(0, len(indicators_list[0])):
         found = False
@@ -1253,9 +849,6 @@ def combine_witness_indicators(indicators_list):
                 found = True
                 break
         combined.append(found)
-
-    print(combined)
-
     return combined
 
 
@@ -1630,7 +1223,14 @@ def parse_commentary(corpus, commentary_file_path):
                 note.subject_matter = note_data['subject_matter']
                 note.save()
 
-                note_uri = "/corpus/{0}/Commentary/{1}".format(corpus.id, note.id)
+                # build lemma span for line html
+                try:
+                    mark_commentary_lemma(corpus, note)
+                except:
+                    print("error marking lemma for note {0}".format(note.id))
+                    print(traceback.format_exc())
+
+
                 # TODO: link up items in data['references']
             else:
                 parse_report.append("commentary note {0} missing label or lem".format(note.xml_id))
@@ -1784,6 +1384,92 @@ def handle_commentary_tag(tag, data={}):
             data['lem_bracket_found'] = True
 
     return html
+
+
+def mark_commentary_lemma(corpus, note, variation=0):
+    note.reload()
+    lemma = strip_tags(note.subject_matter)
+    starting_line = note.lines[0]
+    ending_line = note.lines[-1]
+
+    all_words = ""
+    char_index_map = {}
+    char_cursor = 0
+    for line_index in range(0, len(note.lines)):
+        line = note.lines[line_index]
+        for word_index in range(0, len(line.words)):
+            for char in line.words[word_index]:
+                char_index_map[char_cursor] = {
+                    'line_number': line.line_number,
+                    'word_index': word_index
+                }
+                all_words += char
+                char_cursor += 1
+
+            if variation == 0 or \
+                    word_index < len(line.words) - 1 or \
+                    (variation == 1 and line_index > 0) or \
+                    (variation == 2 and line_index < len(note.lines) - 1):
+                all_words += " "
+                char_cursor += 1
+
+    all_words = all_words.strip()
+
+    starting_word_index = -1
+    ending_word_index = -1
+
+    ellipsis = ' . . . '
+    if ellipsis in lemma:
+        start_and_end = lemma.split(ellipsis)
+        starting_char_index = all_words.find(start_and_end[0])
+
+        if starting_char_index > -1:
+            starting_word_index = char_index_map[starting_char_index]['word_index']
+
+            ending_char_index = all_words.rfind(start_and_end[1])
+            if ending_char_index > -1 and ending_char_index + len(start_and_end[1]) -1 in char_index_map:
+                ending_word_index = char_index_map[ending_char_index + len(start_and_end[1]) -1]['word_index'] + 1
+
+    else:
+        starting_char_index = all_words.find(lemma)
+        if starting_char_index > -1 and starting_char_index + len(lemma) -1 in char_index_map:
+            starting_word_index = char_index_map[starting_char_index]['word_index']
+            ending_word_index = char_index_map[starting_char_index + len(lemma) -1]['word_index'] + 1
+
+    if starting_word_index > -1 and ending_word_index > -1:
+        lemma_span = corpus.get_content('PlayTag')
+        lemma_span.name = 'comspan'
+        lemma_span.classes = "commentary-lemma-{0}".format(note.id)
+        lemma_span.save()
+        lemma_span_uri = "/corpus/{0}/PlayTag/{1}".format(corpus.id, lemma_span.id)
+
+        for line in note.lines:
+            line_uri = "/corpus/{0}/PlayLine/{1}".format(corpus.id, line.id)
+            word_indexes = []
+
+            if line.line_number == starting_line.line_number and line.line_number == ending_line.line_number:
+                word_indexes = list(range(starting_word_index, ending_word_index))
+            elif line.line_number == starting_line.line_number:
+                word_indexes = list(range(starting_word_index, len(line.words)))
+            elif line.line_number == ending_line.line_number:
+                word_indexes = list(range(0, ending_word_index))
+            else:
+                word_indexes = list(range(0, len(line.words)))
+
+            if word_indexes:
+                corpus.make_link(
+                    line_uri,
+                    lemma_span_uri,
+                    'hasTag',
+                    {'word_indexes': word_indexes}
+                )
+
+                if variation > 0:
+                    "Variation {0} worked for note {1}".format(variation, note.id)
+    elif variation < 3:
+        mark_commentary_lemma(corpus, note, variation + 1)
+    else:
+        print("LEMMA NOT FOUND for note {0} w/ lemma [{1}]".format(note.id, lemma))
 
 
 def get_line_ids(line_id_map, xml_id_start, xml_id_end=None):
@@ -1945,3 +1631,55 @@ def save_content(content):
         content.save()
     except:
         print("{0} already exists!".format(content.content_type.name))
+
+
+def render_lines_html(corpus, starting_line_no=None, ending_line_no=None):
+    if starting_line_no:
+        lines = corpus.get_content('PlayLine', {'line_number__gte': starting_line_no, 'line_number__lte': ending_line_no})
+    else:
+        lines = corpus.get_content('PlayLine', all=True)
+    lines = lines.order_by('line_number')
+    lines = list(lines)
+    line_uris = ["/corpus/{0}/PlayLine/{1}".format(corpus.id, line.id) for line in lines]
+
+    tag_nodes = run_neo('''
+            MATCH (pl:PlayLine) -[rel:hasTag]-> (pt:PlayTag)
+            WHERE pl.uri IN $line_uris
+            RETURN pl.uri, rel.word_indexes, pt.label
+            ORDER BY pt.uri
+        ''',
+        {
+            'line_uris': line_uris
+        }
+    )
+
+    for tag_node in tag_nodes:
+        line_uri = tag_node[0]
+        line_index = line_uris.index(line_uri)
+        word_indexes = tag_node[1]
+        open_html = tag_node[2].replace('[', '<').replace(']', '>')
+        close_html = "</{0}>".format(open_html[1:open_html.index(" ")])
+
+        if max(word_indexes) in range(0, len(lines[line_index].words)):
+
+            if not hasattr(lines[line_index], 'tags'):
+                lines[line_index].tags = ["{0}" for x in range(0, len(lines[line_index].words))]
+
+            lines[line_index].tags[min(word_indexes)] = open_html + lines[line_index].tags[min(word_indexes)]
+            lines[line_index].tags[max(word_indexes)] += close_html
+        else:
+            print("{0} out of range for line {1}".format(tag_node[2], line_uri))
+
+    for line_index in range(0, len(lines)):
+        if hasattr(lines[line_index], 'tags'):
+            lines[line_index].rendered_html = ""
+
+            for word_index in range(0, len(lines[line_index].words)):
+                lines[line_index].rendered_html += lines[line_index].tags[word_index].format(lines[line_index].words[word_index]) + " "
+
+            lines[line_index].rendered_html = lines[line_index].rendered_html.strip()
+        else:
+            lines[line_index].rendered_html = " ".join(lines[line_index].words)
+
+        lines[line_index].save()
+

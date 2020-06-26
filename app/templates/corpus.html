@@ -1115,40 +1115,40 @@
                             </td>
                     `;
 
-                    for (let x in ct.fields) {
-                        let field = ct.fields[x];
+                    ct.fields.map(field => {
                         if (field.in_lists) {
                             let value = '';
                             if (item.hasOwnProperty(field.name)) {
-                                value = item[field.name]
-                            }
+                                value = item[field.name];
 
-                            if (field.cross_reference_type && value) {
-                                if (field.multiple) {
-                                    let multi_value = '';
-                                    for (let y in value) {
-                                        multi_value += `, <a href="${value[y].uri}" target="_blank">${value[y].label}</a>`;
+                                if (field.cross_reference_type && value) {
+                                    if (field.multiple) {
+                                        let multi_value = '';
+                                        for (let y in value) {
+                                            multi_value += `, <a href="${value[y].uri}" target="_blank">${value[y].label}</a>`;
+                                        }
+                                        if (multi_value) {
+                                            multi_value = multi_value.substring(2);
+                                        }
+                                        value = multi_value;
+                                    } else {
+                                        value = `<a href="${value.uri}" target="_blank">${value.label}</a>`;
                                     }
-                                    if (multi_value) {
-                                        multi_value = multi_value.substring(2);
+                                } else if (field.multiple) {
+                                    if (field.type == 'text' || field.type == 'keyword') {
+                                        console.log(field.name);
+                                        console.log(value);
+                                        value = value.join(' ');
+                                    } else {
+                                        let multi_value = '';
+                                        for (let y in value) {
+                                            multi_value += `, ${value[y]}`;
+                                        }
+                                        if (multi_value) {
+                                            multi_value = multi_value.substring(2);
+                                        }
+                                        value = multi_value;
                                     }
-                                    value = multi_value;
-                                } else {
-                                    value = `<a href="${value.uri}" target="_blank">${value.label}</a>`;
-                                }
-                            } else if (field.multiple) {
-                                if (field.type == 'text' || field.type == 'keyword') {
-                                    value = value.join(' ');
-                                }
-                                else {
-                                    let multi_value = '';
-                                    for (let y in value) {
-                                        multi_value += `, ${value[y]}`;
-                                    }
-                                    if (multi_value) {
-                                        multi_value = multi_value.substring(2);
-                                    }
-                                    value = multi_value;
                                 }
                             }
 
@@ -1157,7 +1157,7 @@
                                     ${value}
                                 </td>`;
                         }
-                    }
+                    });
 
                     row_html += "</tr>";
                     ct_table_body.append(row_html);

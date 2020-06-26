@@ -1,7 +1,7 @@
 REGISTRY = [
     {
-        "name": "ContentBlock",
-        "plural_name": "Content Blocks",
+        "name": "ArcFederation",
+        "plural_name": "Federations",
         "fields": [
             {
                 "name": "handle",
@@ -19,13 +19,43 @@ REGISTRY = [
                 "inherited": False
             },
             {
-                "name": "html",
-                "label": "HTML",
+                "name": "name",
+                "label": "Name",
                 "indexed": False,
                 "unique": False,
                 "multiple": False,
                 "in_lists": True,
-                "type": "html",
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "production_url",
+                "label": "Production URL",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "staging_url",
+                "label": "Staging URL",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
                 "choices": [],
                 "cross_reference_type": "",
                 "indexed_with": [],
@@ -38,7 +68,7 @@ REGISTRY = [
         "proxy_field": "",
         "templates": {
             "Label": {
-                "template": "{{ ContentBlock.handle }}",
+                "template": "{{ ArcFederation.handle }}",
                 "mime_type": "text/html"
             }
         },
@@ -50,150 +80,28 @@ REGISTRY = [
             "provenance",
             "path",
             "label",
+            "uri",
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
             "uri"
         ]
     },
     {
-        "name": "DocumentCollection",
-        "plural_name": "Document Collections",
+        "name": "ArcType",
+        "plural_name": "Types",
         "fields": [
             {
-                "name": "siglum",
-                "label": "Siglum",
-                "indexed": False,
-                "unique": True,
-                "multiple": False,
-                "in_lists": True,
-                "type": "keyword",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "siglum_label",
-                "label": "Siglum Label",
+                "name": "name",
+                "label": "Name",
                 "indexed": False,
                 "unique": False,
                 "multiple": False,
                 "in_lists": True,
-                "type": "keyword",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "referenced_documents",
-                "label": "Referenced Documents",
-                "indexed": False,
-                "unique": False,
-                "multiple": True,
-                "in_lists": True,
-                "type": "cross_reference",
-                "choices": [],
-                "cross_reference_type": "Document",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            }
-        ],
-        "show_in_nav": True,
-        "proxy_field": "",
-        "templates": {
-            "Label": {
-                "template": "{{ DocumentCollection.siglum_label }}",
-                "mime_type": "text/html"
-            }
-        },
-        "inherited": False,
-        "invalid_field_names": [
-            "corpus_id",
-            "content_type",
-            "last_updated",
-            "provenance",
-            "path",
-            "label",
-            "uri"
-        ]
-    },
-    {
-        "name": "WitnessLocation",
-        "plural_name": "Witness Locations",
-        "fields": [
-            {
-                "name": "witness",
-                "label": "Witness",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "cross_reference",
-                "choices": [],
-                "cross_reference_type": "Document",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "starting_page",
-                "label": "Starting Page",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "keyword",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "starting_line",
-                "label": "Starting Line",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "keyword",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "ending_page",
-                "label": "Ending Page",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "keyword",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "ending_line",
-                "label": "Ending Line",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "keyword",
+                "type": "text",
                 "choices": [],
                 "cross_reference_type": "",
                 "indexed_with": [],
@@ -206,7 +114,7 @@ REGISTRY = [
         "proxy_field": "",
         "templates": {
             "Label": {
-                "template": "{{ WitnessLocation.witness.siglum_label }} {{ WitnessLocation.starting_page }}{% if WitnessLocation.starting_line %}:{{ WitnessLocation.starting_line }}{% endif %}{% if WitnessLocation.ending_page %} - {{ WitnessLocation.ending_page }}{% endif %}{% if WitnessLocation.ending_line %}:{{ WitnessLocation.ending_line }}{% endif %}",
+                "template": "{{ ArcType.name }}",
                 "mime_type": "text/html"
             }
         },
@@ -218,162 +126,7 @@ REGISTRY = [
             "provenance",
             "path",
             "label",
-            "uri"
-        ]
-    },
-    {
-        "name": "PlayLine",
-        "plural_name": "Play Lines",
-        "fields": [
-            {
-                "name": "xml_id",
-                "label": "XML ID",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "text",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "line_label",
-                "label": "Line Label",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "text",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "line_number",
-                "label": "Line Number",
-                "indexed": False,
-                "unique": True,
-                "multiple": False,
-                "in_lists": True,
-                "type": "number",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "act",
-                "label": "Act",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "text",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "scene",
-                "label": "Scene",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "text",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "witness_locations",
-                "label": "Witness Locations",
-                "indexed": False,
-                "unique": False,
-                "multiple": True,
-                "in_lists": True,
-                "type": "cross_reference",
-                "choices": [],
-                "cross_reference_type": "WitnessLocation",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "words",
-                "label": "Words",
-                "indexed": False,
-                "unique": False,
-                "multiple": True,
-                "in_lists": True,
-                "type": "text",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "rendered_html",
-                "label": "Rendered HTML",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": False,
-                "type": "text",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "witness_meter",
-                "label": "Witness Meter",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": False,
-                "type": "text",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            }
-        ],
-        "show_in_nav": True,
-        "proxy_field": "",
-        "base_mongo_indexes": [
-            'line_number'
-        ],
-        "templates": {
-            "Label": {
-                "template": "[{{ PlayLine.line_number }}] {{ PlayLine.words|join:' ' }}",
-                "mime_type": "text/html"
-            }
-        },
-        "inherited": False,
-        "invalid_field_names": [
+            "uri",
             "corpus_id",
             "content_type",
             "last_updated",
@@ -384,77 +137,8 @@ REGISTRY = [
         ]
     },
     {
-        "name": "PlayRole",
-        "plural_name": "Play Roles",
-        "fields": [
-            {
-                "name": "xml_id",
-                "label": "XML ID",
-                "indexed": False,
-                "unique": True,
-                "multiple": False,
-                "in_lists": True,
-                "type": "keyword",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "role",
-                "label": "Role",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "text",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "line_locations",
-                "label": "Line Locations",
-                "indexed": False,
-                "unique": False,
-                "multiple": True,
-                "in_lists": True,
-                "type": "cross_reference",
-                "choices": [],
-                "cross_reference_type": "LineLocation",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            }
-        ],
-        "show_in_nav": True,
-        "proxy_field": "",
-        "templates": {
-            "Label": {
-                "template": "{{ PlayRole.role }}",
-                "mime_type": "text/html"
-            }
-        },
-        "inherited": False,
-        "invalid_field_names": [
-            "corpus_id",
-            "content_type",
-            "last_updated",
-            "provenance",
-            "path",
-            "label",
-            "uri"
-        ]
-    },
-    {
-        "name": "PlayTag",
-        "plural_name": "Play Tags",
+        "name": "ArcEntity",
+        "plural_name": "Entities",
         "fields": [
             {
                 "name": "name",
@@ -472,8 +156,8 @@ REGISTRY = [
                 "inherited": False
             },
             {
-                "name": "classes",
-                "label": "Classes",
+                "name": "entity_type",
+                "label": "Entity Type",
                 "indexed": False,
                 "unique": False,
                 "multiple": False,
@@ -485,28 +169,13 @@ REGISTRY = [
                 "unique_with": [],
                 "stats": {},
                 "inherited": False
-            },
-            {
-                "name": "order",
-                "label": "Order",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "number",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
+            }
         ],
         "show_in_nav": True,
         "proxy_field": "",
         "templates": {
             "Label": {
-                "template": "[{{ PlayTag.name }} class=\"{{ PlayTag.classes }}\"]",
+                "template": "{{ ArcEntity.name }}",
                 "mime_type": "text/html"
             }
         },
@@ -518,16 +187,224 @@ REGISTRY = [
             "provenance",
             "path",
             "label",
+            "uri",
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
             "uri"
         ]
     },
     {
-        "name": "TextualVariant",
-        "plural_name": "Textual Variants",
+        "name": "ArcRole",
+        "plural_name": "Roles",
         "fields": [
             {
-                "name": "lemma",
-                "label": "Lemma",
+                "name": "name",
+                "label": "Name",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            }
+        ],
+        "show_in_nav": True,
+        "proxy_field": "",
+        "templates": {
+            "Label": {
+                "template": "{{ ArcRole.name }}",
+                "mime_type": "text/html"
+            }
+        },
+        "inherited": False,
+        "invalid_field_names": [
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri",
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri"
+        ]
+    },
+    {
+        "name": "ArcAgent",
+        "plural_name": "Agents",
+        "fields": [
+            {
+                "name": "entity",
+                "label": "Entity",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "ArcEntity",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "role",
+                "label": "Role",
+                "indexed": False,
+                "unique": True,
+                "multiple": False,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "ArcRole",
+                "indexed_with": [],
+                "unique_with": [
+                    "entity"
+                ],
+                "stats": {},
+                "inherited": False
+            }
+        ],
+        "show_in_nav": True,
+        "proxy_field": "",
+        "templates": {
+            "Label": {
+                "template": "{{ ArcAgent.entity.label }} ({{ ArcAgent.role.label }})",
+                "mime_type": "text/html"
+            }
+        },
+        "inherited": False,
+        "invalid_field_names": [
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri",
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri"
+        ]
+    },
+    {
+        "name": "ArcDiscipline",
+        "plural_name": "Disciplines",
+        "fields": [
+            {
+                "name": "name",
+                "label": "Name",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            }
+        ],
+        "show_in_nav": True,
+        "proxy_field": "",
+        "templates": {
+            "Label": {
+                "template": "{{ ArcDiscipline.name }}",
+                "mime_type": "text/html"
+            }
+        },
+        "inherited": False,
+        "invalid_field_names": [
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri",
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri"
+        ]
+    },
+    {
+        "name": "ArcGenre",
+        "plural_name": "Genres",
+        "fields": [
+            {
+                "name": "name",
+                "label": "Name",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            }
+        ],
+        "show_in_nav": True,
+        "proxy_field": "",
+        "templates": {
+            "Label": {
+                "template": "{{ ArcGenre.name }}",
+                "mime_type": "text/html"
+            }
+        },
+        "inherited": False,
+        "invalid_field_names": [
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri",
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri"
+        ]
+    },
+    {
+        "name": "ArcArchive",
+        "plural_name": "Archives",
+        "fields": [
+            {
+                "name": "handle",
+                "label": "Handle",
                 "indexed": False,
                 "unique": False,
                 "multiple": False,
@@ -541,8 +418,8 @@ REGISTRY = [
                 "inherited": False
             },
             {
-                "name": "transform_type",
-                "label": "Transform Type",
+                "name": "name",
+                "label": "Name",
                 "indexed": False,
                 "unique": False,
                 "multiple": False,
@@ -556,8 +433,249 @@ REGISTRY = [
                 "inherited": False
             },
             {
-                "name": "transform",
-                "label": "Transform",
+                "name": "git_repository",
+                "label": "Git Repository",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "last_indexed",
+                "label": "Last Indexed",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "date",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            }
+        ],
+        "show_in_nav": True,
+        "proxy_field": "",
+        "templates": {
+            "Label": {
+                "template": "{{ ArcArchive.handle }}",
+                "mime_type": "text/html"
+            }
+        },
+        "inherited": False,
+        "invalid_field_names": [
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri",
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri"
+        ]
+    },
+    {
+        "name": "ArcArtifact",
+        "plural_name": "Artifacts",
+        "fields": [
+            {
+                "name": "permanent_uri",
+                "label": "Permanent URI",
+                "indexed": False,
+                "unique": True,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "url",
+                "label": "URL",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "archive",
+                "label": "Archive",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "ArcArchive",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "title",
+                "label": "Title",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "federations",
+                "label": "Federations",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "ArcFederation",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "types",
+                "label": "Types",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "ArcType",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "agents",
+                "label": "Agents",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "ArcAgent",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "disciplines",
+                "label": "Disciplines",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "ArcDiscipline",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "genres",
+                "label": "Genres",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "ArcGenre",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "years",
+                "label": "Years",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "number",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "alt_title",
+                "label": "Alternate Title",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "date_of_edition",
+                "label": "Date of Edition",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "date_of_review",
+                "label": "Date of Review",
                 "indexed": False,
                 "unique": False,
                 "multiple": False,
@@ -586,8 +704,8 @@ REGISTRY = [
                 "inherited": False
             },
             {
-                "name": "variant",
-                "label": "Variant",
+                "name": "language",
+                "label": "Language",
                 "indexed": False,
                 "unique": False,
                 "multiple": False,
@@ -601,28 +719,13 @@ REGISTRY = [
                 "inherited": False
             },
             {
-                "name": "witnesses",
-                "label": "Witnesses",
+                "name": "sources",
+                "label": "Sources",
                 "indexed": False,
                 "unique": False,
                 "multiple": True,
                 "in_lists": True,
-                "type": "cross_reference",
-                "choices": [],
-                "cross_reference_type": "Document",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "witness_meter",
-                "label": "Witness Meter",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "html",
+                "type": "text",
                 "choices": [],
                 "cross_reference_type": "",
                 "indexed_with": [],
@@ -631,8 +734,38 @@ REGISTRY = [
                 "inherited": False
             },
             {
-                "name": "has_bug",
-                "label": "Has Bug?",
+                "name": "subjects",
+                "label": "Subjects",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "coverages",
+                "label": "Coverages",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "free_culture",
+                "label": "Free Culture?",
                 "indexed": False,
                 "unique": False,
                 "multiple": False,
@@ -644,13 +777,103 @@ REGISTRY = [
                 "unique_with": [],
                 "stats": {},
                 "inherited": False
+            },
+            {
+                "name": "ocr",
+                "label": "OCR?",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "number",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "full_text",
+                "label": "Full Text?",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "number",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "full_text_url",
+                "label": "Full Text URL",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "image_url",
+                "label": "Image URL",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "thumbnail_url",
+                "label": "Thumbnail URL",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "source_codes",
+                "label": "Source Codes",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
             }
         ],
         "show_in_nav": True,
         "proxy_field": "",
         "templates": {
             "Label": {
-                "template": "{% if TextualVariant.has_bug %}<span style='background-color: red; color: white;'>{% endif %}{% if TextualVariant.lemma %}<b>Lemma:</b> {{ TextualVariant.lemma }} {% endif %}{% if TextualVariant.transform_type %}<b>Transform Type:</b> {{ TextualVariant.transform_type }} {% endif %}{% if TextualVariant.transform %}<b>Transform:</b> {{ TextualVariant.transform }} {% endif %}{% if TextualVariant.description %}<b>Description:</b> {{ TextualVariant.description }} {% endif %}{% if TextualVariant.variant %}<b>Result:</b> {{ TextualVariant.variant }}{% endif %} ({% for witness in TextualVariant.witnesses %}{{ witness.label|safe }}{% if not forloop.last %}, {% endif %}{% endfor %}){% if TextualVariant.has_bug %}</span>{% endif %}",
+                "template": "{{ ArcArtifact.title }}",
                 "mime_type": "text/html"
             }
         },
@@ -662,183 +885,7 @@ REGISTRY = [
             "provenance",
             "path",
             "label",
-            "uri"
-        ]
-    },
-    {
-        "name": "TextualNote",
-        "plural_name": "Textual Notes",
-        "fields": [
-            {
-                "name": "xml_id",
-                "label": "XML ID",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "text",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "lines",
-                "label": "Lines",
-                "indexed": False,
-                "unique": False,
-                "multiple": True,
-                "in_lists": True,
-                "type": "cross_reference",
-                "choices": [],
-                "cross_reference_type": "PlayLine",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "variants",
-                "label": "Variants",
-                "indexed": False,
-                "unique": False,
-                "multiple": True,
-                "in_lists": True,
-                "type": "cross_reference",
-                "choices": [],
-                "cross_reference_type": "TextualVariant",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "witness_meter",
-                "label": "Witness Meter",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": False,
-                "type": "html",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-        ],
-        "show_in_nav": True,
-        "proxy_field": "",
-        "templates": {
-            "Label": {
-                "template": "TextualNote {{ TextualNote.id }}",
-                "mime_type": "text/html"
-            }
-        },
-        "inherited": False,
-        "invalid_field_names": [
-            "corpus_id",
-            "content_type",
-            "last_updated",
-            "provenance",
-            "path",
-            "label",
-            "uri"
-        ]
-    },
-    {
-        "name": "Commentary",
-        "plural_name": "Commentaries",
-        "fields": [
-            {
-                "name": "xml_id",
-                "label": "XML ID",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "text",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "lines",
-                "label": "Lines",
-                "indexed": False,
-                "unique": False,
-                "multiple": True,
-                "in_lists": True,
-                "type": "cross_reference",
-                "choices": [],
-                "cross_reference_type": "PlayLine",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "line_label",
-                "label": "Line Label",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "text",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "subject_matter",
-                "label": "Subject Matter",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "text",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "contents",
-                "label": "Contents",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "html",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            }
-        ],
-        "show_in_nav": True,
-        "proxy_field": "",
-        "templates": {
-            "Label": {
-                "template": "Commentary {{ Commentary.id }}",
-                "mime_type": "text/html"
-            }
-        },
-        "inherited": False,
-        "invalid_field_names": [
+            "uri",
             "corpus_id",
             "content_type",
             "last_updated",

@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'plugins.emop',
     'plugins.nvs',
     'plugins.cervantes',
+    'plugins.arc',
     'rest_framework',
     'rest_framework.authtoken',
 ]

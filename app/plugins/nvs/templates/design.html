@@ -28,6 +28,41 @@
                 background-color: #FFFFFF;
             }
 
+            .heading-row {
+                background-color: #FFFFFF;
+                z-index: 20;
+            }
+
+            .heading-label {
+                font-family: 'Roboto', sans-serif;
+                font-size: 14px;
+                font-weight: bold;
+            }
+
+            .heading-button {
+                font-family: 'Roboto', sans-serif;
+                font-size: 10px;
+                font-weight: bold;
+                text-align: center;
+                vertical-align: center;
+                padding-top: 5px;
+                padding-bottom: 5px;
+                border-left: solid 2px #FFFFFF;
+                border-right: solid 2px #FFFFFF;
+                color: #FFFFFF;
+                background-color: #cfcfcf;
+            }
+
+            .heading-buton-active {
+                background-color: #f0a962 !important;
+            }
+
+            #witness-header-col {
+                min-height: 50px;
+                padding: 0px 5px 0px 5px;
+                margin: 0px;
+            }
+
             #line-col {
                 min-height: unset;
             }
@@ -79,31 +114,17 @@
                 padding-bottom: 5px;
             }
 
+            h3.heading {
+                display: inline;
+            }
+
             span.difference {
                 color: #e9702b;
             }
 
-            .commentary-stub {
-                font-family: 'Roboto', sans-serif;
-                background-color: #d7e7f7;
-                color: #000000;
-                font-size: 12px;
-                font-weight: bold;
-            }
-
-            .commentary-stub-highlighted, .commentary-stub-highlighted a {
-                background-color: #e9702b;
-                color: white;
-            }
-
-            connection.commentary {
-                border: dotted 2px #d7e7f7;
-                border-radius: 1em;
-                z-index: -1;
-            }
-
-            .comment-connector-anchor {
-                color: white;
+            comspan {
+                background-color: rgba(144, 188, 226, .5);
+                cursor: pointer;
             }
 
             .hidden {
@@ -114,64 +135,91 @@
         <title>Winter's Tale</title>
     </head>
     <body>
-        <!-- Commentary Modal -->
-        <div class="modal fade" id="commentary-modal" tabindex="-1" role="dialog" aria-labelledby="ocr-modal-label" aria-hidden="true">
-            <div class="modal-dialog" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="ocr-modal-label">Commentary</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <div id="commentary-modal-content" class="modal-body">
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div class="container-fluid">
-            {% for line in lines %}
-                <div id="{{ line.xml_id }}-row"
-                     class="row play-row"
-                     data-xml_id="{{ line.xml_id }}"
-                     data-line_number="{{ line.line_number }}"
-                     data-words="{{ line.words|join:" " }}"
-                     data-witness_indicators="{{ line.witness_meter }}"
-                >
-                    <div id="{{ line.xml_id }}-commentary-col" class="col-sm-3">
-                        <div id="{{ line.xml_id }}-commentary-div" class="d-flex flex-row-reverse hide-me hidden"></div>
-                    </div>
-                    <div id="{{ line.xml_id }}-number-col" class="col-sm-1 play-label">{{ line.line_label }}</div>
-                    <div id="{{ line.xml_id }}-words-col" class="col-sm-6 play-words">
-                        <a id="{{ line.xml_id }}-variant-toggler"
-                           class="variant-toggler hide-me hidden"
-                           data-toggle="collapse"
-                           href="#{{ line.xml_id }}-variant-div"
-                           role="button"
-                           aria-expanded="false"
-                           aria-controls="{{ line.xml_id }}-variant-div"
-                        >
-                            <img id="{{ line.xml_id }}-variant-toggle" src="{% static 'img/arrow-inactive.png' %}" />
-                        </a>
-                        {{ line.rendered_html|safe }}
-                    </div>
-                    <div id="{{ line.xml_id }}-witness-col" class="col-sm-2 witness-meter">
-                        <canvas id="{{ line.xml_id }}-witness-meter" class="hide-me hidden" height="25px"></canvas>
+            <div id="main-header" class="row sticky-top heading-row">
+                <div class="col-sm-9">
+                    <div class="row">
+                        <!-- WITNESS HEADING -->
+                        <div class="col-sm-4">
+                            <div class="heading-label">
+                                TEXTUAL VARIANTS
+                            </div>
+                            <div class="row">
+                                <div class="col-sm-4 heading-button heading-buton-active">
+                                    COLLAPSE ALL
+                                </div>
+                                <div class="col-sm-4 heading-button">
+                                    EXPAND ALL
+                                </div>
+                                <div class="col-sm-4 heading-button">
+                                    OFF
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div id="witness-header-col" class="col-sm-12">
+                                    <canvas id="witness-header-canvas" height="50"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PLAYTEXT HEADING -->
+                        <div class="col-sm-8"></div>
                     </div>
                 </div>
-                <div class="collapse" class="hide-me hidden" id="{{ line.xml_id }}-variant-div"></div>
-            {% endfor %}
+                <!-- COMMENTARY HEADING -->
+                <div class="col-sm-3">
+                    <div class="heading-label">
+                        COMMENTARY NOTES
+                    </div>
+                </div>
+            </div>
             <div class="row">
-                <div id="commentary-col" class="col-sm-3"></div>
-                <div id="line-col" class="col-sm-9"></div>
+                <!-- VARIANTS, LINE INFO, PLAYTEXT -->
+                <div id="main-col" class="col-sm-9">
+                    {% for line in lines %}
+                        <div id="{{ line.xml_id }}-row"
+                             class="row play-row"
+                             data-xml_id="{{ line.xml_id }}"
+                             data-line_number="{{ line.line_number }}"
+                             data-words="{{ line.words|join:" " }}"
+                             data-witness_indicators="{{ line.witness_meter }}"
+                        >
+                            <div id="{{ line.xml_id }}-witness-col" class="col-sm-4 witness-meter">
+                                <canvas id="{{ line.xml_id }}-witness-meter" class="hide-me hidden" height="25px"></canvas>
+                            </div>
+                            <div id="{{ line.xml_id }}-number-col" class="col-sm-1 play-label">{{ line.line_label }}</div>
+                            <div id="{{ line.xml_id }}-words-col" class="col-sm-7 play-words">
+                                <a id="{{ line.xml_id }}-variant-toggler"
+                                   class="variant-toggler hide-me hidden"
+                                   data-toggle="collapse"
+                                   href="#{{ line.xml_id }}-variant-div"
+                                   role="button"
+                                   aria-expanded="false"
+                                   aria-controls="{{ line.xml_id }}-variant-div"
+                                >
+                                    <img id="{{ line.xml_id }}-variant-toggle" src="{% static 'img/arrow-inactive.png' %}" />
+                                </a>
+                                {{ line.rendered_html|safe }}
+                            </div>
+
+                        </div>
+                        <div class="collapse" class="hide-me hidden" id="{{ line.xml_id }}-variant-div"></div>
+                    {% endfor %}
+                </div>
+
+                <!-- COMMENTARY -->
+                <div class="col-sm-3">
+                    <div style="height: 100%; position: fixed;">
+                        <iframe id="commentary-frame" width="100%" height="100%" frameborder="0" src="/corpus/{{ corpus_id }}/NVSCommentaries/"></iframe>
+                    </div>
+                </div>
             </div>
         </div>
+        <canvas id="witness-background-canvas"></canvas>
 
         <script src="{% static 'js/jquery-3.3.1.min.js' %}"></script>
         <script src="{% static 'js/popper.min.js' %}"></script>
         <script src="{% static 'js/bootstrap.min.js' %}"></script>
-        <script src="{% static 'js/jquery.connections.js' %}"></script>
         <script src="{% static 'js/in-view.min.js' %}"></script>
         <script src="{% static 'js/corpora.js' %}"></script>
         <script type="application/javascript">
@@ -184,51 +232,44 @@
     var witnesses;
     var lines = {};
     var notes = {};
-    var commentaries = {};
 
     var witnesses_loaded = false;
     var notes_loaded = false;
-    var commentaries_loaded = false;
     var loading_timer = null;
+    var redraw_timer = null;
     var show_queue = {};
     var hide_queue = {};
 
-    var line_no_map = {{ line_no_map|safe }};
     var max_line_no = -1;
     var min_line_no = -1;
 
-    var note_and_commentary_search = {
+    var note_search = {
         s_line_number: 'asc',
         s_xml_id: 'asc',
         page: 1,
         'page-size': 1000
     };
 
-    var commentary_col = $('#commentary-col');
-    var commentary_bin = 0;
     var line_col = $('#line-col');
-
-    var redraw_triggered = false;
-    var redraw_deferred = false;
-    var redraw_timer = null;
 
     $(document).ready(function() {
         corpora = new Corpora({'csrf_token': "{{ csrf_token }}"});
-
-        max_line_no = Math.max(...Object.keys(line_no_map));
-        min_line_no = Math.min(...Object.keys(line_no_map));
 
         corpora.list_content(
             corpus_id,
             'Document',
             {q_nvs_doc_type: 'witness', s_pub_date: 'asc', 'page-size': 1000},
-            function(witness_data) { witnesses = witness_data; witnesses_loaded = true; }
+            function(witness_data) {
+                witnesses = witness_data.records;
+                witnesses_loaded = true;
+                draw_witness_header_and_background();
+            }
         );
 
         corpora.list_content(
             corpus_id,
             'TextualNote',
-            Object.assign({only: 'xml_id,variants,lines.xml_id'}, note_and_commentary_search),
+            Object.assign({only: 'xml_id,variants,lines.xml_id'}, note_search),
             function(note_data) {
                 note_data.records.map(note => {
                     notes[note.xml_id] = note;
@@ -237,7 +278,6 @@
                         if (!lines.hasOwnProperty(tn_line.xml_id)) {
                             lines[tn_line.xml_id] = {
                                 notes: [],
-                                commentaries: [],
                                 populated: false
                             }
                         }
@@ -249,49 +289,31 @@
             true
         );
 
-        corpora.list_content(
-            corpus_id,
-            'Commentary',
-            Object.assign({only: 'xml_id,line_label,lines.xml_id,subject_matter,contents'}, note_and_commentary_search),
-            function(cn_data) {
-                cn_data.records.map(cn => {
-                    commentaries[cn.xml_id] = cn;
-                    commentaries[cn.xml_id].populated = false;
-
-                    cn.lines.map(cn_line => {
-                        if (!lines.hasOwnProperty(cn_line.xml_id)) {
-                            lines[cn_line.xml_id] = {
-                                notes: [],
-                                commentaries: [],
-                                populated: false
-                            }
-                        }
-                        lines[cn_line.xml_id].commentaries.push(cn.xml_id);
-                    });
-                    commentaries_loaded = true;
-                });
-            },
-            true
-        );
-
         setTimeout(wait_for_load, 500);
     });
 
     function wait_for_load() {
-        if (witnesses_loaded && notes_loaded && commentaries_loaded) {
-            for (let line_no = 1; line_no < 50; line_no++) {
-                show_notes_and_commentaries(line_no_map[line_no]);
-            }
-
+        if (witnesses_loaded && notes_loaded) {
             inView.offset(-500);
             inView('.play-row')
                 .on('enter', el => {
-                    delete hide_queue[el.id.replace('-row', '')];
-                    show_queue[el.id.replace('-row', '')] = true;
+                    let line_id = el.id.replace('-row', '');
+                    delete hide_queue[line_id];
+                    show_queue[line_id] = true;
                     clearTimeout(redraw_timer);
                     redraw_timer = setTimeout(flush_visibility_queue, 1000);
                 })
-                .on('exit', el => { delete show_queue[el.id.replace('-row', '')]; hide_queue[el.id.replace('-row', '')] = true; });
+                .on('exit', el => {
+                    let line_id = el.id.replace('-row', '');
+                    delete show_queue[line_id];
+                    hide_queue[line_id] = true; });
+
+            // Handle clicking on commentary lemma
+            $('comspan').click(function() {
+                let comm_frame = $('#commentary-frame');
+                let comm_id = this.className.replace('commentary-lemma-', '');
+                comm_frame.contents().find(`#commentary-note-${comm_id}`)[0].scrollIntoView();
+            });
         } else {
             setTimeout(wait_for_load, 500);
         }
@@ -299,20 +321,15 @@
 
     function flush_visibility_queue() {
         let lines_to_hide = Object.keys(hide_queue);
-        lines_to_hide.map(line_id => { delete hide_queue[line_id]; hide_notes_and_commentaries(line_id); });
+        lines_to_hide.map(line_id => { delete hide_queue[line_id]; hide_notes(line_id); });
         let lines_to_show = Object.keys(show_queue);
-        lines_to_show.map(line_id => { delete show_queue[line_id]; show_notes_and_commentaries(line_id); });
-
-        console.log(lines_to_hide.length);
-        console.log(lines_to_show.length);
-        console.log('---');
+        lines_to_show.map(line_id => { delete show_queue[line_id]; show_notes(line_id); });
     }
 
-    function show_notes_and_commentaries(line_id) {
+    function show_notes(line_id) {
         if (!lines.hasOwnProperty(line_id)) {
             lines[line_id] = {
                 notes: [],
-                commentaries: [],
                 populated: false
             }
         }
@@ -320,18 +337,20 @@
         let line_row = $(`#${line_id}-row`);
         let line_variant_toggler = $(`#${line_id}-variant-toggler`);
         let line_variant_div = $(`#${line_id}-variant-div`);
+        let line_witness_col = $(`#${line_id}-witness-col`);
         let line_witness_meter = $(`#${line_id}-witness-meter`);
-        let line_commentary_div = $(`#${line_id}-commentary-div`);
 
         line_variant_toggler.removeClass('hidden');
         line_variant_div.removeClass('hidden');
         line_witness_meter.removeClass('hidden');
-        line_commentary_div.removeClass('hidden');
-        line_commentary_div.addClass('d-flex');
 
         if (!lines[line_id].populated) {
-            line_witness_meter.attr('width', `${witnesses.length * 4}px`);
-            draw_witness_meter(line_row.attr('data-witness_indicators'), `${line_id}-witness-meter`);
+            draw_witness_meter(
+                line_row.attr('data-witness_indicators'),
+                `${line_id}-witness-meter`,
+                line_witness_col.width(),
+                line_witness_col.height()
+            );
 
             // make note/variant elements
             lines[line_id].notes.map(note_id => {
@@ -344,13 +363,12 @@
 
                         notes[note_id].lines.map(line => {
                             $(`#${line.xml_id}-variant-div`).append(`
-                                <div class="row variant-row variant-${variant.id}">
-                                    <div class="col-sm-3">&nbsp;</div>
-                                    <div class="col-sm-1">&nbsp;</div>
-                                    <div class="col-sm-6 variant-words">${variant_words}</div>
-                                    <div class="col-sm-2 witness-meter">
-                                        <canvas id="${line_id}-${variant.id}-witness-meter" height="25px" width="${witnesses.length * 4}px"></canvas>
+                                <div class="row variant-row">
+                                    <div id="variant-${variant.id}" class="col-sm-4 witness-meter">
+                                        <canvas id="${line_id}-${variant.id}-witness-meter" height="25px"></canvas>
                                     </div>
+                                    <div class="col-sm-1">&nbsp;</div>
+                                    <div class="col-sm-7 variant-words">${variant_words}</div>
                                 </div>
                             `);
 
@@ -367,268 +385,102 @@
                                 //update_connections();
                             });
 
-                            draw_witness_meter(variant.witness_meter, `${line_id}-${variant.id}-witness-meter`);
+                            let variant_col = $(`#${line.xml_id}-witness-col`);
+                            draw_witness_meter(
+                                variant.witness_meter,
+                                `${line_id}-${variant.id}-witness-meter`,
+                                variant_col.width(),
+                                variant_col.height()
+                            );
                         });
                     });
                     notes[note_id].populated = true;
                 }
             });
 
-            // sort commentary elements by whether multilined
-            lines[line_id].commentaries = lines[line_id].commentaries.sort(function(a, b) {
-                if (commentaries[a].lines.length < commentaries[b].lines.length) {
-                    return 1;
-                } else if (commentaries[a].lines.length > commentaries[b].lines.length) {
-                    return -1;
-                } else {
-                    return 0;
-                }
-            });
-
-            // make commentary elements
-            let relevant_commentary_lines = [];
-            lines[line_id].commentaries.map(cn_id => {
-                if (!commentaries[cn_id].populated && commentaries[cn_id].lines) {
-                    let cn = commentaries[cn_id];
-                    let first_line_id = cn.lines[0].xml_id;
-                    let is_multilined = cn.lines.length > 1;
-                    let cn_class = "commentary-stub p-1 m-1";
-
-                    if (is_multilined) {
-                        cn_class += " multilined";
-                    }
-
-                    if (!relevant_commentary_lines.includes(first_line_id)) {
-                        if (!is_multilined) {
-                            cn_class += " mr-5";
-                        }
-                        relevant_commentary_lines.push(first_line_id);
-                    }
-
-                    $(`#${first_line_id}-commentary-div`).append(`
-                        <div id="${cn_id}-stub" class="${cn_class}">
-                            <span onClick="show_commentary('${cn.xml_id}');">${cn.subject_matter}</span>
-                            <i id="${cn.xml_id}-comment-connector-anchor" class="fas fa-feather-alt float-right comment-connector-anchor"></i>
-                        </div>
-                    `);
-
-                    /*
-                    cn.lines.map(line => {
-                        if (lines.hasOwnProperty(line.xml_id) && is_multilined) {
-                            $(`#${cn.xml_id}-comment-connector-anchor`).connections({
-                                to: `#${line.xml_id}-number-col`,
-                                class: 'commentary',
-                            });
-                        }
-                    });
-                     */
-
-                    $(`#${cn_id}-stub`).hover(
-                        function(event) { // <- function for mouseenter
-                            $('.commentary-stub-highlighted').removeClass('commentary-stub-highlighted');
-                            $('.play-label-highlighted').removeClass('play-label-highlighted');
-
-                            if (event.target.id.includes('-stub')) {
-                                let cn_id = event.target.id.replace('-stub', '');
-                                $(event.target).addClass('commentary-stub-highlighted');
-                                if (commentaries.hasOwnProperty(cn_id) && commentaries[cn_id].hasOwnProperty('lines')) {
-                                    commentaries[cn_id].lines.map(line => {
-                                        $(`#${line.xml_id}-number-col`).addClass('play-label-highlighted');
-                                    });
-                                } else {
-                                    console.log(`problem w/ ${cn_id}`);
-                                }
-                            }
-                        },
-                        function(event) { // <- function for mouseleave
-                            if (event.target.id.includes('-stub')) {
-                                $(event.target).removeClass('commentary-stub-highlighted');
-                                $('.play-label').removeClass('play-label-highlighted');
-                            }
-                        }
-                    );
-
-                    commentaries[cn_id].populated = true;
-                }
-            });
-
             lines[line_id].populated = true;
         }
-
-        // draw lines for multilined commentaries
-        lines[line_id].commentaries.map(cn_id => {
-            if (commentaries[cn_id].lines.length > 1) {
-                $(`#${cn_id}-comment-connector-anchor`).connections({
-                    to: `#${line_id}-number-col`,
-                    class: 'commentary',
-                });
-            }
-        });
     }
 
-    function hide_notes_and_commentaries(line_id) {
+    function hide_notes(line_id) {
         let line_variant_toggler = $(`#${line_id}-variant-toggler`);
         let line_variant_div = $(`#${line_id}-variant-div`);
         let line_witness_meter = $(`#${line_id}-witness-meter`);
-        let line_commentary_div = $(`#${line_id}-commentary-div`);
-        let line_number_div = $(`#${line_id}-number-col`);
 
         line_variant_toggler.addClass('hidden');
         line_variant_div.addClass('hidden');
         line_witness_meter.addClass('hidden');
-        line_commentary_div.addClass('hidden');
-        line_commentary_div.removeClass('d-flex');
-        line_number_div.connections('remove');
     }
 
-    function adjust_note_and_commentary_visibility() {
-        redraw_triggered = false;
+    function draw_witness_header_and_background() {
+        let witness_centuries = {};
+        witnesses.map(wit => {
+            let century = wit.pub_date[0] + wit.pub_date[1] + "00";
+            if (!witness_centuries.hasOwnProperty(century)) {
+                witness_centuries[century] = 1;
+            } else {
+                witness_centuries[century] += 1;
+            }
+        });
 
-        if (check_scroll_marker_visibility()) {
-            starting_line_no = ending_line_no + 1;
-            ending_line_no = starting_line_no + 50;
-            load_lines();
-        } else {
-            let visible_line_ids = [];
-            let commentaries_displayed = [];
+        let width = $('#witness-header-col').outerWidth();
+        let witness_width = width / witnesses.length;
+        let header_height = 50;
 
-            // clear all variants and commentaries
-            $('.variant-row').remove();
-            $('connection.commentary').connections('remove');
-            $('.commentary-bin').remove();
-            commentary_col.append(`<div id="commentary-bin-0" class="d-flex flex-wrap commentary-bin"></div>`);
-            commentary_bin = 0;
+        let header_canvas = $('#witness-header-canvas');
+        header_canvas.css('width', width);
+        header_canvas.css('height', header_height);
+        let header_context = header_canvas[0].getContext('2d');
+        let font_size = 15;
+        header_context.font = `${font_size}px Roboto`;
+        header_context.fillStyle = "#a7a7a7";
+        header_context.textAlign = "left";
+        header_context.textBaseline = "bottom";
 
-            // find visible line ids
-            $(`.play-words`).each(function() {
-                let play_words = $(this);
-                if (play_words.isInViewport()) {
-                    visible_line_ids.push(this.id.replace('-words-col', ''));
-                }
-            });
+        let background_canvas = $('#witness-background-canvas');
+        let offset = $('#main-col').offset();
+        let background_height = $(document).height() - offset.top;
+        background_canvas.css('position', 'absolute');
+        background_canvas.css('top', offset.top);
+        background_canvas.css('left', offset.left);
+        background_canvas.css('height', background_height);
+        background_canvas.css('width', width);
+        background_canvas.css('z-index', '-1');
+        let background_context = background_canvas[0].getContext('2d');
 
-            visible_line_ids.map(line_id => {
-                lines[line_id].note_ids.map(note_id => {
-                    console.log('loading variant...');
-                    notes[note_id].variants.map(variant => {
-                        let variant_words = variant.variant;
-                        if (!variant_words) {
-                            variant_words = variant.label;
-                        }
+        let century_cursor = 0;
+        let width_cursor = 0;
+        for (let century in witness_centuries) {
+            let century_width = witness_centuries[century] * witness_width;
 
-                        notes[note_id].lines.map(line => {
-                            if (visible_line_ids.includes(line.xml_id)) {
-                                $(`#${line.xml_id}-variant-div`).append(`
-                                    <div class="row variant-row variant-${variant.id}">
-                                        <div class="col-sm-1">&nbsp;</div>
-                                        <div class="col-sm-8 variant-words">${variant_words}</div>
-                                        <div class="col-sm-3 witness-meter">
-                                            <canvas id="${line.xml_id}-${variant.id}-witness-meter" height="25px" width="${witnesses.length * 4}px"></canvas>
-                                        </div>
-                                    </div>
-                                `);
+            if (century_cursor % 2 === 0) {
+                header_context.beginPath();
+                header_context.fillStyle = "#f4f4f4";
+                header_context.fillRect(width_cursor, 0, century_width, header_height);
 
-                                if (!lines[line.xml_id].variant_collapse_event_handled) {
-                                    $(`#${line.xml_id}-variant-toggle`).attr('src', "{% static 'img/arrow-active.png' %}");
-                                    $(`#${line.xml_id}-variant-div`).on('shown.bs.collapse', function (event) {
-                                        let indicator_id = event.target.id.replace('-div', '-toggle');
-                                        $("#" + indicator_id).attr('src', "{% static 'img/arrow-toggled.png' %}");
-                                        update_connections();
-                                    });
+                background_context.beginPath();
+                background_context.fillStyle = "#f4f4f4";
+                background_context.fillRect(width_cursor, 0, century_width, background_height);
+            }
 
-                                    $(`#${line.xml_id}-variant-div`).on('hidden.bs.collapse', function (event) {
-                                        let indicator_id = event.target.id.replace('-div', '-toggle');
-                                        $("#" + indicator_id).attr('src', "{% static 'img/arrow-active.png' %}");
-                                        update_connections();
-                                    });
+            header_context.save();
+            header_context.fillStyle = "#a7a7a7";
+            header_context.translate(width_cursor + 5, header_height - 5);
+            header_context.rotate(-Math.PI / 2);
+            header_context.fillText(century, 0, font_size);
+            header_context.restore();
 
-                                    lines[line.xml_id].variant_collapse_event_handled = true;
-                                }
-
-                                draw_witness_meter(variant.witness_meter, `${line.xml_id}-${variant.id}-witness-meter`);
-                            }
-                        });
-                    });
-                });
-
-                lines[line_id].commentary_ids.map(cn_id => {
-                    if (!commentaries_displayed.includes(cn_id)) {
-                        let cn = commentaries[cn_id];
-                        let first_line_top = $(`#${cn.lines[0].xml_id}-line-row`)[0].getBoundingClientRect().top;
-                        let bin_bottom = $(`#commentary-bin-${commentary_bin}`)[0].getBoundingClientRect().bottom;
-                        let offset = first_line_top - bin_bottom;
-
-                        if (offset > 0) {
-                            commentary_bin += 1;
-                            commentary_col.append(`
-                                <div id="commentary-bin-${commentary_bin}"
-                                    class="d-flex flex-wrap commentary-bin"
-                                    style="margin-top: ${offset}px;">
-                                </div>
-                            `);
-                        }
-
-                        $(`#commentary-bin-${commentary_bin}`).append(`
-                            <div id="${cn.xml_id}-stub" class="commentary-stub m-2 p-2">
-                                <a href="javascript:show_commentary('${cn.xml_id}');">${cn.subject_matter}</a>
-                                <i id="${cn.xml_id}-comment-connector-anchor" class="fas fa-feather-alt float-right comment-connector-anchor"></i>
-                            </div>
-                        `);
-
-                        cn.lines.map(line => {
-                            if (lines.hasOwnProperty(line.xml_id)) {
-                                $(`#${cn.xml_id}-comment-connector-anchor`).connections({
-                                    to: `#${line.xml_id}-comment-connector-anchor`,
-                                    class: 'commentary',
-                                });
-                            }
-                        });
-
-                        commentaries_displayed.push(cn_id);
-                    }
-                });
-            });
-
-            $('.commentary-stub').hover(
-                function(event) { // <- function for mouseenter
-                    if (redraw_triggered) {
-                        clearTimeout(redraw_timer);
-                        redraw_deferred = true;
-                    }
-
-                    let cn_id = event.target.id.replace('-stub', '');
-                    $(event.target).addClass('commentary-stub-highlighted');
-                    commentaries[cn_id].lines.map(line => {
-                        $(`#${line.xml_id}-number-col`).addClass('play-label-highlighted');
-                    });
-                },
-                function(event) { // <- function for mouseleave
-                    if (redraw_triggered && redraw_deferred) {
-                        clearTimeout(redraw_timer);
-                        redraw_timer = setTimeout(adjust_note_and_commentary_visibility, 1000);
-                        redraw_deferred = false;
-                    }
-
-                    $(event.target).removeClass('commentary-stub-highlighted');
-                    $('.play-label').removeClass('play-label-highlighted');
-                }
-            );
+            century_cursor += 1;
+            width_cursor += century_width;
         }
     }
 
-    function check_scroll_marker_visibility() {
-        let visible = false;
-        $('.scroll-marker').each(function() {
-            if ($(this).isInViewport()) {
-                visible = true;
-            }
-        });
-        return visible;
-    }
-
-    function draw_witness_meter(witness_meter, canvas_id) {
-        let wm_canvas = $(`#${canvas_id}`)[0];
-        let wm_context = wm_canvas.getContext('2d');
+    function draw_witness_meter(witness_meter, canvas_id, width, height) {
+        let wm_canvas = $(`#${canvas_id}`);
+        wm_canvas.css('width', width);
+        wm_canvas.css('height', height);
+        let wm_context = wm_canvas[0].getContext('2d');
+        let witness_width = width / witnesses.length;
 
         for (let meter_index = 0; meter_index < witness_meter.length; meter_index++) {
             wm_context.beginPath();
@@ -639,23 +491,15 @@
             }
 
             wm_context.fillRect(
-                meter_index * 4,
+                meter_index * witness_width,
                 0,
-                3,
-                25
+                witness_width - 1,
+                height
             );
 
         }
     }
 
-    function update_connections() {
-        $('connection.commentary').connections('update');
-    }
-
-    function show_commentary(cn_id) {
-        $('#commentary-modal-content').html(commentaries[cn_id].contents);
-        $('#commentary-modal').modal();
-    }
     </script>
     </body>
 </html>

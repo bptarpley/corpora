@@ -311,10 +311,7 @@ def adjust_line_tags(line_tags, html):
 
 def design(request, corpus_id, starting_line_no, ending_line_no):
     corpus = get_corpus(corpus_id)
-    lines = corpus.get_content('PlayLine', all=True).order_by('line_number')
-    line_no_map = {}
-    for line in lines:
-        line_no_map[line.line_number] = line.xml_id
+    lines = corpus.get_content('PlayLine', all=True).order_by('line_number') #.limit(50)
 
     return render(
         request,
@@ -322,9 +319,22 @@ def design(request, corpus_id, starting_line_no, ending_line_no):
         {
             'corpus_id': corpus_id,
             'lines': lines,
-            'line_no_map': line_no_map,
             'starting_line_no': starting_line_no,
             'ending_line_no': ending_line_no
+        }
+    )
+
+
+def commentaries(request, corpus_id):
+    corpus = get_corpus(corpus_id)
+    commentaries = corpus.get_content('Commentary', all=True).order_by('id')
+
+    return render(
+        request,
+        'commentaries.html',
+        {
+            'corpus_id': corpus_id,
+            'commentaries': commentaries
         }
     )
 
@@ -345,3 +355,4 @@ def api_lines(request, corpus_id, starting_line_no, ending_line_no):
         json.dumps(lines),
         content_type='application/json'
     )
+

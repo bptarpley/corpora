@@ -984,7 +984,7 @@ class Corpus(mongoengine.Document):
 
         return content
 
-    def make_link(self, source_uri, target_uri, link_label, cardinality=1):
+    def make_link(self, source_uri, target_uri, link_label, link_attrs={}, cardinality=1):
         # cardinality values:
         # 0: source --- target
         # 1: source --> target
@@ -1013,18 +1013,38 @@ class Corpus(mongoengine.Document):
                     elif cardinality == 3:
                         relationship_start = '<-'
 
+                    link_attr_string = ""
+                    if link_attrs:
+                        first_attr = True
+                        link_attr_string = " { "
+                        for key in link_attrs.keys():
+                            if not first_attr:
+                                link_attr_string += ", "
+                            else:
+                                first_attr = False
+
+                            link_attr_string += "{0}: ".format(key)
+                            if hasattr(link_attrs[key], 'append'):
+                                link_attr_string += json.dumps(link_attrs[key])
+                            else:
+                                link_attr_string += link_attrs[key]
+                        link_attr_string += " }"
+
+                    cypher = '''
+                        MATCH (src:{source_content_type} {{ uri: $source_uri }})
+                        MATCH (trg:{target_content_type} {{ uri: $target_uri }})
+                        MERGE (src) {rel_start}[rel:{link_label}{link_props}]{rel_end} (trg)
+                    '''.format(
+                        source_content_type=source_content_type,
+                        target_content_type=target_content_type,
+                        rel_start=relationship_start,
+                        rel_end=relationship_end,
+                        link_label=link_label,
+                        link_props=link_attr_string
+                    )
+
                     run_neo(
-                        '''
-                            MATCH (src:{source_content_type} {{ uri: $source_uri }})
-                            MATCH (trg:{target_content_type) {{ uri: $target_uri }})
-                            MERGE (src) {rel_start}[rel:{link_label}]{rel_end} (trg)
-                        '''.format(
-                            source_content_type=source_content_type,
-                            target_content_type=target_content_type,
-                            rel_start=relationship_start,
-                            rel_end=relationship_end,
-                            link_label=link_label
-                        ),
+                        cypher,
                         {
                             'source_uri': source_uri,
                             'target_uri': target_uri
@@ -1374,21 +1394,30 @@ class Corpus(mongoengine.Document):
     def delete_content_type(self, content_type):
         if content_type in self.content_types:
             # Delete Neo4J nodes
-            run_neo(
-                '''
-                    MATCH (n:{0} {{corpus_id: $corpus_id}}) -[*]-> (x {{corpus_id: $corpus_id}})
-                    DETACH DELETE x
-                '''.format(content_type),
-                {'corpus_id': str(self.id)}
-            )
 
-            run_neo(
-                '''
-                    MATCH (x:{0} {{corpus_id: $corpus_id}})
-                    DETACH DELETE x
-                '''.format(content_type),
-                {'corpus_id': str(self.id)}
-            )
+            nodes_deleted = 1
+            while nodes_deleted > 0:
+                nodes_deleted = run_neo(
+                    '''
+                        MATCH (n:{0} {{corpus_id: $corpus_id}}) -[*]-> (x {{corpus_id: $corpus_id}})
+                        WITH x LIMIT 1000
+                        DETACH DELETE x
+                        RETURN count(*)
+                    '''.format(content_type),
+                    {'corpus_id': str(self.id)}
+                )[0][0]
+
+            nodes_deleted = 1
+            while nodes_deleted > 0:
+                nodes_deleted = run_neo(
+                    '''
+                        MATCH (x:{0} {{corpus_id: $corpus_id}})
+                        WITH x LIMIT 1000
+                        DETACH DELETE x
+                        RETURN count(*)
+                    '''.format(content_type),
+                    {'corpus_id': str(self.id)}
+                )[0][0]
 
             # Delete Elasticsearch index
             index_name = "corpus-{0}-{1}".format(self.id, content_type.lower())
