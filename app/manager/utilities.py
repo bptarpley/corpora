@@ -109,7 +109,7 @@ def _get_context(req):
         'page': 1,
         'page_size': 50,
         'only': [],
-        'search_mode': "wildcard"
+        'search_mode': "match"
     }
 
     for param in req.GET.keys():

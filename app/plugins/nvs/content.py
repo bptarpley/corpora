@@ -337,7 +337,7 @@ REGISTRY = [
                 "unique": False,
                 "multiple": False,
                 "in_lists": False,
-                "type": "text",
+                "type": "html",
                 "choices": [],
                 "cross_reference_type": "",
                 "indexed_with": [],
@@ -369,75 +369,6 @@ REGISTRY = [
         "templates": {
             "Label": {
                 "template": "[{{ PlayLine.line_number }}] {{ PlayLine.words|join:' ' }}",
-                "mime_type": "text/html"
-            }
-        },
-        "inherited": False,
-        "invalid_field_names": [
-            "corpus_id",
-            "content_type",
-            "last_updated",
-            "provenance",
-            "path",
-            "label",
-            "uri"
-        ]
-    },
-    {
-        "name": "PlayRole",
-        "plural_name": "Play Roles",
-        "fields": [
-            {
-                "name": "xml_id",
-                "label": "XML ID",
-                "indexed": False,
-                "unique": True,
-                "multiple": False,
-                "in_lists": True,
-                "type": "keyword",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "role",
-                "label": "Role",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "text",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            },
-            {
-                "name": "line_locations",
-                "label": "Line Locations",
-                "indexed": False,
-                "unique": False,
-                "multiple": True,
-                "in_lists": True,
-                "type": "cross_reference",
-                "choices": [],
-                "cross_reference_type": "LineLocation",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            }
-        ],
-        "show_in_nav": True,
-        "proxy_field": "",
-        "templates": {
-            "Label": {
-                "template": "{{ PlayRole.role }}",
                 "mime_type": "text/html"
             }
         },
@@ -593,6 +524,21 @@ REGISTRY = [
                 "multiple": False,
                 "in_lists": True,
                 "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "witness_formula",
+                "label": "Witness Formula",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "html",
                 "choices": [],
                 "cross_reference_type": "",
                 "indexed_with": [],

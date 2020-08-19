@@ -1086,6 +1086,21 @@ class Corpus(mongoengine.Document):
             if fields_query:
                 for search_field in fields_query.keys():
                     field_values = [value_part for value_part in fields_query[search_field].split('__') if value_part]
+
+                    if not field_values:
+                        if '.' in search_field:
+                            field_parts = search_field.split('.')
+                            must.append(Q(
+                                "nested",
+                                path=field_parts[0],
+                                query=~Q(
+                                    'exists',
+                                    field=search_field
+                                )
+                            ))
+                        else:
+                            must.append(~Q('exists', field=search_field))
+
                     for field_value in field_values:
                         if '.' in search_field:
                             field_parts = search_field.split('.')
@@ -1166,9 +1181,9 @@ class Corpus(mongoengine.Document):
                     search_cmd = search_cmd.sort(*adjusted_fields_sort)
 
                 search_cmd = search_cmd[start_index:end_index]
-                #print(json.dumps(search_cmd.to_dict(), indent=4))
+                # print(json.dumps(search_cmd.to_dict(), indent=4))
                 search_results = search_cmd.execute().to_dict()
-                #print(json.dumps(search_results, indent=4))
+                # print(json.dumps(search_results, indent=4))
                 results['meta']['total'] = search_results['hits']['total']['value']
                 results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
                 results['meta']['has_next_page'] = results['meta']['page'] < results['meta']['num_pages']
@@ -1180,6 +1195,109 @@ class Corpus(mongoengine.Document):
                     results['records'].append(record)
 
         return results
+
+    def explore_content(
+            self,
+            left_content_type,
+            left_id=None,
+            left_content=None,
+            relationship_cypher=None,
+            relationship=None,
+            cardinality=1,
+            right_content_type=None,
+            right_id=None):
+
+        results_added = 0
+        if left_content_type in self.content_types:
+            left_uri_constraints = []
+            left_id_map = {}
+
+            if not left_content:
+                left_content = []
+                if left_id:
+                    left_content.append(self.get_content(left_content_type, left_id))
+                else:
+                    left_content = self.get_content(left_content_type, all=True)
+
+            if left_content:
+                left_content = [lefty for lefty in left_content]
+                for left_index in range(0, len(left_content)):
+                    left_uri_constraints.append(
+                        "/corpus/{0}/{1}/{2}".format(
+                            self.id,
+                            left_content_type,
+                            left_content[left_index].id
+                        )
+                    )
+
+                    left_id_map[str(left_content[left_index].id)] = left_index
+
+                left_cypher = "(left:{0})".format(left_content_type)
+
+                # determine relationship cypher based on relationship and cardinality
+                if not relationship_cypher:
+                    relationship_cypher = ""
+                    if relationship:
+                        relationship_cypher = "[rel:{0}]".format(relationship)
+
+                    relationship_start = '-'
+                    relationship_end = '->'
+
+                    if cardinality == 0:
+                        relationship_end = '-'
+                    elif cardinality == 2:
+                        relationship_start = '<-'
+                        relationship_end = '-'
+                    elif cardinality == 3:
+                        relationship_start = '<-'
+
+                    relationship_cypher = "{0}{1}{2}".format(relationship_start, relationship_cypher, relationship_end)
+
+                right_cypher = "(right)"
+                if right_content_type:
+                    right_cypher = "(right:{0})".format(right_content_type)
+
+                cypher = '''
+                    MATCH {0} {1} {2}
+                    WHERE left.corpus_id = $corpus_id
+                    AND right.corpus_id = $corpus_id
+                    AND left.uri IN $left_uri_constraints
+                    RETURN left.id, type(rel), right.uri
+                '''.format(left_cypher, relationship_cypher, right_cypher)
+
+                print(cypher)
+
+                results = run_neo(cypher, {
+                    'corpus_id': str(self.id),
+                    'left_uri_constraints': left_uri_constraints
+                })
+
+                for result in results:
+                    result = result.data()
+                    left_id = result['left.id']
+                    relation = "_" + result['type(rel)']
+                    right_uri = result['right.uri']
+                    right_uri_parts = [uri_part for uri_part in right_uri.split('/') if uri_part]
+                    if len(right_uri_parts) == 4:
+                        right_id = right_uri_parts[3]
+
+                        if left_id in left_id_map:
+                            left_index = left_id_map[left_id]
+                            right_dict = {
+                                'content_type': right_content_type,
+                                'id': right_id,
+                                'uri': right_uri
+                            }
+
+                            if not hasattr(left_content[left_index], relation):
+                                setattr(left_content[left_index], relation, [right_dict])
+                            else:
+                                getattr(left_content[left_index], relation).append(right_dict)
+
+                            results_added += 1
+
+        print(results_added)
+        return left_content
 
     def save_content_type(self, schema):
         valid = True
@@ -1394,18 +1512,19 @@ class Corpus(mongoengine.Document):
     def delete_content_type(self, content_type):
         if content_type in self.content_types:
             # Delete Neo4J nodes
-
-            nodes_deleted = 1
-            while nodes_deleted > 0:
-                nodes_deleted = run_neo(
-                    '''
-                        MATCH (n:{0} {{corpus_id: $corpus_id}}) -[*]-> (x {{corpus_id: $corpus_id}})
-                        WITH x LIMIT 1000
-                        DETACH DELETE x
-                        RETURN count(*)
-                    '''.format(content_type),
-                    {'corpus_id': str(self.id)}
-                )[0][0]
+            # Commenting out deletion of child nodes:
+            # Sometimes child nodes are valid instances of content type
+            # nodes_deleted = 1
+            # while nodes_deleted > 0:
+            #    nodes_deleted = run_neo(
+            #        '''
+            #            MATCH (n:{0} {{corpus_id: $corpus_id}}) -[*]-> (x {{corpus_id: $corpus_id}})
+            #            WITH x LIMIT 1000
+            #            DETACH DELETE x
+            #            RETURN count(*)
+            #        '''.format(content_type),
+            #        {'corpus_id': str(self.id)}
+            #    )[0][0]
 
             nodes_deleted = 1
             while nodes_deleted > 0:

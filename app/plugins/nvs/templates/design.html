@@ -58,8 +58,7 @@
             }
 
             #witness-header-col {
-                min-height: 50px;
-                padding: 0px 5px 0px 5px;
+                padding: 0px;
                 margin: 0px;
             }
 
@@ -103,7 +102,20 @@
             }
 
             .variant-row {
-                background-color: #efefef;
+                /*background-color: #efefef;*/
+                background-color: rgba(154, 154, 153, 0.1);
+                border-bottom: solid 4px #fbeee0;
+            }
+
+            .witness-formula {
+                color: #f99b4e;
+                font-family: 'Roboto', sans-serif;
+                font-size: 12px;
+                text-transform: uppercase;
+            }
+
+            .variant-play-label {
+                background-color: #f2f2f2;
             }
 
             .variant-words {
@@ -114,12 +126,17 @@
                 padding-bottom: 5px;
             }
 
+            .variant-note {
+                color: #070707;
+            }
+
             h3.heading {
                 display: inline;
             }
 
             span.difference {
                 color: #e9702b;
+                background-color: #d8d8d8;
             }
 
             comspan {
@@ -145,7 +162,7 @@
                                 TEXTUAL VARIANTS
                             </div>
                             <div class="row">
-                                <div class="col-sm-4 heading-button heading-buton-active">
+                                <div class="col-sm-4 heading-button heading-button-active">
                                     COLLAPSE ALL
                                 </div>
                                 <div class="col-sm-4 heading-button">
@@ -184,7 +201,7 @@
                              data-words="{{ line.words|join:" " }}"
                              data-witness_indicators="{{ line.witness_meter }}"
                         >
-                            <div id="{{ line.xml_id }}-witness-col" class="col-sm-4 witness-meter">
+                            <div id="{{ line.xml_id }}-witness-col" class="col-sm-4 witness-meter p-0 m-0">
                                 <canvas id="{{ line.xml_id }}-witness-meter" class="hide-me hidden" height="25px"></canvas>
                             </div>
                             <div id="{{ line.xml_id }}-number-col" class="col-sm-1 play-label">{{ line.line_label }}</div>
@@ -358,28 +375,41 @@
                     notes[note_id].variants.map(variant => {
                         let variant_words = variant.variant;
                         if (!variant_words) {
-                            variant_words = variant.label;
+                            if (variant.description === null) {
+                                variant_words = `Error with variant transform: <a href='${notes[note_id].uri}/' target='_blank'>Note</a> <a href='${variant.uri}/' target='_blank'>Variant</a>`;
+                            } else {
+                                variant_words = `<span class="variant-note">${variant.description}</span>`;
+                            }
                         }
 
                         notes[note_id].lines.map(line => {
                             $(`#${line.xml_id}-variant-div`).append(`
                                 <div class="row variant-row">
-                                    <div id="variant-${variant.id}" class="col-sm-4 witness-meter">
-                                        <canvas id="${line_id}-${variant.id}-witness-meter" height="25px"></canvas>
+                                    <div class="col-sm-4">
+                                        <div class="row">
+                                            <div id="variant-${variant.id}" class="col-sm-12 witness-meter p-0 m-0">
+                                                <canvas id="${line.xml_id}-${variant.id}-witness-meter" height="25px"></canvas>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div id="col-sm-12" class="witness-formula">
+                                                ${variant.witness_formula}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="col-sm-1">&nbsp;</div>
+                                    <div class="col-sm-1 variant-play-label">&nbsp;</div>
                                     <div class="col-sm-7 variant-words">${variant_words}</div>
                                 </div>
                             `);
 
-                            $(`#${line_id}-variant-toggle`).attr('src', "{% static 'img/arrow-active.png' %}");
-                            $(`#${line_id}-variant-div`).on('shown.bs.collapse', function (event) {
+                            $(`#${line.xml_id}-variant-toggle`).attr('src', "{% static 'img/arrow-active.png' %}");
+                            $(`#${line.xml_id}-variant-div`).on('shown.bs.collapse', function (event) {
                                 let indicator_id = event.target.id.replace('-div', '-toggle');
                                 $("#" + indicator_id).attr('src', "{% static 'img/arrow-toggled.png' %}");
                                 //update_connections();
                             });
 
-                            $(`#${line_id}-variant-div`).on('hidden.bs.collapse', function (event) {
+                            $(`#${line.xml_id}-variant-div`).on('hidden.bs.collapse', function (event) {
                                 let indicator_id = event.target.id.replace('-div', '-toggle');
                                 $("#" + indicator_id).attr('src', "{% static 'img/arrow-active.png' %}");
                                 //update_connections();
@@ -388,9 +418,10 @@
                             let variant_col = $(`#${line.xml_id}-witness-col`);
                             draw_witness_meter(
                                 variant.witness_meter,
-                                `${line_id}-${variant.id}-witness-meter`,
-                                variant_col.width(),
-                                variant_col.height()
+                                `${line.xml_id}-${variant.id}-witness-meter`,
+                                variant_col.outerWidth(),
+                                25
+                                //variant_col.height()
                             );
                         });
                     });
@@ -423,7 +454,7 @@
             }
         });
 
-        let width = $('#witness-header-col').outerWidth();
+        let width = $('#witness-header-col').width();
         let witness_width = width / witnesses.length;
         let header_height = 50;
 
@@ -476,6 +507,19 @@
     }
 
     function draw_witness_meter(witness_meter, canvas_id, width, height) {
+        let color_map = {
+            '0': '#9A9A99',
+            '1': '#f7bb78',
+            '2': '#faae63',
+            '3': '#f99b4e',
+            '4': '#ef8537',
+            '5': '#d87b48',
+            '6': '#de6d4b',
+            '7': '#bd5822',
+            '8': '#a84f1f',
+            '9': '#8f2d13',
+        };
+
         let wm_canvas = $(`#${canvas_id}`);
         wm_canvas.css('width', width);
         wm_canvas.css('height', height);
@@ -484,11 +528,7 @@
 
         for (let meter_index = 0; meter_index < witness_meter.length; meter_index++) {
             wm_context.beginPath();
-            if (witness_meter[meter_index] === '0') {
-                wm_context.fillStyle = "#9a9a99";
-            } else {
-                wm_context.fillStyle = "#ed974c";
-            }
+            wm_context.fillStyle = color_map[witness_meter[meter_index]];
 
             wm_context.fillRect(
                 meter_index * witness_width,

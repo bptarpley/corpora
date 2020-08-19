@@ -332,7 +332,6 @@ def view_content(request, corpus_id, content_type, content_id):
         }
     )
 
-
 @login_required
 def scholars(request):
     response = _get_context(request)

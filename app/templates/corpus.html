@@ -937,6 +937,20 @@
                     search_settings_menu.append(`
                         <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}" href="#">${ct.fields[x].label}</a>
                     `);
+
+                    // add cross reference sub field options
+                    if (ct.fields[x].type === 'cross_reference') {
+                        if (corpus.content_types.hasOwnProperty(ct.fields[x].cross_reference_type)) {
+                            let cx = corpus.content_types[ct.fields[x].cross_reference_type];
+                            for (let y = 0; y < cx.fields.length; y++) {
+                                if (cx.fields[y].in_lists && cx.fields[y].type !== 'cross_reference') {
+                                    search_settings_menu.append(`
+                                        <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-${ct.fields[x].name + '.' + cx.fields[y].name}" href="#">${ct.fields[x].label} -> ${cx.fields[y].label}</a>
+                                    `);
+                                }
+                            }
+                        }
+                    }
                 }
             }
             $(`.ct-${ct.name}-search-setting`).click(function (event) {
@@ -1036,11 +1050,25 @@
 
                     if (search_setting !== 'q') {
                         field = search_setting.substring(2);
-                        if (field.includes('.')) { field = field.split('.')[0]; }
+                        let subfield = "";
+                        if (field.includes('.')) {
+                            let field_parts = field.split('.');
+                            field = field_parts[0];
+                            subfield = field_parts[1];
+                        }
 
                         for (let x = 0; x < ct.fields.length; x++) {
                             if (ct.fields[x].name === field) {
                                 field_name = ct.fields[x].label;
+
+                                if (subfield !== "" && ct.fields[x].type === 'cross_reference' && corpus.content_types.hasOwnProperty(ct.fields[x].cross_reference_type)) {
+                                    let cx = corpus.content_types[ct.fields[x].cross_reference_type];
+                                    for (let y = 0; y < cx.fields.length; y++) {
+                                        if (cx.fields[y].name === subfield) {
+                                            field_name += " -> " + cx.fields[y].label;
+                                        }
+                                    }
+                                }
                             }
                         }
 

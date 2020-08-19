@@ -115,7 +115,6 @@ def import_data(job_id):
 
     try:
 
-
         for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
             if delete_existing and nvs_content_type['name'] in corpus.content_types:
                 corpus.delete_content_type(nvs_content_type['name'])
@@ -135,6 +134,7 @@ def import_data(job_id):
             nvs_doc_schema['fields'] += nvs_document_fields
             nvs_doc_schema['templates']['Label']['template'] = "{{ Document.siglum_label|safe }}"
             corpus.save_content_type(nvs_doc_schema)
+
 
         es_logger = logging.getLogger('elasticsearch')
         es_log_level = es_logger.getEffectiveLevel()
@@ -390,15 +390,6 @@ def parse_playtext_file(corpus, playtext_file_path, basetext_siglum):
 
     # extract dramatis personae
     try:
-        cast_list = tei.find("castList")
-        for role_tag in cast_list.find_all("role"):
-            cast_member = corpus.get_content('PlayRole')
-            cast_member.xml_id = role_tag['xml:id']
-            cast_member.role = " ".join([string for string in role_tag.stripped_strings])
-            if not cast_member.role:
-                cast_member.role = cast_member.xml_id
-            cast_member.save()
-
         line_info = {
             'line_number': 0,
             'line_xml_id': None,
@@ -624,6 +615,7 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
                 corpus.save_content_type(nvs_content_type)
         '''
 
+
         # open textualnotes xml, read raw text into tei_text,
         # and perform special text replacements before feeding
         # into BeautifulSoup
@@ -636,8 +628,8 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
 
         # build line_id_map to quickly match line xml_ids w/ mongodb objectids
         line_id_map = {}
-        lines = corpus.get_content('PlayLine', all=True, only=['id', 'xml_id'])
-        lines.order_by('line_number')
+        lines = corpus.get_content('PlayLine', all=True, only=['id', 'xml_id', 'witness_meter'])
+        lines = lines.order_by('line_number')
         for line in lines:
             line_id_map[line.xml_id] = line.id
 
@@ -646,14 +638,19 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
         witnesses = corpus.get_content('Document', {'nvs_doc_type': 'witness'})
         witnesses = list(witnesses.order_by('published'))
 
+        # get "document collections" for shorthand witness groups
+        witness_groups = list(corpus.get_content('DocumentCollection', all=True))
+
         # get all "note" tags, corresponding to TexualNote content
         # type so we can iterate over and build them
         notes = tei.find_all("note", attrs={'type': 'textual'})
+        note_id_map = {}
         for note in notes:
 
             # create instance of TextualNote
             textual_note = corpus.get_content('TextualNote')
             textual_note.xml_id = note['xml:id']
+            textual_note.witness_meter = "0" * len(witnesses)
 
             textual_note.lines = get_line_ids(line_id_map, note['target'], note.attrs.get('targetEnd', None))
 
@@ -661,9 +658,9 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
             if note.app.find('lem', recursive=False):
                 note_lemma = tei_to_html(note.app.lem)
 
-            textual_note_witness_indicators = []
-
+            current_color = 1
             variants = note.app.find_all('appPart')
+
             for variant in variants:
                 textual_variant = corpus.get_content('TextualVariant')
 
@@ -687,75 +684,106 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
                         textual_variant.lemma = tei_to_html(lem_tag)
 
                 starting_siglum = None
+                ending_siglum = None
                 next_siglum_ends = False
+                include_all_following = False
                 exclusion_started = False
                 excluding_sigla = []
 
+                textual_variant.witness_formula = strip_tags(str(variant.wit))
+
                 for child in variant.wit.children:
                     if child.name == 'siglum':
-                        siglum_label = tei_to_html(child)
-                        if 'rend' in child.attrs and child['rend'] == 'smcaps':
-                            siglum_label = "<span style='font-variant: small-caps;'>{0}</span>".format(siglum_label)
+                        siglum_label = strip_tags(tei_to_html(child))
 
                         if not starting_siglum:
                             starting_siglum = siglum_label
                         elif next_siglum_ends:
-                            textual_variant.witnesses.extend(
-                                get_witness_ids(
-                                    witnesses,
-                                    starting_siglum,
-                                    siglum_label
-                                )
-                            )
-                            starting_siglum = None
+                            ending_siglum = siglum_label
+                            next_siglum_ends = False
                         elif exclusion_started:
+                            if textual_note.xml_id == 'tn_131':
+                                print("adding {0} to exclusion list".format(siglum_label))
                             excluding_sigla.append(siglum_label)
+
                     else:
                         formula = str(child.string).strip()
+                        if textual_note.xml_id == 'tn_131':
+                            print("^{0}^".format(formula))
+
+                        # handle '+' ranges
                         if formula.startswith('+'):
-                            if '(-' in formula:
+                            include_all_following = True
+                            if '(−' in formula:
                                 exclusion_started = True
-                            else:
+
+                        # handle exclusions
+                        if '(−' in formula:
+                            if textual_note.xml_id == 'tn_131':
+                                print("starting exclusion")
+                            exclusion_started = True
+                        elif formula.startswith(')') and exclusion_started:
+                            if textual_note.xml_id == 'tn_131':
+                                print("ending exclusion")
+                            exclusion_started = False
+
+                        # handle '-' ranges
+                        elif formula.startswith('-'):
+                            next_siglum_ends = True
+
+                        # use ',' to delimit the need to add individual sigla or add ranges
+                        if ',' in formula:
+                            if starting_siglum and not exclusion_started:
+
+                                # the "get_witness_ids" function will handle:
+                                # '-' ranges
+                                # '+' ranges
+                                # exclusions
+                                # individual sigla
+                                if textual_note.xml_id == 'tn_131':
+                                    print('''131 addition:
+                                        starting: {0}
+                                        ending: {1}
+                                        exclusions: {2}
+                                    '''.format(starting_siglum, ending_siglum, excluding_sigla))
+
                                 textual_variant.witnesses.extend(
                                     get_witness_ids(
                                         witnesses,
+                                        witness_groups,
                                         starting_siglum,
-                                        include_all_following=True,
+                                        ending_witness_siglum=ending_siglum,
+                                        include_all_following=include_all_following,
+                                        excluding_sigla=excluding_sigla
                                     )
                                 )
-                                starting_siglum = None
-                        elif formula.startswith('-'):
-                            next_siglum_ends = True
-                        elif formula == ',' and not exclusion_started:
-                            textual_variant.witnesses.extend(
-                                get_witness_ids(
-                                    witnesses,
-                                    starting_siglum
-                                )
-                            )
-                            starting_siglum = None
-                        elif formula == ')' and exclusion_started and excluding_sigla:
-                            textual_variant.witnesses.extend(
-                                get_witness_ids(
-                                    witnesses,
-                                    starting_siglum,
-                                    include_all_following=True,
-                                    excluding_sigla=excluding_sigla
-                                )
-                            )
-                            starting_siglum = None
 
+                                starting_siglum = None
+                                ending_siglum = None
+                                include_all_following = False
+                                excluding_sigla = []
+
+                # handle any further additions of sigla at the end of the formula
                 if starting_siglum:
                     textual_variant.witnesses.extend(
                         get_witness_ids(
                             witnesses,
-                            starting_siglum
+                            witness_groups,
+                            starting_siglum,
+                            ending_witness_siglum=ending_siglum,
+                            include_all_following=include_all_following,
+                            excluding_sigla=excluding_sigla
                         )
                     )
 
                 variant_witness_indicators = get_variant_witness_indicators(witnesses, textual_variant)
-                textual_note_witness_indicators.append(variant_witness_indicators)
-                textual_variant.witness_meter = make_witness_meter(variant_witness_indicators)
+                textual_variant.witness_meter = make_witness_meter(variant_witness_indicators, marker=str(current_color))
+                if current_color < 9:
+                    current_color += 1
+                else:
+                    current_color = 1
+
+                textual_note.witness_meter = collapse_indicators(textual_variant.witness_meter, textual_note.witness_meter)
 
                 try:
                     textual_variant.variant = perform_variant_transform(corpus, textual_note, textual_variant)
@@ -770,25 +798,62 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
                 textual_variant.save()
                 textual_note.variants.append(textual_variant.id)
 
-            combined_indicators = combine_witness_indicators(textual_note_witness_indicators)
-            textual_note.witness_meter = make_witness_meter(combined_indicators)
             textual_note.save()
-            textual_note.reload()
+            note_id_map[str(textual_note.id)] = textual_note
 
-            for tn_line in textual_note.lines:
-                if tn_line.witness_meter:
-                    combined_indicators = combine_witness_indicators([tn_line.witness_meter, textual_note.witness_meter])
-                    tn_line.witness_meter = make_witness_meter(combined_indicators)
-                else:
-                    tn_line.witness_meter = textual_note.witness_meter
+        lines = corpus.get_content('PlayLine', all=True)
+        lines = lines.order_by('line_number')
+        lines = corpus.explore_content(
+            left_content_type='PlayLine',
+            left_content=lines,
+            relationship='haslines',
+            cardinality=2,
+            right_content_type="TextualNote"
+        )
+        print(len(lines))
+        recolored_notes = {}
+        for line in lines:
+            line.witness_meter = "0" * len(witnesses)
+            if hasattr(line, '_haslines'):
+                color_offset = 0
 
-                tn_line.save()
+                for note_dict in line._haslines:
+                    note_id = note_dict['id']
+                    note = note_id_map[note_id]
+
+                    if color_offset > 0 and note_id not in recolored_notes:
+                        note.witness_meter = "0" * len(witnesses)
+
+                        for variant in note.variants:
+                            variant_indicators = [int(i) + color_offset if i != '0' else 0 for i in variant.witness_meter]
+                            variant_indicators = [i if i < 10 else i - 10 for i in variant_indicators]
+                            variant.witness_meter = "".join([str(i) for i in variant_indicators])
+                            variant.save()
+                            note.witness_meter = collapse_indicators(variant.witness_meter, note.witness_meter)
+
+                        note.save()
+                        recolored_notes[note_id] = 1
+
+                    line.witness_meter = collapse_indicators(note.witness_meter, line.witness_meter)
+                    note_indicators = [int(i) for i in note.witness_meter]
+                    color_offset += max(note_indicators)
+
+                line.save()
 
     except:
         print(traceback.format_exc())
 
-    for parse_report_line in parse_report:
-        print(parse_report_line)
+        for parse_report_line in parse_report:
+            print(parse_report_line)
+
+
+def collapse_indicators(variant, base):
+    collapsed = base
+    if variant and base and len(variant) == len(base):
+        for index in range(0, len(variant)):
+            if variant[index] != "0":
+                collapsed = collapsed[:index] + variant[index] + collapsed[index + 1:]
+    return collapsed
 
 
 def perform_note_transforms(job_id):
@@ -807,22 +872,48 @@ def perform_note_transforms(job_id):
         print(traceback.format_exc())
 
 
-def get_witness_ids(witnesses, starting_witness_siglum, ending_witness_siglum=None, include_all_following=False, excluding_sigla=[]):
+def get_witness_ids(
+        witnesses,
+        witness_groups,
+        starting_witness_siglum,
+        ending_witness_siglum=None,
+        include_all_following=False,
+        excluding_sigla=[]):
     witness_ids = []
 
     starting_found = False
     ending_found = False
+    including_sigla = []
+
+    for witness_group in witness_groups:
+        if strip_tags(witness_group.siglum_label) == starting_witness_siglum:
+            if not ending_witness_siglum and not include_all_following and not excluding_sigla:
+                starting_witness_siglum = None
+                for reffed_doc in witness_group.referenced_documents:
+                    including_sigla.append(strip_tags(reffed_doc.siglum_label))
+            else:
+                starting_witness_siglum = strip_tags(witness_group.referenced_documents[0].siglum_label)
+        elif ending_witness_siglum and strip_tags(witness_group.siglum_label) == ending_witness_siglum:
+            ending_witness_siglum = strip_tags(witness_group.referenced_documents[-1].siglum_label)
+        elif excluding_sigla:
+            original_length = len(excluding_sigla)
+            for ex_index in range(0, original_length):
+                if excluding_sigla[ex_index] == strip_tags(witness_group.siglum_label):
+                    for reffed_doc in witness_group.referenced_documents:
+                        excluding_sigla.append(strip_tags(reffed_doc.siglum_label))
 
     for witness in witnesses:
-        if not starting_found and witness.siglum_label == starting_witness_siglum:
+        if not starting_found and strip_tags(witness.siglum_label) == starting_witness_siglum:
             witness_ids.append(witness.id)
             starting_found = True
         elif starting_found and (ending_witness_siglum or include_all_following) and not ending_found:
-            if witness.siglum_label not in excluding_sigla:
+            if strip_tags(witness.siglum_label) not in excluding_sigla:
                 witness_ids.append(witness.id)
 
-                if witness.siglum_label == ending_witness_siglum:
+                if strip_tags(witness.siglum_label) == ending_witness_siglum:
                     ending_found = True
+        elif strip_tags(witness.siglum_label) in including_sigla:
+            witness_ids.append(witness.id)
 
     return witness_ids
 
@@ -840,23 +931,11 @@ def get_variant_witness_indicators(witnesses, variant):
     return indicators
 
 
-def combine_witness_indicators(indicators_list):
-    combined = []
-    for indicator_index in range(0, len(indicators_list[0])):
-        found = False
-        for indicators in indicators_list:
-            if (isinstance(indicators[indicator_index], str) and indicators[indicator_index] == '1') or indicators[indicator_index] is True:
-                found = True
-                break
-        combined.append(found)
-    return combined
-
-
-def make_witness_meter(indicators):
+def make_witness_meter(indicators, marker="1"):
     witness_meter = ""
     for witness_indicator in indicators:
         if (isinstance(witness_indicator, str) and witness_indicator == '1') or witness_indicator is True:
-            witness_meter += "1"
+            witness_meter += marker
         else:
             witness_meter += "0"
     return witness_meter
@@ -1038,6 +1117,8 @@ def perform_variant_transform(corpus, note, variant):
         if difference_started:
             result += "</span>"
 
+    if not result:
+        return None
     return result
 
 
