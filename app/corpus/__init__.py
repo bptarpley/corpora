@@ -1205,7 +1205,8 @@ class Corpus(mongoengine.Document):
             relationship=None,
             cardinality=1,
             right_content_type=None,
-            right_id=None):
+            right_id=None,
+            order_by=None):
 
         results_added = 0
         if left_content_type in self.content_types:
@@ -1257,13 +1258,17 @@ class Corpus(mongoengine.Document):
                 if right_content_type:
                     right_cypher = "(right:{0})".format(right_content_type)
 
+                order_cypher = ""
+                if order_by:
+                    order_cypher = " ORDER BY {0}".format(order_by)
+
                 cypher = '''
                     MATCH {0} {1} {2}
                     WHERE left.corpus_id = $corpus_id
                     AND right.corpus_id = $corpus_id
                     AND left.uri IN $left_uri_constraints
-                    RETURN left.id, type(rel), right.uri
-                '''.format(left_cypher, relationship_cypher, right_cypher)
+                    RETURN left.id, type(rel), right.uri{3}
+                '''.format(left_cypher, relationship_cypher, right_cypher, order_cypher)
 
                 print(cypher)
 

@@ -115,6 +115,7 @@ def import_data(job_id):
 
     try:
 
+        '''
         for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
             if delete_existing and nvs_content_type['name'] in corpus.content_types:
                 corpus.delete_content_type(nvs_content_type['name'])
@@ -134,6 +135,7 @@ def import_data(job_id):
             nvs_doc_schema['fields'] += nvs_document_fields
             nvs_doc_schema['templates']['Label']['template'] = "{{ Document.siglum_label|safe }}"
             corpus.save_content_type(nvs_doc_schema)
+        '''
 
 
         es_logger = logging.getLogger('elasticsearch')
@@ -197,12 +199,12 @@ def import_data(job_id):
                     break
 
             if include_files_exist:
-                parse_front_file(corpus, include_file_paths['front'])
-                parse_playtext_file(corpus, include_file_paths['playtext'], basetext_siglum)
+                #parse_front_file(corpus, include_file_paths['front'])
+                #parse_playtext_file(corpus, include_file_paths['playtext'], basetext_siglum)
                 parse_textualnotes_file(corpus, include_file_paths['textualnotes'])
-                parse_bibliography(corpus, include_file_paths['bibliography'])
-                parse_commentary(corpus, include_file_paths['commentary'])
-                render_lines_html(corpus)
+                #parse_bibliography(corpus, include_file_paths['bibliography'])
+                #parse_commentary(corpus, include_file_paths['commentary'])
+                #render_lines_html(corpus)
 
         es_logger.setLevel(es_log_level)
     except:
@@ -608,12 +610,11 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
 
     try:
 
-        '''
+
         for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
             if nvs_content_type['name'] in ['TextualNote', 'TextualVariant']:
                 corpus.delete_content_type(nvs_content_type['name'])
                 corpus.save_content_type(nvs_content_type)
-        '''
 
 
         # open textualnotes xml, read raw text into tei_text,
@@ -778,10 +779,10 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
 
                 variant_witness_indicators = get_variant_witness_indicators(witnesses, textual_variant)
                 textual_variant.witness_meter = make_witness_meter(variant_witness_indicators, marker=str(current_color))
-                if current_color < 9:
-                    current_color += 1
-                else:
-                    current_color = 1
+
+                current_color += 2
+                if current_color >= 10:
+                    current_color -= 9
 
                 textual_note.witness_meter = collapse_indicators(textual_variant.witness_meter, textual_note.witness_meter)
 
@@ -808,7 +809,8 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
             left_content=lines,
             relationship='haslines',
             cardinality=2,
-            right_content_type="TextualNote"
+            right_content_type="TextualNote",
+            order_by="right.uri"
         )
         print(len(lines))
         recolored_notes = {}
@@ -836,7 +838,7 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
 
                     line.witness_meter = collapse_indicators(note.witness_meter, line.witness_meter)
                     note_indicators = [int(i) for i in note.witness_meter]
-                    color_offset += max(note_indicators)
+                    color_offset += max(note_indicators) + 1
 
                 line.save()
 
