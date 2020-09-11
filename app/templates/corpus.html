@@ -3,6 +3,7 @@
 {% load extras %}
 
 {% block css %}
+    <link href="{% static 'css/filepond.css' %}" rel="stylesheet">
     <style type="text/css">
         #settings-editor {
             /* Setting height is important, otherwise editor wont show up */
@@ -12,6 +13,110 @@
 {% endblock %}
 
 {% block modals %}
+    <!-- UPLOAD CORPUS FILES MODAL -->
+    <div class="modal fade" id="file-upload-modal" tabindex="-1" role="dialog" aria-labelledby="file-upload-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="file-upload-modal-label">Import Corpus File(s)</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="import-corpus-files-form" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" id="import-corpus-files" name="import-corpus-files"/>
+                    </form>
+                    <div class="alert alert-light">
+                        <table class="table table-striped">
+                            <thead class="thead-dark">
+                                <th scope="col">Path: <span id="file-upload-modal-table-header">/</span></th>
+                            </thead>
+                            <tbody id="file-upload-modal-table-body">
+                                <tr><td>Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <input type="file" class="filepond" id="import-corpus-filepond">
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="file-upload-modal-new-folder-box" aria-placeholder="New Folder" placeholder="New Folder">
+                                <span class="input-group-btn ml-1"><a href="javascript:handle_folder_creation();" role="button" id="file-upload-modal-new-folder-button" class="btn btn-secondary">Go</a></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" id="file-upload-reset-button" class="btn btn-secondary">Reset</button>
+                    <button type="button" id="file-upload-import-button" class="btn btn-primary" disabled>Import</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JOB MODAL -->
+    <div class="modal fade" id="job-modal" tabindex="-1" role="dialog" aria-labelledby="job-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="job-form" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="job-modal-label">Run a Job</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="jobsite-selector">Jobsite</label>
+                            <select id="jobsite-selector" class="form-control" name="jobsite">
+                            </select>
+                        </div>
+                        <div id="task-selector-div" class="form-group">
+                            <label for="task-selector">Task</label>
+                            <select id="task-selector" class="form-control" name="task">
+                            </select>
+                        </div>
+                        <div id="task-parameters-div">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="job-submit-button" disabled>Run</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Job Finished Modal -->
+    <div class="modal fade" id="job-finished-modal" tabindex="-1" role="dialog" aria-labelledby="job-finished-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="job-finished-modal-label">Job Completed</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-success">
+                        One or more jobs have completed for this document. Click the "Refresh" button below to view results.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="window.location = window.location.href;">Refresh</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- CONTENT TYPE MODAL -->
     <div class="modal fade" id="new-ct-modal" tabindex="-1" role="dialog" aria-labelledby="new-ct-modal-label" aria-hidden="true">
         <div class="modal-dialog" role="document">
@@ -241,11 +346,19 @@
                 </div>
             </div>
 
-            <!-- JOBS -->
+
             <div class="col-6">
+                <!-- JOBS -->
                 <div class="card mb-3">
                     <div class="card-header">
-                        <h4>Jobs</h4>
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h4>Jobs</h4>
+                            {% if response.scholar.is_admin or role == 'Editor' %}
+                                <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
+                            {% else %}
+                                <span>&nbsp;</span>
+                            {% endif %}
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="alert alert-info">
@@ -253,16 +366,36 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- FILES -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h4>Corpus Files</h4>
+                            {% if response.scholar.is_admin or role == 'Editor' %}
+                                <button id="import-corpus-files-button" class="btn btn-primary rounded" type="button">Import</button>
+                            {% else %}
+                                <span>&nbsp;</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body" id="corpus-files-div">
+                        <div class="alert alert-info">
+                            There are currently no files for this corpus.
+                        </div>
+                    </div>
+                </div>
             </div>
 
         </div>
-        <div id="content-types-div" class="row">
+        <div id="content-types-div">
 
             <!-- CONTENT TYPES LISTED HERE -->
 
         </div>
-        <div class="row">
 
+        {% if response.scholar.is_admin or role == 'Editor' %}
+        <div class="row">
             <!-- CONTENT TYPE MANAGER -->
             <div class="col">
                 <div id="type-manager-div" class="card mt-4">
@@ -292,51 +425,89 @@
                 <input type="hidden" name="schema" id="ct-schema" value="">
             </form>
         </div>
+        {% endif %}
 
-    <div id="job-box" class="d-none">
-        <div class="card">
-            <div class="card-header">
-                <h4>Create a Job</h4>
-                <div class="text-muted">
-                    <b><span id="num-selected-docs">0</span></b> document(s) selected
+    {% if response.scholar.is_admin %}
+        <div class="row">
+            <div class="col">
+                <div id="type-manager-div" class="card mt-4">
+                    <div class="card-header">
+                        <h4>Corpus Management</h4>
+                    </div>
+                    <div class="card-body">
+                        <button type="button" class="btn btn-danger" id="corpus-show-delete-confirmation-button">Delete Corpus</button>
+                        <div id="corpus-deletion-confirmation-div" class="alert alert-danger mt-3 d-none">
+                            <strong>Warning:</strong> Should you delete this corpus, all data and linkages comprising it
+                            will be deleted, and it will only be recoverable via backups. Depending on the size of your corpus,
+                            deletion could take some time. <strong>If you are certain you'd like to delete this corpus,
+                            type its name (<span id="corpus-deletion-name-span"></span>) in the box below and click the
+                            "Delete" button</strong>:
+
+                            <form id="corpus-deletion-form" method="post">
+                                {% csrf_token %}
+                                <div class="form-group mt-3">
+                                    <label for="corpus-deletion-confirmation-box" class="sr-only">Corpus Name</label>
+                                    <input type="text" class="form-control" id="corpus-deletion-confirmation-box" name="corpus-deletion-name" placeholder="Corpus Name">
+                                </div>
+                                <button type="button" class="btn btn-danger" id="corpus-delete-button">Delete</button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="card-body">
-                <form id="job-form" method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="selected-docs" />
-                    <div class="form-group">
-                        <label for="jobsite-selector">Select a Job Site:</label>
-                        <select id="jobsite-selector" class="form-control" name="jobsite">
-                        </select>
-                    </div>
-                    <div id="task-selector-div" class="form-group">
-                        <label for="task-selector">Select a Task:</label>
-                        <select id="task-selector" class="form-control" name="task">
-                        </select>
-                    </div>
-                    <button type="button" class="btn btn-primary" onclick="run_job();">Go</button>
-                </form>
-            </div>
         </div>
-    </div>
+    {% endif %}
 {% endblock %}
 
 {% block js %}
+    <script src="{% static 'js/filepond.js' %}"></script>
     <script src="{% static 'js/ace/ace.js' %}"></script>
     <script src={% static 'js/beautify/beautify.js' %}></script>
     <script src={% static 'js/beautify/beautify-css.js' %}></script>
     <script src={% static 'js/beautify/beautify-html.js' %}></script>
     <script type="application/javascript">
         var corpus_id = "{{ corpus_id }}";
+        var role = "{{ role }}";
         var corpus = null;
         var template_formats = null;
         var jobsites = [];
+        var local_jobsite_id = null;
         var tasks = [];
+        var check_jobs_timer = null;
+        var check_jobs_interval = 10;
         var ct_search = {};
         var selected_content = [];
         var import_editor;
         var template_editor;
+
+        // VARS FOR FILE UPLOADS/IMPORTS
+        var file_upload_path = '';
+        var file_uploads = [];
+        var import_files = [];
+
+        // CREATE FILE POND FOR IMPORT CORPUS FILES MODAL
+        const import_corpus_file_pond = FilePond.create(document.querySelector('#import-corpus-filepond'), {
+            allowMultiple: true,
+            allowRevert: false
+        });
+        import_corpus_file_pond.on('addfile', (error, file) => {
+            if(!error) {
+                file_uploads.push(file.filename);
+            }
+        });
+        import_corpus_file_pond.on('processfile', (error, file) => {
+            if(!error) {
+                import_files.push(`${file_upload_path}/${file.filename}`);
+                let import_button = $('#file-upload-import-button');
+                import_button.html(`Import ${import_files.length} File(s)`);
+                import_button.attr('disabled', false);
+                let index = file_uploads.indexOf(file.filename);
+                if (index !== -1) { file_uploads.splice(index, 1); }
+                if (file_uploads.length === 0) {
+                    upload_file(file_upload_path);
+                }
+            }
+        });
         
         const FIELD_TYPE_LABELS = {
             text: 'Text',
@@ -374,198 +545,313 @@
                         `);
                     }
                 }
-    
-                // setup the editor for importing a content type schema
-                import_editor = ace.edit("import-editor");
-                import_editor.setTheme("ace/theme/monokai");
-                import_editor.getSession().setMode("ace/mode/json");
-    
-                // setup the editor for editing template
-                template_editor = ace.edit("template-editor");
-                template_editor.setTheme("ace/theme/monokai");
-                template_editor.getSession().setMode("ace/mode/django");
-    
-                // setup event for showing schema import modal
-                $('#show-import-modal-button').click(function () {
-                    import_editor.setValue('');
-                    $('#import-modal-label').html('Import Schema');
-                    $('#import-button').removeClass('d-none');
-                    $('#import-modal').modal();
-                });
-    
-                // setup event for clicking "Import" button on schema import modal
-                $('#import-button').click(function () {
-                    let import_schema = JSON.parse(import_editor.getValue());
-                    for (let x = 0; x < import_schema.length; x++) {
-                        if (!corpus.content_types.hasOwnProperty(import_schema[x].name)) {
-                            corpus.content_types[import_schema[x].name] = import_schema[x];
-                            manage_content_type(import_schema[x].name);
+
+                // load corpus files
+                let corpus_files_div = $('#corpus-files-div');
+                if (Object.keys(corpus.files).length > 0) {
+                    corpus_files_div.html(`
+                        <table class="table table-striped">
+                            <thead class="thead-dark">
+                                <th scope="col">
+                                    File
+                                </th>
+                                <th scope="col">
+                                    Description
+                                </th>
+                                <th scope="col">
+                                    Extension
+                                </th>
+                                <th scope="col">
+                                    Size (bytes)
+                                </th>
+                            </thead>
+                            <tbody id="corpus-files-table-body">
+                            </tbody>
+                        </table>
+                    `);
+
+                    let corpus_files_tbody = $('#corpus-files-table-body');
+                    for (let file_key in corpus.files) {
+                        let file = corpus.files[file_key];
+
+                        let file_url = corpora.file_url(file.uri);
+                        if (file.is_image) {
+                            file_url = corpora.image_url(file.uri);
                         }
-                    }
-    
-                    $('#import-modal').modal('hide');
-                });
-    
-                // setup event for saving the content type schema
-                $('#save-content-type-schema-button').click(function () {
-                    $('#save-content-type-schema-button').attr('disabled', true);
-                    let ct_schema = [];
-                    for (let ct_name in corpus.content_types) {
-                        ct_schema.push(corpus.content_types[ct_name]);
-                    }
-                    $('#ct-schema').val(JSON.stringify(ct_schema));
-                    $('#ct-schema-form').submit();
-                });
 
-                // PEP8 CLASS FORMAT CONTENT TYPE NAME
-                $('#new-ct-name-box').focusout(function() {
-                    $('#new-ct-name-box').val(pep8_class_format(pep8_variable_format($('#new-ct-name-box').val())));
-                });
+                        let open_mode = 'target="_blank"';
+                        if (file.extension === 'zip') {
+                            open_mode = `download="${file.basename}"`;
+                        }
 
-                // PEP8 VARIABLE FORMAT FIELD NAME
-                $('#new-f-name-box').focusout(function() {
-                    $('#new-f-name-box').val(pep8_variable_format($('#new-f-name-box').val()));
-                });
-                
-                // NEW CONTENT TYPE BUTTON CLICK
-                $('#new-ct-button').click(function() {
-                    $('#new-ct-modal-label').html('Create Content Type');
-                    $('#new-ct-index').val('new');
-                    $('#new-ct-name-box').prop('disabled', false);
-                    $('#new-ct-name-box').val('');
-                    $('#new-ct-plural-name-box').val('');
-                    $('#new-ct-nav-checkbox').prop('checked', true);
-                    $('#new-ct-proxy-field-selector').val('');
-                    $('#new-ct-proxy-field-div').addClass('d-none');
-                    $('#new-ct-modal').modal();
-                });
-                
-                // CREATE/EDIT CONTENT TYPE BUTTON CLICK
-                $('#new-ct-create-button').click(function() {
-                    let ct_name = $('#new-ct-name-box').val();
-                    if (!corpus.content_types.hasOwnProperty(ct_name)) {
-                        corpus.content_types[ct_name] = {
-                            id: '',
-                            name: ct_name,
-                            plural_name: $('#new-ct-plural-name-box').val(),
-                            show_in_nav: $('#new-ct-nav-checkbox').is(':checked'),
-                            proxy_field: '',
-                            fields: [],
-                            is_new: true,
-                            templates: {
-                                Label: {
-                                    template: {% verbatim %}`${ct_name} {{ ${ct_name}.id }}`{% endverbatim %},
-                                    mime_type: "text/html"
-                                }
+                        corpus_files_tbody.append(`
+                            <tr>
+                                <td>
+                                    <a href="${file_url}" target="_blank">${file.basename}</a>
+                                </td>
+                                <td>
+                                    ${file.description}
+                                </td>
+                                <td>
+                                    ${file.extension}
+                                </td>
+                                <td>
+                                    ${file.byte_size}
+                                </td>
+                            </tr>
+                        `);
+                    }
+                }
+
+                if (role === 'Editor' || role === 'Admin') {
+                    // setup the editor for importing a content type schema
+                    import_editor = ace.edit("import-editor");
+                    import_editor.setTheme("ace/theme/monokai");
+                    import_editor.getSession().setMode("ace/mode/json");
+
+                    // setup the editor for editing template
+                    template_editor = ace.edit("template-editor");
+                    template_editor.setTheme("ace/theme/monokai");
+                    template_editor.getSession().setMode("ace/mode/django");
+
+                    // setup event for showing schema import modal
+                    $('#show-import-modal-button').click(function () {
+                        import_editor.setValue('');
+                        $('#import-modal-label').html('Import Schema');
+                        $('#import-button').removeClass('d-none');
+                        $('#import-modal').modal();
+                    });
+
+                    // setup event for clicking "Import" button on schema import modal
+                    $('#import-button').click(function () {
+                        let import_schema = JSON.parse(import_editor.getValue());
+                        for (let x = 0; x < import_schema.length; x++) {
+                            if (!corpus.content_types.hasOwnProperty(import_schema[x].name)) {
+                                corpus.content_types[import_schema[x].name] = import_schema[x];
+                                manage_content_type(import_schema[x].name);
                             }
                         }
-                    } else {
-                        corpus.content_types[ct_name].plural_name = $('#new-ct-plural-name-box').val();
-                        corpus.content_types[ct_name].show_in_nav = $('#new-ct-nav-checkbox').is(':checked');
-                        corpus.content_types[ct_name].proxy_field = $('#new-ct-proxy-field-selector').val();
+
+                        $('#import-modal').modal('hide');
+                    });
+
+                    // setup event for saving the content type schema
+                    $('#save-content-type-schema-button').click(function () {
+                        $('#save-content-type-schema-button').attr('disabled', true);
+                        let ct_schema = [];
+                        for (let ct_name in corpus.content_types) {
+                            ct_schema.push(corpus.content_types[ct_name]);
+                        }
+                        $('#ct-schema').val(JSON.stringify(ct_schema));
+                        $('#ct-schema-form').submit();
+                    });
+
+                    // PEP8 CLASS FORMAT CONTENT TYPE NAME
+                    $('#new-ct-name-box').focusout(function () {
+                        $('#new-ct-name-box').val(pep8_class_format(pep8_variable_format($('#new-ct-name-box').val())));
+                    });
+
+                    // PEP8 VARIABLE FORMAT FIELD NAME
+                    $('#new-f-name-box').focusout(function () {
+                        $('#new-f-name-box').val(pep8_variable_format($('#new-f-name-box').val()));
+                    });
+
+                    // NEW CONTENT TYPE BUTTON CLICK
+                    $('#new-ct-button').click(function () {
+                        $('#new-ct-modal-label').html('Create Content Type');
+                        $('#new-ct-index').val('new');
+                        $('#new-ct-name-box').prop('disabled', false);
+                        $('#new-ct-name-box').val('');
+                        $('#new-ct-plural-name-box').val('');
+                        $('#new-ct-nav-checkbox').prop('checked', true);
+                        $('#new-ct-proxy-field-selector').val('');
+                        $('#new-ct-proxy-field-div').addClass('d-none');
+                        $('#new-ct-modal').modal();
+                    });
+
+                    // CREATE/EDIT CONTENT TYPE BUTTON CLICK
+                    $('#new-ct-create-button').click(function () {
+                        let ct_name = $('#new-ct-name-box').val();
+                        if (!corpus.content_types.hasOwnProperty(ct_name)) {
+                            corpus.content_types[ct_name] = {
+                                id: '',
+                                name: ct_name,
+                                plural_name: $('#new-ct-plural-name-box').val(),
+                                show_in_nav: $('#new-ct-nav-checkbox').is(':checked'),
+                                proxy_field: '',
+                                fields: [],
+                                is_new: true,
+                                templates: {
+                                    Label: {
+                                        template: {% verbatim %}`${ct_name} {{ ${ct_name}.id }}`{% endverbatim %},
+                                        mime_type: "text/html"
+                                    }
+                                }
+                            };
+                        } else {
+                            corpus.content_types[ct_name].plural_name = $('#new-ct-plural-name-box').val();
+                            corpus.content_types[ct_name].show_in_nav = $('#new-ct-nav-checkbox').is(':checked');
+                            corpus.content_types[ct_name].proxy_field = $('#new-ct-proxy-field-selector').val();
+                        }
+
+                        $('#new-ct-modal').modal('hide');
+                        manage_content_type(ct_name);
+                    });
+
+                    // FIELD TYPE SELECTION CHANGE
+                    $('#new-f-type-box').change(function () {
+                        let selection = $(this).val();
+
+                        if (selection == 'cross_reference') {
+                            $('#new-f-cross-reference-box').removeClass('d-none');
+                        } else {
+                            $('#new-f-cross-reference-box').addClass('d-none');
+                        }
+                    });
+
+                    // FIELD INDEXED CHECK CHANGE
+                    $('#new-f-indexed-checkbox').change(function () {
+                        if ($(this).is(':checked') && $('#new-f-indexed-with-box option').length > 0) {
+                            $('#new-f-indexed-with-div').removeClass('d-none');
+                            $('#new-f-indexed-with-div').addClass('d-flex');
+                        } else {
+                            $('#new-f-indexed-with-div').removeClass('d-flex');
+                            $('#new-f-indexed-with-div').addClass('d-none');
+                        }
+                    });
+
+                    // FIELD UNIQUE CHECK CHANGE
+                    $('#new-f-unique-checkbox').change(function () {
+                        if ($(this).is(':checked') && $('#new-f-unique-with-box option').length > 0) {
+                            $('#new-f-unique-with-div').removeClass('d-none');
+                            $('#new-f-unique-with-div').addClass('d-flex');
+                        } else {
+                            $('#new-f-unique-with-div').removeClass('d-flex');
+                            $('#new-f-unique-with-div').addClass('d-none');
+                        }
+                    });
+
+                    // CREATE FIELD BUTTON CLICK
+                    $('#new-f-create-button').click(function () {
+                        let cross_reference_type = '';
+                        if ($('#new-f-type-box').val() == 'cross_reference') {
+                            cross_reference_type = $('#new-f-cross-reference-box').val();
+                        }
+
+                        let field = {
+                            name: $('#new-f-name-box').val(),
+                            label: $('#new-f-label-box').val(),
+                            in_lists: $('#new-f-in-lists-checkbox').is(':checked'),
+                            indexed: $('#new-f-indexed-checkbox').is(':checked'),
+                            indexed_with: $('#new-f-indexed-with-box').val(),
+                            unique: $('#new-f-unique-checkbox').is(':checked'),
+                            unique_with: $('#new-f-unique-with-box').val(),
+                            multiple: $('#new-f-multiple-checkbox').is(':checked'),
+                            cross_reference_type: cross_reference_type,
+                            type: $('#new-f-type-box').val(),
+                        };
+
+                        let ct_name = $('#new-f-ct-name').val();
+                        let f_index = $('#new-f-f-id').val();
+                        let action = $('#new-f-action').val();
+
+                        if (action === 'create' && f_index === 'new') {
+                            corpus.content_types[ct_name].fields.push(field);
+                            manage_field(ct_name, corpus.content_types[ct_name].fields.length - 1);
+                        } else {
+                            f_index = parseInt(f_index);
+                            corpus.content_types[ct_name].fields[f_index] = field;
+                            manage_field(ct_name, f_index);
+                        }
+
+                        $('#new-f-modal').modal('hide');
+                    });
+
+                    // TEMPLATE SAVE BUTTON
+                    $(`#template-save-button`).click(function () {
+                        let ct_name = $('#template-ct-name').val();
+                        let template_name = $('#template-name').val();
+
+                        corpus.content_types[ct_name].templates[template_name].template = template_editor.getValue();
+                        corpus.content_types[ct_name].templates[template_name].mime_type = $('#template-mime-type').val();
+
+                        $('#template-modal').modal('hide');
+                    });
+
+                    // BUILD CONTENT TABLES AND SETUP CONTENT TYPE MANAGER
+                    if (corpus.content_types) {
+                        $('#tm-ct-group').html('');
                     }
 
-                    $('#new-ct-modal').modal('hide');
-                    manage_content_type(ct_name);
-                });
+                    // HANDLE CORPUS DELETION EVENTS
+                    $('#corpus-show-delete-confirmation-button').click(function () {
+                        $('#corpus-deletion-name-span').html(corpus.name);
+                        if ($(this).html() === "Delete Corpus") {
+                            $('#corpus-deletion-confirmation-div').removeClass('d-none');
+                            $(this).html("Cancel Corpus Deletion");
+                        } else {
+                            $('#corpus-deletion-confirmation-div').addClass('d-none');
+                            $(this).html("Delete Corpus");
+                        }
+                    });
 
-                // FIELD TYPE SELECTION CHANGE
-                $('#new-f-type-box').change(function() {
-                    let selection = $(this).val();
-
-                    if (selection == 'cross_reference') {
-                        $('#new-f-cross-reference-box').removeClass('d-none');
-                    } else {
-                        $('#new-f-cross-reference-box').addClass('d-none');
-                    }
-                });
-
-                // FIELD INDEXED CHECK CHANGE
-                $('#new-f-indexed-checkbox').change(function() {
-                    if ($(this).is(':checked') && $('#new-f-indexed-with-box option').length > 0) {
-                        $('#new-f-indexed-with-div').removeClass('d-none');
-                        $('#new-f-indexed-with-div').addClass('d-flex');
-                    } else {
-                        $('#new-f-indexed-with-div').removeClass('d-flex');
-                        $('#new-f-indexed-with-div').addClass('d-none');
-                    }
-                });
-
-                // FIELD UNIQUE CHECK CHANGE
-                $('#new-f-unique-checkbox').change(function() {
-                    if ($(this).is(':checked') && $('#new-f-unique-with-box option').length > 0) {
-                        $('#new-f-unique-with-div').removeClass('d-none');
-                        $('#new-f-unique-with-div').addClass('d-flex');
-                    } else {
-                        $('#new-f-unique-with-div').removeClass('d-flex');
-                        $('#new-f-unique-with-div').addClass('d-none');
-                    }
-                });
-
-                // CREATE FIELD BUTTON CLICK
-                $('#new-f-create-button').click(function() {
-                    let cross_reference_type = '';
-                    if ($('#new-f-type-box').val() == 'cross_reference') {
-                        cross_reference_type = $('#new-f-cross-reference-box').val();
-                    }
-
-                    let field = {
-                        name: $('#new-f-name-box').val(),
-                        label: $('#new-f-label-box').val(),
-                        in_lists: $('#new-f-in-lists-checkbox').is(':checked'),
-                        indexed: $('#new-f-indexed-checkbox').is(':checked'),
-                        indexed_with: $('#new-f-indexed-with-box').val(),
-                        unique: $('#new-f-unique-checkbox').is(':checked'),
-                        unique_with: $('#new-f-unique-with-box').val(),
-                        multiple: $('#new-f-multiple-checkbox').is(':checked'),
-                        cross_reference_type: cross_reference_type,
-                        type: $('#new-f-type-box').val(),
-                    };
-
-                    let ct_name = $('#new-f-ct-name').val();
-                    let f_index = $('#new-f-f-id').val();
-                    let action = $('#new-f-action').val();
-
-                    if (action === 'create' && f_index === 'new') {
-                        corpus.content_types[ct_name].fields.push(field);
-                        manage_field(ct_name, corpus.content_types[ct_name].fields.length - 1);
-                    } else {
-                        f_index = parseInt(f_index);
-                        corpus.content_types[ct_name].fields[f_index] = field;
-                        manage_field(ct_name, f_index);
-                    }
-
-                    $('#new-f-modal').modal('hide');
-                });
-
-                // TEMPLATE SAVE BUTTON
-                $(`#template-save-button`).click(function (){
-                    let ct_name = $('#template-ct-name').val();
-                    let template_name = $('#template-name').val();
-
-                    corpus.content_types[ct_name].templates[template_name].template = template_editor.getValue();
-                    corpus.content_types[ct_name].templates[template_name].mime_type = $('#template-mime-type').val();
-
-                    $('#template-modal').modal('hide');
-                });
-
-                // BUILD CONTENT TABLES AND SETUP CONTENT TYPE MANAGER
-                if (corpus.content_types) {
-                    $('#tm-ct-group').html('');
+                    $('#corpus-delete-button').click(function () {
+                        $('#corpus-deletion-form').submit();
+                    });
                 }
 
                 for (let ct_name in corpus.content_types) {
                     build_content_table(ct_name);
-                    manage_content_type(ct_name);
+
+                    if (role === 'Editor' || role === 'Admin') {
+                        manage_content_type(ct_name);
+                    }
                 }
+
+                // SETUP JOBS
+                corpora.get_jobsites(function(jobsites_data) {
+                    jobsites = jobsites_data;
+
+                    if (role === 'Editor' || role === 'Admin') {
+                        let jobsite_selector = $('#jobsite-selector');
+
+                        for (let x = 0; x < jobsites.length; x++) {
+                            jobsite_selector.append(`
+                                <option value="${_id(jobsites[x])}" class="${jobsites[x]["type"]}">
+                                    ${jobsites[x]["name"]}
+                                </option>
+                            `);
+                            if (jobsites[x].name === 'Local') {
+                                local_jobsite_id = _id(jobsites[x]);
+                            }
+                        }
+                    }
+
+                    corpora.get_tasks('Corpus', function(tasks_data) {
+                        tasks = tasks_data.filter(function(value, index, arr) { return value.track_provenance; });
+
+                        if (role === 'Editor' || role === 'Admin') {
+                            load_tasks(local_jobsite_id);
+                            $("#jobsite-selector").on("change", function () {
+                                load_tasks($('#jobsite-selector :selected').val());
+                            });
+
+                            $('#run-job-button').click(function () {
+                                $('#job-modal').modal();
+                            });
+
+                            $('#job-submit-button').click(function () {
+                                $('#job-form').submit();
+                            });
+                        }
+
+                        check_jobs();
+                    });
+                });
 
                 let scroll_location = location.hash;
                 location.hash = '';
                 location.hash = scroll_location;
-            });
-
-            $("#jobsite-selector").on("change", function() {
-                load_jobsite_tasks($('#jobsite-selector :selected').val());
             });
 
             hide_loading_overlay();
@@ -576,51 +862,53 @@
             let ct = corpus.content_types[ct_name];
 
             ct_row.append(`
-                <div class="col-12">
-                    <a name="${ct.plural_name}"></a>
-                    <div class="card mt-4">
-                        <div class="card-header" style="padding: 0 !important;">
-                            <div class="d-flex w-100 justify-content-between align-items-center text-nowrap" style="padding: 0.75rem 1.25rem;">
-                                <h4>${ct.plural_name}</h4>
-                                <div class="input-group ml-2 mr-2">
-                                    <input type="text" class="form-control form-control" id="ct-${ct.name}-search-box" placeholder="Search" />
-                                    <div class="input-group-append">
-                                        <button id="ct-${ct.name}-search-setting-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">All Fields</button>
-                                        <div id="ct-${ct.name}-search-settings-menu" class="dropdown-menu">
-                                            <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-default" href="#">All Fields</a>
+                <div class="row">
+                    <div class="col-12">
+                        <a name="${ct.plural_name}"></a>
+                        <div class="card mt-4">
+                            <div class="card-header" style="padding: 0 !important;">
+                                <div class="d-flex w-100 justify-content-between align-items-center text-nowrap" style="padding: 0.75rem 1.25rem;">
+                                    <h4>${ct.plural_name}</h4>
+                                    <div class="input-group ml-2 mr-2">
+                                        <input type="text" class="form-control form-control" id="ct-${ct.name}-search-box" placeholder="Search" />
+                                        <div class="input-group-append">
+                                            <button id="ct-${ct.name}-search-setting-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">All Fields</button>
+                                            <div id="ct-${ct.name}-search-settings-menu" class="dropdown-menu">
+                                                <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-default" href="#">All Fields</a>
+                                            </div>
+                                            <input type="hidden" id="ct-${ct.name}-search-setting-value" value="default" />
                                         </div>
-                                        <input type="hidden" id="ct-${ct.name}-search-setting-value" value="default" />
+                                    </div>
+
+                                    <button id="ct-${ct.name}-search-clear-button" class="btn btn-primary rounded mr-2 d-none" type="button">Clear Search</button>
+                                    ${ (role === 'Editor' || role === 'Admin') ? `<a role="button" id="ct-${ct.name}-new-button" href="/corpus/${corpus_id}/${ct.name}/" class="btn btn-primary rounded mr-2">New ${ct.name}</a>` : ''}
+
+                                    <div class="form-inline mr-2">
+                                        <select class="form-control btn-primary d-none" id="ct-${ct.name}-page-selector">
+                                        </select>
+                                    </div>
+
+                                    <div class="form-inline mr-2">
+                                        <select class="form-control btn-primary" id="ct-${ct.name}-per-page-selector">
+                                            <option selected>5</option>
+                                            <option>10</option>
+                                            <option>20</option>
+                                            <option>50</option>
+                                        </select>
                                     </div>
                                 </div>
-
-                                <button id="ct-${ct.name}-search-clear-button" class="btn btn-primary rounded mr-2 d-none" type="button">Clear Search</button>
-                                <a role="button" id="ct-${ct.name}-new-button" href="/corpus/${corpus_id}/${ct.name}/" class="btn btn-primary rounded mr-2">New ${ct.name}</a>
-
-                                <div class="form-inline mr-2">
-                                    <select class="form-control btn-primary d-none" id="ct-${ct.name}-page-selector">
-                                    </select>
-                                </div>
-
-                                <div class="form-inline mr-2">
-                                    <select class="form-control btn-primary" id="ct-${ct.name}-per-page-selector">
-                                        <option selected>5</option>
-                                        <option>10</option>
-                                        <option>20</option>
-                                        <option>50</option>
-                                    </select>
-                                </div>
+                                <div id="ct-${ct.name}-current-search-div" class="d-flex w-100 align-items-center p-2 pl-3 badge-secondary" style="padding-top: 12px !important;"></div>
                             </div>
-                            <div id="ct-${ct.name}-current-search-div" class="d-flex w-100 align-items-center p-2 pl-3 badge-secondary" style="padding-top: 12px !important;"></div>
-                        </div>
-                        <div class="card-body">
-                            <table class="table table-striped">
-                                <thead class="thead-dark">
-                                    <tr id="ct-${ct.name}-table-header-row">
-                                    </tr>
-                                </thead>
-                                <tbody id="ct-${ct.name}-table-body">
-                                </tbody>
-                            </table>
+                            <div class="card-body">
+                                <table class="table table-striped">
+                                    <thead class="thead-dark">
+                                        <tr id="ct-${ct.name}-table-header-row">
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ct-${ct.name}-table-body">
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -636,7 +924,7 @@
                 if (ct.fields[x].in_lists) {
                     table_header_row.append(`
                         <th scope="col">
-                            <a href="javascript: ct_order_by('${ct.name}', '${ct.fields[x].name}');"><h5>${ct.fields[x].label}</h5></a>
+                            <a href="javascript: ct_order_by('${ct.name}', '${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}');"><h5>${ct.fields[x].label}</h5></a>
                         </th>
                     `);
                 }
@@ -647,8 +935,22 @@
             for (let x = 0; x < ct.fields.length; x++) {
                 if (ct.fields[x].in_lists) {
                     search_settings_menu.append(`
-                        <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-${ct.fields[x].name}" href="#">${ct.fields[x].label}</a>
+                        <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}" href="#">${ct.fields[x].label}</a>
                     `);
+
+                    // add cross reference sub field options
+                    if (ct.fields[x].type === 'cross_reference') {
+                        if (corpus.content_types.hasOwnProperty(ct.fields[x].cross_reference_type)) {
+                            let cx = corpus.content_types[ct.fields[x].cross_reference_type];
+                            for (let y = 0; y < cx.fields.length; y++) {
+                                if (cx.fields[y].in_lists && cx.fields[y].type !== 'cross_reference') {
+                                    search_settings_menu.append(`
+                                        <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-${ct.fields[x].name + '.' + cx.fields[y].name}" href="#">${ct.fields[x].label} -> ${cx.fields[y].label}</a>
+                                    `);
+                                }
+                            }
+                        }
+                    }
                 }
             }
             $(`.ct-${ct.name}-search-setting`).click(function (event) {
@@ -660,6 +962,7 @@
                 $(`#ct-${ct.name}-search-setting-value`).val(field);
             });
 
+            // setup page selector events
             $(`#ct-${ct.name}-page-selector`).on("change", function () {
                 ct_search[ct.name].page = parseInt($(`#ct-${ct.name}-page-selector`).val());
                 corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
@@ -670,6 +973,7 @@
                 corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
             });
 
+            // setup search events
             $(`#ct-${ct.name}-search-box`).keypress(function (e) {
                 let key = e.which;
                 if (key === 13) {
@@ -702,32 +1006,43 @@
                 corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
             });
 
+            // default search settings
             ct_search[ct.name] = {
                 'page': 1,
                 'page-size': 5,
             };
 
-            // perform initial load of content
+            // perform initial query of content based on search settings
             corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
         }
 
+        // callback function for loading a page of content returned by corpora.list_content
         function load_content(content) {
             let ct = corpus.content_types[content.meta.content_type];
             $('#save-content-type-schema-button').attr('disabled', false);
 
-            let ct_table_body = $(`#ct-${ct.name}-table-body`);
-            let page_selector = $(`#ct-${ct.name}-page-selector`);
-            let per_page_selector = $(`#ct-${ct.name}-per-page-selector`);
-            let current_search_div = $(`#ct-${ct.name}-current-search-div`);
+            // instantiate some variables to keep track of elements
+            let ct_table_body = $(`#ct-${ct.name}-table-body`); // <-- the table body for listing results
+            let page_selector = $(`#ct-${ct.name}-page-selector`); // <-- the page select box
+            let per_page_selector = $(`#ct-${ct.name}-per-page-selector`); // <-- the page size select box
+            let current_search_div = $(`#ct-${ct.name}-current-search-div`); // <-- the search criteria div
 
+            // clear the table body, page selector, and search criteria div
             ct_table_body.html('');
             page_selector.html('');
             current_search_div.html('');
 
-            let has_search_param = false;
+            // add the total number of results to the search criteria div
+            current_search_div.append(`
+                <span class="badge badge-primary p-2 mr-2" style="font-size: 12px;">
+                    Total: ${content.meta.total}
+                </span>
+            `);
+
+            // add existing search criteria to the div
+            let has_filtering_criteria = false;
             for (let search_setting in ct_search[ct.name]) {
                 if (ct_search[ct.name].hasOwnProperty(search_setting) && (search_setting === 'q' || search_setting.startsWith('q_') || search_setting.startsWith('s_'))) {
-                    has_search_param = true;
                     let setting_type = 'Searching';
                     let field = "";
                     let field_name = "";
@@ -735,9 +1050,25 @@
 
                     if (search_setting !== 'q') {
                         field = search_setting.substring(2);
+                        let subfield = "";
+                        if (field.includes('.')) {
+                            let field_parts = field.split('.');
+                            field = field_parts[0];
+                            subfield = field_parts[1];
+                        }
+
                         for (let x = 0; x < ct.fields.length; x++) {
-                            if (ct.fields[x].name == field) {
+                            if (ct.fields[x].name === field) {
                                 field_name = ct.fields[x].label;
+
+                                if (subfield !== "" && ct.fields[x].type === 'cross_reference' && corpus.content_types.hasOwnProperty(ct.fields[x].cross_reference_type)) {
+                                    let cx = corpus.content_types[ct.fields[x].cross_reference_type];
+                                    for (let y = 0; y < cx.fields.length; y++) {
+                                        if (cx.fields[y].name === subfield) {
+                                            field_name += " -> " + cx.fields[y].label;
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -748,6 +1079,8 @@
                         }
                     }
 
+                    if (setting_type === 'Searching') { has_filtering_criteria = true; }
+
                     current_search_div.append(`
                         <span class="badge badge-primary p-2 mr-2" style="font-size: 12px;">
                             ${setting_type} ${field_name} ${search_value}
@@ -757,15 +1090,13 @@
                 }
             }
 
-            if (!has_search_param) {
-                current_search_div.removeClass('d-flex');
-                current_search_div.addClass('d-none');
-            } else {
-                current_search_div.removeClass('d-none');
-                current_search_div.addClass('d-flex');
-            }
-
+            // if there are no search results, show a default message
             if (content.records.length < 1) {
+                let no_records_msg = `There are currently no ${ct.plural_name} in this corpus. Click the "New ${ct.name}" button above to create one.`;
+                if (has_filtering_criteria) {
+                    no_records_msg = `No ${ct.plural_name} in this corpus match your search criteria.`;
+                }
+
                 let num_cols = 1;
                 for (let x = 0; x < ct.fields.length; x++) {
                     if (ct.fields[x].in_lists) {
@@ -777,7 +1108,7 @@
                     <tr>
                         <td colspan="${num_cols}">
                             <div class="alert alert-warning">
-                                There are currently no ${ct.plural_name} in this corpus. Click the "New ${ct.name}" button above to create one.
+                                ${no_records_msg}
                             </div>
                         </td>
                     </tr>
@@ -786,7 +1117,10 @@
 
                 page_selector.addClass("d-none");
                 per_page_selector.addClass("d-none");
+
+            // records exist, so populate the content type table with a page of results
             } else {
+                // setup the page selector based on total # of pages
                 for (let x = 1; x <= content.meta.num_pages; x++) {
                     let option_html = `<option value="${x}">Page ${x}</option>`;
                     if (x === content.meta.page) {
@@ -795,8 +1129,10 @@
                     page_selector.append(option_html);
                 }
                 page_selector.removeClass("d-none");
+                per_page_selector.removeClass("d-none");
                 per_page_selector.val(ct_search[ct.name]['page-size'].toString());
 
+                // iterate through the records, adding a row for each one
                 content.records.forEach(item => {
                     let row_html = `
                         <tr>
@@ -807,32 +1143,41 @@
                             </td>
                     `;
 
-                    for (let x in ct.fields) {
-                        let field = ct.fields[x];
+                    ct.fields.map(field => {
                         if (field.in_lists) {
                             let value = '';
                             if (item.hasOwnProperty(field.name)) {
-                                value = item[field.name]
-                            }
+                                value = item[field.name];
 
-                            if (field.cross_reference_type && value) {
-                                let val_parts = value.split('|||');
-                                value = `<a href="${val_parts[1]}" target="_blank">${val_parts[0]}</a>`;
-                            }
-
-                            if (field.multiple) {
-                                let multi_value = '';
-                                for (let y in value) {
-                                    if (field.cross_reference_type) {
-                                        multi_value += `, <a href="${value[y].uri}" target="_blank">${value[y].label}</a>`;
+                                if (field.cross_reference_type && value) {
+                                    if (field.multiple) {
+                                        let multi_value = '';
+                                        for (let y in value) {
+                                            multi_value += `, <a href="${value[y].uri}" target="_blank">${value[y].label}</a>`;
+                                        }
+                                        if (multi_value) {
+                                            multi_value = multi_value.substring(2);
+                                        }
+                                        value = multi_value;
                                     } else {
-                                        multi_value += `, ${value[y]}`;
+                                        value = `<a href="${value.uri}" target="_blank">${value.label}</a>`;
+                                    }
+                                } else if (field.multiple) {
+                                    if (field.type == 'text' || field.type == 'keyword') {
+                                        console.log(field.name);
+                                        console.log(value);
+                                        value = value.join(' ');
+                                    } else {
+                                        let multi_value = '';
+                                        for (let y in value) {
+                                            multi_value += `, ${value[y]}`;
+                                        }
+                                        if (multi_value) {
+                                            multi_value = multi_value.substring(2);
+                                        }
+                                        value = multi_value;
                                     }
                                 }
-                                if (multi_value) {
-                                    multi_value = multi_value.substring(2);
-                                }
-                                value = multi_value;
                             }
 
                             row_html += `
@@ -840,7 +1185,7 @@
                                     ${value}
                                 </td>`;
                         }
-                    }
+                    });
 
                     row_html += "</tr>";
                     ct_table_body.append(row_html);
@@ -1272,18 +1617,271 @@
             }
         }
 
-        function load_jobsite_tasks(jobsite_id) {
-            jobsites.forEach(jobsite => {
-                if (jobsite_id === _id(jobsite)) {
-                    let task_selector = $("#task-selector");
-                    task_selector.html("");
-                    for (let task_name in jobsite.task_registry) {
-                        task_selector.append(`
-                            <option value="${jobsite.task_registry[task_name].task_id['$oid']}">${task_name}</option>
-                        `);
+        // FILE UPLOAD FUNCTIONALITY
+        $('#import-corpus-files-button').click(function() {
+            upload_file();
+        });
+
+        function upload_file(path='', filter='', select='file') {
+            corpora.get_corpus_files(corpus_id, path, filter, function (data) {
+                file_upload_path = path;
+
+                let url = `/api/corpus/${corpus_id}/files/`;
+
+                import_corpus_file_pond.setOptions({
+                    server: {
+                        process: {
+                            url: `${url}?path=${path}`,
+                            headers: {
+                                'X-CSRFToken': '{{ csrf_token }}'
+                            }
+                        },
+                        fetch: null,
+                        revert: null
+                    }
+                });
+                import_corpus_file_pond.removeFiles();
+                file_uploads = [];
+
+                $('#file-upload-modal-table-body').html('');
+                $('#file-upload-modal-table-header').html(path + '/');
+                if (path) {
+                    let up_directory = '/' + path.split('/').slice(1, -1).join('/');
+                    if (up_directory === '/') { up_directory = ''; }
+                    if (select === 'file') {
+                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`);
+                    } else {
+                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}', '', 'dir');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`);
+                    }
+                }
+                for (let x = 0; x < data.length; x++) {
+                    if(select === 'file') {
+                        if (data[x].type === 'file') {
+                            $('#file-upload-modal-table-body').append(`
+                                <tr><td>${data[x].filename}</td></tr>
+                            `);
+                        } else {
+                            $('#file-upload-modal-table-body').append(`
+                                <tr><td><span class="fas fa-folder-open"></span> ${data[x].filename} <a class="btn btn-sm btn-primary text-white float-right" role="button" href="javascript:upload_file('${data[x].path}');">Browse</a></td></tr>
+                            `);
+                        }
+                    } else {
+                        if (data[x].type === 'dir') {
+                            $('#file-upload-modal-table-body').append(`
+                                <tr><td><span class="fas fa-folder-open"></span> <a href="javascript:handle_file_upload('${data[x].path}', '');">${data[x].filename}</a> <a class="btn btn-sm btn-primary text-white float-right" role="button" href="javascript:upload_file(file_upload_input_id, '${data[x].path}', '', 'dir');">Browse</a></td></tr>
+                            `);
+                        }
+                    }
+                }
+
+                $('#file-upload-modal').modal();
+            });
+        }
+
+        function handle_folder_creation() {
+            let dirname = pep8_variable_format($('#file-upload-modal-new-folder-box').val());
+            corpora.make_corpus_file_dir(corpus_id, file_upload_path, dirname, function() {
+                $('#file-upload-modal-new-folder-box').val('');
+                upload_file(path=file_upload_path);
+            });
+        }
+
+        $('#file-upload-reset-button').click(function() {
+            let import_button = $('#file-upload-import-button');
+
+            import_files = [];
+            import_button.html('Import');
+            import_button.attr('disabled', true);
+        });
+
+        $('#file-upload-import-button').click(function() {
+            $('#import-corpus-files').val(JSON.stringify(import_files));
+            $('#import-corpus-files-form').submit();
+        });
+
+        // JOB FUNCTIONALITY
+        function load_tasks(jobsite_id) {
+            let task_selector = $('#task-selector');
+            task_selector.html('');
+
+            for (let js_index = 0; js_index < jobsites.length; js_index ++) {
+                if (_id(jobsites[js_index]) === jobsite_id) {
+                    let jobsite_type = jobsites[js_index].type;
+                    let tasks_populated = 0;
+                    for (let t_index = 0; t_index < tasks.length; t_index ++) {
+                        if(tasks[t_index].jobsite_type === jobsite_type) {
+                            task_selector.append(`
+                                <option value="${_id(tasks[t_index])}">
+                                    ${tasks[t_index]["name"]}
+                                </option>
+                            `);
+
+                            if (tasks_populated === 0) {
+                                load_task_parameters(tasks[t_index]);
+                            }
+                            tasks_populated += 1;
+                        }
+                    }
+
+                    if (tasks_populated > 0) {
+                        $(`#task-selector-div`).removeClass("d-none");
+                        $(`#job-submit-button`).attr('disabled', false);
+                    } else {
+                        $(`#task-selector-div`).addClass("d-none");
+                        $(`#job-submit-button`).attr('disabled', true);
+                    }
+                }
+            }
+
+            $('#task-selector').change(function() {
+                let selected_task_id = $('#task-selector').val();
+                for (let t_index = 0; t_index < tasks.length; t_index++) {
+                    if (_id(tasks[t_index]) === selected_task_id) {
+                        load_task_parameters(tasks[t_index]);
                     }
                 }
             });
+        }
+
+        function load_task_parameters(task) {
+            $('#task-parameters-div').html('');
+
+            let parameters = task['configuration']['parameters'];
+            for (let parameter in parameters) {
+                if (parameters[parameter].hasOwnProperty('type')) {
+                    console.log('handling parameter ' + parameter);
+                    let parameter_html = '';
+                    let note_html = '';
+                    if (parameters[parameter].hasOwnProperty('note')) {
+                        note_html = `<span class='text-muted'>${parameters[parameter]['note']}</span>`;
+                    }
+
+                    if (parameters[parameter]['type'] === 'corpus_file') {
+                        let select_options = '';
+                        Object.keys(corpus.files).forEach(file_key => {
+                            select_options += `<option value="${file_key}">${corpus.files[file_key].basename}</option>`;
+                        });
+
+                        parameter_html = `
+                            <div class="form-group">
+                                <label for="corpus-file-selector">${parameters[parameter]['label']}</label>
+                                <select id="corpus-file-selector" class="form-control" name="${parameter}">
+                                    ${select_options}
+                                </select>
+                                ${note_html}
+                            </div>
+                        `;
+                    } else if (parameters[parameter]['type'] === 'choice' && parameters[parameter].hasOwnProperty('choices')) {
+                        let select_options = '';
+                        parameters[parameter]['choices'].forEach(choice => {
+                            select_options += `<option>${choice}</option>\n`;
+                        });
+
+                        parameter_html = `
+                            <div class="form-group">
+                                <label for="${parameter}-choice-selector">${parameters[parameter]['label']}</label>
+                                <select id="${parameter}-choice-selector" class="form-control" name="${parameter}">
+                                    ${select_options}
+                                </select>
+                                ${note_html}
+                            </div>
+                        `;
+                    } else if (parameters[parameter]['type'] === 'text') {
+                        parameter_html = `
+                            <div class="form-group">
+                                <label for="${parameter}-text-box">${parameters[parameter]['label']}</label>
+                                <input type="text" class="form-control" id="${parameter}-text-box" name="${parameter}" />
+                                ${note_html}
+                            </div>
+                        `;
+                    }
+
+                    $('#task-parameters-div').append(parameter_html);
+                }
+            }
+        }
+
+        function check_jobs() {
+            corpora.get_corpus_jobs(corpus_id, function(jobs) {
+                let has_running = false;
+                let has_completed = false;
+                let stale_jobs = [];
+                $('.running-job').each(function(index, item) {
+                    stale_jobs.push($(item).attr('id').replace('running-job-', '').replace('-div', ''));
+                });
+
+                for (let x = 0; x < jobs.length; x++) {
+                    if (jobs[x].status == 'running' || jobs[x].status == 'preparing') {
+                        let task_name = "";
+                        for (let task_index = 0; task_index < tasks.length; task_index++) {
+                            if (_id(tasks[task_index]) === jobs[x].task_id) {
+                                task_name = tasks[task_index].name;
+                                break;
+                            }
+                        }
+
+                        if (!has_running) {
+                            $('#running-jobs-div').html('');
+                            has_running = true;
+                        }
+
+                        let job_id = jobs[x].id;
+                        let progress_value = jobs[x].percent_complete;
+                        if (jobs[x].status == 'preparing') {
+                            progress_value = 0;
+                        }
+                        let label = `${progress_value}%`;
+                        if (progress_value < 4) {
+                            label = "";
+                        }
+
+                        if ($(`#running-job-${job_id}-div`).length) {
+                            $(`#running-job-${job_id}-progress-bar`).css("width", progress_value);
+                            $(`#running-job-${job_id}-progress-bar`).attr("aria-valuenow", progress_value);
+                            $(`#running-job-${job_id}-progress-bar`).html(progress_value);
+                        } else {
+                            let job_html = `
+                                <div id="running-job-${job_id}-div" class="alert alert-info running-job">
+                                    Task: <b>${task_name}</b>
+                                    <div class="progress">
+                                        <div id="running-job-${job_id}-progress-bar"
+                                             class="progress-bar progress-bar-striped bg-success progress-bar-animated"
+                                             role="progressbar"
+                                             aria-valuenow="${progress_value}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100"
+                                             style="width: ${progress_value}%">
+                                            ${label}
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+
+                            $('#running-jobs-div').append(job_html);
+                            stale_jobs = stale_jobs.filter(function (value, index, arr) {
+                                return value != job_id;
+                            });
+                        }
+                    }
+                }
+
+                for (let x = 0; x < stale_jobs.length; x++) {
+                    $(`#running-job-${stale_jobs[x]}-div`).remove();
+                    $('#job-finished-modal').modal();
+                }
+
+                if (!has_running && !$('#no-running-jobs-div').length) {
+                    $('#running-jobs-div').append(`
+                        <div id="no-running-jobs-div" class="alert alert-info">
+                            There are currently no jobs running for this document.
+                        </div>
+                    `);
+                }
+            });
+
+            check_jobs_timer = setTimeout(function() {
+                check_jobs();
+            }, check_jobs_interval * 1000);
         }
     </script>
 {% endblock %}

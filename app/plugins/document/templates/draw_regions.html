@@ -139,6 +139,9 @@
         var page_regions = {{ page_regions|safe }};
 
         $(document).ready(function() {
+            add_breadcrumb('{{ corpus.name }}', "/corpus/{{ corpus.id }}");
+            add_breadcrumb(' {{ document.label }}', "/corpus/{{ corpus.id }}/Document/{{ document.id }}");
+
             content_editor = ace.edit("editor-div");
             content_editor.setTheme("ace/theme/monokai");
             content_editor.getSession().setMode("ace/mode/text");
@@ -208,7 +211,7 @@
                 content_editor.setValue('Loading content...');
 
                 $.get(
-                    `/api/corpus/{{ corpus_id }}/document/{{ document_id }}/page/get-region-content/{{ ref_no }}/${parseInt(currently_selected.x())}/${parseInt(currently_selected.y())}/${parseInt(currently_selected.width())}/${parseInt(currently_selected.height())}/?ocrfile={{ ocr_file }}`,
+                    `/api/corpus/{{ corpus.id }}/Document/{{ document.id }}/page/get-region-content/{{ ref_no }}/${parseInt(currently_selected.x())}/${parseInt(currently_selected.y())}/${parseInt(currently_selected.width())}/${parseInt(currently_selected.height())}/?ocrfile={{ ocr_file }}`,
                     function (content) {
                         region_content = content;
                         currently_editing = true;

@@ -5,8 +5,9 @@ from copy import deepcopy
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
+from neo4j import GraphDatabase
 from django.conf import settings
-from elasticsearch_dsl import Index, Mapping, Keyword, Text, Boolean
+from elasticsearch_dsl import Index, Mapping, Keyword, Text, Boolean, normalizer
 from corpus import *
 
 initialized_file = '/corpora/initialized'
@@ -38,7 +39,77 @@ class Command(BaseCommand):
         print(" INITIALIZING CORPORA")
         print("---------------------------\n")
 
-        # Ensure NEO4J constraints exist
+        # Ensure NEO4J users/passwords set and constraints exist
+        if not settings.NEO4J:
+            # attempting to connect with default creds.
+            initial_neo = GraphDatabase.driver(
+                "bolt://{0}".format(os.environ['CRP_NEO4J_HOST']),
+                auth=('neo4j', 'neo4j')
+            )
+            temp_default_pwd = 'initpwd'
+
+            with initial_neo.session() as neo:
+                # change default password (must do in order to proceed with new account creation)
+                neo.run(
+                    "CALL dbms.security.changePassword('{0}')".format(temp_default_pwd)
+                )
+
+            initial_neo.close()
+            initial_neo = GraphDatabase.driver(
+                "bolt://{0}".format(os.environ['CRP_NEO4J_HOST']),
+                auth=('neo4j', temp_default_pwd)
+            )
+
+            with initial_neo.session() as neo:
+                # create admin account
+                neo.run(
+                    "CALL dbms.security.createUser",
+                    username=os.environ['CRP_NEO4J_USER'],
+                    password=os.environ['CRP_NEO4J_PWD'],
+                    requirePasswordChange=False
+                )
+
+                # grant admin account admin privs
+                neo.run(
+                    "CALL dbms.security.addRoleToUser",
+                    roleName="admin",
+                    username=os.environ['CRP_NEO4J_USER']
+                )
+
+                # create read-only user
+                neo.run(
+                    "CALL dbms.security.createUser",
+                    username=os.environ['CRP_NEO4J_RO_USER'],
+                    password=os.environ['CRP_NEO4J_RO_PWD'],
+                    requirePasswordChange=False
+                )
+
+                # grant read-only account privs
+                neo.run(
+                    "CALL dbms.security.addRoleToUser",
+                    roleName="reader",
+                    username=os.environ['CRP_NEO4J_RO_USER']
+                )
+
+            initial_neo.close()
+
+            # setup NEO4J default connection
+            settings.NEO4J = GraphDatabase.driver(
+                "bolt://{0}".format(os.environ['CRP_NEO4J_HOST']),
+                auth=(os.environ['CRP_NEO4J_USER'], os.environ['CRP_NEO4J_PWD'])
+            )
+
+            # delete default user
+            with settings.NEO4J.session() as neo:
+                neo.run(
+                    "CALL dbms.security.deleteUser",
+                    username="neo4j"
+                )
+
+            print("\t-- NEO4J USERS INITIALIZED :)")
+        else:
+            print("\t-- NEO4J USERS INITIALIZED :)")
+
         with settings.NEO4J.session() as neo:
             constraints = ' '.join([r.get("description") for r in neo.run("CALL db.constraints")])
             constraint_created = False
@@ -49,17 +120,9 @@ class Command(BaseCommand):
             if ":Corpus" not in constraints:
                 neo.run("CREATE CONSTRAINT ON(c:Corpus) ASSERT c.uri IS UNIQUE")
                 constraint_created = True
-            if ":Document" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(d:Document) ASSERT d.uri IS UNIQUE")
-                constraint_created = True
-            if ":Page" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(p:Page) ASSERT p.uri IS UNIQUE")
-                constraint_created = True
             if ":File" not in constraints:
                 neo.run("CREATE CONSTRAINT ON(f:File) ASSERT f.uri IS UNIQUE")
-                constraint_created = True
-            if ":PageFileCollection" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(pfc:PageFileCollection) ASSERT pfc.uri IS UNIQUE")
+                neo.run("CREATE INDEX ON :File(corpus_id)")
                 constraint_created = True
             if ":JobSite" not in constraints:
                 neo.run("CREATE CONSTRAINT ON(js:JobSite) ASSERT js.uri IS UNIQUE")
@@ -96,6 +159,48 @@ class Command(BaseCommand):
             local_jobsite.save()
             print("\t-- LOCAL JOB SITE CREATED :)")
 
+        # Ensure Corpora Elasticsearch index exists
+        if Index('corpora').exists():
+            print("\t-- CORPORA INDEX EXISTS :)")
+        else:
+            # Create Corpora Elasticsearch index
+            corpora_analyzer = analyzer(
+                'corpora_analyzer',
+                tokenizer='classic',
+                filter=['stop', 'lowercase', 'classic']
+            )
+
+            mapping = Mapping()
+            mapping.field('name', 'text', analyzer=corpora_analyzer, fields={'raw': Keyword()})
+            mapping.field('description', 'text', analyzer=corpora_analyzer)
+            mapping.field('open_access', Boolean())
+            corpora_index = Index('corpora')
+            corpora_index.mapping(mapping)
+            corpora_index.save()
+            print("\t-- CORPORA INDEX CREATED :)")
+
+        # Ensure Scholar Elasticsearch index exists
+        if Index('scholar').exists():
+            print("\t-- SCHOLAR INDEX EXISTS :)")
+        else:
+            # Create Scholar Elasticsearch index
+            corpora_normalizer = normalizer(
+                'corpora_normalizer',
+                filter=['lowercase']
+            )
+
+            mapping = Mapping()
+            mapping.field('username', Keyword(normalizer=corpora_normalizer))
+            mapping.field('fname', Keyword(normalizer=corpora_normalizer))
+            mapping.field('lname', Keyword(normalizer=corpora_normalizer))
+            mapping.field('email', Keyword(normalizer=corpora_normalizer))
+            mapping.field('is_admin', Boolean())
+            mapping.field('available_corpora', Keyword())
+            scholar_index = Index('scholar')
+            scholar_index.mapping(mapping)
+            scholar_index.save()
+            print("\t-- SCHOLAR INDEX CREATED :)")
+
         # Ensure a user exists
         if User.objects.all().count() > 0:
             print("\t-- USERS EXIST :)")
@@ -122,26 +227,6 @@ class Command(BaseCommand):
             scholar.auth_token = token.key
             scholar.save()
             print("\t-- DEFAULT USER CREATED :)")
-
-        # Ensure Corpora Elasticsearch index exists
-        if Index('corpora').exists():
-            print("\t-- CORPORA INDEX EXISTS :)")
-        else:
-            # Create Corpora Elasticsearch index
-            corpora_analyzer = analyzer(
-                'corpora_analyzer',
-                tokenizer='classic',
-                filter=['stop', 'lowercase', 'classic']
-            )
-
-            mapping = Mapping()
-            mapping.field('name', 'text', analyzer=corpora_analyzer, fields={ 'raw': Keyword() })
-            mapping.field('description', 'text', analyzer=corpora_analyzer)
-            mapping.field('open_access', Boolean())
-            corpora_index = Index('corpora')
-            corpora_index.mapping(mapping)
-            corpora_index.save()
-            print("\t-- CORPORA INDEX CREATED :)")
 
         # Register new plug-in tasks (or update existing with new version)
         jobsites = JobSite.objects()

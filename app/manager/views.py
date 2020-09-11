@@ -1,7 +1,6 @@
-import logging
-import json
 import re
 import mimetypes
+from ipaddress import ip_address
 from django.shortcuts import render, redirect, HttpResponse
 from django.http import Http404
 from django.contrib.auth import authenticate, login, logout
@@ -11,9 +10,16 @@ from html import unescape
 from time import sleep
 from corpus import *
 from .tasks import *
-from .utilities import _get_context, _clean, _contains, get_corpus_search_results, \
-    get_scholar_corpora, get_scholar_corpus, parse_uri, \
-    get_jobsites, get_tasks
+from .utilities import(
+    _get_context,
+    _clean,
+    _contains,
+    get_scholar_corpus,
+    parse_uri,
+    get_jobsites,
+    get_tasks,
+    clear_cached_session_scholar
+)
 from rest_framework.decorators import api_view 
 from rest_framework.authtoken.models import Token
 
@@ -38,6 +44,7 @@ def corpora(request):
             c.save_content_type(schema)
 
         sleep(4)
+        response['messages'].append("{0} corpus successfully created.".format(c.name))
 
     return render(
         request,
@@ -51,70 +58,133 @@ def corpora(request):
 @login_required
 def corpus(request, corpus_id):
     response = _get_context(request)
-    corpus = get_scholar_corpus(corpus_id, response['scholar'])
+    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
     if corpus:
-        if request.method == 'POST' and 'schema' in request.POST:
-            schema = json.loads(request.POST['schema'])
-            for ct_schema in schema:
-                queued_job_ids = corpus.save_content_type(ct_schema)
-                for queued_job_id in queued_job_ids:
-                    run_job(queued_job_id)
+        # HANDLE ADMIN ONLY POST REQUESTS
+        if (response['scholar'].is_admin or role == 'Editor') and request.method == 'POST':
 
-        # HANDLE CONTENT_TYPE/FIELD ACTIONS THAT REQUIRE CONFIRMATION
-        elif request.method == 'POST' and _contains(request.POST, [
-            'content_type',
-            'field',
-            'action'
-        ]):
-            action_content_type = _clean(request.POST, 'content_type')
-            action_field_name = _clean(request.POST, 'field')
-            action = _clean(request.POST, 'action')
+            # HANDLE IMPORT DOCUMENT FILES FORM SUBMISSION
+            if 'import-corpus-files' in request.POST:
+                import_files = json.loads(request.POST['import-corpus-files'])
 
-            if action_content_type:
-                content_type = ContentType.objects(corpus=corpus_id, name=action_content_type)[0]
+                upload_path = corpus.path + '/files'
+                for import_file in import_files:
+                    import_file_path = "{0}{1}".format(upload_path, import_file)
+                    if os.path.exists(import_file_path):
+                        extension = import_file.split('.')[-1]
+                        corpus.save_file(File.process(
+                            import_file_path,
+                            extension.upper() + " File",
+                            "User Import",
+                            response['scholar']['username'],
+                            False
+                        ))
 
-                # content type actions
-                if not action_field_name:
-                    if action == 'delete':
-                        content_type.delete()
-
-                # field actions
+            # HANDLE JOB SUBMISSION
+            elif _contains(request.POST, ['jobsite', 'task']):
+                jobsite = JobSite.objects(id=_clean(request.POST, 'jobsite'))[0]
+                task = Task.objects(id=_clean(request.POST, 'task'))[0]
+                task_parameters = [key for key in task.configuration['parameters'].keys()]
+                if _contains(request.POST, task_parameters):
+                    job = Job()
+                    job.corpus_id = corpus_id
+                    job.content_type = 'Corpus'
+                    job.content_id = None
+                    job.task_id = str(task.id)
+                    job.scholar_id = str(response['scholar'].id)
+                    job.jobsite_id = str(jobsite.id)
+                    job.status = "preparing"
+                    job.configuration = task.configuration
+                    for parameter in task_parameters:
+                        job.configuration['parameters'][parameter]['value'] = _clean(request.POST, parameter)
+                    job.save()
+                    run_job(job.id)
+                    response['messages'].append("Job successfully submitted.")
                 else:
-                    if action == 'delete':
-                        content_type.delete_field(action_field_name)
-                    elif action.startswith('shift_'):
-                        field_index = -1
-                        new_field_index = -1
-                        for index in range(0, len(content_type.fields)):
-                            if content_type.fields[index].name == action_field_name:
-                                field_index = index
+                    response['errors'].append("Please provide values for all task parameters.")
 
-                        if field_index > -1:
-                            if action.endswith("_up") and field_index > 0:
-                                new_field_index = field_index - 1
-                            elif action.endswith("_down") and field_index < len(content_type.fields) - 1:
-                                new_field_index = field_index + 1
+            # HANDLE CONTENT TYPE SCHEMA SUBMISSION
+            elif 'schema' in request.POST:
+                schema = json.loads(request.POST['schema'])
+                for ct_schema in schema:
+                    queued_job_ids = corpus.save_content_type(ct_schema)
+                    for queued_job_id in queued_job_ids:
+                        run_job(queued_job_id)
 
-                        if field_index > -1 and new_field_index > -1:
-                            swap_field = content_type.fields[new_field_index]
-                            content_type.fields[new_field_index] = content_type.fields[field_index]
-                            content_type.fields[field_index] = swap_field
-                            content_type.save()
+                response['messages'].append('''
+                    Content type(s) successfully saved. Due to the setting/unsetting of fields as being in lists, or the 
+                    changing of label templates, <strong>reindexing of existing content may occur</strong>, which can 
+                    result in the temporary unavailability of content in lists or searches. All existing content will be 
+                    made available once reindexing completes.  
+                ''')
 
-        # HANDLE THE CREATION OF NEW TEMPLATE FORMATS
-        elif request.method == 'POST' and _contains(request.POST, ['new-format-label', 'new-format-extension']):
-            new_format_label = _clean(request.POST, 'new-format-label')
-            new_format_extension = _clean(request.POST, 'new-format-extension')
+            # HANDLE CONTENT_TYPE/FIELD ACTIONS THAT REQUIRE CONFIRMATION
+            elif _contains(request.POST, [
+                'content_type',
+                'field',
+                'action'
+            ]):
+                action_content_type = _clean(request.POST, 'content_type')
+                action_field_name = _clean(request.POST, 'field')
+                action = _clean(request.POST, 'action')
 
-            if new_format_label \
-                    and new_format_extension \
-                    and new_format_extension not in [default['extension'] for default in DEFAULT_TEMPLATE_FORMATS]:
-                new_format = TemplateFormat()
-                new_format.corpus = corpus
-                new_format.label = new_format_label
-                new_format.extension = new_format_extension
-                new_format.ace_editor_mode = 'django'
-                new_format.save()
+                if action_content_type in corpus.content_types:
+
+                    # content type actions
+                    if not action_field_name:
+                        if action == 'delete':
+                            run_job(corpus.queue_local_job(task_name="Delete Content Type", parameters={
+                                'content_type': action_content_type,
+                            }))
+
+                            response['messages'].append("Content type {0} successfully deleted.".format(action_content_type))
+
+                    # field actions
+                    else:
+                        if action == 'delete':
+                            run_job(corpus.queue_local_job(task_name="Delete Content Type Field", parameters={
+                                'content_type': action_content_type,
+                                'field_name': action_field_name
+                            }))
+
+                            response['messages'].append("Field {0} successfully deleted from {1}.".format(
+                                action_field_name,
+                                action_content_type
+                            ))
+
+                        elif action.startswith('shift_'):
+                            ct = corpus.content_types[action_content_type]
+                            field_index = -1
+                            new_field_index = -1
+
+                            for index in range(0, len(ct.fields)):
+                                if ct.fields[index].name == action_field_name:
+                                    field_index = index
+
+                            if field_index > -1:
+                                if action.endswith("_up") and field_index > 0:
+                                    new_field_index = field_index - 1
+                                elif action.endswith("_down") and field_index < len(ct.fields) - 1:
+                                    new_field_index = field_index + 1
+
+                            if field_index > -1 and new_field_index > -1:
+                                swap_field = ct.fields[new_field_index]
+                                corpus.content_types[action_content_type].fields[new_field_index] = corpus.content_types[action_content_type].fields[field_index]
+                                corpus.content_types[action_content_type].fields[field_index] = swap_field
+                                corpus.save()
+
+                                response['messages'].append("Field {0} successfully successfully repositioned.".format(
+                                    action_field_name
+                                ))
+
+            # HANDLE CORPUS DELETION
+            elif 'corpus-deletion-name' in request.POST:
+                if corpus.name == request.POST['corpus-deletion-name']:
+                    run_job(corpus.queue_local_job(task_name="Delete Corpus", parameters={}))
+
+                    return redirect("/?msg=Corpus {0} is being deleted.".format(
+                        corpus.name
+                    ))
 
         # HANDLE SCHEMA EXPORT
         elif request.method == 'GET' and 'export' in request.GET and request.GET['export'] == 'schema':
@@ -123,7 +193,7 @@ def corpus(request, corpus_id):
                 schema.append(corpus.content_types[ct_name].to_dict())
 
             return HttpResponse(
-                json.dumps(schema),
+                json.dumps(schema, indent=4),
                 content_type='application/json'
             )
 
@@ -132,16 +202,18 @@ def corpus(request, corpus_id):
         'corpus.html',
         {
             'corpus_id': corpus_id,
+            'role': role,
             'response': response,
         }
     )
 
 
+@login_required
 def edit_content(request, corpus_id, content_type, content_id=None):
     context = _get_context(request)
-    corpus = get_scholar_corpus(corpus_id, context['scholar'])
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
 
-    if corpus and content_type in corpus.content_types:
+    if (context['scholar'].is_admin or role == 'Editor') and corpus and content_type in corpus.content_types:
 
         if request.method == 'POST':
             temp_file_fields = []
@@ -190,16 +262,17 @@ def edit_content(request, corpus_id, content_type, content_id=None):
 
                     # set value for xref fields
                     elif ct_fields[field_name].type == 'cross_reference':
-                        print('setting xref value')
                         field_value = corpus.get_content(ct_fields[field_name].cross_reference_type, field_value).to_dbref()
 
                     # set value for number fields
                     elif ct_fields[field_name].type == 'number' and not field_value:
                         field_value = None
 
-                    # set value for number fields
+                    # set value for date fields
                     elif ct_fields[field_name].type == 'date' and not field_value:
                         field_value = None
+                    elif ct_fields[field_name].type == 'date':
+                        field_value = parse_date_string(field_value)
 
                     if ct_fields[field_name].multiple and len(param_parts) == 3:
                         multi_field_values[field_name].append(field_value)
@@ -212,7 +285,6 @@ def edit_content(request, corpus_id, content_type, content_id=None):
             content.save()
 
             if temp_file_fields:
-                print('has temp file fields')
                 for temp_file_field in temp_file_fields:
                     if ct_fields[temp_file_field].multiple:
                         for f_index in range(0, len(getattr(content, temp_file_field))):
@@ -237,11 +309,13 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                 'content_id': content_id,
             }
         )
+    else:
+        raise Http404("You are not authorized to view this page.")
 
 
 def view_content(request, corpus_id, content_type, content_id):
     context = _get_context(request)
-    corpus = get_scholar_corpus(corpus_id, context['scholar'])
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
 
     if not corpus or content_type not in corpus.content_types:
         raise Http404("Corpus does not exist, or you are not authorized to view it.")
@@ -252,10 +326,77 @@ def view_content(request, corpus_id, content_type, content_id):
         {
             'response': context,
             'corpus_id': corpus_id,
+            'role': role,
             'content_type': content_type,
             'content_id': content_id,
         }
     )
+
+@login_required
+def scholars(request):
+    response = _get_context(request)
+
+    if response['scholar'].is_admin:
+        if request.method == 'POST':
+            if 'toggle-admin-privs' in request.POST:
+                target_scholar = Scholar.objects(id=request.POST['toggle-admin-privs'])[0]
+                if target_scholar.is_admin:
+                    target_scholar.is_admin = False
+                else:
+                    target_scholar.is_admin = True
+                target_scholar.save()
+                response['messages'].append("Permissions for {0} successfully changed!".format(target_scholar.username))
+
+            elif 'corpus-perms' in request.POST:
+                target_scholar = Scholar.objects(id=request.POST['corpus-perms'])[0]
+                new_perm_corpus_name = request.POST['corpus-name']
+                new_perm_corpus_role = request.POST['corpus-permission']
+
+                if new_perm_corpus_name and new_perm_corpus_role in ['Viewer', 'Editor']:
+                    try:
+                        corpus = Corpus.objects(name=new_perm_corpus_name)[0]
+                        if str(corpus.id) not in target_scholar.available_corpora:
+                            target_scholar.available_corpora[str(corpus.id)] = new_perm_corpus_role
+                            target_scholar.save()
+                    except:
+                        response['errors'].append("No corpus was found with the name provided.")
+
+                for post_param in request.POST.keys():
+                    if post_param not in ['corpus-perms', 'corpus-name', 'corpus-permission'] and post_param.startswith('corpus-'):
+                        corpus_id = post_param.replace('corpus-', '').replace('-permission', '')
+                        corpus_role = request.POST[post_param]
+
+                        if corpus_id in target_scholar.available_corpora and target_scholar.available_corpora[corpus_id] != corpus_role:
+                            if corpus_role == 'None':
+                                del target_scholar.available_corpora[corpus_id]
+                            else:
+                                target_scholar.available_corpora[corpus_id] = corpus_role
+
+                            target_scholar.save()
+                            response['messages'].append("Permissions for {0} successfully changed!".format(target_scholar.username))
+
+            elif 'change-pwd' in request.POST:
+                password = request.POST['password']
+
+                if password == request.POST['password2']:
+                    target_scholar = Scholar.objects(id=request.POST['change-pwd'])[0]
+                    user = User.objects.get(username=target_scholar.username)
+                    user.set_password(password)
+                    user.save()
+                    clear_cached_session_scholar(user.id)
+                    response['messages'].append("Password for {0} successfully changed!".format(target_scholar.username))
+                else:
+                    response['errors'].append("Passwords must match!")
+
+        return render(
+            request,
+            'scholars.html',
+            {
+                'response': response
+            }
+        )
+    else:
+        raise Http404("You are not authorized to view this page.")
 
 
 def scholar(request):
@@ -287,41 +428,56 @@ def scholar(request):
         lname = _clean(request.POST, 'lname')
         email = _clean(request.POST, 'email')
 
-        if password and password == password2:
-            if not response['scholar']:
-                user = User.objects.create_user(
-                    username,
-                    email,
-                    password
-                )
-                user.first_name = fname
-                user.last_name = lname
-                user.save()
+        valid_ips = True
+        auth_token_ips = [request.POST[val] for val in request.POST.keys() if val.startswith('auth-token-ip-')]
+        for auth_token_ip in auth_token_ips:
+            try:
+                ip = ip_address(auth_token_ip)
+            except:
+                valid_ips = False
 
-                response['scholar'] = Scholar()
-                response['scholar'].username = username
-                response['scholar'].fname = fname
-                response['scholar'].lname = lname
-                response['scholar'].email = email
+        if valid_ips:
+            if password and password == password2:
+                if not response['scholar']:
+                    user = User.objects.create_user(
+                        username,
+                        email,
+                        password
+                    )
+                    user.first_name = fname
+                    user.last_name = lname
+                    user.save()
 
-                token, created = Token.objects.get_or_create(user=user)
-                response['scholar'].auth_token = token.key
-                response['scholar'].save()
+                    response['scholar'] = Scholar()
+                    response['scholar'].username = username
+                    response['scholar'].fname = fname
+                    response['scholar'].lname = lname
+                    response['scholar'].email = email
+                    response['scholar'].auth_token_ips = auth_token_ips
 
-                return redirect("/scholar?msg=You have successfully registered. Please login below.")
+                    token, created = Token.objects.get_or_create(user=user)
+                    response['scholar'].auth_token = token.key
+                    response['scholar'].save()
+                    clear_cached_session_scholar(user.id)
+
+                    return redirect("/scholar?msg=You have successfully registered. Please login below.")
+                else:
+                    response['scholar'].fname = fname
+                    response['scholar'].lname = lname
+                    response['scholar'].email = email
+                    response['scholar'].auth_token_ips = auth_token_ips
+                    response['scholar'].save()
+
+                    user = User.objects.get(username=username)
+                    user.set_password(password)
+                    user.save()
+                    clear_cached_session_scholar(user.id)
+
+                    response['messages'].append("Your account settings have been saved successfully.")
             else:
-                response['scholar'].fname = fname
-                response['scholar'].lname = lname
-                response['scholar'].email = email
-                response['scholar'].save()
-
-                user = User.objects.get(username=username)
-                user.set_password(password)
-                user.save()
-
-                response['messages'].append("Your account settings have been saved successfully.")
+                response['errors'].append('You must provide a password, and passwords must match!')
         else:
-            response['errors'].append('You must provide a password, and passwords must match!')
+            response['errors'].append('One or more of your API IP addresses is invalid!')
 
     elif request.method == 'POST' and _contains(request.POST, ['username', 'password']):
         username = _clean(request.POST, 'username')
@@ -358,7 +514,7 @@ def get_file(request, file_uri):
     file_path = None
 
     if 'corpus' in uri_dict:
-        if context['scholar'].is_admin or uri_dict['corpus'] in context['scholar'].available_corpora:
+        if context['scholar'].is_admin or uri_dict['corpus'] in context['scholar'].available_corpora.keys():
             results = run_neo(
                 '''
                     MATCH (f:File { uri: $file_uri })
@@ -397,7 +553,7 @@ def get_image(
     file_path = None
 
     if 'corpus' in uri_dict:
-        if context['scholar'].is_admin or uri_dict['corpus'] in context['scholar'].available_corpora:
+        if context['scholar'].is_admin or uri_dict['corpus'] in context['scholar'].available_corpora.keys():
             results = run_neo(
                 '''
                     MATCH (f:File { uri: $image_uri, is_image: true })
@@ -428,21 +584,22 @@ def get_image(
 
 
 @api_view(['GET'])
-def api_search(request, corpus_id=None, document_id=None):
-    response = _get_context(request)
-    if response['scholar']:
-        search_results = get_corpus_search_results(request, response['scholar'], corpus_id, document_id)
-        return HttpResponse(
-            json.dumps(search_results),
-            content_type='application/json'
-        )
-    raise Http404("Search not completed.")
-
-
-@api_view(['GET'])
 def api_corpora(request):
-    response = _get_context(request)
-    corpora = get_corpus_search_results(request, response['scholar'])
+    context = _get_context(request)
+    ids = []
+    open_access_only = True
+
+    if not context['search']:
+        context['search'] = {
+            'general_query': "*"
+        }
+
+    if context['scholar'] and context['scholar'].is_admin:
+        open_access_only = False
+    elif context['scholar']:
+        ids = [c_id for c_id in context['scholar'].available_corpora.keys()]
+
+    corpora = search_corpora(**context['search'], ids=ids, open_access_only=open_access_only)
 
     return HttpResponse(
         json.dumps(corpora),
@@ -451,30 +608,84 @@ def api_corpora(request):
 
 
 @api_view(['GET'])
+def api_scholar(request, scholar_id=None):
+    context = _get_context(request)
+
+    if not context['search']:
+        context['search'] = {
+            'general_query': "*"
+        }
+
+    if context['scholar'] and context['scholar'].is_admin:
+        if scholar_id:
+            scholar = Scholar.objects(id=scholar_id)[0]
+            scholar_dict = {
+                'username': scholar.username,
+                'fname': scholar.fname,
+                'lname': scholar.lname,
+                'email': scholar.email,
+                'is_admin': scholar.is_admin,
+                'available_corpora': {}
+            }
+            if scholar.available_corpora:
+                corpora = Corpus.objects(id__in=list(scholar.available_corpora.keys())).only('id', 'name')
+                for corpus in corpora:
+                    scholar_dict['available_corpora'][str(corpus.id)] = {
+                        'name': corpus.name,
+                        'role': scholar.available_corpora[str(corpus.id)]
+                    }
+
+            return HttpResponse(
+                json.dumps(scholar_dict),
+                content_type='application/json'
+            )
+
+        else:
+            scholars = search_scholars(**context['search'])
+
+            return HttpResponse(
+                json.dumps(scholars),
+                content_type='application/json'
+            )
+    else:
+        raise Http404("You are not authorized to access this endpoint.")
+
+
+@api_view(['GET'])
 def api_corpus(request, corpus_id):
     response = _get_context(request)
-    corpus = get_scholar_corpus(corpus_id, response['scholar'])
+    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
 
-    return HttpResponse(
-        json.dumps(corpus.to_dict()),
-        content_type='application/json'
-    )
+    if corpus:
+        corpus_dict = corpus.to_dict()
+        corpus_dict['scholar_role'] = role
 
+        return HttpResponse(
+            json.dumps(corpus_dict),
+            content_type='application/json'
+        )
+    else:
+        return HttpResponse(
+            "{}",
+            content_type='application/json'
+        )
 
 @api_view(['GET'])
 def api_content(request, corpus_id, content_type, content_id=None):
     context = _get_context(request)
     content = {}
-    corpus = get_scholar_corpus(corpus_id, context['scholar'])
 
-    if corpus:
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+
+    if corpus and content_type in corpus.content_types:
         if content_id:
             content = corpus.get_content(content_type, content_id, context['only'])
             content = content.to_dict()
-        elif context['search']:
-            content = corpus.search_content(content_type=content_type, **context['search'])
         else:
-            content = corpus.search_content(content_type=content_type, general_search_query="*")
+            if context['search']:
+                content = corpus.search_content(content_type=content_type, **context['search'])
+            else:
+                content = corpus.search_content(content_type=content_type, general_search_query="*")
 
     return HttpResponse(
         json.dumps(content),
@@ -483,28 +694,29 @@ def api_content(request, corpus_id, content_type, content_id=None):
 
 
 @api_view(['GET', 'POST'])
-def api_content_files(request, corpus_id, content_type, content_id=None):
+def api_content_files(request, corpus_id, content_type=None, content_id=None):
     context = _get_context(request)
-    corpus = get_scholar_corpus(corpus_id, context['scholar'])
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
     files = []
 
-    if corpus:
+    if (context['scholar'].is_admin or role == 'Editor') and corpus:
 
-        base_path = "{corpus_path}/{content_type}/temporary_uploads".format(
-            corpus_path=corpus.path,
-            content_type=content_type
-        )
+        if content_type:
+            base_path = "{corpus_path}/{content_type}/temporary_uploads".format(
+                corpus_path=corpus.path,
+                content_type=content_type
+            )
 
-        if content_id:
-            content = corpus.get_content(content_type, content_id, only=['path'])
-            if content:
-                base_path = "{content_path}/files".format(content_path=content.path)
-            else:
-                base_path = ""
+            if content_id:
+                content = corpus.get_content(content_type, content_id, only=['path'])
+                if content:
+                    base_path = "{content_path}/files".format(content_path=content.path)
+                else:
+                    base_path = ""
+        else:
+            base_path = "{0}/files".format(corpus.path)
 
         if base_path:
-            print(base_path)
-
             sub_path = _clean(request.GET, 'path', '')
             full_path = base_path + sub_path
             filter = _clean(request.GET, 'filter', '')
@@ -513,7 +725,6 @@ def api_content_files(request, corpus_id, content_type, content_id=None):
             if 'filepond' in request.FILES:
                 filename = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', request.FILES['filepond'].name)
                 file_path = "{0}/{1}".format(full_path, filename)
-                print(file_path)
 
                 if not os.path.exists(full_path):
                     os.makedirs(full_path)

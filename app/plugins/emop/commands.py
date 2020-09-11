@@ -2,7 +2,8 @@ import os
 from copy import deepcopy
 from plugins.document.tasks import import_document
 from plugins.document.content import REGISTRY as DOC_REGISTRY
-from corpus import Corpus, Field
+from django.conf import settings
+from corpus import Corpus, ensure_connection
 
 REGISTRY = {
     "import_documents": {
@@ -10,8 +11,9 @@ REGISTRY = {
     }
 }
 
-
 def import_documents(emop_corpus, path):
+    imports_launched = 0
+    ensure_connection()
     corpus = None
 
     if os.path.exists(path) and emop_corpus in ['EEBO', 'ECCO']:
@@ -41,24 +43,17 @@ def import_documents(emop_corpus, path):
                 "in_lists": False
             },
             {
-                "name": "tcp_bib_no",
-                "label": "TCP Bib No.",
-                "type": "number",
-                "in_lists": False
-            },
-            {
-                "name": "marc_record",
-                "label": "MARC Record",
-                "type": "keyword",
-                "in_lists": False
-            },
-            {
                 "name": "emop_font_id",
                 "label": "eMOP Font ID",
                 "type": "number",
                 "in_lists": False
             },
-
+            {
+                "name": "emop_ocr_jobs",
+                "label": "eMOP OCR Jobs",
+                "type": "text",
+                "in_lists": False
+            }
         ]
 
         eebo_fields = [
@@ -79,7 +74,25 @@ def import_documents(emop_corpus, path):
                 "label": "EEBO URL",
                 "type": "keyword",
                 "in_lists": False
-            }
+            },
+            {
+                "name": "bib_name",
+                "label": "Bib Name",
+                "type": "text",
+                "in_lists": False
+            },
+            {
+                "name": "tcp_bib_no",
+                "label": "TCP Bib No.",
+                "type": "number",
+                "in_lists": False
+            },
+            {
+                "name": "marc_record",
+                "label": "MARC Record",
+                "type": "keyword",
+                "in_lists": False
+            },
         ]
 
         ecco_fields = [
@@ -107,15 +120,20 @@ def import_documents(emop_corpus, path):
                 corpus_desc = "Eighteenth-Century Collections Online"
                 emop_doc_schema['fields'] += ecco_fields
 
-            corpus = Corpus()
-            corpus.name = emop_corpus
-            corpus.description = corpus_desc
-            corpus.save()
-            corpus.save_content_type(emop_doc_schema)
+            try:
+                corpus = Corpus.objects(name=emop_corpus)[0]
+            except:
+                corpus = Corpus()
+                corpus.name = emop_corpus
+                corpus.description = corpus_desc
+                corpus.save()
+                corpus.save_content_type(emop_doc_schema)
 
         if corpus:
             for dir_path, dir_names, files in os.walk(path):
                 for file_name in files:
                     if file_name == 'export.json':
-                        print("attempting to import document...")
                         import_document(str(corpus.id), os.path.join(dir_path, file_name))
+                        imports_launched += 1
+
+    print("Launched {0} import jobs.".format(imports_launched))

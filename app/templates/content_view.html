@@ -25,7 +25,7 @@
 
                 </div>
                 <div class="card-footer" id="content-footer">
-                    {% if response.scholar.is_admin %}
+                    {% if response.scholar.is_admin or role == 'Editor' %}
                         <a href="/corpus/{{ corpus_id }}/{{ content_type }}/{{ content_id }}/edit/">
                             <span class="fas fa-edit"></span>
                         </a>

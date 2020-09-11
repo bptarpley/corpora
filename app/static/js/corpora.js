@@ -27,7 +27,7 @@ class Corpora {
         this.csrf_token = 'csrf_token' in config ? config.csrf_token : "";
     }
 
-    make_request(path, type, params={}, callback) {
+    make_request(path, type, params={}, callback, spool=false, spool_records = []) {
         let req = {
             type: type,
             url: `${this.host}${path}`,
@@ -35,6 +35,37 @@ class Corpora {
             data: params,
             success: callback
         };
+
+        if (spool) {
+            let corpora_instance = this;
+            req.success = function(data) {
+                if (
+                    data.hasOwnProperty('records') &&
+                    data.hasOwnProperty('meta') &&
+                    data.meta.hasOwnProperty('has_next_page') &&
+                    data.meta.hasOwnProperty('page') &&
+                    data.meta.hasOwnProperty('page_size') &&
+                    data.meta.has_next_page
+                ) {
+                    let next_params = Object.assign({}, params);
+                    next_params.page = data.meta.page + 1;
+                    next_params['page-size'] = data.meta.page_size;
+
+                    corpora_instance.make_request(
+                        path,
+                        type,
+                        next_params,
+                        callback,
+                        spool,
+                        spool_records.concat(data.records)
+                    )
+                } else {
+                    data.records = spool_records.concat(data.records);
+                    callback(data);
+                }
+            }
+        }
+
         if (this.auth_token) {
             req['beforeSend'] = function(xhr) { xhr.setRequestHeader("Authorization", `Token ${sender.auth_token}`); }
         } else if (type === 'POST' && this.csrf_token) {
@@ -43,6 +74,24 @@ class Corpora {
 
         let sender = this;
         $.ajax(req);
+    }
+
+    get_scholars(search={}, callback) {
+        this.make_request(
+            "/api/scholar/",
+            "GET",
+            search,
+            callback
+        );
+    }
+
+    get_scholar(scholar_id, callback) {
+        this.make_request(
+            `/api/scholar/${scholar_id}/`,
+            "GET",
+            {},
+            callback
+        );
     }
 
     get_corpora(search={}, callback) {
@@ -124,12 +173,13 @@ class Corpora {
         );
     }
 
-    list_content(corpus_id, content_type, search={}, callback) {
+    list_content(corpus_id, content_type, search={}, callback, spool=false) {
         this.make_request(
             `/api/corpus/${corpus_id}/${content_type}/`,
             "GET",
             search,
-            callback
+            callback,
+            spool
         );
     }
 
@@ -140,6 +190,34 @@ class Corpora {
             fields,
             callback
         )
+    }
+
+    get_corpus_files(corpus_id, path, filter, callback) {
+        let endpoint = `/api/corpus/${corpus_id}/files/`;
+
+        this.make_request(
+            endpoint,
+            "GET",
+            {
+                path: path,
+                filter: filter
+            },
+            callback
+        );
+    }
+
+    make_corpus_file_dir(corpus_id, path, new_dir, callback) {
+        let endpoint = `/api/corpus/${corpus_id}/files/`;
+
+        this.make_request(
+            endpoint,
+            "POST",
+            {
+                path: path,
+                newdir: new_dir
+            },
+            callback
+        );
     }
 
     get_content_files(corpus_id, content_type, content_id, path, filter, callback) {

@@ -8,6 +8,7 @@ from google.cloud import vision
 import traceback
 import shutil
 import json
+import redis
 
 
 def get_scholar_corpora(scholar, only=[], page=1, page_size=50):
@@ -19,7 +20,7 @@ def get_scholar_corpora(scholar, only=[], page=1, page_size=50):
         if scholar.is_admin:
             corpora = Corpus.objects
         else:
-            corpora = Corpus.objects(Q(id__in=[c.pk for c in scholar.available_corpora]) | Q(open_access=True))
+            corpora = Corpus.objects(Q(id__in=[c_id for c_id in scholar.available_corpora.keys()]) | Q(open_access=True))
     else:
         corpora = Corpus.objects(open_access=True)
 
@@ -31,20 +32,19 @@ def get_scholar_corpora(scholar, only=[], page=1, page_size=50):
 
 def get_scholar_corpus(corpus_id, scholar, only=[]):
     corpus = None
-    if scholar.is_admin or corpus_id in [str(c.pk) for c in scholar.available_corpora]:
+    role = 'Viewer'
+
+    if (scholar and scholar.is_admin) or \
+            (scholar and corpus_id in scholar.available_corpora.keys()) or \
+            corpus_id in get_open_access_corpora():
+
         corpus = get_corpus(corpus_id, only)
+        if scholar and scholar.is_admin:
+            role = 'Admin'
+        elif scholar and corpus_id in scholar.available_corpora.keys():
+            role = scholar.available_corpora[corpus_id]
 
-    return corpus
-
-
-def get_document(scholar, corpus_id, document_id, only=[]):
-    doc = None
-    corpus = get_scholar_corpus(corpus_id, scholar, ['id'])
-
-    if corpus:
-        doc = corpus.get_document(document_id, only)
-
-    return doc
+    return corpus, role
 
 
 def parse_uri(uri):
@@ -91,105 +91,6 @@ def get_jobsites(scholar):
     return jobsites
 
 
-def get_corpus_search_results(request, scholar, corpus_id=None, document_id=None):
-    valid_search = False
-    results = {
-        'meta': {
-            'total': 0,
-            'page': 1,
-            'page_size': 50,
-            'num_pages': 1,
-            'has_next_page': False
-        },
-        'records': []
-    }
-    search_results = []
-    general_search_query = None
-    fields_query = {}
-    fields_sort = []
-    search_pages = request.GET.get('search-pages', 'n') == 'y'
-
-    # Users can provide a general search query (q)
-    if 'q' in request.GET:
-        general_search_query = request.GET['q']
-        valid_search = True
-
-    # Users can alternatively provide specific queries per field (q_[field]=query),
-    # and can also specify how they want to sort the data (s_[field]=asc/desc)
-    for query_field in request.GET.keys():
-        field_name = query_field[2:]
-        if query_field.startswith('q_'):
-            fields_query[field_name] = request.GET[query_field]
-            valid_search = True
-        elif query_field.startswith('s_'):
-            if request.GET[query_field] == 'desc':
-                field_name = '-' + field_name
-            fields_sort.append(field_name + '.raw')
-        elif query_field == 'page':
-            results['meta']['page'] = int(request.GET[query_field])
-        elif query_field == 'page-size':
-            results['meta']['page_size'] = int(request.GET[query_field])
-
-    start_record = (results['meta']['page'] - 1) * results['meta']['page_size']
-    end_record = start_record + results['meta']['page_size']
-
-    if not valid_search:
-        general_search_query = '*'
-        valid_search = True
-
-    if valid_search and corpus_id:
-        corpus = get_scholar_corpus(corpus_id, scholar, only=['field_settings'])
-        if corpus:
-            sane = True
-
-            es_field_name_map = {}
-            for field_name, settings in corpus.field_settings.items():
-                es_field_name_map[settings['es_field_name']] = field_name
-
-            # make sure all fields_query fields are in corpus field settings...
-            for es_field_name in fields_query.keys():
-                if not (es_field_name in es_field_name_map and corpus.field_settings[es_field_name_map[es_field_name]]['display']):
-                    sane = False
-                    break
-
-            # make sure all fields_sort fields are in corpus field settings...
-            for sort_entry in fields_sort:
-                es_field_name = sort_entry
-                if sort_entry.startswith('-'):
-                    es_field_name = es_field_name[1:]
-                if sort_entry.endswith('.raw'):
-                    es_field_name = es_field_name[:-4]
-
-                if es_field_name in es_field_name_map and corpus.field_settings[es_field_name_map[es_field_name]]['sort']:
-                    if corpus.field_settings[es_field_name_map[es_field_name]]['type'] != 'text' and sort_entry.endswith('.raw'):
-                        fields_sort[fields_sort.index(sort_entry)] = sort_entry[:-4]
-                else:
-                    sane = False
-                    break
-
-            if sane:
-                search_results = corpus.search_documents(general_search_query, fields_query, fields_sort, search_pages, document_id, start_record, end_record)
-
-    elif valid_search:
-        sane = True
-        if fields_sort and not (len(list(fields_sort.keys())) == 1 and ('name.raw' in fields_sort or '-name.raw' in fields_sort)):
-            sane = False
-
-        if sane:
-            search_results = search_corpora(general_search_query, fields_sort, start_record, end_record)
-
-    if search_results:
-        results['meta']['total'] = search_results['hits']['total']['value']
-        results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
-        results['meta']['has_next_page'] = results['meta']['num_pages'] > results['meta']['page']
-        for search_result in search_results['hits']['hits']:
-            result = search_result['_source']
-            result['_id'] = { '$oid': search_result['_id'] }
-            results['records'].append(result)
-
-    return results
-
-
 def _get_context(req):
     context = {
         'errors': [],
@@ -203,17 +104,19 @@ def _get_context(req):
     default_search = {
         'general_query': '',
         'fields_query': {},
+        'fields_filter': {},
         'fields_sort': [],
         'page': 1,
         'page_size': 50,
-        'only': []
+        'only': [],
+        'search_mode': "match"
     }
 
     for param in req.GET.keys():
         value = req.GET[param]
         search_field_name = param[2:]
 
-        if param in ['q', 'page', 'page-size'] or param.startswith('q_') or param.startswith('s_'):
+        if param in ['q', 'page', 'page-size'] or param.startswith('q_') or param.startswith('s_') or param.startswith('f_'):
             context['search'] = default_search
         
         if param == 'msg':
@@ -227,18 +130,21 @@ def _get_context(req):
         elif param.startswith('q_'):
             context['search']['fields_query'][search_field_name] = value
         elif param.startswith('s_'):
-            if value == 'desc':
-                search_field_name = '-' + search_field_name
-            context['search']['fields_sort'].append(search_field_name + '.raw')
+            context['search']['fields_sort'].append({search_field_name: {"order": value, "missing": "_first"}})
+        elif param.startswith('f_'):
+            context['search']['fields_filter'][search_field_name] = value
+        elif param == 'es_search_mode':
+            context['search']['search_mode'] = value
         elif param == 'page':
             context['search']['page'] = int(value)
         elif param == 'page-size':
             context['search']['page_size'] = int(value)
 
-    if context['search'] and (not context['search']['general_query'] and not context['search']['fields_query']):
+    if context['search'] and (not context['search']['general_query'] and not context['search']['fields_query'] and not context['search']['fields_filter']):
         context['search']['general_query'] = "*"
 
     if req.user.is_authenticated:
+
         scholar_json = req.session.get('scholar_json', None)
         if scholar_json:
             context['scholar'] = Scholar.from_json(scholar_json)
@@ -250,7 +156,56 @@ def _get_context(req):
                 print(traceback.format_exc())
                 context['scholar'] = {}
 
+        if context['scholar'] and 'HTTP_AUTHORIZATION' in req.META:
+            req.session['corpora_api_user_id'] = str(req.user.id)
+            req.session.set_expiry(300)
+            if 'HTTP_X_REAL_IP' in req.META:
+                if req.META['HTTP_X_REAL_IP'] not in context['scholar'].auth_token_ips:
+                    context['scholar'] = {}
+            else:
+                context['scholar'] = {}
+        else:
+            req.session.set_expiry(0)
+
     return context
+
+
+def clear_cached_session_scholar(user_id):
+    cache = redis.Redis(host='redis', db=1, decode_responses=True)
+    key_prefix = 'corpora:1:django.contrib.sessions.cache'
+    from importlib import import_module
+    SessionStore = import_module(settings.SESSION_ENGINE).SessionStore
+
+    for key in cache.keys():
+        if key.startswith(key_prefix):
+            session_key = key.replace(key_prefix, '')
+            session = SessionStore(session_key=session_key)
+            clear_scholar_json = False
+            if session and 'scholar_json' in session:
+                if '_auth_user_id' in session and session['_auth_user_id'] == str(user_id):
+                    clear_scholar_json = True
+                elif 'corpora_api_user_id' in session and session['corpora_api_user_id'] == str(user_id):
+                    clear_scholar_json = True
+
+            if clear_scholar_json:
+                session.pop('scholar_json')
+                session.save()
+
+
+def get_open_access_corpora():
+    oa_corpora = []
+
+    cache = redis.Redis(host='redis', decode_responses=True)
+    oa_corpora_list = cache.get('/open_access_corpora')
+    if not oa_corpora_list:
+        corpora = Corpus.objects(open_access=True)
+        oa_corpora_list = ",".join([str(corpus.id) for corpus in corpora])
+        cache.set('/open_access_corpora', oa_corpora_list)
+
+    if oa_corpora_list:
+        oa_corpora = oa_corpora_list.split(',')
+
+    return oa_corpora
 
 
 def _contains(obj, keys):

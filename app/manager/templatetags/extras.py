@@ -27,3 +27,10 @@ def endswith(obj, value):
     if isinstance(obj, str):
         return obj.endswith(value)
     return False
+
+
+@register.filter(name='remove_str')
+def remove_str(obj, value):
+    if isinstance(obj, str):
+        return obj.replace(value, '')
+    return obj

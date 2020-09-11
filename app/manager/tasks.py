@@ -4,6 +4,7 @@ import importlib
 import time
 import traceback
 import pymysql
+import math
 from copy import deepcopy
 from corpus import Corpus, Job, get_corpus, File
 from huey.contrib.djhuey import db_task, db_periodic_task
@@ -23,7 +24,7 @@ from zipfile import ZipFile
 
 REGISTRY = {
     "Adjust Content": {
-        "version": "0",
+        "version": "0.2",
         "jobsite_type": "HUEY",
         "track_provenance": False,
         "content_type": "Corpus",
@@ -44,16 +45,74 @@ REGISTRY = {
                     "type": "boolean",
                     "label": "Re-label?",
                 },
+                "relink": {
+                    "value": False,
+                    "type": "boolean",
+                    "label": "Re-link?",
+                },
                 "resave": {
                     "value": False,
                     "type": "boolean",
                     "label": "Re-save?",
+                },
+                "related_content_types": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Comma separated content types",
                 }
             },
         },
         "module": 'manager.tasks',
         "functions": ['adjust_content']
     },
+    "Delete Content Type": {
+        "version": "0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "content_type": {
+                    "value": "",
+                    "type": "content_type",
+                    "label": "Content Type"
+                }
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['delete_content_type']
+    },
+    "Delete Content Type Field": {
+        "version": "0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "content_type": {
+                    "value": "",
+                    "type": "content_type",
+                    "label": "Content Type"
+                },
+                "field_name": {
+                    "value": "",
+                    "type": "field",
+                    "label": "Field Name"
+                }
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['delete_content_type_field']
+    },
+    "Delete Corpus": {
+        "version": "0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {},
+        "module": 'manager.tasks',
+        "functions": ['delete_corpus']
+    }
 }
 
 
@@ -96,18 +155,93 @@ def check_jobs():
 def adjust_content(job_id):
     job = Job(job_id)
     job.set_status('running')
-    content_type = job.configuration['parameters']['content_type']['value']
+    primary_content_type = job.configuration['parameters']['content_type']['value']
     reindex = job.configuration['parameters']['reindex']['value']
     relabel = job.configuration['parameters']['relabel']['value']
     resave = job.configuration['parameters']['resave']['value']
-    contents = job.corpus.get_content(content_type, all=True)
+    relink = job.configuration['parameters']['relink']['value']
+    related_content_types = job.configuration['parameters']['related_content_types']['value']
+
+    content_types = related_content_types.split(',')
+    content_types.insert(0, primary_content_type)
+    content_types = [ct for ct in content_types if ct]
+
+    content_types_adjusted = 0
+    for content_type in content_types:
+        content_count = job.corpus.get_content(content_type, all=True).count()
+
+        if content_types_adjusted > 0:
+            reindex = True
+            relabel = False
+            resave = False
+            relink = False
+
+        num_slices = math.ceil(content_count / 500)
+        for slice in range(0, num_slices):
+            start = slice * 500
+            end = start + 500
+
+            adjust_content_slice(
+                job.corpus,
+                content_type,
+                start,
+                end,
+                reindex,
+                relabel,
+                resave,
+                relink
+            )
+
+        content_types_adjusted += 1
+
+
+    job.complete(status='complete')
+
+
+def adjust_content_slice(corpus, content_type, start, end, reindex, relabel, resave, relink):
+    contents = corpus.get_content(content_type, all=True)
+    contents = contents.batch_size(10)
+    contents = contents[start:end]
     for content in contents:
         if relabel:
             content.label = ''
 
         if relabel or resave:
-            content.save(do_indexing=reindex)
-        elif reindex:
-            content._do_indexing()
+            content.save(do_indexing=reindex, do_linking=relink)
+        else:
+            if reindex:
+                content._do_indexing()
 
+            if relink:
+                content._do_linking()
+
+
+@db_task(priority=5)
+def delete_content_type(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    content_type = job.configuration['parameters']['content_type']['value']
+    if content_type in job.corpus.content_types:
+        job.corpus.delete_content_type(content_type)
+
+    job.complete(status='complete')
+
+
+@db_task(priority=5)
+def delete_content_type_field(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    content_type = job.configuration['parameters']['content_type']['value']
+    field_name = job.configuration['parameters']['field_name']['value']
+    if content_type in job.corpus.content_types:
+        job.corpus.delete_content_type_field(content_type, field_name)
+
+    job.complete(status='complete')
+
+
+@db_task(priority=5)
+def delete_corpus(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    job.corpus.delete()
     job.complete(status='complete')

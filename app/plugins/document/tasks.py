@@ -166,6 +166,14 @@ def import_document(corpus_id, document_json_path):
             if valid:
                 doc.kvp = {}
 
+                if 'jobs' in import_doc:
+                    doc.emop_ocr_jobs = ""
+                    for job in import_doc['jobs']:
+                        if 'configuration' in job and 'notes' in job['configuration']:
+                            doc.emop_ocr_jobs += job['configuration']['notes'] + ", "
+                    if doc.emop_ocr_jobs:
+                        doc.emop_ocr_jobs = doc.emop_ocr_jobs[:-2]
+
                 for file in import_doc['files']:
                     f = File()
                     f.primary_witness = file['primary_facsimile']
@@ -343,8 +351,9 @@ def extract_pdf_page(job_id, pdf_file_path, page_num, image_dpi, split_images, p
 
     if os.path.exists(page_filepath):
         register_file = True
+        file_key = File.generate_key(page_filepath)
+
         if page_suffix in job.content.pages:
-            file_key = File.generate_key(page_filepath)
             if file_key in job.content.pages[page_suffix].files:
                 register_file = False
 
@@ -359,13 +368,10 @@ def extract_pdf_page(job_id, pdf_file_path, page_num, image_dpi, split_images, p
             )
 
             job.content.reload()
-            if page_suffix in job.content.pages:
-                job.content.save_page_file(page_suffix, page_fileobj)
-            else:
-                page_obj = Page()
-                page_obj.ref_no = page_suffix
-                job.content.save_page(page_obj)
-                job.content.save_page_file(page_suffix, page_fileobj)
+            if not page_suffix in job.content.pages:
+                job.content.save_page(Page(ref_no=page_suffix))
+
+            job.content.save_page_file(page_suffix, page_fileobj)
 
     if task:
         job.complete_process(task.id)

@@ -7,6 +7,52 @@
 {% endblock %}
 
 {% block modals %}
+    <!-- UPLOAD DOCUMENT FILES MODAL -->
+    <div class="modal fade" id="file-upload-modal" tabindex="-1" role="dialog" aria-labelledby="file-upload-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="file-upload-modal-label">Import Document File(s)</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="import-document-files-form" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" id="import-document-files" name="import-document-files"/>
+                    </form>
+                    <div class="alert alert-light">
+                        <table class="table table-striped">
+                            <thead class="thead-dark">
+                                <th scope="col">Path: <span id="file-upload-modal-table-header">/</span></th>
+                            </thead>
+                            <tbody id="file-upload-modal-table-body">
+                                <tr><td>Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <input type="file" class="filepond" id="import-document-filepond">
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="file-upload-modal-new-folder-box" aria-placeholder="New Folder" placeholder="New Folder">
+                                <span class="input-group-btn ml-1"><a href="javascript:handle_folder_creation();" role="button" id="file-upload-modal-new-folder-button" class="btn btn-secondary">Go</a></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" id="file-upload-reset-button" class="btn btn-secondary">Reset</button>
+                    <button type="button" id="file-upload-import-button" class="btn btn-primary" disabled>Import</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Import Pages Modal -->
     <div class="modal fade" id="import-pages-modal" tabindex="-1" role="dialog" aria-labelledby="import-pages-modal-label" aria-hidden="true">
         <div class="modal-dialog" role="document">
@@ -219,7 +265,7 @@
                 <div class="card mb-3">
                     <div class="card-header">
                         <h4 class="float-left">Metadata</h4>
-                        {% if response.scholar.is_admin %}
+                        {% if response.scholar.is_admin or role == 'Editor' %}
                             <a href="/corpus/{{ corpus_id }}/Document/{{ document_id }}/edit/" class="float-right">
                                 <span class="fas fa-edit"></span>
                             </a>
@@ -280,7 +326,14 @@
             <div class="col-12">
                 <div class="card mb-3">
                     <div class="card-header">
-                        <h4>Document Files</h4>
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h4>Document Files</h4>
+                            {% if response.scholar.is_admin or role == 'Editor' %}
+                                <button id="import-document-files-button" class="btn btn-primary rounded" type="button">Import</button>
+                            {% else %}
+                                <span>&nbsp;</span>
+                            {% endif %}
+                        </div>
                     </div>
                     <div class="card-body" id="doc-files-div">
                         <div class="alert alert-info">
@@ -334,7 +387,11 @@
                         <div class="d-flex w-100 justify-content-between align-items-center">
                             <h4>Pages</h4>
                             <span id="page-action-buttons-span">
-                                <button id="import-pages-button" class="btn btn-primary rounded" type="button">Import</button>
+                                {% if response.scholar.is_admin or role == 'Editor' %}
+                                    <button id="import-pages-button" class="btn btn-primary rounded" type="button">Import</button>
+                                {% else %}
+                                    &nbsp;
+                                {% endif %}
                             </span>
                         </div>
                     </div>
@@ -390,7 +447,11 @@
         var document_uri = `/corpus/${corpus_id}/Document/${document_id}`;
         var doc = null;
 
-        var is_admin = {% if response.scholar.is_admin %}true{% else %}false{% endif %};
+        var role = '{{ role }}';
+
+        var file_upload_path = '';
+        var file_uploads = [];
+        var import_files = [];
 
         var import_pages_files = [];
         var check_jobs_timer;
@@ -405,15 +466,39 @@
         };
         var ref_no = 1;
 
-        const pond = FilePond.create(document.querySelector('.filepond'), {
+        // CREATE FILE POND FOR IMPORT PAGES MODAL
+        const import_pages_pond = FilePond.create(document.querySelector('#import-pages-filepond'), {
             allowMultiple: true,
             allowRevert: false
         });
-
-        pond.on('processfile', (error, file) => {
+        import_pages_pond.on('processfile', (error, file) => {
             if(!error) {
                 $("#import-pages-submit-button").attr('disabled', false);
                 import_pages_files.push(file.filename.replace(new RegExp('[^a-zA-Z0-9\\.\\-]', "gm"), '_'));
+            }
+        });
+
+        // CREATE FILE POND FOR IMPORT DOCUMENT FILES (SELECT FILE) MODAL
+        const import_document_file_pond = FilePond.create(document.querySelector('#import-document-filepond'), {
+            allowMultiple: true,
+            allowRevert: false
+        });
+        import_document_file_pond.on('addfile', (error, file) => {
+            if(!error) {
+                file_uploads.push(file.filename);
+            }
+        });
+        import_document_file_pond.on('processfile', (error, file) => {
+            if(!error) {
+                import_files.push(`${file_upload_path}/${file.filename}`);
+                let import_button = $('#file-upload-import-button');
+                import_button.html(`Import ${import_files.length} File(s)`);
+                import_button.attr('disabled', false);
+                let index = file_uploads.indexOf(file.filename);
+                if (index !== -1) { file_uploads.splice(index, 1); }
+                if (file_uploads.length === 0) {
+                    upload_file(file_upload_path);
+                }
             }
         });
 
@@ -465,7 +550,7 @@
                             if (doc.provenance.length > 0) { doc_provenance_div.html(''); }
                             doc.provenance.forEach( prov => {
                                 let retry_form = '';
-                                if (is_admin) {
+                                if (role === 'Admin' || role === 'Editor') {
                                     retry_form = `
                                         <form method="post">
                                             <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
@@ -542,11 +627,20 @@
 
                                 if (doc.has_primary_text) {
                                     doc_files_div.append(`
-                                        <a href="${document_uri}/edit-xml/?use_tei_skeleton=y" class="btn btn-primary ml-1">Create TEI XML</a>
                                         <a href="${document_uri}/tei-skeleton" class="btn btn-primary ml-1" download>Download TEI XML Skeleton</a>
                                     `);
+                                    if (role === 'Admin' || role === 'Editor') {
+                                        doc_files_div.append(`
+                                            <a href="${document_uri}/edit-xml/?use_tei_skeleton=y" class="btn btn-primary ml-1">Create TEI XML</a>
+                                        `);
+                                    }
                                 }
                             }
+
+                            // SETUP DOCUMENT FILE IMPORT BUTTON
+                            $('#import-document-files-button').click(function() {
+                                upload_file(doc.path);
+                            });
 
                             // LOAD DOCUMENT PAGESETS
                             let doc_pageset_div = $('#doc-pageset-div');
@@ -577,9 +671,11 @@
                                 for (let ps_key in doc.page_sets) {
                                     if (doc.has_primary_text) {
                                         tei_buttons = `
-                                            <a href="${document_uri}/edit-xml/?pageset=${ps_key}" target="_blank" class="btn btn-primary ml-1">Create TEI XML</a>
                                             <a href="${document_uri}/tei-skeleton?pageset=${ps_key}" class="btn btn-primary ml-1" download>Download TEI XML Skeleton</a>
                                         `;
+                                        if (role === 'Admin' || role === 'Editor') {
+                                            tei_buttons += `<a href="${document_uri}/edit-xml/?pageset=${ps_key}" target="_blank" class="btn btn-primary ml-1">Create TEI XML</a>`;
+                                        }
                                     }
 
                                     doc_pageset_tbody.append(`
@@ -620,7 +716,7 @@
                                         page_viewer_left_options.append(`
                                             <a class="dropdown-item" href="javascript: set_collection('left', '${slug}');">${label}</a>
                                         `);
-                                    } else if (label.includes('Plain Text')) {
+                                    } else if (label.includes('Plain Text') && (role === 'Editor' || role === 'Admin')) {
                                         text_consolidation_form = `
                                             <form method="post">
                                                 <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
@@ -647,15 +743,17 @@
                                             }
                                         }
 
-                                        zip_file_form = `
-                                            <form method="post">
-                                                <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
-                                                <input type="hidden" name="collection" value="${slug}"/>
-                                                <input type="hidden" name="jobsite" value="${local_jobsite_id}"/>
-                                                <input type="hidden" name="task" value="${zip_page_file_task_id}"/>
-                                                <button type="submit" class="btn btn-primary">Create a .zip File</button>
-                                            </form>
-                                        `;
+                                        if (role === 'Editor' || role === 'Admin') {
+                                            zip_file_form = `
+                                                <form method="post">
+                                                    <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
+                                                    <input type="hidden" name="collection" value="${slug}"/>
+                                                    <input type="hidden" name="jobsite" value="${local_jobsite_id}"/>
+                                                    <input type="hidden" name="task" value="${zip_page_file_task_id}"/>
+                                                    <button type="submit" class="btn btn-primary">Create a .zip File</button>
+                                                </form>
+                                            `;
+                                        }
                                     }
 
                                     doc_pfc_group.append(`
@@ -708,7 +806,7 @@
                                         if (label.includes('HOCR') || label.includes('GCV TextAnnotation')) {
                                             actions = `<a href="${document_uri}/draw-page-regions/${ref_no}/?ocrfile=${file.path}" target="_blank" class="btn btn-primary ml-1">Fix OCR Regions</a>`;
                                         }
-                                        if (label.includes('HOCR') || label.includes('XML')) {
+                                        if ((label.includes('HOCR') || label.includes('XML')) && (role === 'Editor' || role === 'Admin')) {
                                             actions += `<a href="${document_uri}/edit-xml/?path=${file.path}" class="btn btn-primary ml-1">Edit XML</a>`;
                                         }
 
@@ -756,7 +854,7 @@
                             );
 
                             // SETUP PAGE TASK BUTTONS
-                            if(doc.pages) {
+                            if(doc.pages && (role === 'Editor' || role === 'Admin')) {
                                 $('#page-action-buttons-span').append(`
                                     <button id="create-pageset-button" class="btn btn-primary rounded ml-1" type="button">Create Page Set</button>
                                     <button id="perform-ocr-button" class="btn btn-primary rounded ml-1" type="button">Perform OCR</button>
@@ -852,40 +950,41 @@
                 }
             });
 
-            // ------------------------
-            // SETUP IMPORT PAGES MODAL
-            // ------------------------
-            $("#import-pages-button").click(function() {
-                $("#import-pages-submit-button").attr('disabled', true);
-                $("#import-pages-modal").modal();
-            });
+            if (role === 'Editor' || role === 'Admin') {
+                // ------------------------
+                // SETUP IMPORT PAGES MODAL
+                // ------------------------
+                $("#import-pages-button").click(function () {
+                    $("#import-pages-submit-button").attr('disabled', true);
+                    $("#import-pages-modal").modal();
+                });
 
-            $("input[type=radio][name=import-pages-type]").change(function() {
-                if (this.value == 'pdf') {
-                    $("#import-pages-pdf-options").removeClass("d-none");
-                }
-                else if (this.value == 'images') {
-                    $("#import-pages-pdf-options").addClass("d-none");
-                }
-            });
+                $("input[type=radio][name=import-pages-type]").change(function () {
+                    if (this.value == 'pdf') {
+                        $("#import-pages-pdf-options").removeClass("d-none");
+                    } else if (this.value == 'images') {
+                        $("#import-pages-pdf-options").addClass("d-none");
+                    }
+                });
 
-            $("#import-pages-submit-button").click(function() {
-                $("#import-pages-files").val(JSON.stringify(import_pages_files));
-                $("#import-pages-form").submit();
-            });
+                $("#import-pages-submit-button").click(function () {
+                    $("#import-pages-files").val(JSON.stringify(import_pages_files));
+                    $("#import-pages-form").submit();
+                });
 
-            FilePond.setOptions({
-                server: {
-                    process: {
-                        url: './',
-                        headers: {
-                            'X-CSRFToken': corpora.csrf_token
-                        }
-                    },
-                    fetch: null,
-                    revert: null
-                }
-            });
+                FilePond.setOptions({
+                    server: {
+                        process: {
+                            url: './',
+                            headers: {
+                                'X-CSRFToken': corpora.csrf_token
+                            }
+                        },
+                        fetch: null,
+                        revert: null
+                    }
+                });
+            }
 
             check_jobs();
         });
@@ -954,7 +1053,7 @@
                     right_col.html(right_col.html().replace("\n", `<br />`));
                 }
 
-                if (pfc_setting.right.includes('ocr') && bbox_collections.length > 0) {
+                if (pfc_setting.right.includes('ocr') && bbox_collections.length > 0 && (role === 'Editor' || role === 'Admin')) {
                     if (!$('#fix-regions-nav').length) {
                         $('#page-viewer-controls').append(`
                             <li id='fix-regions-nav' class='nav-item ml-1'><a id='fix-regions-button' href="${document_uri}/draw-page-regions/${ref_no}/" class="btn btn-primary ml-1">Fix OCR Regions</a></li>
@@ -987,7 +1086,7 @@
         }
 
         function load_jobsites(modal, task_filter) {
-            $("#ocr-jobsite-selector").html('');
+            $(`#${modal}-jobsite-selector`).html('');
             if (jobsites.length > 0) {
                 for (let x = 0; x < jobsites.length; x++) {
                     $(`#${modal}-jobsite-selector`).append(`
@@ -1172,5 +1271,83 @@
                 check_jobs();
             }, check_jobs_interval * 1000);
         }
+
+        // FILE UPLOAD FUNCTIONALITY
+        function upload_file(path='', filter='', select='file') {
+            corpora.get_content_files(corpus_id, 'Document', document_id, path, filter, function (data) {
+                file_upload_path = path;
+
+                let url = `/api/corpus/${corpus_id}/Document/${document_id}/files/`;
+
+                import_document_file_pond.setOptions({
+                    server: {
+                        process: {
+                            url: `${url}?path=${path}`,
+                            headers: {
+                                'X-CSRFToken': '{{ csrf_token }}'
+                            }
+                        },
+                        fetch: null,
+                        revert: null
+                    }
+                });
+                import_document_file_pond.removeFiles();
+                file_uploads = [];
+
+                $('#file-upload-modal-table-body').html('');
+                $('#file-upload-modal-table-header').html(path + '/');
+                if (path) {
+                    let up_directory = '/' + path.split('/').slice(1, -1).join('/');
+                    if (up_directory === '/') { up_directory = ''; }
+                    if (select === 'file') {
+                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`);
+                    } else {
+                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}', '', 'dir');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`);
+                    }
+                }
+                for (let x = 0; x < data.length; x++) {
+                    if(select === 'file') {
+                        if (data[x].type === 'file') {
+                            $('#file-upload-modal-table-body').append(`
+                                <tr><td>${data[x].filename}</td></tr>
+                            `);
+                        } else {
+                            $('#file-upload-modal-table-body').append(`
+                                <tr><td><span class="fas fa-folder-open"></span> ${data[x].filename} <a class="btn btn-sm btn-primary text-white float-right" role="button" href="javascript:upload_file('${data[x].path}');">Browse</a></td></tr>
+                            `);
+                        }
+                    } else {
+                        if (data[x].type === 'dir') {
+                            $('#file-upload-modal-table-body').append(`
+                                <tr><td><span class="fas fa-folder-open"></span> <a href="javascript:handle_file_upload('${data[x].path}', '');">${data[x].filename}</a> <a class="btn btn-sm btn-primary text-white float-right" role="button" href="javascript:upload_file(file_upload_input_id, '${data[x].path}', '', 'dir');">Browse</a></td></tr>
+                            `);
+                        }
+                    }
+                }
+
+                $('#file-upload-modal').modal();
+            });
+        }
+
+        function handle_folder_creation() {
+            let dirname = pep8_variable_format($('#file-upload-modal-new-folder-box').val());
+            corpora.make_content_file_dir(corpus_id, 'Document', document_id, file_upload_path, dirname, function() {
+                $('#file-upload-modal-new-folder-box').val('');
+                upload_file(path=file_upload_path);
+            });
+        }
+
+        $('#file-upload-reset-button').click(function() {
+            let import_button = $('#file-upload-import-button');
+
+            import_files = [];
+            import_button.html('Import');
+            import_button.attr('disabled', true);
+        });
+
+        $('#file-upload-import-button').click(function() {
+            $('#import-document-files').val(JSON.stringify(import_files));
+            $('#import-document-files-form').submit();
+        });
     </script>
 {% endblock %}

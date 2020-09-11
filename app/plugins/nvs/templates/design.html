@@ -1,0 +1,573 @@
+{% load static %}
+{% load extras %}
+<!doctype html>
+<html lang="en">
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <link rel="apple-touch-icon" sizes="180x180" href="/static/img/icon/apple-touch-icon.png">
+        <link rel="icon" type="image/png" sizes="32x32" href="/static/img/icon/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/static/img/icon/favicon-16x16.png">
+        <link rel="manifest" href="/static/img/icon/site.webmanifest">
+        <link rel="mask-icon" href="/static/img/icon/safari-pinned-tab.svg" color="#5bbad5">
+        <meta name="msapplication-TileColor" content="#da532c">
+        <meta name="theme-color" content="#ffffff">
+
+        <!-- CSS -->
+        <link href="{% static 'css/fontawesome.min.css' %}" rel="stylesheet">
+        <link href="{% static 'css/regular.min.css' %}" rel="stylesheet">
+        <link href="{% static 'css/solid.min.css' %}" rel="stylesheet">
+        <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+        <!--<link href="{% static 'css/nvs.css' %}" rel="stylesheet">-->
+
+        <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Roboto:ital@0;1&display=swap" rel="stylesheet">
+        <style>
+            body {
+                background-color: #FFFFFF;
+            }
+
+            canvas {
+                width: 100%;
+                display: block;
+            }
+
+            .heading-row {
+                background-color: #FFFFFF;
+                z-index: 20;
+            }
+
+            .heading-label {
+                font-family: 'Roboto', sans-serif;
+                font-size: 14px;
+                font-weight: bold;
+            }
+
+            .heading-button {
+                font-family: 'Roboto', sans-serif;
+                font-size: 10px;
+                font-weight: bold;
+                text-align: center;
+                vertical-align: center;
+                padding-top: 5px;
+                padding-bottom: 5px;
+                border-left: solid 2px #FFFFFF;
+                border-right: solid 2px #FFFFFF;
+                color: #FFFFFF;
+                background-color: #cfcfcf;
+            }
+
+            .heading-buton-active {
+                background-color: #f0a962 !important;
+            }
+
+            #witness-header-col {
+                padding: 0px;
+                margin: 0px;
+            }
+
+            #line-col {
+                min-height: unset;
+            }
+
+            .play-row {
+                border-bottom: solid 4px #fbeee0;
+                min-height: 48px;
+            }
+
+            .play-label {
+                padding-top: 15px;
+                background-color: #fbf5f1;
+                font-family: 'Roboto', sans-serif;
+                font-size: 12px;
+                padding-bottom: 0px;
+                margin-bottom: 0px;
+                border: none;
+            }
+
+            .play-label-highlighted {
+                background-color: #e9702b;
+                color: white;
+            }
+
+            .play-words, .play-words-seen {
+                padding-top: 10px;
+                padding-bottom: 5px;
+                font-family: 'Libre Baskerville', serif;
+                color: #070707;
+            }
+
+            .witness-meter {
+                padding-top: 4px;
+                padding-bottom: 4px;
+                padding-left: 0px;
+                padding-right: 0px;
+                margin: 0px;
+            }
+
+            .variant-toggler, .variant-toggler:hover {
+                text-decoration: none;
+            }
+
+            .variant-row {
+                /*background-color: #efefef;*/
+                background-color: rgba(154, 154, 153, 0.1);
+                border-bottom: solid 4px #fbeee0;
+            }
+
+            .witness-formula {
+                color: #f99b4e;
+                font-family: 'Roboto', sans-serif;
+                font-size: 12px;
+                text-transform: uppercase;
+            }
+
+            .variant-play-label {
+                background-color: #f2f2f2;
+            }
+
+            .variant-words {
+                font-family: 'Libre Baskerville', serif;
+                color: #949494;
+                padding-left: 37px;
+                padding-top: 10px;
+                padding-bottom: 5px;
+            }
+
+            .variant-note {
+                color: #070707;
+            }
+
+            h3.heading {
+                display: inline;
+            }
+
+            span.difference {
+                color: #e9702b;
+                background-color: #d8d8d8;
+            }
+
+            comspan {
+                background-color: rgba(144, 188, 226, .3);
+                border-bottom: solid 1px rgb(144, 188, 226);
+                cursor: pointer;
+            }
+
+            .hidden {
+                display: none;
+            }
+        </style>
+
+        <title>Winter's Tale</title>
+    </head>
+    <body>
+        <div class="container-fluid">
+            <div id="main-header" class="row sticky-top heading-row">
+                <div class="col-sm-9">
+                    <div class="row">
+                        <!-- WITNESS HEADING -->
+                        <div class="col-sm-4">
+                            <div class="heading-label">
+                                TEXTUAL VARIANTS
+                            </div>
+                            <div class="row">
+                                <div class="col-sm-4 heading-button heading-button-active">
+                                    COLLAPSE ALL
+                                </div>
+                                <div class="col-sm-4 heading-button">
+                                    EXPAND ALL
+                                </div>
+                                <div class="col-sm-4 heading-button">
+                                    OFF
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div id="witness-header-col" class="col-sm-12">
+                                    <canvas id="witness-header-canvas" height="50"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PLAYTEXT HEADING -->
+                        <div class="col-sm-8">
+                            <div class="row">
+                                <div class="col-sm-3">
+                                    <img src="{% static 'img/nvs-logo.png' %}" style="max-height: 90px; width: auto;" />
+                                </div>
+                                <div class="col-sm-9 display-4" style="font-family: 'Libre Baskerville', serif; margin-top: 15px;">
+                                    Prototype
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- COMMENTARY HEADING -->
+                <div class="col-sm-3">
+                    <div class="heading-label">
+                        COMMENTARY NOTES
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <!-- VARIANTS, LINE INFO, PLAYTEXT -->
+                <div id="main-col" class="col-sm-9">
+                    {% for line in lines %}
+                        <div id="{{ line.xml_id }}-row"
+                             class="row play-row"
+                             data-xml_id="{{ line.xml_id }}"
+                             data-line_number="{{ line.line_number }}"
+                             data-words="{{ line.words|join:" " }}"
+                             data-witness_indicators="{{ line.witness_meter }}"
+                        >
+                            <div id="{{ line.xml_id }}-witness-col" class="col-sm-4 witness-meter">
+                                <canvas id="{{ line.xml_id }}-witness-meter" class="hide-me hidden" height="25px"></canvas>
+                            </div>
+                            <div id="{{ line.xml_id }}-number-col" class="col-sm-1 play-label">{{ line.line_label }}</div>
+                            <div id="{{ line.xml_id }}-words-col" class="col-sm-7 play-words">
+                                <a id="{{ line.xml_id }}-variant-toggler"
+                                   class="variant-toggler"
+                                   data-toggle="collapse"
+                                   href="#{{ line.xml_id }}-variant-div"
+                                   role="button"
+                                   aria-expanded="false"
+                                   aria-controls="{{ line.xml_id }}-variant-div"
+                                >
+                                    <img id="{{ line.xml_id }}-variant-toggle" src="{% static 'img/arrow-inactive.png' %}" />
+                                </a>
+                                {{ line.rendered_html|safe }}
+                            </div>
+
+                        </div>
+                        <div class="collapse" class="hide-me hidden" id="{{ line.xml_id }}-variant-div"></div>
+                    {% endfor %}
+                </div>
+
+                <!-- COMMENTARY -->
+                <div class="col-sm-3">
+                    <div style="height: 100%; position: fixed;">
+                        <iframe id="commentary-frame" width="100%" height="100%" frameborder="0" src="/corpus/{{ corpus_id }}/NVSCommentaries/"></iframe>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <canvas id="witness-background-canvas"></canvas>
+
+        <script src="{% static 'js/jquery-3.3.1.min.js' %}"></script>
+        <script src="{% static 'js/popper.min.js' %}"></script>
+        <script src="{% static 'js/bootstrap.min.js' %}"></script>
+        <script src="{% static 'js/in-view.min.js' %}"></script>
+        <script src="{% static 'js/corpora.js' %}"></script>
+        <script type="application/javascript">
+    var corpora;
+    var corpus_id = "{{ corpus_id }}";
+    var starting_line_no = {{ starting_line_no }};
+    var ending_line_no = starting_line_no + 50;
+    var corpus;
+    var screen_size = 'large';
+
+    var witnesses;
+    var lines = {};
+    var notes = {};
+
+    var witnesses_loaded = false;
+    var notes_loaded = false;
+    var loading_timer = null;
+    var redraw_timer = null;
+    var show_queue = {};
+    var hide_queue = {};
+
+    var max_line_no = -1;
+    var min_line_no = -1;
+
+    var note_search = {
+        s_line_number: 'asc',
+        s_xml_id: 'asc',
+        page: 1,
+        'page-size': 1000
+    };
+
+    var line_col = $('#line-col');
+
+    $(document).ready(function() {
+        corpora = new Corpora({'csrf_token': "{{ csrf_token }}"});
+        screen_size = determine_screen_size(window.innerWidth);
+
+        corpora.list_content(
+            corpus_id,
+            'Document',
+            {q_nvs_doc_type: 'witness', s_pub_date: 'asc', 'page-size': 1000},
+            function(witness_data) {
+                witnesses = witness_data.records;
+                witnesses_loaded = true;
+                draw_witness_header_and_background();
+            }
+        );
+
+        corpora.list_content(
+            corpus_id,
+            'TextualNote',
+            Object.assign({only: 'xml_id,variants,lines.xml_id'}, note_search),
+            function(note_data) {
+                note_data.records.map(note => {
+                    notes[note.xml_id] = note;
+                    notes[note.xml_id].populated = false;
+                    note.lines.map(tn_line => {
+                        if (!lines.hasOwnProperty(tn_line.xml_id)) {
+                            lines[tn_line.xml_id] = {
+                                notes: [],
+                                populated: false
+                            }
+                        }
+                        lines[tn_line.xml_id].notes.push(note.xml_id);
+                    });
+                });
+                notes_loaded = true;
+            },
+            true
+        );
+
+        setTimeout(wait_for_load, 500);
+    });
+
+    function determine_screen_size(width) {
+        if (width < 768) { return 'small'; }
+        else if (width < 992) { return 'medium'; }
+        return 'large';
+    }
+
+    function wait_for_load() {
+        if (witnesses_loaded && notes_loaded) {
+            inView.offset(-500);
+            inView('.play-row')
+                .on('enter', el => {
+                    let line_id = el.id.replace('-row', '');
+                    delete hide_queue[line_id];
+                    show_queue[line_id] = true;
+                    clearTimeout(redraw_timer);
+                    redraw_timer = setTimeout(flush_visibility_queue, 1000);
+                })
+                .on('exit', el => {
+                    let line_id = el.id.replace('-row', '');
+                    delete show_queue[line_id];
+                    hide_queue[line_id] = true; });
+
+            // Handle clicking on commentary lemma
+            $('comspan').click(function(e) {
+                let comm_frame = $('#commentary-frame');
+                let comm_id = this.className.replace('commentary-lemma-', '');
+                comm_frame.contents().find(`#commentary-note-${comm_id}`)[0].scrollIntoView();
+                e.stopPropagation();
+            });
+        } else {
+            setTimeout(wait_for_load, 500);
+        }
+    }
+
+    function flush_visibility_queue() {
+        let lines_to_hide = Object.keys(hide_queue);
+        lines_to_hide.map(line_id => { delete hide_queue[line_id]; hide_notes(line_id); });
+        let lines_to_show = Object.keys(show_queue);
+        lines_to_show.map(line_id => { delete show_queue[line_id]; show_notes(line_id); });
+    }
+
+    function show_notes(line_id) {
+        if (!lines.hasOwnProperty(line_id)) {
+            lines[line_id] = {
+                notes: [],
+                populated: false
+            }
+        }
+
+        let line_row = $(`#${line_id}-row`);
+        let line_variant_toggler = $(`#${line_id}-variant-toggler`);
+        let line_variant_div = $(`#${line_id}-variant-div`);
+        let line_witness_col = $(`#${line_id}-witness-col`);
+        let line_witness_meter = $(`#${line_id}-witness-meter`);
+
+        line_variant_div.removeClass('hidden');
+        line_witness_meter.removeClass('hidden');
+
+        if (!lines[line_id].populated) {
+            draw_witness_meter(
+                line_row.attr('data-witness_indicators'),
+                `${line_id}-witness-meter`,
+                line_witness_col.innerWidth(),
+                40
+            );
+
+            // make note/variant elements
+            lines[line_id].notes.map(note_id => {
+                if(!notes[note_id].populated) {
+                    notes[note_id].variants.map(variant => {
+                        let variant_words = variant.variant;
+                        if (!variant_words) {
+                            if (variant.description === null) {
+                                variant_words = `Error with variant transform: <a href='${notes[note_id].uri}/' target='_blank'>Note</a> <a href='${variant.uri}/' target='_blank'>Variant</a>`;
+                            } else {
+                                variant_words = `<span class="variant-note">${variant.description}</span>`;
+                            }
+                        }
+
+                        notes[note_id].lines.map(line => {
+                            $(`#${line.xml_id}-variant-div`).append(`
+                                <div class="row variant-row">
+                                    <div class="col-sm-4">
+                                        <div class="row">
+                                            <div id="variant-${variant.id}" class="col-sm-12 witness-meter">
+                                                <canvas id="${line.xml_id}-${variant.id}-witness-meter" height="25px"></canvas>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div id="col-sm-12" class="witness-formula">
+                                                ${variant.witness_formula}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-1 variant-play-label">&nbsp;</div>
+                                    <div class="col-sm-7 variant-words">${variant_words}</div>
+                                </div>
+                            `);
+
+                            $(`#${line.xml_id}-variant-toggle`).attr('src', "{% static 'img/arrow-active.png' %}");
+                            $(`#${line.xml_id}-variant-div`).on('shown.bs.collapse', function (event) {
+                                let indicator_id = event.target.id.replace('-div', '-toggle');
+                                $("#" + indicator_id).attr('src', "{% static 'img/arrow-toggled.png' %}");
+                                //update_connections();
+                            });
+
+                            $(`#${line.xml_id}-variant-div`).on('hidden.bs.collapse', function (event) {
+                                let indicator_id = event.target.id.replace('-div', '-toggle');
+                                $("#" + indicator_id).attr('src', "{% static 'img/arrow-active.png' %}");
+                                //update_connections();
+                            });
+
+                            let variant_col = $(`#${line.xml_id}-witness-col`);
+                            draw_witness_meter(
+                                variant.witness_meter,
+                                `${line.xml_id}-${variant.id}-witness-meter`,
+                                variant_col.outerWidth(),
+                                25,
+                                "#FFFFFF"
+                            );
+                        });
+                    });
+                    notes[note_id].populated = true;
+                }
+            });
+
+            lines[line_id].populated = true;
+        }
+    }
+
+    function hide_notes(line_id) {
+        let line_variant_toggler = $(`#${line_id}-variant-toggler`);
+        let line_variant_div = $(`#${line_id}-variant-div`);
+        let line_witness_meter = $(`#${line_id}-witness-meter`);
+
+        line_variant_div.addClass('hidden');
+        line_witness_meter.addClass('hidden');
+    }
+
+    function draw_witness_header_and_background() {
+        let witness_centuries = {};
+        witnesses.map(wit => {
+            let century = wit.pub_date[0] + wit.pub_date[1] + "00";
+            if (!witness_centuries.hasOwnProperty(century)) {
+                witness_centuries[century] = 1;
+            } else {
+                witness_centuries[century] += 1;
+            }
+        });
+
+        let width = $('#witness-header-col').width();
+        let witness_width = width / witnesses.length;
+        let header_height = 50;
+
+        let header_canvas = $('#witness-header-canvas');
+        header_canvas.css('width', width);
+        header_canvas.css('height', header_height);
+        let header_context = header_canvas[0].getContext('2d');
+        let font_size = 15;
+        header_context.font = `${font_size}px Roboto`;
+        header_context.fillStyle = "#a7a7a7";
+        header_context.textAlign = "left";
+        header_context.textBaseline = "bottom";
+
+        let background_canvas = $('#witness-background-canvas');
+        let offset = $('#main-col').offset();
+        let background_height = $(document).height() - offset.top;
+        background_canvas.css('position', 'absolute');
+        background_canvas.css('top', offset.top);
+        background_canvas.css('left', offset.left);
+        background_canvas.css('height', background_height);
+        background_canvas.css('width', width);
+        background_canvas.css('z-index', '-1');
+        let background_context = background_canvas[0].getContext('2d');
+
+        let century_cursor = 0;
+        let width_cursor = 0;
+        for (let century in witness_centuries) {
+            let century_width = witness_centuries[century] * witness_width;
+
+            if (century_cursor % 2 === 0) {
+                header_context.beginPath();
+                header_context.fillStyle = "#f4f4f4";
+                header_context.fillRect(width_cursor, 0, century_width, header_height);
+
+                background_context.beginPath();
+                background_context.fillStyle = "#f4f4f4";
+                background_context.fillRect(width_cursor, 0, century_width, background_height);
+            }
+
+            header_context.save();
+            header_context.fillStyle = "#a7a7a7";
+            header_context.translate(width_cursor + 5, header_height - 5);
+            header_context.rotate(-Math.PI / 2);
+            header_context.fillText(century, 0, font_size);
+            header_context.restore();
+
+            century_cursor += 1;
+            width_cursor += century_width;
+        }
+    }
+
+    function draw_witness_meter(witness_meter, canvas_id, width, height, inactive_color="#9A9A99") {
+        let color_map = {
+            '0': inactive_color,
+            '1': '#f7bb78',
+            '2': '#faae63',
+            '3': '#f99b4e',
+            '4': '#ef8537',
+            '5': '#d87b48',
+            '6': '#de6d4b',
+            '7': '#bd5822',
+            '8': '#a84f1f',
+            '9': '#8f2d13',
+        };
+
+        let wm_canvas = $(`#${canvas_id}`);
+        wm_canvas.attr('width', width);
+        wm_canvas.attr('height', height);
+        let wm_context = wm_canvas[0].getContext('2d');
+        // line below turns on transparency
+        // wm_context.globalAlpha = 0.8;
+        let witness_width = width / witnesses.length;
+
+        for (let meter_index = 0; meter_index < witness_meter.length; meter_index++) {
+            wm_context.beginPath();
+            wm_context.fillStyle = color_map[witness_meter[meter_index]];
+
+            wm_context.fillRect(
+                meter_index * witness_width,
+                0,
+                witness_width - 1,
+                height
+            );
+
+        }
+    }
+
+    </script>
+    </body>
+</html>
