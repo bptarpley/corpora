@@ -1,6 +1,7 @@
 import os
 import redis
 from bs4 import BeautifulSoup
+import rdflib
 from .content import REGISTRY as ARC_CONTENT_TYPE_SCHEMA
 from corpus import *
 import time
@@ -181,7 +182,7 @@ def index_archive(corpus, archive):
                         a = corpus.get_content('ArcArtifact', cached_art_id)
                     else:
                         a = corpus.get_content('ArcArtifact')
-                        a.permanent_uri = art['uri']
+                        a.external_uri = art['uri']
 
                     if a:
                         try:
@@ -346,6 +347,75 @@ def _get_date_range(val):
     if len(dates) == 2:
         return range(int(dates[0]), int(dates[1]) + 1)
     return []
+
+
+def parse_rdf(rdf_file):
+    artifacts = []
+
+    graph = rdflib.Graph()
+
+    # build bnode dict
+    bnode_uris = [obj for obj in graph.objects() if isinstance(obj, rdflib.term.BNode)]
+    bnodes = {}
+    for bnode_uri in bnode_uris:
+        bnodes[str(bnode_uri)] = {
+            'type': str(graph.value(bnode_uri, rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'))),
+            'label': str(graph.value(bnode_uri, rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#label'))),
+            'value': str(graph.value(bnode_uri, rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#value')))
+        }
+
+    artifact_uris = [obj for obj in graph.objects() if isinstance(obj, rdflib.term.URIRef)]
+
+    for artifact_uri in artifact_uris:
+        art = {
+            'uri': str(artifact_uri),
+            'federations': [],
+            'types': [],
+            'people': [],
+            'disciplines': [],
+            'genres': [],
+        }
+
+        for property_uri, value in graph[artifact_uri]:
+            prop = str(property_uri)
+
+            if prop.endswith('#seeAlso'):
+                art['url'] = str(value)
+
+            elif prop.endswith('#archive'):
+                art['archive'] = str(value)
+
+            elif prop.endswith('#title'):
+                art['title'] = str(value)
+
+            elif prop.endswith('#federation'):
+                art['federations'].append(str(value))
+
+            elif prop == 'http://purl.org/dc/elements/1.1/type':
+                art['types'].append(str(value))
+
+            elif prop.startswith('http://www.loc.gov/loc.terms/relators/'):
+                art['people'].append({
+                    'name': str(value),
+                    'role_code': prop.replace('http://www.loc.gov/loc.terms/relators/', '')
+                })
+                
+            elif prop.endswith('#discipline'):
+                art['disciplines'].append(str(value))
+                
+            elif prop.endswith('#genre'):
+                art['genres'].append(str(value))
+
+            elif prop == 'http://purl.org/dc/elements/1.1/date':
+                if isinstance(value, rdflib.term.BNode) and str(value) in bnodes:
+                    art['date_label'] = bnodes[str(value)]['label']
+                    art['date_value'] = bnodes[str(value)]['value']
+                elif isinstance(value, rdflib.term.Literal):
+                    art['date_label'] = str(value)
+                    art['date_value'] = str(value)
+
+
+            # endswith #text (full text of artifact)
 
 
 def parse_rdf_file(rdf_file):
@@ -519,7 +589,7 @@ def get_reference(corpus, value, ref_type, cache, make_new=True):
                 'handle': '{0}'
             },
             'ArcArtifact': {
-                'permanent_uri': '{0}'
+                'external_uri': '{0}'
             },
             'ArcType': {
                 'name': '{0}'

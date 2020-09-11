@@ -2,6 +2,7 @@ import os
 import re
 import difflib
 import logging
+import html as html_lib
 from .content import REGISTRY as NVS_CONTENT_TYPE_SCHEMA
 from plugins.document.content import REGISTRY as DOCUMENT_REGISTRY
 from mongoengine.queryset.visitor import Q as mongoQ
@@ -114,7 +115,7 @@ def import_data(job_id):
     delete_existing = job.configuration['parameters']['delete_existing']['value'] == 'Yes'
 
     try:
-
+        '''
         for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
             if delete_existing and nvs_content_type['name'] in corpus.content_types:
                 corpus.delete_content_type(nvs_content_type['name'])
@@ -134,6 +135,7 @@ def import_data(job_id):
             nvs_doc_schema['fields'] += nvs_document_fields
             nvs_doc_schema['templates']['Label']['template'] = "{{ Document.siglum_label|safe }}"
             corpus.save_content_type(nvs_doc_schema)
+        '''
 
 
         es_logger = logging.getLogger('elasticsearch')
@@ -197,12 +199,12 @@ def import_data(job_id):
                     break
 
             if include_files_exist:
-                parse_front_file(corpus, include_file_paths['front'])
-                parse_playtext_file(corpus, include_file_paths['playtext'], basetext_siglum)
-                parse_textualnotes_file(corpus, include_file_paths['textualnotes'])
-                parse_bibliography(corpus, include_file_paths['bibliography'])
+                #parse_front_file(corpus, include_file_paths['front'])
+                #parse_playtext_file(corpus, include_file_paths['playtext'], basetext_siglum)
+                #parse_textualnotes_file(corpus, include_file_paths['textualnotes'])
+                #parse_bibliography(corpus, include_file_paths['bibliography'])
                 parse_commentary(corpus, include_file_paths['commentary'])
-                render_lines_html(corpus)
+                #render_lines_html(corpus)
 
         es_logger.setLevel(es_log_level)
     except:
@@ -608,12 +610,12 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
 
     try:
 
-        '''
+
         for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
             if nvs_content_type['name'] in ['TextualNote', 'TextualVariant']:
                 corpus.delete_content_type(nvs_content_type['name'])
                 corpus.save_content_type(nvs_content_type)
-        '''
+
 
         # open textualnotes xml, read raw text into tei_text,
         # and perform special text replacements before feeding
@@ -624,6 +626,9 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
                 tei_text = tei_text.replace(text, replacement)
 
             tei = BeautifulSoup(tei_text, "xml")
+
+        all_sigla = []
+        missing_sigla = []
 
         # build line_id_map to quickly match line xml_ids w/ mongodb objectids
         line_id_map = {}
@@ -637,8 +642,14 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
         witnesses = corpus.get_content('Document', {'nvs_doc_type': 'witness'})
         witnesses = list(witnesses.order_by('published'))
 
+        for witness in witnesses:
+            all_sigla.append(strip_tags(witness.siglum_label))
+
         # get "document collections" for shorthand witness groups
         witness_groups = list(corpus.get_content('DocumentCollection', all=True))
+
+        for witness_group in witness_groups:
+            all_sigla.append(strip_tags(witness_group.siglum_label))
 
         # get all "note" tags, corresponding to TexualNote content
         # type so we can iterate over and build them
@@ -694,6 +705,9 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
                 for child in variant.wit.children:
                     if child.name == 'siglum':
                         siglum_label = strip_tags(tei_to_html(child))
+                        if siglum_label not in all_sigla and siglum_label not in missing_sigla:
+                            print(siglum_label)
+                            missing_sigla.append(siglum_label)
 
                         if not starting_siglum:
                             starting_siglum = siglum_label
@@ -701,14 +715,10 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
                             ending_siglum = siglum_label
                             next_siglum_ends = False
                         elif exclusion_started:
-                            if textual_note.xml_id == 'tn_131':
-                                print("adding {0} to exclusion list".format(siglum_label))
                             excluding_sigla.append(siglum_label)
 
                     else:
                         formula = str(child.string).strip()
-                        if textual_note.xml_id == 'tn_131':
-                            print("^{0}^".format(formula))
 
                         # handle '+' ranges
                         if formula.startswith('+'):
@@ -718,12 +728,8 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
 
                         # handle exclusions
                         if '(−' in formula:
-                            if textual_note.xml_id == 'tn_131':
-                                print("starting exclusion")
                             exclusion_started = True
                         elif formula.startswith(')') and exclusion_started:
-                            if textual_note.xml_id == 'tn_131':
-                                print("ending exclusion")
                             exclusion_started = False
 
                         # handle '-' ranges
@@ -739,13 +745,6 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
                                 # '+' ranges
                                 # exclusions
                                 # individual sigla
-                                if textual_note.xml_id == 'tn_131':
-                                    print('''131 addition:
-                                        starting: {0}
-                                        ending: {1}
-                                        exclusions: {2}
-                                    '''.format(starting_siglum, ending_siglum, excluding_sigla))
-
                                 textual_variant.witnesses.extend(
                                     get_witness_ids(
                                         witnesses,
@@ -1261,12 +1260,12 @@ def parse_commentary(corpus, commentary_file_path):
 
     try:
 
-        '''
+
         for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
             if nvs_content_type['name'] in ['Commentary']:
                 corpus.delete_content_type(nvs_content_type['name'])
                 corpus.save_content_type(nvs_content_type)
-        '''
+
 
 
         # open commentary xml, read raw text into tei_text,
@@ -1458,7 +1457,7 @@ def handle_commentary_tag(tag, data={}):
             data['unhandled'].append(tag.name)
 
     else:
-        html = str(tag)
+        html = html_lib.escape(str(tag))
 
         if html.strip() == ']' and 'lem_bracket_found' not in data:
             html = ""

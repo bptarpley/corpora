@@ -34,10 +34,10 @@ REGISTRY = [
                 "inherited": False
             },
             {
-                "name": "production_url",
-                "label": "Production URL",
+                "name": "external_uri",
+                "label": "External URI",
                 "indexed": False,
-                "unique": False,
+                "unique": True,
                 "multiple": False,
                 "in_lists": True,
                 "type": "text",
@@ -48,21 +48,6 @@ REGISTRY = [
                 "stats": {},
                 "inherited": False
             },
-            {
-                "name": "staging_url",
-                "label": "Staging URL",
-                "indexed": False,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "text",
-                "choices": [],
-                "cross_reference_type": "",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            }
         ],
         "show_in_nav": True,
         "proxy_field": "",
@@ -108,7 +93,22 @@ REGISTRY = [
                 "unique_with": [],
                 "stats": {},
                 "inherited": False
-            }
+            },
+            {
+                "name": "external_uri",
+                "label": "External URI",
+                "indexed": False,
+                "unique": True,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
         ],
         "show_in_nav": True,
         "proxy_field": "",
@@ -169,7 +169,22 @@ REGISTRY = [
                 "unique_with": [],
                 "stats": {},
                 "inherited": False
-            }
+            },
+            {
+                "name": "external_uri",
+                "label": "External URI",
+                "indexed": False,
+                "unique": True,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
         ],
         "show_in_nav": True,
         "proxy_field": "",
@@ -215,7 +230,22 @@ REGISTRY = [
                 "unique_with": [],
                 "stats": {},
                 "inherited": False
-            }
+            },
+            {
+                "name": "external_uri",
+                "label": "External URI",
+                "indexed": False,
+                "unique": True,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
         ],
         "show_in_nav": True,
         "proxy_field": "",
@@ -324,7 +354,22 @@ REGISTRY = [
                 "unique_with": [],
                 "stats": {},
                 "inherited": False
-            }
+            },
+            {
+                "name": "external_uri",
+                "label": "External URI",
+                "indexed": False,
+                "unique": True,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
         ],
         "show_in_nav": True,
         "proxy_field": "",
@@ -370,7 +415,22 @@ REGISTRY = [
                 "unique_with": [],
                 "stats": {},
                 "inherited": False
-            }
+            },
+            {
+                "name": "external_uri",
+                "label": "External URI",
+                "indexed": False,
+                "unique": True,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
         ],
         "show_in_nav": True,
         "proxy_field": "",
@@ -461,7 +521,22 @@ REGISTRY = [
                 "unique_with": [],
                 "stats": {},
                 "inherited": False
-            }
+            },
+            {
+                "name": "external_uri",
+                "label": "External URI",
+                "indexed": False,
+                "unique": True,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
         ],
         "show_in_nav": True,
         "proxy_field": "",
@@ -494,8 +569,8 @@ REGISTRY = [
         "plural_name": "Artifacts",
         "fields": [
             {
-                "name": "permanent_uri",
-                "label": "Permanent URI",
+                "name": "external_uri",
+                "label": "External URI",
                 "indexed": False,
                 "unique": True,
                 "multiple": False,
@@ -623,6 +698,36 @@ REGISTRY = [
                 "type": "cross_reference",
                 "choices": [],
                 "cross_reference_type": "ArcGenre",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "date_label",
+                "label": "Date Label",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "date_value",
+                "label": "Date Value",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": False,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
                 "indexed_with": [],
                 "unique_with": [],
                 "stats": {},
