@@ -9,6 +9,11 @@
             /* Setting height is important, otherwise editor wont show up */
             height: 300px;
         }
+
+        .corpora-content-cell {
+            max-height: 100px;
+            overflow: scroll;
+        }
     </style>
 {% endblock %}
 
@@ -179,6 +184,7 @@
                         <label for="new-f-type-box">Type</label>
                         <select id="new-f-type-box">
                             <option value="text" selected>Text</option>
+                            <option value="large_text" selected>Large Text</option>
                             <option value="html">HTML</option>
                             <option value="number">Number</option>
                             <option value="date">Date</option>
@@ -239,6 +245,7 @@
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="template-ct-name" value="">
+                    <input type="hidden" id="template-is-new" value="">
 
                     <div class="form-group">
                         <label for="template-name">Name:</label>
@@ -412,7 +419,6 @@
                             <button type="button" class="btn btn-primary mr-2" id="new-ct-button">New Content Type</button>
                             <button type="button" title="Import Schema" class="btn btn-secondary" id="show-import-modal-button"><span class="fas fa-file-import"></span></button>
                             <a role="button" title="Export Schema" class="btn btn-secondary" href="/corpus/{{ corpus_id }}/?export=schema" download="schema"><span class="fas fa-file-export"></span></a>
-                            <button type="button" class="btn btn-secondary ml-2" id="manage-template-formats-button">Manage Template Formats</button>
                         </span>
                         <span>
                             <button type="button" class="btn btn-primary" id="save-content-type-schema-button">Save Changes</button>
@@ -511,6 +517,7 @@
         
         const FIELD_TYPE_LABELS = {
             text: 'Text',
+            large_text: 'Large Text',
             keyword: 'Keyword',
             html: 'HTML',
             choice: 'Choice',
@@ -771,9 +778,18 @@
                     $(`#template-save-button`).click(function () {
                         let ct_name = $('#template-ct-name').val();
                         let template_name = $('#template-name').val();
+                        let is_new = $('#template-is-new').val();
 
-                        corpus.content_types[ct_name].templates[template_name].template = template_editor.getValue();
-                        corpus.content_types[ct_name].templates[template_name].mime_type = $('#template-mime-type').val();
+                        if (is_new === 'yes') {
+                            corpus.content_types[ct_name].templates[template_name] = {
+                                template: template_editor.getValue(),
+                                mime_type: $('#template-mime-type').val()
+                            };
+                        }
+                        else {
+                            corpus.content_types[ct_name].templates[template_name].template = template_editor.getValue();
+                            corpus.content_types[ct_name].templates[template_name].mime_type = $('#template-mime-type').val();
+                        }
 
                         $('#template-modal').modal('hide');
                     });
@@ -1163,9 +1179,7 @@
                                         value = `<a href="${value.uri}" target="_blank">${value.label}</a>`;
                                     }
                                 } else if (field.multiple) {
-                                    if (field.type == 'text' || field.type == 'keyword') {
-                                        console.log(field.name);
-                                        console.log(value);
+                                    if (field.type == 'text' || field.type == 'large_text' || field.type == 'keyword') {
                                         value = value.join(' ');
                                     } else {
                                         let multi_value = '';
@@ -1182,7 +1196,9 @@
 
                             row_html += `
                                 <td style="width: auto;">
-                                    ${value}
+                                    <div class="corpora-content-cell">
+                                        ${value}
+                                    </div>
                                 </td>`;
                         }
                     });
@@ -1401,6 +1417,7 @@
                 $(`#${ct_div_prefix}-edit-template-button`).click(function (){
                     let template_name = $(`#${ct_div_prefix}-edit-template-selector`).val();
                     $('#template-ct-name').val(ct_name);
+                    $('#template-is-new').val('no');
                     $('#template-name').val(template_name);
 
                     template_editor.setValue(corpus.content_types[ct_name].templates[template_name].template);
@@ -1409,17 +1426,22 @@
                     $('#template-modal').modal();
                 });
 
+                // NEW TEMPLATE BUTTON
+                $(`#${ct_div_prefix}-new-template-button`).click(function (){
+                    $('#template-ct-name').val(ct_name);
+                    $('#template-is-new').val('yes');
+                    $('#template-name').val('NewTemplate');
+
+                    template_editor.setValue('');
+                    $('#template-mime-type').val('text/html');
+
+                    $('#template-modal').modal();
+                });
+
                 // FOCUS TEMPLATE EDITOR ON MODAL SHOWN EVENT
                 $('#template-modal').on('shown.bs.modal', function() {
                     template_editor.focus();
                     template_editor.gotoLine(1);
-                });
-
-                // NEW TEMPLATE BUTTON
-                $(`#${ct_div_prefix}-new-template-button`).click(function() {
-                    $('#template-name').val('');
-                    template_editor.setValue('');
-                    $('#template-mime-type').val('text/html');
                 });
 
                 // ADD FIELDS

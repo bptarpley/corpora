@@ -21,7 +21,7 @@ from elasticsearch_dsl.connections import get_connection
 from django.template import Template, Context
 
 
-FIELD_TYPES = ('text', 'keyword', 'html', 'choice', 'number', 'date', 'file', 'link', 'cross_reference', 'embedded')
+FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'date', 'file', 'link', 'cross_reference', 'embedded')
 MIME_TYPES = ('text/html', 'text/xml', 'application/json')
 
 
@@ -73,19 +73,19 @@ class Field(mongoengine.EmbeddedDocument):
     def get_mongoengine_field_class(self):
         if self.type == 'number':
             if self.unique and not self.unique_with:
-                return mongoengine.IntField(unique=True)
+                return mongoengine.IntField(unique=True, sparse=True)
             else:
                 return mongoengine.IntField()
         elif self.type == 'date':
             if self.unique and not self.unique_with:
-                return mongoengine.DateField(unique=True)
+                return mongoengine.DateField(unique=True, sparse=True)
             else:
                 return mongoengine.DateField()
         elif self.type == 'file':
             return mongoengine.EmbeddedDocumentField(File)
         elif self.type != 'cross_reference':
             if self.unique and not self.unique_with:
-                return mongoengine.StringField(unique=True)
+                return mongoengine.StringField(unique=True, sparse=True)
             else:
                 return mongoengine.StringField()
 
@@ -1608,6 +1608,7 @@ class Corpus(mongoengine.Document):
             ct = self.content_types[content_type]
             field_type_map = {
                 'text': 'text',
+                'large_text': 'large_text',
                 'keyword': 'keyword',
                 'html': 'text',
                 'number': 'integer',
@@ -1660,6 +1661,8 @@ class Corpus(mongoengine.Document):
                                 xref_field_type = field_type_map[xref_field.type]
                                 if xref_field.type == 'text':
                                     xref_field_type = nested_text_type
+                                elif xref_field.type == 'large_text':
+                                    xref_field_type = {'type': 'text', 'analyzer': corpora_analyzer}
 
                                 xref_mapping_props[xref_field.name] = xref_field_type
 
@@ -1668,6 +1671,10 @@ class Corpus(mongoengine.Document):
                     elif field_type == 'text':
                         subfields = {'raw': {'type': 'keyword'}}
                         mapping.field(field.name, field_type, analyzer=corpora_analyzer, fields=subfields)
+
+                    # large text fields assumed too large to provide a "raw" subfield for sorting
+                    elif field_type == 'large_text':
+                        mapping.field(field.name, 'text', analyzer=corpora_analyzer)
                     else:
                         mapping.field(field.name, field_type)
 

@@ -6,10 +6,11 @@ from .content import REGISTRY as ARC_CONTENT_TYPE_SCHEMA
 from corpus import *
 import time
 import logging
+import traceback
 
 REGISTRY = {
     "Index ARC Archive(s)": {
-        "version": "0.0",
+        "version": "0.1",
         "jobsite_type": "HUEY",
         "track_provenance": True,
         "content_type": "Corpus",
@@ -27,6 +28,13 @@ REGISTRY = {
                     "label": "Number of Archives to Index",
                     "note": "If no handle specified, provide number of unindexed archives to index."
                 },
+                "delete_existing": {
+                    "value": "No",
+                    "type": "choice",
+                    "choices": ["No", "Yes"],
+                    "label": "Delete existing content?",
+                    "note": "Selecting 'Yes' will first delete all relevant content before importing!"
+                }
             },
         },
         "module": 'plugins.arc.tasks',
@@ -82,35 +90,38 @@ role_codes = {
 def index_archives(job_id):
     job = Job(job_id)
     corpus = job.corpus
-    archive_handle = job.configuration['parameters']['archive_handle']['value']
-    num_archives_to_index = job.configuration['parameters']['archives_to_index']['value']
+    archive_handle = job.configuration['parameters']['archive_handle']['value'].strip()
+    num_archives_to_index = job.configuration['parameters']['archives_to_index']['value'].strip()
+    delete_existing = job.configuration['parameters']['delete_existing']['value'].strip() == 'Yes'
     archives = []
 
-    # FOR TESTING ONLY! REMOVE IN PROD
     for arc_content_type in ARC_CONTENT_TYPE_SCHEMA:
-        if arc_content_type['name'] in corpus.content_types:
+        if delete_existing and arc_content_type['name'] in corpus.content_types:
             corpus.delete_content_type(arc_content_type['name'])
-
-        corpus.save_content_type(arc_content_type)
+            corpus.save_content_type(arc_content_type)
+        elif arc_content_type not in corpus.content_types:
+            corpus.save_content_type(arc_content_type)
 
     es_logger = logging.getLogger('elasticsearch')
     es_log_level = es_logger.getEffectiveLevel()
     es_logger.setLevel(logging.WARNING)
-
 
     if archive_handle:
         archive = get_or_create_archive(corpus, archive_handle)
         if archive:
             archives.append(archive)
     elif num_archives_to_index:
+        print("Indexing {0} archives...".format(num_archives_to_index))
         num_archives_to_index = int(num_archives_to_index)
         archive_dirs = [archives_dir + '/' + listed_dir for listed_dir in os.listdir(archives_dir) if listed_dir.startswith('arc_rdf_') and os.path.isdir(archives_dir + '/' + listed_dir)]
         for archive_dir in archive_dirs:
             if num_archives_to_index > 0:
                 if os.path.exists(archive_dir + '/.git'):
+                    print(archive_dir)
                     archive_handle = os.path.basename(archive_dir).replace('arc_rdf_', '')
                     archive = get_or_create_archive(corpus, archive_handle)
                     if archive:
+                        print(archive.handle)
                         do_indexing = True
 
                         if archive.last_indexed:
@@ -124,6 +135,7 @@ def index_archives(job_id):
             else:
                 break
 
+    print(len(archives))
     for archive in archives:
         index_archive(corpus, archive)
 
@@ -131,18 +143,25 @@ def index_archives(job_id):
 
 
 def get_or_create_archive(corpus, handle):
+    print('getting or creating archive')
     archive = None
-    archive_path = archives_dir + '/arc_rdf_' + handle
-    if os.path.exists(archive_path):
-        try:
-            archive = corpus.get_content('ArcArchive', {'handle': handle})[0]
-        except:
-            archive = None
+    try:
+        archive = corpus.get_content('ArcArchive', {'handle': handle})[0]
+        print("archive {0} found.".format(archive.handle))
+    except:
+        archive = None
 
-        if not archive:
+    if not archive:
+        print('not found. attempting to create')
+        try:
             archive = corpus.get_content('ArcArchive')
             archive.handle = handle
             archive.save()
+            print("created archive for {0} w/ id {1}".format(archive.handle, archive.id))
+        except:
+            print("Error creating archive!")
+            print(traceback.format_exc())
+
     return archive
 
 
@@ -173,7 +192,7 @@ def index_archive(corpus, archive):
                 if num_failures > 50:
                     break
 
-                artifacts = parse_rdf_file(rdf_file.strip())
+                artifacts = parse_rdf(rdf_file.strip())
                 for art in artifacts:
                     cached_art_id = get_reference(corpus, art['uri'], 'ArcArtifact', cache, make_new=False)
 
@@ -186,7 +205,7 @@ def index_archive(corpus, archive):
 
                     if a:
                         try:
-                            # clear fields that are lists
+                            # clear fields that are lists in case existing artifact
                             a.federations = []
                             a.types = []
                             a.disciplines = []
@@ -196,16 +215,25 @@ def index_archive(corpus, archive):
                             a.sources = []
                             a.subjects = []
                             a.coverages = []
-                            a.source_codes = []
+                            a.has_parts = []
+                            a.is_part_ofs = []
+                            a.relateds = []
 
                             a.url = art['url']
                             a.title = art['title']
-                            a.language = art['language']
-                            a.free_culture = 1 if art['free_culture'] else 0
-                            a.ocr = 1 if art['ocr'] else 0
-                            a.full_text = 1 if art['full_text'] else 0
 
-                            archive_id = get_reference(corpus, art['archive'], 'ArcArchive', cache)
+                            if 'language' in art:
+                                a.language = art['language']
+                                
+                            a.free_culture = 1 if art['free_culture'] else 0
+
+                            if 'ocr' in art:
+                                a.ocr = 1 if art['ocr'] else 0
+
+                            if 'full_text' in art:
+                                a.full_text = 1 if art['full_text'] else 0
+
+                            archive_id = get_reference(corpus, art['archive'], 'ArcArchive', cache, make_new=False)
                             if archive_id:
                                 a.archive = corpus.get_content_dbref('ArcArchive', archive_id)
 
@@ -238,6 +266,11 @@ def index_archive(corpus, archive):
                             for year in art['years']:
                                 a.years.append(year)
 
+                            if 'date_label' in art:
+                                a.date_label = art['date_label']
+                            if 'date_value' in art:
+                                a.date_value = art['date_value']
+
                             if 'alt_title' in art:
                                 a.alt_title = art['alt_title']
 
@@ -253,14 +286,23 @@ def index_archive(corpus, archive):
                             if 'full_text_url' in art:
                                 a.full_text_url = art['full_text_url']
 
+                            if 'full_text_contents' in art:
+                                a.full_text_contents = art['full_text_contents']
+
                             if 'image_url' in art:
                                 a.image_url = art['image_url']
 
                             if 'thumbnail_url' in art:
                                 a.thumbnail_url = art['thumbnail_url']
 
-                            for source in art['sources']:
-                                a.sources.append(source)
+                            if 'source_xml' in art:
+                                a.source_xml = art['source_xml']
+
+                            if 'source_html' in art:
+                                a.source_html = art['source_html']
+
+                            if 'source_sgml' in art:
+                                a.source_sgml = art['source_sgml']
 
                             for subject in art['subjects']:
                                 a.subjects.append(subject)
@@ -268,8 +310,14 @@ def index_archive(corpus, archive):
                             for coverage in art['coverages']:
                                 a.coverages.append(coverage)
 
-                            for sc_type in art['source_code'].keys():
-                                a.source_codes.append("{0}::{1}".format(sc_type, art['source_code'][sc_type]))
+                            for has_part in art['has_parts']:
+                                a.has_parts.append(has_part)
+
+                            for is_part_of in art['is_part_ofs']:
+                                a.is_part_ofs.append(is_part_of)
+
+                            for related in art['relateds']:
+                                a.relateds.append(related)
 
                             a.save()
 
@@ -353,228 +401,188 @@ def parse_rdf(rdf_file):
     artifacts = []
 
     graph = rdflib.Graph()
+    graph.parse(rdf_file)
 
     # build bnode dict
     bnode_uris = [obj for obj in graph.objects() if isinstance(obj, rdflib.term.BNode)]
+    bnode_uris = list(set(bnode_uris))
     bnodes = {}
     for bnode_uri in bnode_uris:
         bnodes[str(bnode_uri)] = {
             'type': str(graph.value(bnode_uri, rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'))),
-            'label': str(graph.value(bnode_uri, rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#label'))),
+            'label': str(graph.value(bnode_uri, rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#label'))),
             'value': str(graph.value(bnode_uri, rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#value')))
         }
 
-    artifact_uris = [obj for obj in graph.objects() if isinstance(obj, rdflib.term.URIRef)]
+    artifact_uris = [subj for subj in graph.subjects() if isinstance(subj, rdflib.term.URIRef)]
+    artifact_uris = list(set(artifact_uris))
 
     for artifact_uri in artifact_uris:
+
+        # DEFAULT VALUES FOR AN ARC ARCHIVE
         art = {
             'uri': str(artifact_uri),
+            'free_culture': True,
             'federations': [],
             'types': [],
             'people': [],
             'disciplines': [],
             'genres': [],
+            'years': [],
+            'sources': [],
+            'subjects': [],
+            'coverages': [],
+            'has_parts': [],
+            'is_part_ofs': [],
+            'relateds': []
         }
 
         for property_uri, value in graph[artifact_uri]:
             prop = str(property_uri)
 
-            if prop.endswith('#seeAlso'):
+            # BROWSER URL
+            if prop == 'http://www.w3.org/2000/01/rdf-schema#seeAlso':
                 art['url'] = str(value)
 
-            elif prop.endswith('#archive'):
+            # ARCHIVE
+            elif prop == 'http://www.collex.org/schema#archive':
                 art['archive'] = str(value)
 
-            elif prop.endswith('#title'):
+            # TITLE
+            elif prop == "http://purl.org/dc/elements/1.1/title":
                 art['title'] = str(value)
 
-            elif prop.endswith('#federation'):
+            # FEDERATION
+            elif prop == 'http://www.collex.org/schema#federation':
                 art['federations'].append(str(value))
 
+            # TYPE
             elif prop == 'http://purl.org/dc/elements/1.1/type':
                 art['types'].append(str(value))
 
+            # HANDLE ROLE CODES AND PEOPLE
             elif prop.startswith('http://www.loc.gov/loc.terms/relators/'):
                 art['people'].append({
                     'name': str(value),
                     'role_code': prop.replace('http://www.loc.gov/loc.terms/relators/', '')
                 })
-                
-            elif prop.endswith('#discipline'):
+
+            # DISCIPLINE
+            elif prop == 'http://www.collex.org/schema#discipline':
                 art['disciplines'].append(str(value))
-                
-            elif prop.endswith('#genre'):
+
+            # GENRE
+            elif prop == 'http://www.collex.org/schema#genre':
                 art['genres'].append(str(value))
 
+            # DATE
             elif prop == 'http://purl.org/dc/elements/1.1/date':
                 if isinstance(value, rdflib.term.BNode) and str(value) in bnodes:
-                    art['date_label'] = bnodes[str(value)]['label']
-                    art['date_value'] = bnodes[str(value)]['value']
+                    art['date_label'] = bnodes[str(value)]['label'].strip()
+                    art['date_value'] = bnodes[str(value)]['value'].strip()
                 elif isinstance(value, rdflib.term.Literal):
-                    art['date_label'] = str(value)
-                    art['date_value'] = str(value)
+                    art['date_label'] = str(value).strip()
+                    art['date_value'] = str(value).strip()
 
+                if str.isdigit(art['date_value']) and len(art['date_value']) == 4:
+                    art['years'].append(int(art['date_value']))
+                elif 'u' in art['date_value']:
+                    art['years'] += _get_wildcard_dates(art['date_value'])
+                elif ',' in art['date_value']:
+                    art['years'] += _get_date_range(art['date_value'])
 
-            # endswith #text (full text of artifact)
+            # ALT TITLE
+            elif prop == "http://purl.org/dc/terms/alternative":
+                art['alt_title'] = str(value)
 
+            # DESCRIPTION
+            elif prop == "http://purl.org/dc/elements/1.1/description":
+                art['description'] = str(value)
 
-def parse_rdf_file(rdf_file):
-    entry_data = []
-    if os.path.exists(rdf_file):
-        with open(rdf_file, 'r') as rdf_in:
-            rdf = BeautifulSoup(rdf_in, "xml")
+            # DATE OF EDITION
+            elif prop == 'http://www.collex.org/schema#dateofedition':
+                art['date_of_edition'] = str(value)
 
-        rdf_root = rdf.RDF
-        item_tag = None
-        unique_child_tags = list(set([item.name for item in rdf_root.contents if item.name]))
+            # DATE OF REVIEW
+            elif prop == 'http://www.collex.org/schema#reviewdate':
+                art['date_of_review'] = str(value)
 
-        if len(unique_child_tags) == 1:
-            item_tag = unique_child_tags[0]
+            # LANGUAGE
+            elif prop == "http://purl.org/dc/elements/1.1/language":
+                art['language'] = str(value)
 
-        if item_tag:
-            for entry in rdf_root.find_all(item_tag):
-                try:
-                    data = {}
+            # SOURCE
+            elif prop == "http://purl.org/dc/elements/1.1/source":
+                art['sources'].append(str(value))
 
-                    # REQUIRED FIELDS
-                    data['uri'] = entry['rdf:about']
+            # SUBJECTS
+            elif prop == "http://purl.org/dc/elements/1.1/subject":
+                art['subjects'].append(str(value))
 
-                    see_also = entry.seeAlso
-                    if see_also:
-                        if 'rdf:resource' in see_also.attrs:
-                            data['url'] = entry.seeAlso['rdf:resource']
-                        else:
-                            data['url'] = _str(see_also.string)
+            # COVERAGES
+            elif prop in ["http://purl.org/dc/terms/coverage", "http://purl.org/dc/elements/1.1/coverage"]:
+                art['coverages'].append(str(value))
 
-                    data['archive'] = _str(entry.archive.string)
-                    data['title'] = _str(entry.title.string)
+            # FREE CULTURE
+            elif prop == "http://www.collex.org/schema#freeculture":
+                art['free_culture'] = str(value).lower() != 'false'
 
-                    data['federations'] = []
-                    for federation in entry.find_all('federation'):
-                        data['federations'].append(_str(federation.string))
+            # OCR
+            elif prop == "http://www.collex.org/schema#ocr":
+                art['ocr'] = str(value).lower() != 'false'
 
-                    data['types'] = []
-                    for tipe in entry.find_all('type'):
-                        data['types'].append(_str(tipe.string))
+            # FULL TEXT (y/n)
+            elif prop == "http://www.collex.org/schema#fulltext":
+                art['full_text'] = str(value).lower() != 'false'
 
-                    data['people'] = []
-                    for role in entry.select('role|*', namespaces=namespaces):
-                        data['people'].append({
-                            'name': _str(role.string),
-                            'role_code': _str(role.name),
-                        })
+            # TEXT (contents)
+            elif prop == "http://www.collex.org/schema#text":
+                txt = str(value).strip()
+                if txt:
+                    if txt.startswith('http') and ' ' not in txt:
+                        art['full_text_url'] = txt
+                    else:
+                        art['full_text_contents'] = txt
 
-                    data['disciplines'] = []
-                    for discipline in entry.find_all('discipline'):
-                        data['disciplines'].append(_str(discipline.string))
+            # SOURCE CODES
+            elif prop == "http://www.collex.org/schema#source_xml":
+                art['source_xml'] = str(value)
+            elif prop == "http://www.collex.org/schema#source_html":
+                art['source_html'] = str(value)
+            elif prop == "http://www.collex.org/schema#source_sgml":
+                art['source_sgml'] = str(value)
 
-                    data['genres'] = []
-                    for genre in entry.find_all('genre'):
-                        data['genres'].append(_str(genre.string))
+            # IMAGE URL
+            elif prop == "http://www.collex.org/schema#image":
+                art['image_url'] = str(value)
 
-                    data['years'] = []
-                    for date in entry.find_all('date'):
-                        date_string = None
-                        if date.string:
-                            date_string = _str(date.string).strip()
-                        elif date.date and date.date.value:
-                            date_string = _str(date.date.value.string).strip()
+            # THUMBNAIL URL
+            elif prop == "http://www.collex.org/schema#thumbnail":
+                art['thumbnail_url'] = str(value)
 
-                        if date_string:
-                            if str.isdigit(date_string) and len(date_string) == 4:
-                                data['years'].append(int(date_string))
-                            elif 'u' in date_string:
-                                data['years'] += _get_wildcard_dates(date_string)
-                            elif ',' in date_string:
-                                data['years'] += _get_date_range(date_string)
+            # HAS PART
+            elif prop == "http://purl.org/dc/terms/hasPart":
+                art['has_parts'].append(str(value))
 
-                    # OPTIONAL FIELDS
-                    if entry.alternative:
-                        data['alt_title'] = _str(entry.alternative.string)
+            # IS PART OF
+            elif prop == "http://purl.org/dc/terms/isPartOf":
+                art['is_part_ofs'].append(str(value))
 
-                    if entry.dateofedition:
-                        data['date_of_edition'] = _str(entry.dateofedition.string)
+            # RELATION(s)
+            elif prop == "http://purl.org/dc/elements/1.1/relation":
+                art['relateds'].append(str(value))
 
-                    if entry.reviewdate:
-                        data['date_of_review'] = _str(entry.reviewdate.string)
+            # IGNORE RDF TYPE OF ARTIFACT (not collex type)
+            elif prop == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
+                pass
 
-                    if entry.description:
-                        data['description'] = _str(entry.description.string)
+            else:
+                print("UNHANDLED PROPERTY in {0}".format(rdf_file))
+                print("{0} ::: {1}".format(prop, value))
 
-                    data['language'] = 'English'
-                    if entry.language:
-                        data['language'] = _str(entry.language.string)
+        artifacts.append(art)
 
-                    data['sources'] = []
-                    for source in entry.find_all('source'):
-                        data['sources'].append(_str(source.string))
-
-                    data['subjects'] = []
-                    for subject in entry.find_all('subject'):
-                        data['subjects'].append(_str(subject.string))
-
-                    data['coverages'] = []
-                    for coverage in entry.find_all('coverage'):
-                        data['coverages'].append(_str(coverage.string))
-
-                    data['free_culture'] = True
-                    if entry.freeculture:
-                        data['free_culture'] = _str(entry.freeculture.string).lower() != 'false'
-
-                    data['ocr'] = False
-                    if entry.ocr:
-                        data['ocr'] = _str(entry.ocr.string).lower() == 'true'
-
-                    data['full_text'] = False
-                    if entry.fulltext:
-                        data['full_text'] = _str(entry.fulltext.string).lower() == 'true'
-
-                    data['source_code'] = {}
-                    if entry.source_xml:
-                        data['source_code']['xml'] = _str(entry.source_xml.string)
-                    if entry.source_html:
-                        data['source_code']['html'] = _str(entry.source_html.string)
-                    if entry.source_html:
-                        data['source_code']['sgml'] = _str(entry.source_sgml.string)
-
-                    if entry.text and 'rdf:resource' in entry.text:
-                        data['full_text_url'] = entry.text['rdf:resource']
-
-                    if entry.image and 'rdf:resource' in entry.image:
-                        data['image_url'] = entry.image['rdf:resource']
-
-                    if entry.thumbnail and 'rdf:resource' in entry.thumbnail:
-                        data['thumbnail_url'] = entry.thumbnail['rdf:resource']
-
-                    # LINKED DATA
-                    data['lod'] = []
-                    for hasPart in entry.find_all('hasPart'):
-                        if 'rdf:resource' in hasPart:
-                            data['lod'].append({
-                                'predicate': 'hasPart',
-                                'object': hasPart['rdf:resource']
-                            })
-
-                    for isPartOf in entry.find_all('isPartOf'):
-                        if 'rdf:resource' in isPartOf:
-                            data['lod'].append({
-                                'predicate': 'isPartOf',
-                                'object': isPartOf['rdf:resource']
-                            })
-
-                    for relation in entry.find_all('relation'):
-                        if 'rdf:resource' in relation:
-                            data['lod'].append({
-                                'predicate': 'relation',
-                                'object': relation['rdf:resource']
-                            })
-
-                    entry_data.append(data)
-                except:
-                    print(traceback.format_exc())
-                    print(entry)
-
-    return entry_data
+    return artifacts
 
 
 def get_reference(corpus, value, ref_type, cache, make_new=True):
@@ -624,6 +632,7 @@ def get_reference(corpus, value, ref_type, cache, make_new=True):
                     for field_name in single_key_reference_fields[ref_type].keys():
                         query[field_name] = single_key_reference_fields[ref_type][field_name].format(value)
 
+                    ref_obj = None
                     try:
                         ref_obj = corpus.get_content(ref_type, query)[0]
                     except:
@@ -651,7 +660,7 @@ def get_reference(corpus, value, ref_type, cache, make_new=True):
                             except:
                                 if make_new:
                                     agt = corpus.get_content(ref_type)
-                                    agt.entity = corpus.get_content_dbref('ArcPerson', pers_val)
+                                    agt.entity = corpus.get_content_dbref('ArcEntity', pers_val)
                                     agt.role = corpus.get_content_dbref('ArcRole', role_val)
                                     agt.save()
                                 else:
