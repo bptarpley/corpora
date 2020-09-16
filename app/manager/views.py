@@ -698,7 +698,7 @@ def api_content(request, corpus_id, content_type, content_id=None):
             if context['search']:
                 content = corpus.search_content(content_type=content_type, **context['search'])
             else:
-                content = corpus.search_content(content_type=content_type, general_search_query="*")
+                content = corpus.search_content(content_type=content_type, general_query="*")
 
     return HttpResponse(
         json.dumps(content),
