@@ -99,7 +99,7 @@ def index_archives(job_id):
         if delete_existing and arc_content_type['name'] in corpus.content_types:
             corpus.delete_content_type(arc_content_type['name'])
             corpus.save_content_type(arc_content_type)
-        elif arc_content_type not in corpus.content_types:
+        elif arc_content_type['name'] not in corpus.content_types:
             corpus.save_content_type(arc_content_type)
 
     es_logger = logging.getLogger('elasticsearch')
