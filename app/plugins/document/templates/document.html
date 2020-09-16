@@ -535,7 +535,7 @@
                             // LOAD DOCUMENT METADATA
                             let doc_metadata_list = $('#doc-metadata-list');
                             corpus.content_types.Document.fields.forEach( field => {
-                                if (doc[field.name] && ['text', 'keyword', 'number'].includes(field.type)) {
+                                if (doc[field.name] && ['text', 'large_text', 'keyword', 'number'].includes(field.type)) {
                                     doc_metadata_list.append(`
                                         <div class="list-group-item">
                                             <h5>${field.label}</h5>

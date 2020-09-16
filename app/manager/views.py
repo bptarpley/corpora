@@ -316,9 +316,22 @@ def edit_content(request, corpus_id, content_type, content_id=None):
 def view_content(request, corpus_id, content_type, content_id):
     context = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+    render_template = _clean(request.GET, 'render_template', None)
 
     if not corpus or content_type not in corpus.content_types:
         raise Http404("Corpus does not exist, or you are not authorized to view it.")
+
+    if render_template and render_template in corpus.content_types[content_type].templates:
+        content = corpus.get_content(content_type, content_id)
+        if content.id:
+            django_template = Template(corpus.content_types[content_type].templates[render_template].template)
+            context = Context({content_type: content})
+            return HttpResponse(
+                django_template.render(context),
+                content_type=corpus.content_types[content_type].templates[render_template].mime_type
+            )
+        else:
+            raise Http404("Content does not exist, or you are not authorized to view it.")
 
     return render(
         request,
@@ -685,7 +698,7 @@ def api_content(request, corpus_id, content_type, content_id=None):
             if context['search']:
                 content = corpus.search_content(content_type=content_type, **context['search'])
             else:
-                content = corpus.search_content(content_type=content_type, general_search_query="*")
+                content = corpus.search_content(content_type=content_type, general_query="*")
 
     return HttpResponse(
         json.dumps(content),

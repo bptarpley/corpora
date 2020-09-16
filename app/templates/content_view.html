@@ -55,6 +55,13 @@
                     </div>
                 `;
             },
+            large_text: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value}
+                    </div>
+                `;
+            },
             keyword: function(field, value) {
                 return `
                     <div class="col-10 d-flex align-left field-value ${field.type}-value">

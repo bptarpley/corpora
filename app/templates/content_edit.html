@@ -147,6 +147,16 @@
                     </div>
                 `;
             },
+            large_text: function(field, value, id_suffix) {
+                return `
+                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2">
+                        <textarea class="form-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" rows="20">
+                            ${value}
+                        </textarea>
+                        ${multi_remover(field, id_suffix)}
+                    </div>
+                `;
+            },
             keyword: function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2">
