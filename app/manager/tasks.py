@@ -137,7 +137,7 @@ def check_jobs():
     proceed = False
 
     cache = redis.Redis(host='redis', decode_responses=True)
-    now = int(datetime.timestamp())
+    now = int(datetime.now().timestamp())
     last_checked = cache.get('corpora_manager_last_job_check')
 
     if last_checked:
