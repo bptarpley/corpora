@@ -1,7 +1,8 @@
 import os
 import redis
-from bs4 import BeautifulSoup
+from huey.contrib.djhuey import db_task
 import rdflib
+from datetime import datetime
 from .content import REGISTRY as ARC_CONTENT_TYPE_SCHEMA
 from corpus import *
 import time
@@ -87,6 +88,7 @@ role_codes = {
 }
 
 
+@db_task(priority=2)
 def index_archives(job_id):
     job = Job(job_id)
     corpus = job.corpus
@@ -117,16 +119,15 @@ def index_archives(job_id):
         for archive_dir in archive_dirs:
             if num_archives_to_index > 0:
                 if os.path.exists(archive_dir + '/.git'):
-                    print(archive_dir)
                     archive_handle = os.path.basename(archive_dir).replace('arc_rdf_', '')
                     archive = get_or_create_archive(corpus, archive_handle)
                     if archive:
-                        print(archive.handle)
                         do_indexing = True
 
                         if archive.last_indexed:
                             last_modified = datetime.fromtimestamp(os.path.getmtime(archive_dir + '/.git')).date()
                             if archive.last_indexed >= last_modified:
+                                print("Skipping {0}: already indexed.".format(archive.handle))
                                 do_indexing = False
 
                         if do_indexing:
@@ -135,37 +136,49 @@ def index_archives(job_id):
             else:
                 break
 
-    print(len(archives))
-    for archive in archives:
-        index_archive(corpus, archive)
+    if archives:
+        for archive in archives:
+            huey_task = index_archive(job_id, str(archive.id))
+            job.add_process(huey_task.id)
+
+        job.set_status('running')
+    else:
+        print("No valid candidates for indexing found. Completing job.")
+        job.complete(status='complete')
 
     es_logger.setLevel(es_log_level)
 
 
 def get_or_create_archive(corpus, handle):
-    print('getting or creating archive')
     archive = None
     try:
         archive = corpus.get_content('ArcArchive', {'handle': handle})[0]
-        print("archive {0} found.".format(archive.handle))
     except:
         archive = None
 
     if not archive:
-        print('not found. attempting to create')
         try:
             archive = corpus.get_content('ArcArchive')
             archive.handle = handle
             archive.save()
-            print("created archive for {0} w/ id {1}".format(archive.handle, archive.id))
+            print("Created archive for {0} ({1})".format(archive.handle, archive.id))
         except:
-            print("Error creating archive!")
+            print("Error creating archive:")
             print(traceback.format_exc())
 
     return archive
 
 
-def index_archive(corpus, archive):
+@db_task(priority=1, context=True)
+def index_archive(job_id, archive_id, task=None):
+    job = Job(job_id)
+    corpus = job.corpus
+    archive = corpus.get_content('ArcArchive', archive_id)
+
+    es_logger = logging.getLogger('elasticsearch')
+    es_log_level = es_logger.getEffectiveLevel()
+    es_logger.setLevel(logging.WARNING)
+
     print("Indexing {0} archive...".format(archive.handle))
     artifacts_indexed = 0
     indexing_started = time.time()
@@ -326,10 +339,17 @@ def index_archive(corpus, archive):
                             num_failures += 1
 
                 artifacts_indexed += len(artifacts)
+
+            archive.last_indexed = datetime.now()
+            archive.save()
     except:
         print(traceback.format_exc())
 
     print("Indexed {0} items in {1} seconds.".format(artifacts_indexed, time.time() - indexing_started))
+    es_logger.setLevel(es_log_level)
+
+    if task:
+        job.complete_process(task.id)
 
 
 def find_rdf_in_path(path, temp_file):

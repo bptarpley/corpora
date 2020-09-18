@@ -103,6 +103,21 @@ def corpus(request, corpus_id):
                 else:
                     response['errors'].append("Please provide values for all task parameters.")
 
+            # HANDLE JOB RETRY
+            elif _contains(request.POST, ['retry-job-id']):
+                retry_job_id = _clean(request.POST, 'retry-job-id')
+                for completed_task in corpus.completed_tasks:
+                    if completed_task.job_id == retry_job_id:
+                        job = Job.setup_retry_for_completed_task(corpus_id, 'Corpus', None, completed_task)
+                        corpus.modify(pull__completed_tasks=completed_task)
+                        run_job(job.id)
+
+            # HANDLE JOB KILL
+            elif _contains(request.POST, ['kill-job-id']):
+                kill_job_id = _clean(request.POST, 'kill-job-id')
+                job = Job(kill_job_id)
+                job.kill()
+
             # HANDLE CONTENT TYPE SCHEMA SUBMISSION
             elif 'schema' in request.POST:
                 schema = json.loads(request.POST['schema'])
@@ -683,6 +698,7 @@ def api_corpus(request, corpus_id):
             content_type='application/json'
         )
 
+
 @api_view(['GET'])
 def api_content(request, corpus_id, content_type, content_id=None):
     context = _get_context(request)
@@ -702,6 +718,32 @@ def api_content(request, corpus_id, content_type, content_id=None):
 
     return HttpResponse(
         json.dumps(content),
+        content_type='application/json'
+    )
+
+
+@api_view(['GET'])
+def api_neo_json(request, corpus_id, content_type, content_id):
+    context = _get_context(request)
+    neo_json = {}
+    mode = _clean(request.GET, 'mode', 'neo')
+
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+
+    if corpus and content_type in corpus.content_types:
+        neo_json = get_neo_json('''
+            MATCH path = (a:{0}) -[b]- (c)
+            WHERE a.uri = '/corpus/{1}/{0}/{2}'
+            RETURN path
+            LIMIT 10
+        '''.format(
+            content_type,
+            corpus_id,
+            content_id
+        ), mode=mode)
+
+    return HttpResponse(
+        json.dumps(neo_json),
         content_type='application/json'
     )
 

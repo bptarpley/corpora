@@ -2,7 +2,7 @@
 
 if [ ! -f /apps/initialized ]; then
     echo "WAITING FOR DATABASES..."
-    sleep 20
+    sleep 30
 fi
 
 cd /apps/corpora

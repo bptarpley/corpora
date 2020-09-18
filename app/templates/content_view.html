@@ -8,6 +8,8 @@
             margin-bottom: 20px;
         }
     </style>
+    <link href="{% static 'css/neo4jd3.min.css' %}" rel="stylesheet">
+
 {% endblock %}
 
 {% block main %}
@@ -21,9 +23,27 @@
                         <!-- title -->
                     </h4>
                 </div>
-                <div class="card-body content-type-card" id="content-div">
-
+                <div class="card-body h-100">
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link active" id="metadata-tab" data-toggle="tab" href="#metadata" role="tab" aria-controls="metadata" aria-selected="true">Metadata</a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" id="explore-tab" data-toggle="tab" href="#explore" role="tab" aria-controls="explore" aria-selected="false">Explore</a>
+                        </li>
+                    </ul>
+                    <div class="tab-content h-100">
+                        <div class="tab-pane fade show active" id="metadata" role="tabpanel" aria-labelledby="metadata-tab">
+                            <div class="content-type-card" id="content-div">
+                                <!-- content metadata -->
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="explore" role="tabpanel" aria-labelledby="explore-tab" style="height: 800px;">
+                            <div id="explore-div" style="height: 800px;"></div>
+                        </div>
+                    </div>
                 </div>
+
                 <div class="card-footer" id="content-footer">
                     {% if response.scholar.is_admin or role == 'Editor' %}
                         <a href="/corpus/{{ corpus_id }}/{{ content_type }}/{{ content_id }}/edit/">
@@ -40,12 +60,15 @@
 {% block js %}
     <script src="{% static 'js/filepond.js' %}"></script>
     <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
+    <script src="{% static 'js/d3.min.js' %}"></script>
+    <script src="{% static 'js/neo4jd3.min.js' %}"></script>
     <script type="application/javascript">
         var corpus_id = '{{ corpus_id }}';
         var content_type_name = '{{ content_type }}';
         var content_id = '{% if content_id %}{{ content_id }}{% endif %}';
         var content_type = null;
         var content = null;
+        var neo4jd3 = null;
 
         var field_templates = {
             text: function(field, value) {
@@ -123,6 +146,28 @@
                     content = content_data;
                     add_breadcrumb(content.label, `/corpus/${corpus_id}/${content_type_name}/${content_id}/`);
                     inject_content();
+
+                    corpora.get_neo_json(corpus_id, content_type_name, content_id, function(neojson) {
+                    neo4jd3 = new Neo4jd3('#explore-div', {
+                        highlight: [
+                            {
+                                class: content_type_name,
+                                property: 'label',
+                                value: content.label
+                            }
+                        ],
+                        minCollision: 60,
+                        neo4jData: neojson,
+                        onNodeDoubleClick: function(node) {
+                            let node_ct = node.labels[0];
+                            let node_id = node.properties.id;
+                            corpora.get_neo_json(corpus_id, node_ct, node_id, function(neojson) {
+                                neo4jd3.updateWithD3Data(neojson);
+                            }, mode='d3');
+                        },
+                        zoomFit: true
+                    });
+                })
                 });
             });
         });

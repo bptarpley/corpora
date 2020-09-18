@@ -446,6 +446,35 @@ class Job(object):
             {'job_uri': "/job/{0}".format(self.id)}
         )
 
+    def kill(self):
+        results = run_neo(
+            '''
+                MATCH (j:Job { uri: $job_uri }) -[rel:hasProcess]-> (p:Process)
+                return p
+            ''',
+            {'job_uri': "/job/{0}".format(self.id)}
+        )
+        if results:
+            for proc in results:
+                task_id = proc['p']['uri'].split('/')[-1]
+                if task_id:
+                    try:
+                        settings.HUEY.revoke_by_id(task_id)
+                    except:
+                        print('Attempt to revoke process {0} in Huey task queue failed:'.format(task_id))
+                        print(traceback.format_exc())
+
+        run_neo(
+            '''
+                MATCH (j:Job { uri: $job_uri })
+                OPTIONAL MATCH (j) -[rel:hasProcess]-> (p)
+                DETACH DELETE j, p
+            ''',
+            {
+                'job_uri': '/job/{0}'.format(self.id)
+            }
+        )
+
     @property
     def corpus(self):
         if not hasattr(self, '_corpus'):
@@ -2268,6 +2297,80 @@ def run_neo(cypher, params={}):
         finally:
             neo.close()
     return results
+
+
+def get_neo_json(cypher, mode='neo'):
+    graph_json = {}
+
+    if mode == 'neo':
+        graph_json = {
+            'results': [
+                {
+                    'columns': ['a', 'b'],
+                    'data': [{
+                        'graph': {
+                            'nodes': [],
+                            'relationships': []
+                        }
+                    }]
+                }
+            ],
+            'errors': []
+        }
+    else:
+        graph_json = {
+            'nodes': [],
+            'relationships': []
+        }
+
+    results = run_neo(cypher)
+    node_ids = []
+    rel_ids = []
+
+    for result in results:
+        graph = result.items()[0][1].graph
+        for node in graph.nodes:
+            if node.id not in node_ids:
+                node_dict = {
+                    'id': str(node.id),
+                    'labels': list(node.labels),
+                    'properties': {}
+                }
+
+                for key, val in node.items():
+                    node_dict['properties'][key] = val
+
+                if mode == 'neo':
+                    graph_json['results'][0]['data'][0]['graph']['nodes'].append(node_dict)
+                else:
+                    graph_json['nodes'].append(node_dict)
+
+                node_ids.append(node.id)
+
+        for rel in graph.relationships:
+            if rel.id not in rel_ids:
+                rel_dict = {
+                    'id': str(rel.id),
+                    'type': rel.type,
+                    'startNode': str(rel.start_node.id),
+                    'endNode': str(rel.end_node.id),
+                    'properties': {},
+                    'source': str(rel.start_node.id),
+                    'target': str(rel.end_node.id),
+                    'linknum': 1
+                }
+
+                for key, val in rel.items():
+                    rel_dict['properties'][key] = val
+
+                if mode == 'neo':
+                    graph_json['results'][0]['data'][0]['graph']['relationships'].append(rel_dict)
+                else:
+                    graph_json['relationships'].append(rel_dict)
+
+                rel_ids.append(rel.id)
+
+    return graph_json
 
 
 def ensure_neo_indexes(node_names):

@@ -192,6 +192,15 @@ class Corpora {
         )
     }
 
+    get_neo_json(corpus_id, content_type, content_id, callback, mode='neo') {
+        this.make_request(
+            `/api/corpus/${corpus_id}/${content_type}/${content_id}/neojson/`,
+            "GET",
+            {mode: mode},
+            callback
+        );
+    }
+
     get_corpus_files(corpus_id, path, filter, callback) {
         let endpoint = `/api/corpus/${corpus_id}/files/`;
 

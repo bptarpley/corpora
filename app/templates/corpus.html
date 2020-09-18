@@ -351,28 +351,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-
-
-            <div class="col-6">
-                <!-- JOBS -->
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <div class="d-flex w-100 justify-content-between align-items-center">
-                            <h4>Jobs</h4>
-                            {% if response.scholar.is_admin or role == 'Editor' %}
-                                <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
-                            {% else %}
-                                <span>&nbsp;</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="alert alert-info">
-                            There are currently no jobs running for this corpus.
-                        </div>
-                    </div>
-                </div>
 
                 <!-- FILES -->
                 <div class="card mb-3">
@@ -392,6 +370,45 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+
+            <div class="col-6">
+                <!-- JOBS -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h4>Running Jobs</h4>
+                            {% if response.scholar.is_admin or role == 'Editor' %}
+                                <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
+                            {% else %}
+                                <span>&nbsp;</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="running-jobs-div">
+                            <div id="no-running-jobs-div" class="alert alert-info">
+                                There are currently no jobs running for this corpus.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4>Provenance</h4>
+                    </div>
+                    <div class="card-body">
+                        <div id="provenance-div">
+                            <div class="alert alert-info">
+                                No jobs have been completed for this corpus.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
             </div>
 
         </div>
@@ -552,6 +569,36 @@
                         `);
                     }
                 }
+
+                // load corpus provenance
+                let provenance_div = $('#provenance-div');
+                if (corpus.provenance.length > 0) { provenance_div.html(''); }
+                corpus.provenance.forEach( prov => {
+                    let retry_form = '';
+                    if (role === 'Admin' || role === 'Editor') {
+                        retry_form = `
+                            <form method="post">
+                                <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
+                                <input type="hidden" name="retry-job-id" value="${prov.job_id}">
+                                <button type="submit" role="button" class="btn btn-danger">Retry</button>
+                            </form>
+                        `;
+                    }
+
+                    provenance_div.append(`
+                        <div id="provenance-${prov.job_id}-div" class="alert alert-${prov.status === "complete" ? 'success' : 'danger'} provenance">
+                            <div class="row">
+                                <div class="col-sm-10">
+                                    Task: <b>${prov.task_name}</b><br />
+                                    Completed: ${corpora.time_string(prov.completed)}
+                                </div>
+                                <div class="col-sm-2">
+                                    ${retry_form}
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                });
 
                 // load corpus files
                 let corpus_files_div = $('#corpus-files-div');
@@ -1179,18 +1226,26 @@
                                         value = `<a href="${value.uri}" target="_blank">${value.label}</a>`;
                                     }
                                 } else if (field.multiple) {
-                                    if (field.type == 'text' || field.type == 'large_text' || field.type == 'keyword') {
+                                    if (field.type === 'text' || field.type === 'large_text' || field.type === 'keyword') {
                                         value = value.join(' ');
                                     } else {
                                         let multi_value = '';
                                         for (let y in value) {
-                                            multi_value += `, ${value[y]}`;
+                                            if (field.type === 'date') {
+                                                multi_value += `, ${corpora.date_string(value[y])}`;
+                                            }
+                                            else {
+                                                multi_value += `, ${value[y]}`;
+                                            }
                                         }
                                         if (multi_value) {
                                             multi_value = multi_value.substring(2);
                                         }
                                         value = multi_value;
                                     }
+                                }
+                                else if (field.type === 'date') {
+                                    value = corpora.date_string(value);
                                 }
                             }
 
@@ -1828,6 +1883,8 @@
                 let has_running = false;
                 let has_completed = false;
                 let stale_jobs = [];
+                let stale_window = 1000 * 60 * 60 * 24;
+
                 $('.running-job').each(function(index, item) {
                     stale_jobs.push($(item).attr('id').replace('running-job-', '').replace('-div', ''));
                 });
@@ -1862,20 +1919,42 @@
                             $(`#running-job-${job_id}-progress-bar`).attr("aria-valuenow", progress_value);
                             $(`#running-job-${job_id}-progress-bar`).html(progress_value);
                         } else {
+                            let kill_job_form = '';
+                            let job_status_time = jobs[x].status_time * 1000;
+
+                            if ((Date.now() - job_status_time) > stale_window && role === 'Admin') {
+                                kill_job_form = `
+                                    <form method="post">
+                                        <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
+                                        <input type="hidden" name="kill-job-id" value="${job_id}">
+                                        <button type="submit" role="button" class="btn btn-danger">Kill</button>
+                                    </form>
+                                `;
+                            }
+
                             let job_html = `
                                 <div id="running-job-${job_id}-div" class="alert alert-info running-job">
-                                    Task: <b>${task_name}</b>
-                                    <div class="progress">
-                                        <div id="running-job-${job_id}-progress-bar"
-                                             class="progress-bar progress-bar-striped bg-success progress-bar-animated"
-                                             role="progressbar"
-                                             aria-valuenow="${progress_value}"
-                                             aria-valuemin="0"
-                                             aria-valuemax="100"
-                                             style="width: ${progress_value}%">
-                                            ${label}
+                                    <div class="row">
+                                        <div class="col-sm-10">
+                                            Task: <b>${task_name}</b>
+                                        </div>
+                                        <div class="col-sm-2">
+                                            ${kill_job_form}
                                         </div>
                                     </div>
+                                    <div class="row"><div class="col-sm-12">
+                                        <div class="progress">
+                                            <div id="running-job-${job_id}-progress-bar"
+                                                 class="progress-bar progress-bar-striped bg-success progress-bar-animated"
+                                                 role="progressbar"
+                                                 aria-valuenow="${progress_value}"
+                                                 aria-valuemin="0"
+                                                 aria-valuemax="100"
+                                                 style="width: ${progress_value}%">
+                                                ${label}
+                                            </div>
+                                        </div>
+                                    </div></div>
                                 </div>
                             `;
 
@@ -1895,7 +1974,7 @@
                 if (!has_running && !$('#no-running-jobs-div').length) {
                     $('#running-jobs-div').append(`
                         <div id="no-running-jobs-div" class="alert alert-info">
-                            There are currently no jobs running for this document.
+                            There are currently no jobs running for this corpus.
                         </div>
                     `);
                 }
