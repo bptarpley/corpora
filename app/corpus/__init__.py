@@ -2284,16 +2284,22 @@ def get_field_value_from_path(obj, path):
     return value
 
 
-def run_neo(cypher, params={}):
+def run_neo(cypher, params={}, tries=0):
     results = None
     with settings.NEO4J.session() as neo:
         try:
             results = list(neo.run(cypher, **params))
         except:
+            error = traceback.format_exc()
+            if 'defunct connection' in error and tries < 3:
+                print("Attempting to recover from stale Neo4J connection...")
+                neo.close()
+                return run_neo(cypher, params, tries + 1)
+
             print("Error running Neo4J cypher!")
             print("Cypher: {0}".format(cypher))
             print("Params: {0}".format(json.dumps(params, indent=4)))
-            print(traceback.format_exc())
+            print(error)
         finally:
             neo.close()
     return results

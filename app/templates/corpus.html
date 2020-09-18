@@ -1098,7 +1098,7 @@
             // add the total number of results to the search criteria div
             current_search_div.append(`
                 <span class="badge badge-primary p-2 mr-2" style="font-size: 12px;">
-                    Total: ${content.meta.total}
+                    Total: ${content.meta.total.toLocaleString('en-US')}
                 </span>
             `);
 
