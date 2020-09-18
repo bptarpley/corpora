@@ -5,6 +5,7 @@ import time
 import traceback
 import pymysql
 import math
+import redis
 from copy import deepcopy
 from corpus import Corpus, Job, get_corpus, File
 from huey.contrib.djhuey import db_task, db_periodic_task
@@ -132,23 +133,41 @@ def run_job(job_id):
 
 @db_periodic_task(crontab(minute='*'), priority=4)
 def check_jobs():
-    jobs = Job.get_jobs()
-    for job in jobs:
-        if job.jobsite.name == 'Local':
-            if job.status == 'running':
-                if job.percent_complete == 100:
-                    if len(job.jobsite.task_registry[job.task.name]['functions']) > (job.stage + 1):
-                        job.clear_processes()
-                        job.stage += 1
-                        job.save()
+    # the bool below is for preventing race conditions when django app is replicated in a cluster
+    proceed = False
 
-                        task_module = importlib.import_module(job.jobsite.task_registry[job.task.name]['module'])
-                        task_function = getattr(task_module, job.jobsite.task_registry[job.task.name]['functions'][job.stage])
-                        task_function(job.id)
-                    else:
-                        job.complete(status='complete')
-            elif job.status == 'queueing':
-                run_job(job.id)
+    cache = redis.Redis(host='redis', decode_responses=True)
+    now = int(datetime.timestamp())
+    last_checked = cache.get('corpora_manager_last_job_check')
+
+    if last_checked:
+        if now - int(last_checked) >= 50:
+            cache.set('corpora_manager_last_job_check', now)
+            proceed = True
+        else:
+            print('jobs already checked.')
+    else:
+        cache.set('corpora_manager_last_job_check', now)
+        proceed = True
+
+    if proceed:
+        jobs = Job.get_jobs()
+        for job in jobs:
+            if job.jobsite.name == 'Local':
+                if job.status == 'running':
+                    if job.percent_complete == 100:
+                        if len(job.jobsite.task_registry[job.task.name]['functions']) > (job.stage + 1):
+                            job.clear_processes()
+                            job.stage += 1
+                            job.save()
+
+                            task_module = importlib.import_module(job.jobsite.task_registry[job.task.name]['module'])
+                            task_function = getattr(task_module, job.jobsite.task_registry[job.task.name]['functions'][job.stage])
+                            task_function(job.id)
+                        else:
+                            job.complete(status='complete')
+                elif job.status == 'queueing':
+                    run_job(job.id)
 
 
 @db_task(priority=5)
