@@ -1183,12 +1183,24 @@
 
             // records exist, so populate the content type table with a page of results
             } else {
-                // setup the page selector based on total # of pages
-                for (let x = 1; x <= content.meta.num_pages; x++) {
+                // setup the page selector based on total # of pages within 50 page range
+                let min_page = content.meta.page - 50;
+                let max_page = content.meta.page + 50;
+                let first_pg_msg = '';
+                let last_pg_msg = '';
+
+                if (min_page < 1) { min_page = 1; }
+                if (max_page > content.meta.num_pages) { max_page = content.meta.num_pages; }
+                if (min_page > 1) { first_pg_msg = ' and below'; }
+                if (max_page < content.meta.num_pages) { last_pg_msg = ' and above'; }
+
+                for (let x = min_page; x <= max_page; x++) {
                     let option_html = `<option value="${x}">Page ${x}</option>`;
-                    if (x === content.meta.page) {
-                        option_html = option_html.replace('">', '" selected>');
-                    }
+
+                    if (x === content.meta.page) { option_html = option_html.replace('">', '" selected>'); }
+                    if (x === min_page) { option_html = option_html.replace('</', `${first_pg_msg}</`); }
+                    else if (x === max_page) { option_html = option_html.replace('</', `${last_pg_msg}</`); }
+
                     page_selector.append(option_html);
                 }
                 page_selector.removeClass("d-none");
