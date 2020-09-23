@@ -723,15 +723,14 @@ def api_content(request, corpus_id, content_type, content_id=None):
 
 
 @api_view(['GET'])
-def api_neo_json(request, corpus_id, content_type, content_id):
+def api_network_json(request, corpus_id, content_type, content_id):
     context = _get_context(request)
-    neo_json = {}
-    mode = _clean(request.GET, 'mode', 'neo')
+    network_json = {}
 
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
 
     if corpus and content_type in corpus.content_types:
-        neo_json = get_neo_json('''
+        network_json = get_network_json('''
             MATCH path = (a:{0}) -[b]- (c)
             WHERE a.uri = '/corpus/{1}/{0}/{2}'
             RETURN path
@@ -740,10 +739,10 @@ def api_neo_json(request, corpus_id, content_type, content_id):
             content_type,
             corpus_id,
             content_id
-        ), mode=mode)
+        ))
 
     return HttpResponse(
-        json.dumps(neo_json),
+        json.dumps(network_json),
         content_type='application/json'
     )
 

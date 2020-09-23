@@ -192,11 +192,11 @@ class Corpora {
         )
     }
 
-    get_neo_json(corpus_id, content_type, content_id, callback, mode='neo') {
+    get_network_json(corpus_id, content_type, content_id, callback) {
         this.make_request(
-            `/api/corpus/${corpus_id}/${content_type}/${content_id}/neojson/`,
+            `/api/corpus/${corpus_id}/${content_type}/${content_id}/network-json/`,
             "GET",
-            {mode: mode},
+            {},
             callback
         );
     }

@@ -2305,78 +2305,52 @@ def run_neo(cypher, params={}, tries=0):
     return results
 
 
-def get_neo_json(cypher, mode='neo'):
-    graph_json = {}
+def get_network_json(cypher):
+    net_json = {
+        'nodes': [],
+        'edges': []
+    }
 
-    if mode == 'neo':
-        graph_json = {
-            'results': [
-                {
-                    'columns': ['a', 'b'],
-                    'data': [{
-                        'graph': {
-                            'nodes': [],
-                            'relationships': []
-                        }
-                    }]
-                }
-            ],
-            'errors': []
-        }
-    else:
-        graph_json = {
-            'nodes': [],
-            'relationships': []
-        }
+    node_id_to_uri_map = {}
+    rel_ids = []
 
     results = run_neo(cypher)
-    node_ids = []
-    rel_ids = []
 
     for result in results:
         graph = result.items()[0][1].graph
         for node in graph.nodes:
-            if node.id not in node_ids:
-                node_dict = {
-                    'id': str(node.id),
-                    'labels': list(node.labels),
-                    'properties': {}
-                }
-
+            if node.id not in node_id_to_uri_map:
+                node_props = {}
                 for key, val in node.items():
-                    node_dict['properties'][key] = val
+                    node_props[key] = val
 
-                if mode == 'neo':
-                    graph_json['results'][0]['data'][0]['graph']['nodes'].append(node_dict)
-                else:
-                    graph_json['nodes'].append(node_dict)
+                uri = node_props.get('uri', str(node.id))
+                label = node_props.get('label', str(node.id))
+                node_type = list(node.labels)[0]
 
-                node_ids.append(node.id)
+                if node_type == 'Corpus':
+                    label = node_props.get('name', str('Corpus'))
+
+                net_json['nodes'].append({
+                    'id': uri,
+                    'group': node_type,
+                    'title': label
+                })
+
+                node_id_to_uri_map[node.id] = uri
 
         for rel in graph.relationships:
-            if rel.id not in rel_ids:
-                rel_dict = {
+            if rel.id not in rel_ids and rel.start_node.id in node_id_to_uri_map and rel.end_node.id in node_id_to_uri_map:
+                net_json['edges'].append({
                     'id': str(rel.id),
-                    'type': rel.type,
-                    'startNode': str(rel.start_node.id),
-                    'endNode': str(rel.end_node.id),
-                    'properties': {},
-                    'source': str(rel.start_node.id),
-                    'target': str(rel.end_node.id),
-                    'linknum': 1
-                }
-
-                for key, val in rel.items():
-                    rel_dict['properties'][key] = val
-
-                if mode == 'neo':
-                    graph_json['results'][0]['data'][0]['graph']['relationships'].append(rel_dict)
-                else:
-                    graph_json['relationships'].append(rel_dict)
+                    'title': rel.type,
+                    'from': node_id_to_uri_map[rel.start_node.id],
+                    'to': node_id_to_uri_map[rel.end_node.id],
+                })
 
                 rel_ids.append(rel.id)
 
-    return graph_json
+    return net_json
 
 
 def ensure_neo_indexes(node_names):

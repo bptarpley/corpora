@@ -4,6 +4,7 @@ import importlib
 import time
 import traceback
 import pymysql
+import logging
 import math
 import redis
 from copy import deepcopy
@@ -181,6 +182,10 @@ def adjust_content(job_id):
     relink = job.configuration['parameters']['relink']['value']
     related_content_types = job.configuration['parameters']['related_content_types']['value']
 
+    es_logger = logging.getLogger('elasticsearch')
+    es_log_level = es_logger.getEffectiveLevel()
+    es_logger.setLevel(logging.WARNING)
+
     content_types = related_content_types.split(',')
     content_types.insert(0, primary_content_type)
     content_types = [ct for ct in content_types if ct]
@@ -213,7 +218,7 @@ def adjust_content(job_id):
 
         content_types_adjusted += 1
 
-
+    es_logger.setLevel(es_log_level)
     job.complete(status='complete')
 
 
