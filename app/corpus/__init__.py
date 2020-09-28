@@ -1088,7 +1088,7 @@ class Corpus(mongoengine.Document):
             content_id
         )
 
-    def search_content(self, content_type, page=1, page_size=50, general_query="", fields_query=[], fields_filter=[], fields_sort=[], only=[], search_mode="wildcard"):
+    def search_content(self, content_type, page=1, page_size=50, general_query="", fields_query=[], fields_filter=[], fields_sort=[], only=[], excludes=[], search_mode="wildcard", aggregations={}):
         results = {
             'meta': {
                 'content_type': content_type,
@@ -1096,7 +1096,8 @@ class Corpus(mongoengine.Document):
                 'page': page,
                 'page_size': page_size,
                 'num_pages': 1,
-                'has_next_page': False
+                'has_next_page': False,
+                'aggregations': {}
             },
             'records': []
         }
@@ -1171,10 +1172,16 @@ class Corpus(mongoengine.Document):
 
                 search_cmd = Search(using=get_connection(), index=index_name, extra=extra).query(search_query)
 
-                if only:
-                    if '_id' not in only:
+                # HANDLE RETURNING FIELD RESTRICTIONS (ONLY and EXCLUDES)
+                if only or excludes:
+                    if only and '_id' not in only:
                         only.append('_id')
-                    search_cmd = search_cmd.source(includes=only)
+
+                    search_cmd = search_cmd.source(includes=only, excludes=excludes)
+
+                # ADD ANY AGGREGATIONS TO SEARCH
+                for agg_name, agg in aggregations.items():
+                    search_cmd.aggs.bucket(agg_name, agg)
 
                 if fields_sort:
                     adjusted_fields_sort = []
@@ -1210,9 +1217,9 @@ class Corpus(mongoengine.Document):
                     search_cmd = search_cmd.sort(*adjusted_fields_sort)
 
                 search_cmd = search_cmd[start_index:end_index]
-                # print(json.dumps(search_cmd.to_dict(), indent=4))
+                print(json.dumps(search_cmd.to_dict(), indent=4))
                 search_results = search_cmd.execute().to_dict()
-                # print(json.dumps(search_results, indent=4))
+                print(json.dumps(search_results, indent=4))
                 results['meta']['total'] = search_results['hits']['total']['value']
                 results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
                 results['meta']['has_next_page'] = results['meta']['page'] < results['meta']['num_pages']
@@ -1222,6 +1229,13 @@ class Corpus(mongoengine.Document):
                     record['id'] = hit['_id']
                     record['_search_score'] = hit['_score']
                     results['records'].append(record)
+
+                if 'aggregations' in search_results:
+                    for agg_name in search_results['aggregations'].keys():
+                        results['meta']['aggregations'][agg_name] = {}
+
+                        for agg_result in search_results['aggregations'][agg_name]['names']['buckets']:
+                            results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
 
         return results
 
