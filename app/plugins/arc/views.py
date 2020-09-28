@@ -18,19 +18,19 @@ def query(request, corpus_id):
         aggs = {}
 
         aggs['federations'] = A('nested', path='federations')
-        aggs['federations'].bucket('names', 'terms', field='federations.handle')
+        aggs['federations'].bucket('names', 'terms', size=10000, field='federations.handle')
 
         aggs['archives'] = A('nested', path='archive')
-        aggs['archives'].bucket('names', 'terms', field='archive.handle')
+        aggs['archives'].bucket('names', 'terms', size=10000, field='archive.handle')
 
         aggs['types'] = A('nested', path='types')
-        aggs['types'].bucket('names', 'terms', field='types.name')
+        aggs['types'].bucket('names', 'terms', size=10000, field='types.name')
 
         aggs['genres'] = A('nested', path='genres')
-        aggs['genres'].bucket('names', 'terms', field='genres.name')
+        aggs['genres'].bucket('names', 'terms', size=10000, field='genres.name')
 
         aggs['disciplines'] = A('nested', path='disciplines')
-        aggs['disciplines'].bucket('names', 'terms', field='disciplines.name')
+        aggs['disciplines'].bucket('names', 'terms', size=10000, field='disciplines.name')
 
         if context['search']:
             content = corpus.search_content(content_type='ArcArtifact', excludes=['full_text_contents'], aggregations=aggs, **context['search'])
