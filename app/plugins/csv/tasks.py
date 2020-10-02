@@ -75,7 +75,10 @@ def import_csv_data(job_id):
                 for field_name in row.keys():
                     ct_field = ct.get_field(field_name)
                     if ct_field:
-                        setattr(content, field_name, row[field_name])
+                        if row[field_name]:
+                            setattr(content, field_name, row[field_name])
+                        else:
+                            setattr(content, field_name, None)
                         needs_saving = True
 
                 if needs_saving:
