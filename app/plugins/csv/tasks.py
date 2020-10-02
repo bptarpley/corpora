@@ -65,7 +65,10 @@ def import_csv_data(job_id):
                             keys_present = False
 
                     if keys_present and query:
-                        content = corpus.get_content(content_type, query)
+                        try:
+                            content = corpus.get_content(content_type, query)[0]
+                        except:
+                            content = None
 
                 if not content:
                     content = corpus.get_content(content_type)
