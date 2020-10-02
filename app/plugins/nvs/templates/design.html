@@ -23,7 +23,11 @@
 
         <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=Roboto:ital@0;1&display=swap" rel="stylesheet">
-        <style>
+        <style title="main-sheet">
+            :root {
+                --scrollbarURL: url("/corpus/{{ corpus_id }}/play-minimap/?width=40&height=1000");
+            }
+
             body {
                 background-color: #FFFFFF;
             }
@@ -36,6 +40,7 @@
             .heading-row {
                 background-color: #FFFFFF;
                 z-index: 20;
+                height: 100px;
             }
 
             .heading-label {
@@ -60,6 +65,25 @@
 
             .heading-buton-active {
                 background-color: #f0a962 !important;
+            }
+
+            #main-col {
+                overflow-y: scroll;
+                max-height: calc(100vh - 100px);
+            }
+
+            #main-col::-webkit-scrollbar {
+                width: 40px;
+            }
+
+            #main-col::-webkit-scrollbar-track {
+                background-image: var(--scrollbarURL);
+                background-size: contain;
+                background-repeat: no-repeat;
+            }
+
+            #main-col::-webkit-scrollbar-thumb {
+                background-color: rgba(247, 155, 86, .5);
             }
 
             #witness-header-col {
@@ -218,6 +242,7 @@
                              data-xml_id="{{ line.xml_id }}"
                              data-line_number="{{ line.line_number }}"
                              data-words="{{ line.words|join:" " }}"
+                             data-word-length="{{ line.words|length }}"
                              data-witness_indicators="{{ line.witness_meter }}"
                         >
                             <div id="{{ line.xml_id }}-witness-col" class="col-sm-4 witness-meter">
@@ -292,6 +317,7 @@
     $(document).ready(function() {
         corpora = new Corpora({'csrf_token': "{{ csrf_token }}"});
         screen_size = determine_screen_size(window.innerWidth);
+        $(":root").css("--scrollbarURL", `url(/corpus/${corpus_id}/play-minimap/?width=40&height=${$("#main-col").height()})`);
 
         corpora.list_content(
             corpus_id,

@@ -17,20 +17,22 @@ def query(request, corpus_id):
 
         aggs = {}
 
-        aggs['federations'] = A('nested', path='federations')
-        aggs['federations'].bucket('names', 'terms', size=10000, field='federations.handle')
+        aggs['ArcFederation'] = A('nested', path='federations')
+        aggs['ArcFederation'].bucket('names', 'terms', size=10000, field='federations.id')
 
-        aggs['archives'] = A('nested', path='archive')
-        aggs['archives'].bucket('names', 'terms', size=10000, field='archive.handle')
+        aggs['ArcArchive'] = A('nested', path='archive')
+        aggs['ArcArchive'].bucket('names', 'terms', size=10000, field='archive.id')
 
-        aggs['types'] = A('nested', path='types')
-        aggs['types'].bucket('names', 'terms', size=10000, field='types.name')
+        aggs['ArcType'] = A('nested', path='types')
+        aggs['ArcType'].bucket('names', 'terms', size=10000, field='types.id')
 
-        aggs['genres'] = A('nested', path='genres')
-        aggs['genres'].bucket('names', 'terms', size=10000, field='genres.name')
+        aggs['ArcGenre'] = A('nested', path='genres')
+        aggs['ArcGenre'].bucket('names', 'terms', size=10000, field='genres.id')
 
-        aggs['disciplines'] = A('nested', path='disciplines')
-        aggs['disciplines'].bucket('names', 'terms', size=10000, field='disciplines.name')
+        aggs['ArcDiscipline'] = A('nested', path='disciplines')
+        aggs['ArcDiscipline'].bucket('names', 'terms', size=10000, field='disciplines.id')
+
+        aggs['years'] = A('terms', field='years', size=10000)
 
         if context['search']:
             content = corpus.search_content(content_type='ArcArtifact', excludes=['full_text_contents'], aggregations=aggs, **context['search'])
@@ -43,4 +45,19 @@ def query(request, corpus_id):
     return HttpResponse(
         json.dumps(content),
         content_type='application/json'
+    )
+
+
+def bigdiva(request, corpus_id):
+    response = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
+
+    return render(
+        request,
+        'bigdiva.html',
+        {
+            'corpus_id': corpus_id,
+            'role': role,
+            'response': response,
+        }
     )

@@ -1,0 +1,460 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BigDIVA</title>
+
+    <style>
+        html, body, #graph, #time {
+            height: 100%;
+            width: 100%;
+            padding: 0;
+            margin: 0;
+        }
+
+        #time-widget {
+            position: absolute;
+            width: 100%;
+            height: 10%;
+            max-height: 50px;
+            bottom: 0px;
+            background-color: rgba(68, 68, 68, .7);
+        }
+
+        .node-label {
+            background-color: #FFFFFF;
+        }
+
+        .resource {
+            fill: url(#gradient-resource-normal);
+            stroke: #0868ac;
+        }
+
+        .disabled {
+            fill: url(#gradient-resource-disabled);
+            stroke: #444;
+        }
+
+        .root-node {
+            fill: url(#gradient-arc-root-normal);
+            stroke: #444;
+        }
+    </style>
+</head>
+<body>
+    <!-- GRAPH (where the nodes and edges go) -->
+    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="graph">
+        <g id="root">
+            <defs>
+                <linearGradient id="gradient-resource-normal" x1="0%" y1="0%" x2="100%" y2="100%" spreadMethod="pad">
+                    <stop offset="15%" stop-color="#43a2ca" stop-opacity="1"></stop>
+                    <stop offset="100%" stop-color="#0868ac" stop-opacity="1"></stop>
+                </linearGradient>
+                <linearGradient id="gradient-arc-root-normal" x1="0%" y1="0%" x2="100%" y2="100%" spreadMethod="pad">
+                    <stop offset="15%" stop-color="#f9f9f9" stop-opacity="1"></stop>
+                    <stop offset="100%" stop-color="#a2a2a2" stop-opacity="1"></stop>
+                </linearGradient>
+                <linearGradient id="gradient-resource-disabled" x1="0%" y1="0%" x2="100%" y2="100%" spreadMethod="pad">
+                    <stop offset="15%" stop-color="#a2a2a2" stop-opacity="1"></stop>
+                    <stop offset="100%" stop-color="#686868" stop-opacity="1"></stop>
+                </linearGradient>
+            </defs>
+        </g>
+    </svg>
+
+    <!-- TIME WIDGET -->
+    <div id="time-widget">
+        <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="time">
+        </svg>
+    </div>
+
+    <script src="{% static 'js/jquery-3.3.1.min.js' %}"></script>
+    <script src="{% static 'js/corpora.js' %}"></script>
+    <script src="{% static 'js/d3.min.js' %}"></script>
+    <script type="application/javascript">
+        var corpora = null;
+        var corpus_id = '{{ corpus_id }}';
+        var criteria = {};
+
+        // VARS NEEDED FOR GRAPH
+        let nodes_loading = {};
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        var nodes = [{
+            id: `/corpus/${corpus_id}`,
+            label: 'ARC',
+            group: 'Corpus',
+            size: 1,
+            image: '{% static 'img/arc-logo.png' %}',
+            image_x: "-25px",
+            image_y: "-31px",
+            image_width: "50px",
+            image_height: "63px",
+            fx: 0,
+            fy: 0
+        }];
+        var edges = [];
+        var min_radius = 1;
+        var max_radius = 10;
+        var drag, simulation, svg, g, link, node;
+
+        // VARS NEEDED FOR TIME
+        let years = [];
+        let decades = [];
+        let decade_scale, decade_size_scale;
+        let time_svg, time_bar, time_labels, time_brush;
+
+        $(document).ready(function() {
+            corpora = new Corpora({'csrf_token': "{{ csrf_token }}"});
+
+            prepare_graph();
+            perform_graph_query();
+        });
+
+        function perform_graph_query() {
+            corpora.make_request(
+                `/api/arc/${corpus_id}/query/`,
+                "GET",
+                criteria,
+                function(artifact_data) {
+                    if (artifact_data.hasOwnProperty('meta') && artifact_data.meta.hasOwnProperty('aggregations')) {
+                        nodes.map(d => d.size = 0);
+
+                        for (let node_group in artifact_data.meta.aggregations) {
+                            if (node_group === 'years') {
+                                for (let year in artifact_data.meta.aggregations[node_group]) {
+                                    if (year.length > 2 && !isNaN(year)) {
+                                        years.push({
+                                            year: year,
+                                            size: artifact_data.meta.aggregations[node_group][year]
+                                        });
+                                    }
+                                }
+                            }
+                            else {
+                                for (let node_id in artifact_data.meta.aggregations[node_group]) {
+                                    let node_uri = `/corpus/${corpus_id}/${node_group}/${node_id}`;
+                                    nodes_loading[node_uri] = true;
+
+                                    corpora.get_content(corpus_id, node_group, node_id, function (node_data) {
+
+                                        nodes.push({
+                                            id: node_uri,
+                                            label: node_data.label,
+                                            group: node_group,
+                                            size: artifact_data.meta.aggregations[node_group][node_id]
+                                        });
+
+                                        edges.push({
+                                            source: `/corpus/${corpus_id}`,
+                                            target: node_uri
+                                        });
+
+                                        nodes_loading[node_uri] = false;
+                                    });
+                                }
+                            }
+                        }
+
+                        update_graph();
+                        setTimeout(stagger_updates, 1000);
+                        if (decades.length === 0) {
+                            prepare_time();
+                        }
+                    }
+                }
+            );
+        }
+
+        function stagger_updates() {
+            for (let node_uri in nodes_loading) {
+                if (nodes_loading[node_uri]) {
+                    setTimeout(stagger_updates, 1000);
+                    break;
+                }
+            }
+
+            update_graph();
+        }
+
+        function prepare_graph() {
+            drag = simulation => {
+                function dragstarted(event) {
+                    if (!event.active) simulation.alphaTarget(0.3).restart();
+                    event.subject.fx = event.subject.x;
+                    event.subject.fy = event.subject.y;
+                }
+
+                function dragged(event) {
+                    event.subject.fx = event.x;
+                    event.subject.fy = event.y;
+                }
+
+                function dragended(event) {
+                    if (!event.active) simulation.alphaTarget(0);
+                    // to unpin a node:
+                    //event.subject.fx = null;
+                    //event.subject.fy = null;
+                }
+
+                return d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended);
+            };
+
+            simulation = d3.forceSimulation()
+                .force("link", d3.forceLink().id(d => d.id).strength(.5))
+                .force("charge", d3.forceManyBody().strength(-1000))
+                .force("collide", d3.forceCollide().radius(d => normalize_radius(d.size, min_radius, max_radius, 10, 100) + 10).iterations(2))
+                //.force("x", d3.forceX())
+                //.force("y", d3.forceY())
+                .on("tick", tick_graph);
+
+            svg = d3.select("#graph")
+                .attr("viewBox", [-width / 2, -height / 2, width, height])
+                .style("font", "12px Helvetica")
+                .style("background-color", "#444444");
+
+            g = svg.select("#root");
+
+            svg.call(d3.zoom()
+                .extent([[0, 0], [width, height]])
+                .scaleExtent([-5, 25])
+                .on("zoom", zoom_graph)
+            );
+
+            link = g.append("g")
+                .attr("stroke", "#999")
+                .attr("stroke-opacity", 0.6)
+                .selectAll("line");
+
+            node = g.append("g")
+                .selectAll("g");
+        }
+
+        function tick_graph() {
+            link
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+
+            node
+                .attr("transform", d => `translate(${d.x}, ${d.y})`);
+        }
+
+        function zoom_graph({transform}) {
+            g.attr("transform", transform);
+        }
+
+        // TODO: consider using d3's scaleLinear() method instead of below; see https://observablehq.com/@d3/sortable-bar-chart
+        function normalize_radius(actual, min_actual, max_actual, min_normalized, max_normalized) {
+            var mx = (actual - min_actual) / (max_actual - min_actual);
+            var preshiftNormalized = mx * (max_normalized - min_normalized);
+            var shiftedNormalized = preshiftNormalized + min_normalized;
+
+            return shiftedNormalized;
+        }
+
+        function get_node_class(d) {
+            if(d.group === "Corpus") return "root-node";
+            if(d.size === 0) return "disabled";
+            return "resource";
+        }
+
+        function update_graph() {
+            const old_nodes = new Map(node.data().map(d => [d.id, d]));
+            let node_ids = [];
+
+            let new_nodes = nodes.map(d => {
+                if (d.size < min_radius) min_radius = d.size;
+                if (d.size > max_radius) max_radius = d.size;
+                node_ids.push(d.id);
+                return Object.assign(old_nodes.get(d.id) || {}, d);
+            });
+            new_nodes.sort((a, b) => (a.size < b.size) ? 1 : -1);
+
+            let new_edges = [];
+            edges.map(edge => {
+                if (node_ids.includes(edge.source) && node_ids.includes(edge.target)) {
+                    new_edges.push(Object.assign({}, edge))
+                }
+            });
+
+            node = node.data(new_nodes, d => d.id)
+                .join("g")
+                .attr("fixed", d => d.group === "Corpus" ? true : false)
+                .call(drag(simulation));
+
+            node.selectAll("text").remove();
+            node.filter(d => !d.hasOwnProperty('image'))
+                .append("text")
+                .attr("x", 8)
+                .attr("y", "0.31em")
+                .classed("node-label", true)
+                .text(d => d.label)
+                .call(get_bounding_box);
+
+            let label_bg_padding = 2;
+            node.selectAll("rect").remove();
+            node.filter(d => !d.hasOwnProperty('image'))
+                .insert("rect", "text")
+                .attr("x", d => d.bbox.x - label_bg_padding)
+                .attr("y", d => d.bbox.y - label_bg_padding)
+                .attr("width", d => d.bbox.width + (label_bg_padding * 2))
+                .attr("height", d => d.bbox.height + (label_bg_padding * 2))
+                .attr("fill", "white")
+                .attr("fill-opacity", .6);
+
+            node.selectAll("circle").remove();
+            node.append("circle").lower()
+                .attr("stroke-width", 1.5)
+                .attr("r", d => d.group === "Corpus" ? 35 : normalize_radius(d.size, min_radius, max_radius, 10, 100))
+                .attr("class", d => get_node_class(d));
+
+            node.selectAll("image").remove();
+            node.filter(d => d.hasOwnProperty('image'))
+                .append("image")
+                .attr("href", d => d.image)
+                .attr("width", d => d.image_width)
+                .attr("height", d => d.image_height)
+                .attr("x", d => d.image_x)
+                .attr("y", d => d.image_y);
+
+            link = link.data(new_edges, d => [d.source, d.target])
+                .join("line")
+                .attr("stroke-width", 2);
+
+            simulation.nodes(new_nodes);
+            simulation.force("link").links(new_edges);
+            simulation.alpha(1).restart();
+        }
+
+        function prepare_time() {
+            let time_widget_height = document.getElementById('time').clientHeight;
+            let decade_size_map = {};
+            let min_decade = 1900;
+            let max_decade = 1910;
+            let min_decade_size = 0;
+            let max_decade_size = 0;
+
+            // reduce all year sizes to decade size
+            years.map(y => {
+                let decade = y.year.replace(/.$/, '0');
+                if (!decade_size_map.hasOwnProperty(decade)) {
+                    decade_size_map[decade] = y.size;
+                } else {
+                    decade_size_map[decade] += y.size;
+                }
+            });
+
+            // add all decades w/ data size to decades array
+            // and find max/min decades and sizes
+            for (let decade in decade_size_map) {
+                let decade_size = decade_size_map[decade];
+
+                if (parseInt(decade) < min_decade) min_decade = parseInt(decade);
+                if (parseInt(decade) > max_decade) max_decade = parseInt(decade);
+                if (decade_size > max_decade_size) max_decade_size = decade_size;
+
+                decades.push({
+                    decade: decade,
+                    size: decade_size
+                })
+            }
+
+            // fill in any gap decades w/ zero size
+            for (let decade_cursor = min_decade; decade_cursor < max_decade; decade_cursor += 10) {
+                if (!decade_size_map.hasOwnProperty(decade_cursor.toString())) {
+                    decades.push({
+                        decade: decade_cursor.toString(),
+                        size: 0
+                    })
+                }
+            }
+
+            // sort decades array by decade
+            decades.sort((a, b) => (parseInt(a.decade) > parseInt(b.decade)) ? 1 : -1);
+
+            // instantiate decade/decade size scales for time bars
+            decade_scale = d3.scaleBand()
+                .domain(decades.map(d => d.decade))
+                .range([10, width - 10])
+                .padding(0.1);
+
+            decade_size_scale = d3.scaleLinear()
+                .domain([0, max_decade_size])
+                .range([0, time_widget_height]);
+
+            time_svg = d3.select("#time")
+                .attr('viewBox', [0, 0, width, time_widget_height])
+                .style('font', '10px Helvetica');
+
+            time_bar = time_svg.append("g")
+                .attr('fill', 'orange')
+                .selectAll("rect")
+                .data(decades)
+                .join("rect")
+                .attr('x', d => decade_scale(d.decade) - (decade_scale.bandwidth() / 2))
+                .attr('y', 0)
+                .attr('height', d => decade_size_scale(d.size))
+                .attr('width', decade_scale.bandwidth());
+
+            time_labels = time_svg.append("g")
+                .selectAll("text")
+                .data(decades)
+                .join("text")
+                .attr("x", d => decade_scale(d.decade))
+                .attr("y", 10)
+                .text(d => d.decade)
+                .attr("fill", 'white')
+                .style("writing-mode", 'tb');
+
+            time_brush = d3.brush()
+                .on("start brush end", time_brushed);
+
+            time_svg.append("g")
+                .classed('brush', true)
+                .call(time_brush)
+                .call(g => g.select(".overlay").style("cursor", "default"));
+        }
+
+        function time_brushed(event) {
+            if (event.selection !== null) {
+                const [[x0, y0], [x1, y1]] = event.selection;
+                let decade_data_selected = time_labels
+                    .attr('fill', 'white')
+                    .filter(d => x0 <= decade_scale(d.decade) && decade_scale(d.decade) < x1)
+                    .attr('fill', 'orange')
+                    .data();
+
+                time_bar
+                    .attr('fill', 'orange')
+                    .filter(d => x0 <= decade_scale(d.decade) && decade_scale(d.decade) < x1)
+                    .attr('fill', '#ffffff');
+
+                if (event.type === 'end') {
+                    let decades_selected = [];
+                    decade_data_selected.map(d => decades_selected.push(parseInt(d.decade)));
+                    console.log(decades_selected);
+                    if(decades_selected.length > 0) {
+                        let min_year = Math.min(...decades_selected);
+                        let max_year = Math.max(...decades_selected) + 9;
+                        criteria['r_years'] = `${min_year}__${max_year}`;
+                        perform_graph_query();
+                    }
+                }
+            } else {
+                delete criteria['r_years'];
+                perform_graph_query();
+            }
+        }
+
+        function get_bounding_box(selection) {
+            selection.each(function(d){d.bbox = this.getBBox();});
+        }
+    </script>
+</body>
+</html>

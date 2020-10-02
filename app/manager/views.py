@@ -70,6 +70,7 @@ def corpus(request, corpus_id):
                 upload_path = corpus.path + '/files'
                 for import_file in import_files:
                     import_file_path = "{0}{1}".format(upload_path, import_file)
+                    print(import_file_path)
                     if os.path.exists(import_file_path):
                         extension = import_file.split('.')[-1]
                         corpus.save_file(File.process(

@@ -1088,7 +1088,7 @@ class Corpus(mongoengine.Document):
             content_id
         )
 
-    def search_content(self, content_type, page=1, page_size=50, general_query="", fields_query=[], fields_filter=[], fields_sort=[], only=[], excludes=[], search_mode="wildcard", aggregations={}):
+    def search_content(self, content_type, page=1, page_size=50, general_query="", fields_query={}, fields_filter={}, fields_range={}, fields_sort=[], only=[], excludes=[], search_mode="wildcard", aggregations={}):
         results = {
             'meta': {
                 'content_type': content_type,
@@ -1106,10 +1106,16 @@ class Corpus(mongoengine.Document):
             start_index = (page - 1) * page_size
             end_index = page * page_size
 
+            # for keeping track of possible aggregations and their
+            # corresponding types, like "terms" or "nested"
+            agg_type_map = {}
+
             index_name = "corpus-{0}-{1}".format(self.id, content_type.lower())
             index = Index(index_name)
             should = []
             must = []
+            filter = []
+
             if general_query and not fields_query:
                 should.append(SimpleQueryString(query=general_query))
 
@@ -1143,7 +1149,7 @@ class Corpus(mongoengine.Document):
                                 )
                             ))
                         else:
-                            must.append(Q( search_mode, **{search_field: field_value}))
+                            must.append(Q(search_mode, **{search_field: field_value}))
 
             if fields_filter:
                 for search_field in fields_filter.keys():
@@ -1151,7 +1157,7 @@ class Corpus(mongoengine.Document):
                     for field_value in field_values:
                         if '.' in search_field:
                             field_parts = search_field.split('.')
-                            should.append(Q(
+                            filter.append(Q(
                                 "nested",
                                 path=field_parts[0],
                                 query=Q(
@@ -1160,13 +1166,26 @@ class Corpus(mongoengine.Document):
                                 )
                             ))
                         else:
-                            should.append(Q( search_mode, **{search_field: field_value}))
+                            filter.append(Q(search_mode, **{search_field: field_value}))
+
+            if fields_range:
+                for search_field in fields_range.keys():
+                    field_values = [value_part for value_part in fields_range[search_field].split('__') if value_part]
+                    if len(field_values) == 2 and field_values[0].isdigit() and field_values[1].isdigit():
+                        filter.append(Q(
+                            "range",
+                            **{search_field: {
+                                'gte': int(field_values[0]),
+                                'lte': int(field_values[1])
+                            }}
+                        ))
 
             if general_query and fields_query:
                 must.append(SimpleQueryString(query=general_query))
 
-            if should or must:
-                search_query = Q('bool', should=should, must=must)
+            if should or must or filter:
+
+                search_query = Q('bool', should=should, must=must, filter=filter)
 
                 extra = {'track_total_hits': True}
 
@@ -1181,6 +1200,11 @@ class Corpus(mongoengine.Document):
 
                 # ADD ANY AGGREGATIONS TO SEARCH
                 for agg_name, agg in aggregations.items():
+
+                    # agg should be of type elasticsearch_dsl.A, so calling A's .to_dict()
+                    # method to get at what type ('terms', 'nested', etc) of aggregation
+                    # this is.
+                    agg_type_map[agg_name] = list(agg.to_dict().keys())[0]
                     search_cmd.aggs.bucket(agg_name, agg)
 
                 if fields_sort:
@@ -1234,8 +1258,12 @@ class Corpus(mongoengine.Document):
                     for agg_name in search_results['aggregations'].keys():
                         results['meta']['aggregations'][agg_name] = {}
 
-                        for agg_result in search_results['aggregations'][agg_name]['names']['buckets']:
-                            results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
+                        if agg_type_map[agg_name] == 'nested':
+                            for agg_result in search_results['aggregations'][agg_name]['names']['buckets']:
+                                results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
+                        else:
+                            for agg_result in search_results['aggregations'][agg_name]['buckets']:
+                                results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
 
         return results
 
@@ -2266,7 +2294,6 @@ def search_scholars(page=1, page_size=50, general_query="", fields_query=[], fie
             search_cmd = search_cmd.sort(*fields_sort)
 
         search_cmd = search_cmd[start_index:end_index]
-        print(json.dumps(search_cmd.to_dict(), indent=4))
         search_results = search_cmd.execute().to_dict()
         results['meta']['total'] = search_results['hits']['total']['value']
         results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
@@ -2278,7 +2305,6 @@ def search_scholars(page=1, page_size=50, general_query="", fields_query=[], fie
             record['_search_score'] = hit['_score']
             results['records'].append(record)
 
-    print(json.dumps(results, indent=4))
     return results
 
 

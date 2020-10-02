@@ -1861,6 +1861,21 @@
                                 ${note_html}
                             </div>
                         `;
+                    } else if (parameters[parameter]['type'] === 'content_type') {
+                        let select_options = '';
+                        Object.keys(corpus.content_types).forEach(ct => {
+                            select_options += `<option value="${ct}">${corpus.content_types[ct].name}</option>`;
+                        });
+
+                        parameter_html = `
+                            <div class="form-group">
+                                <label for="corpus-ct-selector">${parameters[parameter]['label']}</label>
+                                <select id="corpus-ct-selector" class="form-control" name="${parameter}">
+                                    ${select_options}
+                                </select>
+                                ${note_html}
+                            </div>
+                        `;
                     } else if (parameters[parameter]['type'] === 'choice' && parameters[parameter].hasOwnProperty('choices')) {
                         let select_options = '';
                         parameters[parameter]['choices'].forEach(choice => {
