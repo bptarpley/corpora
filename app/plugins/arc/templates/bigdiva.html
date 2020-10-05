@@ -31,6 +31,16 @@
             stroke: #0868ac;
         }
 
+        .genre {
+            fill: url(#gradient-genre-normal);
+            stroke: #006d2c;
+        }
+
+        .discipline {
+            fill: url(#gradient-discipline-normal);
+            stroke: #e2aa00;
+        }
+
         .disabled {
             fill: url(#gradient-resource-disabled);
             stroke: #444;
@@ -58,6 +68,14 @@
                 <linearGradient id="gradient-resource-disabled" x1="0%" y1="0%" x2="100%" y2="100%" spreadMethod="pad">
                     <stop offset="15%" stop-color="#a2a2a2" stop-opacity="1"></stop>
                     <stop offset="100%" stop-color="#686868" stop-opacity="1"></stop>
+                </linearGradient>
+                <linearGradient id="gradient-genre-normal" x1="0%" y1="0%" x2="100%" y2="100%" spreadMethod="pad">
+                    <stop offset="15%" stop-color="#2ca25f" stop-opacity="1"></stop>
+                    <stop offset="100%" stop-color="#006d2c" stop-opacity="1"></stop>
+                </linearGradient>
+                <linearGradient id="gradient-discipline-normal" x1="0%" y1="0%" x2="100%" y2="100%" spreadMethod="pad">
+                    <stop offset="15%" stop-color="#efb915" stop-opacity="1"></stop>
+                    <stop offset="100%" stop-color="#e2aa00" stop-opacity="1"></stop>
                 </linearGradient>
             </defs>
         </g>
@@ -100,8 +118,10 @@
         var drag, simulation, svg, g, link, node;
 
         // VARS NEEDED FOR TIME
-        let years = [];
         let decades = [];
+        let now = new Date();
+        let this_year = now.getFullYear();
+        let time_prepared = false;
         let decade_scale, decade_size_scale;
         let time_svg, time_bar, time_labels, time_brush;
 
@@ -122,14 +142,49 @@
                         nodes.map(d => d.size = 0);
 
                         for (let node_group in artifact_data.meta.aggregations) {
-                            if (node_group === 'years') {
-                                for (let year in artifact_data.meta.aggregations[node_group]) {
-                                    if (year.length > 2 && !isNaN(year)) {
-                                        years.push({
-                                            year: year,
-                                            size: artifact_data.meta.aggregations[node_group][year]
+                            if (node_group === 'decades') {
+                                for (let decade in artifact_data.meta.aggregations[node_group]) {
+                                    if (decade.length > 2 && !isNaN(decade) && parseInt(decade) <= this_year) {
+                                        decades.push({
+                                            decade: parseInt(decade),
+                                            size: artifact_data.meta.aggregations[node_group][decade]
                                         });
                                     }
+                                }
+                            }
+                            else if (node_group === 'ArcArchive') {
+                                let archive_parents = {};
+                                for (let parent_path in artifact_data.meta.aggregations[node_group]) {
+                                    let parents = parent_path.split('__');
+                                    let source = `/corpus/${corpus_id}`;
+                                    for (let p_index = 0; p_index < parents.length; p_index ++){
+                                        let p = parents[p_index];
+                                        let p_uri = `/corpus/${corpus_id}/${node_group}/${p}`;
+
+                                        if (!(p in archive_parents)) {
+                                            archive_parents[p] = {
+                                                id: p_uri,
+                                                label: p,
+                                                group: 'ArchiveParent',
+                                                size: artifact_data.meta.aggregations[node_group][parent_path]
+                                            };
+
+                                            edges.push({
+                                                source: source,
+                                                target: p_uri
+                                            });
+                                        } else {
+                                            archive_parents[p].size += artifact_data.meta.aggregations[node_group][parent_path];
+                                        }
+
+                                        source = p_uri;
+                                    }
+                                }
+
+                                for (let arch_parent_node in archive_parents) {
+                                    nodes.push(
+                                        Object.assign({}, archive_parents[arch_parent_node])
+                                    );
                                 }
                             }
                             else {
@@ -159,7 +214,7 @@
 
                         update_graph();
                         setTimeout(stagger_updates, 1000);
-                        if (decades.length === 0) {
+                        if (!time_prepared) {
                             prepare_time();
                         }
                     }
@@ -261,6 +316,8 @@
         function get_node_class(d) {
             if(d.group === "Corpus") return "root-node";
             if(d.size === 0) return "disabled";
+            if(d.group === "ArcGenre") return "genre";
+            if(d.group === "ArcDiscipline") return "discipline";
             return "resource";
         }
 
@@ -334,49 +391,16 @@
 
         function prepare_time() {
             let time_widget_height = document.getElementById('time').clientHeight;
-            let decade_size_map = {};
-            let min_decade = 1900;
-            let max_decade = 1910;
-            let min_decade_size = 0;
+            let min_decade = 3000;
+            let max_decade = 0;
             let max_decade_size = 0;
 
             // reduce all year sizes to decade size
-            years.map(y => {
-                let decade = y.year.replace(/.$/, '0');
-                if (!decade_size_map.hasOwnProperty(decade)) {
-                    decade_size_map[decade] = y.size;
-                } else {
-                    decade_size_map[decade] += y.size;
-                }
+            decades.map(d => {
+                if (d.decade < min_decade) min_decade = d.decade;
+                if (d.decade > max_decade) max_decade = d.decade;
+                if (d.size > max_decade_size) max_decade_size = d.size;
             });
-
-            // add all decades w/ data size to decades array
-            // and find max/min decades and sizes
-            for (let decade in decade_size_map) {
-                let decade_size = decade_size_map[decade];
-
-                if (parseInt(decade) < min_decade) min_decade = parseInt(decade);
-                if (parseInt(decade) > max_decade) max_decade = parseInt(decade);
-                if (decade_size > max_decade_size) max_decade_size = decade_size;
-
-                decades.push({
-                    decade: decade,
-                    size: decade_size
-                })
-            }
-
-            // fill in any gap decades w/ zero size
-            for (let decade_cursor = min_decade; decade_cursor < max_decade; decade_cursor += 10) {
-                if (!decade_size_map.hasOwnProperty(decade_cursor.toString())) {
-                    decades.push({
-                        decade: decade_cursor.toString(),
-                        size: 0
-                    })
-                }
-            }
-
-            // sort decades array by decade
-            decades.sort((a, b) => (parseInt(a.decade) > parseInt(b.decade)) ? 1 : -1);
 
             // instantiate decade/decade size scales for time bars
             decade_scale = d3.scaleBand()
@@ -419,6 +443,8 @@
                 .classed('brush', true)
                 .call(time_brush)
                 .call(g => g.select(".overlay").style("cursor", "default"));
+
+            time_prepared = true;
         }
 
         function time_brushed(event) {

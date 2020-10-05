@@ -21,7 +21,7 @@ def query(request, corpus_id):
         aggs['ArcFederation'].bucket('names', 'terms', size=10000, field='federations.id')
 
         aggs['ArcArchive'] = A('nested', path='archive')
-        aggs['ArcArchive'].bucket('names', 'terms', size=10000, field='archive.id')
+        aggs['ArcArchive'].bucket('names', 'terms', size=10000, field='archive.parent_path')
 
         aggs['ArcType'] = A('nested', path='types')
         aggs['ArcType'].bucket('names', 'terms', size=10000, field='types.id')
@@ -32,7 +32,7 @@ def query(request, corpus_id):
         aggs['ArcDiscipline'] = A('nested', path='disciplines')
         aggs['ArcDiscipline'].bucket('names', 'terms', size=10000, field='disciplines.id')
 
-        aggs['years'] = A('terms', field='years', size=10000)
+        aggs['decades'] = A('histogram', field='years', interval=10)
 
         if context['search']:
             content = corpus.search_content(content_type='ArcArtifact', excludes=['full_text_contents'], aggregations=aggs, **context['search'])
