@@ -41,6 +41,11 @@
             stroke: #e2aa00;
         }
 
+        .format {
+            fill: url(#gradient-format-normal);
+            stroke: #810f7c;
+        }
+
         .disabled {
             fill: url(#gradient-resource-disabled);
             stroke: #444;
@@ -76,6 +81,10 @@
                 <linearGradient id="gradient-discipline-normal" x1="0%" y1="0%" x2="100%" y2="100%" spreadMethod="pad">
                     <stop offset="15%" stop-color="#efb915" stop-opacity="1"></stop>
                     <stop offset="100%" stop-color="#e2aa00" stop-opacity="1"></stop>
+                </linearGradient>
+                <linearGradient id="gradient-format-normal" x1="0%" y1="0%" x2="100%" y2="100%" spreadMethod="pad">
+                    <stop offset="15%" stop-color="#8856a7" stop-opacity="1"></stop>
+                    <stop offset="100%" stop-color="#810f7c" stop-opacity="1"></stop>
                 </linearGradient>
             </defs>
         </g>
@@ -263,8 +272,8 @@
                 .force("link", d3.forceLink().id(d => d.id).strength(.5))
                 .force("charge", d3.forceManyBody().strength(-1000))
                 .force("collide", d3.forceCollide().radius(d => normalize_radius(d.size, min_radius, max_radius, 10, 100) + 10).iterations(2))
-                //.force("x", d3.forceX())
-                //.force("y", d3.forceY())
+                .force("x", d3.forceX().strength(.5).x(d => position_node_group_x(d)))
+                .force("y", d3.forceY().strength(.5).y(d => position_node_group_y(d)))
                 .on("tick", tick_graph);
 
             svg = d3.select("#graph")
@@ -315,10 +324,24 @@
 
         function get_node_class(d) {
             if(d.group === "Corpus") return "root-node";
+            if(d.group === "ArcFederation") return "root-node";
             if(d.size === 0) return "disabled";
             if(d.group === "ArcGenre") return "genre";
             if(d.group === "ArcDiscipline") return "discipline";
+            if(d.group === "ArcType") return "format";
             return "resource";
+        }
+
+        function position_node_group_x(d) {
+            if(["ArcGenre", "ArcDiscipline"].includes(d.group)) return -150;
+            if(["ArcType", "ArchiveParent"].includes(d.group)) return 150;
+            return 0;
+        }
+
+        function position_node_group_y(d) {
+            if(["ArcGenre", "ArcType"].includes(d.group)) return -150;
+            if(["ArcDiscipline", "ArchiveParent"].includes(d.group)) return 150;
+            return 0;
         }
 
         function update_graph() {

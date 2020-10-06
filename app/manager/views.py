@@ -148,12 +148,26 @@ def corpus(request, corpus_id):
 
                     # content type actions
                     if not action_field_name:
+
+                        # delete content type
                         if action == 'delete':
                             run_job(corpus.queue_local_job(task_name="Delete Content Type", parameters={
                                 'content_type': action_content_type,
                             }))
 
                             response['messages'].append("Content type {0} successfully deleted.".format(action_content_type))
+
+                        # re-index content type
+                        elif action == 'reindex':
+                            run_job(corpus.queue_local_job(task_name="Adjust Content", parameters={
+                                'content_type': action_content_type,
+                                'reindex': True,
+                                'relabel': False,
+                                'resave': False
+                            }))
+
+                            response['messages'].append(
+                                "Content type {0} re-indexing successfully commenced.".format(action_content_type))
 
                     # field actions
                     else:

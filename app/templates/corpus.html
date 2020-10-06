@@ -1302,7 +1302,7 @@
             let ct_div_prefix = `tm-ct-${ct_name}`;
 
             if ($(`#${ct_div_prefix}-container`).length === 0) {
-                let delete_or_lock_button = `<button id="${ct_div_prefix}-delete-button" class="btn btn-sm btn-danger"><span class="fas fa-trash-alt"></span></button>`;
+                let delete_or_lock_button = `<button id="${ct_div_prefix}-delete-button" class="btn btn-sm btn-danger" data-toggle="tooltip" data-placement="top" title="Delete"><span class="fas fa-trash-alt"></span></button>`;
                 if (corpus.content_types[ct_name].inherited) {
                     delete_or_lock_button = `<button class="btn btn-sm btn-danger" disabled><span class="fas fa-lock"></span></button>`;
                 }
@@ -1314,7 +1314,8 @@
                             <h5 id="${ct_div_prefix}-name" style="display: inline;">${ct_name}</h5>
                         </button>
                         <span class="float-right">
-                            <button id="${ct_div_prefix}-edit-button" class="btn btn-sm btn-primary"><span class="fas fa-edit"></span></button>
+                            <button id="${ct_div_prefix}-edit-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Edit"><span class="fas fa-edit"></span></button>
+                            <button id="${ct_div_prefix}-reindex-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Re-Index"><span class="fas fa-sync"></span></button>
                             ${delete_or_lock_button}
                         </span>
                         <div id="${ct_div_prefix}" class="alert alert-info collapse p-3 mt-2" aria-labelledby="${ct_div_prefix}-container" data-parent="#tm-ct-group">
@@ -1399,46 +1400,61 @@
                     $('#new-ct-modal').modal();
                 });
 
+                // REINDEX CONTENT TYPE BUTTPN
+                $(`#${ct_div_prefix}-reindex-button`).click(function() {
+                    $('#confirmation-ct-name').val(ct_name);
+                    $('#confirmation-field-index').val('');
+                    $('#confirmation-field-name').val('');
+                    $('#confirmation-action').val('reindex');
+                    $('#confirmation-confirm-button').attr('disabled', false);
+
+                    let message = `You are attempting to re-index the <b>${ct_name}</b> content type.
+                    Depending on how much content belongs to this type, this may take a long time, and
+                    while re-indexing is taking place, the content will be temporarily unavailable in
+                    lists. Do you wish to proceed?`;
+
+                    $('#confirmation-modal-message').html(message);
+                    $('#confirmation-modal').modal();
+                });
+
                 // DELETE CONTENT TYPE BUTTON
                 $(`#${ct_div_prefix}-delete-button`).click(function() {
                     if (!corpus.content_types[ct_name].inherited) {
                         if (!corpus.content_types[ct_name].hasOwnProperty('is_new')) {
-                            $(`#${ct_div_prefix}-delete-button`).click(function () {
-                                $('#confirmation-ct-name').val(ct_name);
-                                $('#confirmation-field-index').val('');
-                                $('#confirmation-field-name').val('');
-                                $('#confirmation-action').val('delete');
-                                $('#confirmation-confirm-button').attr('disabled', false);
+                            $('#confirmation-ct-name').val(ct_name);
+                            $('#confirmation-field-index').val('');
+                            $('#confirmation-field-name').val('');
+                            $('#confirmation-action').val('delete');
+                            $('#confirmation-confirm-button').attr('disabled', false);
 
-                                let message = `You are attempting to delete the <b>${ct_name}</b> content type.
-                                Upon doing so, <b>all content of this type will be irreversibly deleted</b>. Some templates may also need to be
-                                regenerated or manually adjusted. Are you sure you want to proceed?`;
+                            let message = `You are attempting to delete the <b>${ct_name}</b> content type.
+                            Upon doing so, <b>all content of this type will be irreversibly deleted</b>. Some templates may also need to be
+                            regenerated or manually adjusted. Are you sure you want to proceed?`;
 
-                                let referencing_fields = [];
-                                for (let x in corpus.content_types) {
-                                    for (let y = 0; y < corpus.content_types[x].fields.length; y++) {
-                                        if (corpus.content_types[x].fields[y].cross_reference_type === ct_name) {
-                                            referencing_fields.push(`${x} -> ${corpus.content_types[x].fields[y].name}`);
-                                        }
+                            let referencing_fields = [];
+                            for (let x in corpus.content_types) {
+                                for (let y = 0; y < corpus.content_types[x].fields.length; y++) {
+                                    if (corpus.content_types[x].fields[y].cross_reference_type === ct_name) {
+                                        referencing_fields.push(`${x} -> ${corpus.content_types[x].fields[y].name}`);
                                     }
                                 }
+                            }
 
-                                if (referencing_fields.length > 0) {
-                                    message = `
-                                        You are attempting to delete the ${ct_name} content type.
-                                        This is currently not possible, as the following fields reference this content type:<ul class="mt-2">
-                                    `;
-                                    referencing_fields.map(x => message += `<li>${x}</li>`);
-                                    message += `
-                                        </ul>If you still wish to delete the ${ct_name} content type,
-                                        you must first delete the above fields.
-                                    `;
-                                    $('#confirmation-confirm-button').attr('disabled', true);
-                                }
+                            if (referencing_fields.length > 0) {
+                                message = `
+                                    You are attempting to delete the ${ct_name} content type.
+                                    This is currently not possible, as the following fields reference this content type:<ul class="mt-2">
+                                `;
+                                referencing_fields.map(x => message += `<li>${x}</li>`);
+                                message += `
+                                    </ul>If you still wish to delete the ${ct_name} content type,
+                                    you must first delete the above fields.
+                                `;
+                                $('#confirmation-confirm-button').attr('disabled', true);
+                            }
 
-                                $('#confirmation-modal-message').html(message);
-                                $('#confirmation-modal').modal();
-                            });
+                            $('#confirmation-modal-message').html(message);
+                            $('#confirmation-modal').modal();
                         } else {
                             delete corpus.content_types[ct_name];
                             $(`#${ct_div_prefix}-container`).remove();
