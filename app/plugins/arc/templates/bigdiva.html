@@ -153,7 +153,7 @@
                         for (let node_group in artifact_data.meta.aggregations) {
                             if (node_group === 'decades') {
                                 for (let decade in artifact_data.meta.aggregations[node_group]) {
-                                    if (decade.length > 2 && !isNaN(decade) && parseInt(decade) <= this_year) {
+                                    if (decade.length > 2 && !isNaN(decade) && parseInt(decade) >= 400 && parseInt(decade) <= this_year) {
                                         decades.push({
                                             decade: parseInt(decade),
                                             size: artifact_data.meta.aggregations[node_group][decade]
@@ -175,7 +175,9 @@
                                                 id: p_uri,
                                                 label: p,
                                                 group: 'ArchiveParent',
-                                                size: artifact_data.meta.aggregations[node_group][parent_path]
+                                                size: artifact_data.meta.aggregations[node_group][parent_path],
+                                                x: position_node_group_x('ArchiveParent'),
+                                                y: position_node_group_y('ArchiveParent')
                                             };
 
                                             edges.push({
@@ -207,7 +209,9 @@
                                             id: node_uri,
                                             label: node_data.label,
                                             group: node_group,
-                                            size: artifact_data.meta.aggregations[node_group][node_id]
+                                            size: artifact_data.meta.aggregations[node_group][node_id],
+                                            x: position_node_group_x(node_group),
+                                            y: position_node_group_y(node_group)
                                         });
 
                                         edges.push({
@@ -232,14 +236,16 @@
         }
 
         function stagger_updates() {
+            let finished = true;
             for (let node_uri in nodes_loading) {
                 if (nodes_loading[node_uri]) {
                     setTimeout(stagger_updates, 1000);
+                    finished = false;
                     break;
                 }
             }
 
-            update_graph();
+            update_graph(finished);
         }
 
         function prepare_graph() {
@@ -270,10 +276,10 @@
 
             simulation = d3.forceSimulation()
                 .force("link", d3.forceLink().id(d => d.id).strength(.5))
-                .force("charge", d3.forceManyBody().strength(-1000))
-                .force("collide", d3.forceCollide().radius(d => normalize_radius(d.size, min_radius, max_radius, 10, 100) + 10).iterations(2))
-                .force("x", d3.forceX().strength(.5).x(d => position_node_group_x(d)))
-                .force("y", d3.forceY().strength(.5).y(d => position_node_group_y(d)))
+                .force("charge", d3.forceManyBody().strength(-50))
+                .force("collide", d3.forceCollide().radius(d => d.group === 'Corpus' ? 50 : normalize_radius(d.size, min_radius, max_radius, 10, 100) + 10).iterations(2))
+                .force("x", d3.forceX().strength(.5).x(d => position_node_group_x(d.group)))
+                .force("y", d3.forceY().strength(.5).y(d => position_node_group_y(d.group)))
                 .on("tick", tick_graph);
 
             svg = d3.select("#graph")
@@ -332,19 +338,19 @@
             return "resource";
         }
 
-        function position_node_group_x(d) {
-            if(["ArcGenre", "ArcDiscipline"].includes(d.group)) return -150;
-            if(["ArcType", "ArchiveParent"].includes(d.group)) return 150;
+        function position_node_group_x(group) {
+            if(["ArcGenre", "ArcDiscipline"].includes(group)) return -150;
+            if(["ArcType", "ArchiveParent"].includes(group)) return 150;
             return 0;
         }
 
-        function position_node_group_y(d) {
-            if(["ArcGenre", "ArcType"].includes(d.group)) return -150;
-            if(["ArcDiscipline", "ArchiveParent"].includes(d.group)) return 150;
+        function position_node_group_y(group) {
+            if(["ArcGenre", "ArcType"].includes(group)) return -150;
+            if(["ArcDiscipline", "ArchiveParent"].includes(group)) return 150;
             return 0;
         }
 
-        function update_graph() {
+        function update_graph(finished) {
             const old_nodes = new Map(node.data().map(d => [d.id, d]));
             let node_ids = [];
 
@@ -354,7 +360,7 @@
                 node_ids.push(d.id);
                 return Object.assign(old_nodes.get(d.id) || {}, d);
             });
-            new_nodes.sort((a, b) => (a.size < b.size) ? 1 : -1);
+            new_nodes.sort((a, b) => (a.size < b.size || b.group === 'Corpus') ? 1 : -1);
 
             let new_edges = [];
             edges.map(edge => {
@@ -365,7 +371,6 @@
 
             node = node.data(new_nodes, d => d.id)
                 .join("g")
-                .attr("fixed", d => d.group === "Corpus" ? true : false)
                 .call(drag(simulation));
 
             node.selectAll("text").remove();
@@ -409,7 +414,9 @@
 
             simulation.nodes(new_nodes);
             simulation.force("link").links(new_edges);
-            simulation.alpha(1).restart();
+            //if (finished) {
+            simulation.alpha(.2).restart();
+            //}
         }
 
         function prepare_time() {
@@ -437,7 +444,7 @@
 
             time_svg = d3.select("#time")
                 .attr('viewBox', [0, 0, width, time_widget_height])
-                .style('font', '10px Helvetica');
+                .style('font', '12px Helvetica');
 
             time_bar = time_svg.append("g")
                 .attr('fill', 'orange')
@@ -454,10 +461,10 @@
                 .data(decades)
                 .join("text")
                 .attr("x", d => decade_scale(d.decade))
-                .attr("y", 10)
-                .text(d => d.decade)
+                .attr("y", time_widget_height / 2)
+                .text(function(d, i){ if (i%3===0) {return d.decade} else {return ""} })
                 .attr("fill", 'white')
-                .style("writing-mode", 'tb');
+                //.style("writing-mode", 'tb');
 
             time_brush = d3.brush()
                 .on("start brush end", time_brushed);
