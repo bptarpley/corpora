@@ -307,7 +307,6 @@
                     </div>
                     <div class="modal-body">
                         <input type="hidden" id="confirmation-ct-name" name="content_type" value="">
-                        <input type="hidden" id="confirmation-field-index" value="">
                         <input type="hidden" id="confirmation-field-name" name="field" value="">
                         <input type="hidden" id="confirmation-action" name="action" value="">
                         <div id="confirmation-modal-message" class="alert alert-danger"></div>
@@ -1666,21 +1665,19 @@
                 });
 
                 // FIELD DELETE BUTTON CLICK
-                if (!ct.fields[f_index].inherited) {
-                    $(`#${f_div_prefix}-delete-button`).click(function () {
-                        $('#confirmation-ct-index').val(sender.index);
-                        $('#confirmation-ct-name').val(sender.name);
-                        $('#confirmation-field-index').val(f_index);
+                $(`#${f_div_prefix}-delete-button`).click(function () {
+                    if (!ct.fields[f_index].inherited) {
+                        $('#confirmation-ct-name').val(ct_name);
                         $('#confirmation-field-name').val(ct.fields[f_index].name);
                         $('#confirmation-action').val('delete');
                         $('#confirmation-confirm-button').attr('disabled', false);
 
-                        let message = `You are attempting to delete the <b>${sender.name} -> ${ct.fields[f_index].name}</b> field.
-                    Upon doing so, <b>all content stored in this field will be irreversibly deleted</b>. Some templates may also need to be
-                    regenerated or manually adjusted. Are you sure you want to proceed?`;
+                        let message = `You are attempting to delete the <b>${ct_name} -> ${ct.fields[f_index].name}</b> field.
+                        Upon doing so, <b>all content stored in this field will be irreversibly deleted</b>. Some templates may also need to be
+                        regenerated or manually adjusted. Are you sure you want to proceed?`;
 
                         if (ct.fields.length === 1) {
-                            message = `You are attempting to delete the <b>${sender.name} -> ${ct.fields[f_index].name}</b> field.
+                            message = `You are attempting to delete the <b>${ct_name} -> ${ct.fields[f_index].name}</b> field.
                         This is currently not possible, as all content types must have at least one field. Please create another field for
                         this content type before deleting this field.`;
                             $('#confirmation-confirm-button').attr('disabled', true);
@@ -1688,23 +1685,21 @@
 
                         $('#confirmation-modal-message').html(message);
                         $('#confirmation-modal').modal();
-                    });
-                }
+                    }
+                });
 
                 // FIELD SHIFT UP BUTTON
                 $(`#${f_div_prefix}-shift-up-button`).click(function () {
-                    $('#confirmation-ct-index').val(sender.index);
-                    $('#confirmation-ct-name').val(sender.name);
-                    $('#confirmation-field-index').val(f_index);
+                    $('#confirmation-ct-name').val(ct_name);
                     $('#confirmation-field-name').val(ct.fields[f_index].name);
                     $('#confirmation-action').val('shift_up');
                     $('#confirmation-confirm-button').attr('disabled', false);
 
-                    let message = `You are attempting to shift the <b>${sender.name} -> ${ct.fields[f_index].name}</b> field up
+                    let message = `You are attempting to shift the <b>${ct_name} -> ${ct.fields[f_index].name}</b> field up
                     in position. This will affect the order in which fields appear in lists, views, etc. Are you sure you want to proceed?`;
 
                     if (f_index === 0) {
-                        message = `You are attempting to shift the <b>${sender.name} -> ${ct.fields[f_index].name}</b> field up
+                        message = `You are attempting to shift the <b>${ct_name} -> ${ct.fields[f_index].name}</b> field up
                         in position. This is currently not possible, as that field already occupies the first position.`;
                         $('#confirmation-confirm-button').attr('disabled', true);
                     }
