@@ -66,10 +66,13 @@ def corpus(request, corpus_id):
             # HANDLE IMPORT DOCUMENT FILES FORM SUBMISSION
             if 'import-corpus-files' in request.POST:
                 import_files = json.loads(request.POST['import-corpus-files'])
-
                 upload_path = corpus.path + '/files'
+
                 for import_file in import_files:
                     import_file_path = "{0}{1}".format(upload_path, import_file)
+                    fixed_basename = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', os.path.basename(import_file_path))
+                    import_file_path = "{0}/{1}".format(os.path.dirname(import_file_path), fixed_basename)
+
                     print(import_file_path)
                     if os.path.exists(import_file_path):
                         extension = import_file.split('.')[-1]
@@ -107,10 +110,10 @@ def corpus(request, corpus_id):
             # HANDLE JOB RETRY
             elif _contains(request.POST, ['retry-job-id']):
                 retry_job_id = _clean(request.POST, 'retry-job-id')
-                for completed_task in corpus.completed_tasks:
+                for completed_task in corpus.provenance:
                     if completed_task.job_id == retry_job_id:
                         job = Job.setup_retry_for_completed_task(corpus_id, 'Corpus', None, completed_task)
-                        corpus.modify(pull__completed_tasks=completed_task)
+                        corpus.modify(pull__provenance=completed_task)
                         run_job(job.id)
 
             # HANDLE JOB KILL
