@@ -373,7 +373,11 @@
         }
 
         if (!waiting) {
-            if (!time_prepared) prepare_time();
+            if (!time_prepared) {
+                prepare_time();
+            } else {
+                update_time();
+            }
             update_graph();
         }
     }
@@ -473,12 +477,11 @@
             d3.select(this).selectAll("circle")
                 .attr("class", get_node_class(d));
             delete criteria[criteria_key];
-            d.fx = null;
-            d.fy = null;
         }
 
+        d.fx = null;
+        d.fy = null;
         perform_graph_query();
-        time_prepared = false;
         await_data_then_update_graph();
     }
 
@@ -516,7 +519,6 @@
 
     function update_graph() {
         const old_nodes = new Map(node.data().map(d => [d.id, d]));
-        console.log(old_nodes);
         let node_ids = [];
 
         let new_nodes = nodes.map(d => {
@@ -525,7 +527,6 @@
             node_ids.push(d.id);
             let combined_node = Object.assign(old_nodes.get(d.id) || {}, d);
             if (!combined_node.hasOwnProperty('label')){
-                console.log(combined_node.group);
                 combined_node.label = facets[combined_node.group].labels[combined_node.label_id];
             }
             return combined_node;
@@ -596,7 +597,7 @@
         let max_decade = 0;
         let max_decade_size = 0;
 
-        // reduce all year sizes to decade size
+        // find max/min decade & max size
         decades.map(d => {
             if (d.decade < min_decade) min_decade = d.decade;
             if (d.decade > max_decade) max_decade = d.decade;
@@ -648,6 +649,16 @@
             .call(g => g.select(".overlay").style("cursor", "default"));
 
         time_prepared = true;
+    }
+
+    function update_time() {
+        let new_decades = decades.map(d => d.decade);
+
+        time_bar.filter(d => new_decades.includes(d.decade))
+            .attr('fill', 'orange');
+
+        time_bar.filter(d => !new_decades.includes(d.decade))
+            .attr('fill', '#444');
     }
 
     function time_brushed(event) {
