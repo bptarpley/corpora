@@ -55,6 +55,11 @@
             fill: url(#gradient-arc-root-normal);
             stroke: #444;
         }
+
+        .selected {
+            fill: orange;
+            stroke: white;
+        }
     </style>
 </head>
 <body>
@@ -100,16 +105,16 @@
     <script src="{% static 'js/corpora.js' %}"></script>
     <script src="{% static 'js/d3.min.js' %}"></script>
     <script type="application/javascript">
-        var corpora = null;
-        var corpus_id = '{{ corpus_id }}';
-        var criteria = {};
+    let corpora = null;
+    let corpus_id = '{{ corpus_id }}';
+    let criteria = {'page-size': 10};
 
-        // VARS NEEDED FOR GRAPH
-        let nodes_loading = {};
-        let width = window.innerWidth;
-        let height = window.innerHeight;
-        var nodes = [{
-            id: `/corpus/${corpus_id}`,
+    // VARS NEEDED FOR GRAPH
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let nodes = [
+        {
+            id: `/corpus/${corpus_id}/ArcFederation`,
             label: 'ARC',
             group: 'Corpus',
             size: 1,
@@ -118,399 +123,569 @@
             image_y: "-31px",
             image_width: "50px",
             image_height: "63px",
-            fx: 0,
-            fy: 0
-        }];
-        var edges = [];
-        var min_radius = 1;
-        var max_radius = 10;
-        var drag, simulation, svg, g, link, node;
+            fx: position_node_group_x('Corpus'),
+            fy: position_node_group_y('Corpus')
+        },
+        {
+            id: `/corpus/${corpus_id}/ArcGenre`,
+            label: 'Genres',
+            group: 'Corpus',
+            fx: position_node_group_x('ArcGenre'),
+            fy: position_node_group_y('ArcGenre'),
+        },
+        {
+            id: `/corpus/${corpus_id}/ArcDiscipline`,
+            label: 'Disciplines',
+            group: 'Corpus',
+            fx: position_node_group_x('ArcDiscipline'),
+            fy: position_node_group_y('ArcDiscipline'),
+        },
+        {
+            id: `/corpus/${corpus_id}/ArcType`,
+            label: 'Formats',
+            group: 'Corpus',
+            fx: position_node_group_x('ArcType'),
+            fy: position_node_group_y('ArcType'),
+        },
+        {
+            id: `/corpus/${corpus_id}/ArcArtifact`,
+            label: 'Artifacts',
+            group: 'Corpus',
+            fx: position_node_group_x('ArchiveParent'),
+            fy: position_node_group_y('ArchiveParent'),
+        },
+    ];
+    let edges = [];
+    let facets = {
+        ArcGenre: {
+            loaded: false,
+            labels: {}
+        },
+        ArcDiscipline: {
+            loaded: false,
+            labels: {}
+        },
+        ArcType: {
+            loaded: false,
+            labels: {}
+        },
+        ArcFederation: {
+            loaded: false,
+            labels: {}
+        }
+    };
+    let archive_uris = [];
+    let selected_nodes = [];
+    let graph_data_loaded = false;
+    let min_radius = 1;
+    let max_radius = 10;
+    let drag, simulation, svg, g, link, node;
 
-        // VARS NEEDED FOR TIME
-        let decades = [];
-        let now = new Date();
-        let this_year = now.getFullYear();
-        let time_prepared = false;
-        let decade_scale, decade_size_scale;
-        let time_svg, time_bar, time_labels, time_brush;
+    // VARS NEEDED FOR TIME
+    let decades = [];
+    let now = new Date();
+    let this_year = now.getFullYear();
+    let time_prepared = false;
+    let decade_scale, decade_size_scale;
+    let time_svg, time_bar, time_labels, time_brush;
 
-        $(document).ready(function() {
-            corpora = new Corpora({'csrf_token': "{{ csrf_token }}"});
+    $(document).ready(function() {
+        corpora = new Corpora({'csrf_token': "{{ csrf_token }}"});
 
-            prepare_graph();
-            perform_graph_query();
-        });
+        for (let facet in facets) {
+            corpora.list_content(
+                corpus_id,
+                facet,
+                {only: '_id,label', 'page-size': 500},
+                function (facet_data) {
+                    facet_data.records.map(f => {
+                        facets[facet].labels[f.id] = f.label;
+                    });
+                    facets[facet].loaded = true;
+                },
+                true
+            );
+        }
 
-        function perform_graph_query() {
-            corpora.make_request(
-                `/api/arc/${corpus_id}/query/`,
-                "GET",
-                criteria,
-                function(artifact_data) {
-                    if (artifact_data.hasOwnProperty('meta') && artifact_data.meta.hasOwnProperty('aggregations')) {
-                        nodes.map(d => d.size = 0);
+        prepare_graph();
+        perform_graph_query();
+        await_data_then_update_graph();
+    });
 
-                        for (let node_group in artifact_data.meta.aggregations) {
-                            if (node_group === 'decades') {
-                                for (let decade in artifact_data.meta.aggregations[node_group]) {
-                                    if (decade.length > 2 && !isNaN(decade) && parseInt(decade) >= 400 && parseInt(decade) <= this_year) {
-                                        decades.push({
-                                            decade: parseInt(decade),
-                                            size: artifact_data.meta.aggregations[node_group][decade]
-                                        });
-                                    }
-                                }
-                            }
-                            else if (node_group === 'ArcArchive') {
-                                let archive_parents = {};
-                                for (let parent_path in artifact_data.meta.aggregations[node_group]) {
-                                    let parents = parent_path.split('__');
-                                    let source = `/corpus/${corpus_id}`;
-                                    for (let p_index = 0; p_index < parents.length; p_index ++){
-                                        let p = parents[p_index];
-                                        let p_uri = `/corpus/${corpus_id}/${node_group}/${p}`;
+    function perform_graph_query() {
+        graph_data_loaded = false;
+        corpora.make_request(
+            `/api/arc/${corpus_id}/query/`,
+            "GET",
+            criteria,
+            function(artifact_data) {
+                if (artifact_data.hasOwnProperty('meta') && artifact_data.meta.hasOwnProperty('aggregations')) {
+                    nodes.map(d => d.size = 0);
+                    decades = [];
 
-                                        if (!(p in archive_parents)) {
-                                            archive_parents[p] = {
-                                                id: p_uri,
-                                                label: p,
-                                                group: 'ArchiveParent',
-                                                size: artifact_data.meta.aggregations[node_group][parent_path],
-                                                x: position_node_group_x('ArchiveParent'),
-                                                y: position_node_group_y('ArchiveParent')
-                                            };
-
-                                            edges.push({
-                                                source: source,
-                                                target: p_uri
-                                            });
-                                        } else {
-                                            archive_parents[p].size += artifact_data.meta.aggregations[node_group][parent_path];
-                                        }
-
-                                        source = p_uri;
-                                    }
-                                }
-
-                                for (let arch_parent_node in archive_parents) {
-                                    nodes.push(
-                                        Object.assign({}, archive_parents[arch_parent_node])
-                                    );
-                                }
-                            }
-                            else {
-                                for (let node_id in artifact_data.meta.aggregations[node_group]) {
-                                    let node_uri = `/corpus/${corpus_id}/${node_group}/${node_id}`;
-                                    nodes_loading[node_uri] = true;
-
-                                    corpora.get_content(corpus_id, node_group, node_id, function (node_data) {
-
-                                        nodes.push({
-                                            id: node_uri,
-                                            label: node_data.label,
-                                            group: node_group,
-                                            size: artifact_data.meta.aggregations[node_group][node_id],
-                                            x: position_node_group_x(node_group),
-                                            y: position_node_group_y(node_group)
-                                        });
-
-                                        edges.push({
-                                            source: `/corpus/${corpus_id}`,
-                                            target: node_uri
-                                        });
-
-                                        nodes_loading[node_uri] = false;
+                    for (let node_group in artifact_data.meta.aggregations) {
+                        if (node_group === 'decades') {
+                            for (let decade in artifact_data.meta.aggregations[node_group]) {
+                                if (decade.length > 2 && !isNaN(decade) && parseInt(decade) >= 400 && parseInt(decade) <= this_year) {
+                                    decades.push({
+                                        decade: parseInt(decade),
+                                        size: artifact_data.meta.aggregations[node_group][decade]
                                     });
                                 }
                             }
                         }
+                        else if (node_group === 'ArcArchive') {
+                            let archive_parents = {};
+                            for (let parent_path in artifact_data.meta.aggregations[node_group]) {
+                                let parents = parent_path.split('__');
+                                let source = `/corpus/${corpus_id}/ArcArtifact`;
+                                for (let p_index = 0; p_index < parents.length; p_index ++){
+                                    let p = parents[p_index];
+                                    let p_uri = `/corpus/${corpus_id}/${node_group}/${p}`;
 
-                        update_graph();
-                        setTimeout(stagger_updates, 1000);
-                        if (!time_prepared) {
-                            prepare_time();
+                                    if (!(p in archive_parents)) {
+                                        archive_parents[p] = {
+                                            id: p_uri,
+                                            label: p,
+                                            group: 'ArchiveParent',
+                                            size: artifact_data.meta.aggregations[node_group][parent_path],
+                                            x: position_node_group_x('ArchiveParent'),
+                                            y: position_node_group_y('ArchiveParent')
+                                        };
+
+                                        edges.push({
+                                            source: source,
+                                            target: p_uri
+                                        });
+                                    } else {
+                                        archive_parents[p].size += artifact_data.meta.aggregations[node_group][parent_path];
+                                    }
+
+                                    source = p_uri;
+                                }
+                            }
+
+                            for (let arch_parent_node in archive_parents) {
+                                nodes.push(
+                                    Object.assign({}, archive_parents[arch_parent_node])
+                                );
+                            }
+                        }
+                        else {
+                            for (let node_id in artifact_data.meta.aggregations[node_group]) {
+                                let node_uri = `/corpus/${corpus_id}/${node_group}/${node_id}`;
+                                let source_uri = `/corpus/${corpus_id}/${node_group}`;
+
+                                nodes.push({
+                                    id: node_uri,
+                                    label_id: node_id,
+                                    group: node_group,
+                                    size: artifact_data.meta.aggregations[node_group][node_id],
+                                    x: position_node_group_x(node_group),
+                                    y: position_node_group_y(node_group)
+                                });
+
+                                edges.push({
+                                    source: source_uri,
+                                    target: node_uri
+                                });
+                            }
                         }
                     }
-                }
-            );
-        }
 
-        function stagger_updates() {
-            let finished = true;
-            for (let node_uri in nodes_loading) {
-                if (nodes_loading[node_uri]) {
-                    setTimeout(stagger_updates, 1000);
-                    finished = false;
-                    break;
+                    /*
+                    artifact_data.records.map(artifact => {
+                        nodes.push({
+                            id: artifact.uri,
+                            label: artifact.label,
+                            group: 'ArchiveParent',
+                            size: 1,
+                        });
+
+                        if (!archive_uris.includes(artifact.archive.uri)) {
+                            let parents = artifact.archive.parent_path.split('__');
+                            let parent_uri = `/corpus/${corpus_id}/ArcArchive/${parents[parents.length - 1]}`;
+
+                            nodes.push({
+                                id: artifact.archive.uri,
+                                label: artifact.archive.label,
+                                group: 'ArchiveParent',
+                                size: 1,
+                            });
+
+                            edges.push({
+                                source: parent_uri,
+                                target: artifact.archive.uri
+                            });
+
+                            archive_uris.push(artifact.archive.uri);
+                        }
+
+                        edges.push({
+                            source: artifact.archive.uri,
+                            target: artifact.uri
+                        });
+
+                        artifact.disciplines.map(disc => {
+                            edges.push({
+                                source: disc.uri,
+                                target: artifact.uri
+                            });
+                        });
+
+                        artifact.federations.map(fed => {
+                            edges.push({
+                                source: fed.uri,
+                                target: artifact.uri
+                            });
+                        });
+
+                        artifact.genres.map(genre => {
+                            edges.push({
+                                source: genre.uri,
+                                target: artifact.uri
+                            });
+                        });
+
+                        artifact.types.map(typ => {
+                            edges.push({
+                                source: typ.uri,
+                                target: artifact.uri
+                            });
+                        });
+                    });
+                     */
+
+                    graph_data_loaded = true;
                 }
             }
+        );
+    }
 
-            update_graph(finished);
+    function await_data_then_update_graph() {
+        let waiting = false;
+        for (let facet in facets) {
+            if (!facets[facet].loaded || !graph_data_loaded) {
+                setTimeout(await_data_then_update_graph, 500);
+                waiting = true;
+                break;
+            }
         }
 
-        function prepare_graph() {
-            drag = simulation => {
-                function dragstarted(event) {
-                    if (!event.active) simulation.alphaTarget(0.3).restart();
-                    event.subject.fx = event.subject.x;
-                    event.subject.fy = event.subject.y;
-                }
+        if (!waiting) {
+            if (!time_prepared) prepare_time();
+            update_graph();
+        }
+    }
 
-                function dragged(event) {
-                    event.subject.fx = event.x;
-                    event.subject.fy = event.y;
-                }
+    function prepare_graph() {
+        drag = simulation => {
+            function dragstarted(event) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                event.subject.fx = event.subject.x;
+                event.subject.fy = event.subject.y;
+            }
 
-                function dragended(event) {
-                    if (!event.active) simulation.alphaTarget(0);
-                    // to unpin a node:
-                    //event.subject.fx = null;
-                    //event.subject.fy = null;
-                }
+            function dragged(event) {
+                event.subject.fx = event.x;
+                event.subject.fy = event.y;
+            }
 
-                return d3.drag()
-                    .on("start", dragstarted)
-                    .on("drag", dragged)
-                    .on("end", dragended);
-            };
+            function dragended(event) {
+                if (!event.active) simulation.alphaTarget(0);
+                // to unpin a node:
+                //event.subject.fx = null;
+                //event.subject.fy = null;
+            }
 
-            simulation = d3.forceSimulation()
-                .force("link", d3.forceLink().id(d => d.id).strength(.5))
-                .force("charge", d3.forceManyBody().strength(-50))
-                .force("collide", d3.forceCollide().radius(d => d.group === 'Corpus' ? 50 : normalize_radius(d.size, min_radius, max_radius, 10, 100) + 10).iterations(2))
-                .force("x", d3.forceX().strength(.5).x(d => position_node_group_x(d.group)))
-                .force("y", d3.forceY().strength(.5).y(d => position_node_group_y(d.group)))
-                .on("tick", tick_graph);
+            return d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended);
+        };
 
-            svg = d3.select("#graph")
-                .attr("viewBox", [-width / 2, -height / 2, width, height])
-                .style("font", "12px Helvetica")
-                .style("background-color", "#444444");
+        simulation = d3.forceSimulation()
+            .force("link", d3.forceLink().id(d => d.id).strength(.1))
+            .force("charge", d3.forceManyBody().strength(-50))
+            .force("collide", d3.forceCollide().radius(d => d.group === 'Corpus' ? 50 : normalize_radius(d.size, min_radius, max_radius, 10, 100) + 10).iterations(2))
+            //.force("x", d3.forceX())
+            //.force("x", d3.forceX())
+            .force("x", d3.forceX().strength(.5).x(d => selected_nodes.includes(d.id) ? 0 : position_node_group_x(d.group)))
+            .force("y", d3.forceY().strength(.5).y(d => selected_nodes.includes(d.id) ? 0 : position_node_group_y(d.group)))
+            .on("tick", tick_graph);
 
-            g = svg.select("#root");
+        svg = d3.select("#graph")
+            .attr("viewBox", [-width / 2, -height / 2, width, height])
+            .style("font", "12px Helvetica")
+            .style("background-color", "#444444");
 
-            svg.call(d3.zoom()
-                .extent([[0, 0], [width, height]])
-                .scaleExtent([-5, 25])
-                .on("zoom", zoom_graph)
-            );
+        g = svg.select("#root");
 
-            link = g.append("g")
-                .attr("stroke", "#999")
-                .attr("stroke-opacity", 0.6)
-                .selectAll("line");
+        svg.call(d3.zoom()
+            .extent([[0, 0], [width, height]])
+            .scaleExtent([-5, 25])
+            .on("zoom", zoom_graph)
+        );
 
-            node = g.append("g")
-                .selectAll("g");
+        link = g.append("g")
+            .attr("stroke", "#999")
+            .attr("stroke-opacity", 0.6)
+            .selectAll("line");
+
+        node = g.append("g")
+            .selectAll("g");
+    }
+
+    function tick_graph() {
+        link
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+
+        node
+            .attr("transform", d => `translate(${d.x}, ${d.y})`);
+    }
+
+    function zoom_graph({transform}) {
+        g.attr("transform", transform);
+    }
+
+    function click_graph(event, d) {
+        if (event.defaultPrevented) return; // dragged
+
+        let group_field_map = {
+            ArcGenre: 'genres.uri',
+            ArcDiscipline: 'disciplines.uri',
+            ArcFederation: 'federations.uri',
+            ArcType: 'types.uri'
+        };
+
+        let criteria_key = `f_${group_field_map[d.group]}`;
+
+        if (!selected_nodes.includes(d.id)) {
+            d3.select(this).selectAll("circle")
+                .attr("class", "selected");
+            criteria[criteria_key] = d.id;
+            selected_nodes.push(d.id);
+        } else {
+            selected_nodes = selected_nodes.filter(n => n !== d.id);
+            d3.select(this).selectAll("circle")
+                .attr("class", get_node_class(d));
+            delete criteria[criteria_key];
+            d.fx = null;
+            d.fy = null;
         }
 
-        function tick_graph() {
-            link
-                .attr("x1", d => d.source.x)
-                .attr("y1", d => d.source.y)
-                .attr("x2", d => d.target.x)
-                .attr("y2", d => d.target.y);
+        perform_graph_query();
+        time_prepared = false;
+        await_data_then_update_graph();
+    }
 
-            node
-                .attr("transform", d => `translate(${d.x}, ${d.y})`);
-        }
+    // TODO: consider using d3's scaleLinear() method instead of below; see https://observablehq.com/@d3/sortable-bar-chart
+    function normalize_radius(actual, min_actual, max_actual, min_normalized, max_normalized) {
+        let mx = (actual - min_actual) / (max_actual - min_actual);
+        let preshiftNormalized = mx * (max_normalized - min_normalized);
+        let shiftedNormalized = preshiftNormalized + min_normalized;
 
-        function zoom_graph({transform}) {
-            g.attr("transform", transform);
-        }
+        return shiftedNormalized;
+    }
 
-        // TODO: consider using d3's scaleLinear() method instead of below; see https://observablehq.com/@d3/sortable-bar-chart
-        function normalize_radius(actual, min_actual, max_actual, min_normalized, max_normalized) {
-            var mx = (actual - min_actual) / (max_actual - min_actual);
-            var preshiftNormalized = mx * (max_normalized - min_normalized);
-            var shiftedNormalized = preshiftNormalized + min_normalized;
+    function get_node_class(d) {
+        if(selected_nodes.includes(d.id)) return "selected";
+        if(d.group === "Corpus") return "root-node";
+        if(d.group === "ArcFederation") return "root-node";
+        if(d.size === 0) return "disabled";
+        if(d.group === "ArcGenre") return "genre";
+        if(d.group === "ArcDiscipline") return "discipline";
+        if(d.group === "ArcType") return "format";
+        return "resource";
+    }
 
-            return shiftedNormalized;
-        }
+    function position_node_group_x(group) {
+        if(["ArcGenre", "ArcDiscipline"].includes(group)) return 0 - (width / 2) + (width / 8);
+        if(["ArcType", "ArchiveParent"].includes(group)) return (width / 2) - (width / 8);
+        return 0;
+    }
 
-        function get_node_class(d) {
-            if(d.group === "Corpus") return "root-node";
-            if(d.group === "ArcFederation") return "root-node";
-            if(d.size === 0) return "disabled";
-            if(d.group === "ArcGenre") return "genre";
-            if(d.group === "ArcDiscipline") return "discipline";
-            if(d.group === "ArcType") return "format";
-            return "resource";
-        }
+    function position_node_group_y(group) {
+        if(["ArcGenre", "ArcType", "Corpus", "ArcFederation"].includes(group)) return 0 - (height / 2) + (height / 8);
+        if(["ArcDiscipline", "ArchiveParent"].includes(group)) return (height / 2) - (height / 8);
+        return 0;
+    }
 
-        function position_node_group_x(group) {
-            if(["ArcGenre", "ArcDiscipline"].includes(group)) return -150;
-            if(["ArcType", "ArchiveParent"].includes(group)) return 150;
-            return 0;
-        }
+    function update_graph() {
+        const old_nodes = new Map(node.data().map(d => [d.id, d]));
+        console.log(old_nodes);
+        let node_ids = [];
 
-        function position_node_group_y(group) {
-            if(["ArcGenre", "ArcType"].includes(group)) return -150;
-            if(["ArcDiscipline", "ArchiveParent"].includes(group)) return 150;
-            return 0;
-        }
+        let new_nodes = nodes.map(d => {
+            if (d.size < min_radius) min_radius = d.size;
+            if (d.size > max_radius) max_radius = d.size;
+            node_ids.push(d.id);
+            let combined_node = Object.assign(old_nodes.get(d.id) || {}, d);
+            if (!combined_node.hasOwnProperty('label')){
+                console.log(combined_node.group);
+                combined_node.label = facets[combined_node.group].labels[combined_node.label_id];
+            }
+            return combined_node;
+        });
+        new_nodes.sort((a, b) => (a.size < b.size || b.group === 'Corpus') ? 1 : -1);
 
-        function update_graph(finished) {
-            const old_nodes = new Map(node.data().map(d => [d.id, d]));
-            let node_ids = [];
+        let new_edges = [];
+        edges.map(edge => {
+            if (node_ids.includes(edge.source) && node_ids.includes(edge.target)) {
+                new_edges.push(Object.assign({}, edge))
+            }
+        });
 
-            let new_nodes = nodes.map(d => {
-                if (d.size < min_radius) min_radius = d.size;
-                if (d.size > max_radius) max_radius = d.size;
-                node_ids.push(d.id);
-                return Object.assign(old_nodes.get(d.id) || {}, d);
-            });
-            new_nodes.sort((a, b) => (a.size < b.size || b.group === 'Corpus') ? 1 : -1);
+        node = node.data(new_nodes, d => d.id)
+            .join("g")
+            .call(drag(simulation))
+            .on("click", click_graph);
 
-            let new_edges = [];
-            edges.map(edge => {
-                if (node_ids.includes(edge.source) && node_ids.includes(edge.target)) {
-                    new_edges.push(Object.assign({}, edge))
-                }
-            });
+        node.selectAll("text").remove();
+        node.filter(d => !d.hasOwnProperty('image'))
+            .append("text")
+            .attr("x", 8)
+            .attr("y", "0.31em")
+            .classed("node-label", true)
+            .text(d => d.label)
+            .call(get_bounding_box);
 
-            node = node.data(new_nodes, d => d.id)
-                .join("g")
-                .call(drag(simulation));
+        let label_bg_padding = 2;
+        node.selectAll("rect").remove();
+        node.filter(d => !d.hasOwnProperty('image'))
+            .insert("rect", "text")
+            .attr("x", d => d.bbox.x - label_bg_padding)
+            .attr("y", d => d.bbox.y - label_bg_padding)
+            .attr("width", d => d.bbox.width + (label_bg_padding * 2))
+            .attr("height", d => d.bbox.height + (label_bg_padding * 2))
+            .attr("fill", "white")
+            .attr("fill-opacity", .6);
 
-            node.selectAll("text").remove();
-            node.filter(d => !d.hasOwnProperty('image'))
-                .append("text")
-                .attr("x", 8)
-                .attr("y", "0.31em")
-                .classed("node-label", true)
-                .text(d => d.label)
-                .call(get_bounding_box);
+        node.selectAll("circle").remove();
+        node.append("circle").lower()
+            .attr("stroke-width", 1.5)
+            .attr("r", d => d.group === "Corpus" ? 35 : normalize_radius(d.size, min_radius, max_radius, 10, 100))
+            .attr("class", d => get_node_class(d));
 
-            let label_bg_padding = 2;
-            node.selectAll("rect").remove();
-            node.filter(d => !d.hasOwnProperty('image'))
-                .insert("rect", "text")
-                .attr("x", d => d.bbox.x - label_bg_padding)
-                .attr("y", d => d.bbox.y - label_bg_padding)
-                .attr("width", d => d.bbox.width + (label_bg_padding * 2))
-                .attr("height", d => d.bbox.height + (label_bg_padding * 2))
-                .attr("fill", "white")
-                .attr("fill-opacity", .6);
+        node.selectAll("image").remove();
+        node.filter(d => d.hasOwnProperty('image'))
+            .append("image")
+            .attr("href", d => d.image)
+            .attr("width", d => d.image_width)
+            .attr("height", d => d.image_height)
+            .attr("x", d => d.image_x)
+            .attr("y", d => d.image_y);
 
-            node.selectAll("circle").remove();
-            node.append("circle").lower()
-                .attr("stroke-width", 1.5)
-                .attr("r", d => d.group === "Corpus" ? 35 : normalize_radius(d.size, min_radius, max_radius, 10, 100))
-                .attr("class", d => get_node_class(d));
+        link = link.data(new_edges, d => [d.source, d.target])
+            .join("line")
+            .attr("stroke-width", 2);
 
-            node.selectAll("image").remove();
-            node.filter(d => d.hasOwnProperty('image'))
-                .append("image")
-                .attr("href", d => d.image)
-                .attr("width", d => d.image_width)
-                .attr("height", d => d.image_height)
-                .attr("x", d => d.image_x)
-                .attr("y", d => d.image_y);
+        simulation.nodes(new_nodes);
+        simulation.force("link").links(new_edges);
+        //if (finished) {
+        simulation.alpha(.2).restart();
+        //}
+    }
 
-            link = link.data(new_edges, d => [d.source, d.target])
-                .join("line")
-                .attr("stroke-width", 2);
+    function prepare_time() {
+        let time_widget_height = document.getElementById('time').clientHeight;
+        let min_decade = 3000;
+        let max_decade = 0;
+        let max_decade_size = 0;
 
-            simulation.nodes(new_nodes);
-            simulation.force("link").links(new_edges);
-            //if (finished) {
-            simulation.alpha(.2).restart();
-            //}
-        }
+        // reduce all year sizes to decade size
+        decades.map(d => {
+            if (d.decade < min_decade) min_decade = d.decade;
+            if (d.decade > max_decade) max_decade = d.decade;
+            if (d.size > max_decade_size) max_decade_size = d.size;
+        });
 
-        function prepare_time() {
-            let time_widget_height = document.getElementById('time').clientHeight;
-            let min_decade = 3000;
-            let max_decade = 0;
-            let max_decade_size = 0;
+        // instantiate decade/decade size scales for time bars
+        decade_scale = d3.scaleBand()
+            .domain(decades.map(d => d.decade))
+            .range([10, width - 10])
+            .padding(0.1);
 
-            // reduce all year sizes to decade size
-            decades.map(d => {
-                if (d.decade < min_decade) min_decade = d.decade;
-                if (d.decade > max_decade) max_decade = d.decade;
-                if (d.size > max_decade_size) max_decade_size = d.size;
-            });
+        decade_size_scale = d3.scaleLinear()
+            .domain([0, max_decade_size])
+            .range([0, time_widget_height]);
 
-            // instantiate decade/decade size scales for time bars
-            decade_scale = d3.scaleBand()
-                .domain(decades.map(d => d.decade))
-                .range([10, width - 10])
-                .padding(0.1);
+        time_svg = d3.select("#time")
+            .attr('viewBox', [0, 0, width, time_widget_height])
+            .style('font', '12px Helvetica');
 
-            decade_size_scale = d3.scaleLinear()
-                .domain([0, max_decade_size])
-                .range([0, time_widget_height]);
+        time_svg.selectAll("g").remove();
 
-            time_svg = d3.select("#time")
-                .attr('viewBox', [0, 0, width, time_widget_height])
-                .style('font', '12px Helvetica');
+        time_bar = time_svg.append("g")
+            .attr('fill', 'orange')
+            .selectAll("rect")
+            .data(decades)
+            .join("rect")
+            .attr('x', d => decade_scale(d.decade) - (decade_scale.bandwidth() / 2))
+            .attr('y', 0)
+            .attr('height', d => decade_size_scale(d.size))
+            .attr('width', decade_scale.bandwidth());
 
-            time_bar = time_svg.append("g")
+        time_labels = time_svg.append("g")
+            .selectAll("text")
+            .data(decades)
+            .join("text")
+            .attr("x", d => decade_scale(d.decade))
+            .attr("y", time_widget_height / 2)
+            .text(function(d, i){ if (i%3===0) {return d.decade} else {return ""} })
+            .attr("fill", 'white')
+            //.style("writing-mode", 'tb');
+
+        time_brush = d3.brush()
+            .on("start brush end", time_brushed);
+
+        time_svg.append("g")
+            .classed('brush', true)
+            .call(time_brush)
+            .call(g => g.select(".overlay").style("cursor", "default"));
+
+        time_prepared = true;
+    }
+
+    function time_brushed(event) {
+        if (event.selection !== null) {
+            const [[x0, y0], [x1, y1]] = event.selection;
+            let decade_data_selected = time_labels
+                .attr('fill', 'white')
+                .filter(d => x0 <= decade_scale(d.decade) && decade_scale(d.decade) < x1)
                 .attr('fill', 'orange')
-                .selectAll("rect")
-                .data(decades)
-                .join("rect")
-                .attr('x', d => decade_scale(d.decade) - (decade_scale.bandwidth() / 2))
-                .attr('y', 0)
-                .attr('height', d => decade_size_scale(d.size))
-                .attr('width', decade_scale.bandwidth());
+                .data();
 
-            time_labels = time_svg.append("g")
-                .selectAll("text")
-                .data(decades)
-                .join("text")
-                .attr("x", d => decade_scale(d.decade))
-                .attr("y", time_widget_height / 2)
-                .text(function(d, i){ if (i%3===0) {return d.decade} else {return ""} })
-                .attr("fill", 'white')
-                //.style("writing-mode", 'tb');
+            time_bar
+                .attr('fill', 'orange')
+                .filter(d => x0 <= decade_scale(d.decade) && decade_scale(d.decade) < x1)
+                .attr('fill', '#ffffff');
 
-            time_brush = d3.brush()
-                .on("start brush end", time_brushed);
-
-            time_svg.append("g")
-                .classed('brush', true)
-                .call(time_brush)
-                .call(g => g.select(".overlay").style("cursor", "default"));
-
-            time_prepared = true;
-        }
-
-        function time_brushed(event) {
-            if (event.selection !== null) {
-                const [[x0, y0], [x1, y1]] = event.selection;
-                let decade_data_selected = time_labels
-                    .attr('fill', 'white')
-                    .filter(d => x0 <= decade_scale(d.decade) && decade_scale(d.decade) < x1)
-                    .attr('fill', 'orange')
-                    .data();
-
-                time_bar
-                    .attr('fill', 'orange')
-                    .filter(d => x0 <= decade_scale(d.decade) && decade_scale(d.decade) < x1)
-                    .attr('fill', '#ffffff');
-
-                if (event.type === 'end') {
-                    let decades_selected = [];
-                    decade_data_selected.map(d => decades_selected.push(parseInt(d.decade)));
-                    console.log(decades_selected);
-                    if(decades_selected.length > 0) {
-                        let min_year = Math.min(...decades_selected);
-                        let max_year = Math.max(...decades_selected) + 9;
-                        criteria['r_years'] = `${min_year}__${max_year}`;
-                        perform_graph_query();
-                    }
+            if (event.type === 'end') {
+                let decades_selected = [];
+                decade_data_selected.map(d => decades_selected.push(parseInt(d.decade)));
+                console.log(decades_selected);
+                if(decades_selected.length > 0) {
+                    let min_year = Math.min(...decades_selected);
+                    let max_year = Math.max(...decades_selected) + 9;
+                    criteria['r_years'] = `${min_year}__${max_year}`;
+                    perform_graph_query();
+                    await_data_then_update_graph();
                 }
-            } else {
-                delete criteria['r_years'];
-                perform_graph_query();
             }
+        } else {
+            delete criteria['r_years'];
+            perform_graph_query();
+            await_data_then_update_graph();
         }
+    }
 
-        function get_bounding_box(selection) {
-            selection.each(function(d){d.bbox = this.getBBox();});
-        }
+    function get_bounding_box(selection) {
+        selection.each(function(d){d.bbox = this.getBBox();});
+    }
     </script>
 </body>
 </html>
