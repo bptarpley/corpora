@@ -1961,7 +1961,7 @@
                             let kill_job_form = '';
                             let job_status_time = jobs[x].status_time * 1000;
 
-                            if ((Date.now() - job_status_time) > stale_window && role === 'Admin') {
+                            if ((Date.now() - job_status_time) > stale_window && (role === 'Admin' || role === 'Editor')) {
                                 kill_job_form = `
                                     <form method="post">
                                         <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
