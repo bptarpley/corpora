@@ -59,6 +59,7 @@ def import_csv_data(job_id):
                     keys_present = True
 
                     for key in field_keys:
+
                         if ct.get_field(key) and key in row:
                             query[key] = row[key]
                         else:
@@ -75,7 +76,8 @@ def import_csv_data(job_id):
 
                 needs_saving = False
 
-                for field_name in row.keys():
+                field_names = [f.strip() for f in row.keys()]
+                for field_name in field_names:
                     ct_field = ct.get_field(field_name)
                     if ct_field:
                         if row[field_name].strip():
