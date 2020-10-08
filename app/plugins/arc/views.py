@@ -20,8 +20,11 @@ def query(request, corpus_id):
         aggs['ArcFederation'] = A('nested', path='federations')
         aggs['ArcFederation'].bucket('names', 'terms', size=10000, field='federations.id')
 
+        aggs['ArchiveParent'] = A('nested', path='archive')
+        aggs['ArchiveParent'].bucket('names', 'terms', size=10000, field='archive.parent_path')
+
         aggs['ArcArchive'] = A('nested', path='archive')
-        aggs['ArcArchive'].bucket('names', 'terms', size=10000, field='archive.parent_path')
+        aggs['ArcArchive'].bucket('names', 'terms', size=10000, field='archive.id')
 
         aggs['ArcType'] = A('nested', path='types')
         aggs['ArcType'].bucket('names', 'terms', size=10000, field='types.id')

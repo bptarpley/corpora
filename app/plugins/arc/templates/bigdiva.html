@@ -118,41 +118,50 @@
             label: 'ARC',
             group: 'Corpus',
             size: 1,
+            level: 2,
             image: '{% static 'img/arc-logo.png' %}',
             image_x: "-25px",
             image_y: "-31px",
             image_width: "50px",
             image_height: "63px",
-            fx: position_node_group_x('Corpus'),
-            fy: position_node_group_y('Corpus')
+            x: position_node_group_x('Corpus'),
+            y: position_node_group_y('Corpus')
         },
         {
             id: `/corpus/${corpus_id}/ArcGenre`,
+            size: 1,
+            level: 2,
             label: 'Genres',
-            group: 'Corpus',
-            fx: position_node_group_x('ArcGenre'),
-            fy: position_node_group_y('ArcGenre'),
+            group: 'ArcGenre',
+            x: position_node_group_x('ArcGenre'),
+            y: position_node_group_y('ArcGenre'),
         },
         {
             id: `/corpus/${corpus_id}/ArcDiscipline`,
+            size: 1,
+            level: 2,
             label: 'Disciplines',
-            group: 'Corpus',
-            fx: position_node_group_x('ArcDiscipline'),
-            fy: position_node_group_y('ArcDiscipline'),
+            group: 'ArcDiscipline',
+            x: position_node_group_x('ArcDiscipline'),
+            y: position_node_group_y('ArcDiscipline'),
         },
         {
             id: `/corpus/${corpus_id}/ArcType`,
+            size: 1,
+            level: 2,
             label: 'Formats',
-            group: 'Corpus',
-            fx: position_node_group_x('ArcType'),
-            fy: position_node_group_y('ArcType'),
+            group: 'ArcType',
+            x: position_node_group_x('ArcType'),
+            y: position_node_group_y('ArcType'),
         },
         {
-            id: `/corpus/${corpus_id}/ArcArtifact`,
+            id: `/corpus/${corpus_id}/ArchiveParent`,
+            size: 1,
+            level: 4,
             label: 'Artifacts',
-            group: 'Corpus',
-            fx: position_node_group_x('ArchiveParent'),
-            fy: position_node_group_y('ArchiveParent'),
+            group: 'ArchiveParent',
+            x: position_node_group_x('ArchiveParent'),
+            y: position_node_group_y('ArchiveParent'),
         },
     ];
     let edges = [];
@@ -172,13 +181,20 @@
         ArcFederation: {
             loaded: false,
             labels: {}
+        },
+        ArcArchive: {
+            loaded: false,
+            labels: {},
+            parents: {},
         }
     };
     let archive_uris = [];
     let selected_nodes = [];
     let graph_data_loaded = false;
-    let min_radius = 1;
-    let max_radius = 10;
+    let min_size = 1;
+    let max_size = 10;
+    let min_node_radius = 10;
+    let max_node_radius = 200;
     let drag, simulation, svg, g, link, node;
 
     // VARS NEEDED FOR TIME
@@ -193,13 +209,19 @@
         corpora = new Corpora({'csrf_token': "{{ csrf_token }}"});
 
         for (let facet in facets) {
+            let facet_criteria = {only: '_id,label', 'page-size': 500};
+            if (facet === 'ArcArchive') { facet_criteria.only += ',parent_path' }
+
             corpora.list_content(
                 corpus_id,
                 facet,
-                {only: '_id,label', 'page-size': 500},
+                facet_criteria,
                 function (facet_data) {
                     facet_data.records.map(f => {
                         facets[facet].labels[f.id] = f.label;
+                        if (facet === 'ArcArchive') {
+                            facets[facet].parents[f.id] = f.parent_path;
+                        }
                     });
                     facets[facet].loaded = true;
                 },
@@ -234,14 +256,18 @@
                                 }
                             }
                         }
-                        else if (node_group === 'ArcArchive') {
+                        else if (node_group === 'ArchiveParent') {
                             let archive_parents = {};
                             for (let parent_path in artifact_data.meta.aggregations[node_group]) {
                                 let parents = parent_path.split('__');
-                                let source = `/corpus/${corpus_id}/ArcArtifact`;
+                                let source = `/corpus/${corpus_id}/ArchiveParent`;
+                                let p_uri = source;
+
                                 for (let p_index = 0; p_index < parents.length; p_index ++){
                                     let p = parents[p_index];
-                                    let p_uri = `/corpus/${corpus_id}/${node_group}/${p}`;
+
+                                    if (p_index === 0) { p_uri += `/${p}`; }
+                                    else { p_uri += `__${p}`; }
 
                                     if (!(p in archive_parents)) {
                                         archive_parents[p] = {
@@ -249,6 +275,7 @@
                                             label: p,
                                             group: 'ArchiveParent',
                                             size: artifact_data.meta.aggregations[node_group][parent_path],
+                                            level: parents.length - p_index + 1,
                                             x: position_node_group_x('ArchiveParent'),
                                             y: position_node_group_y('ArchiveParent')
                                         };
@@ -259,6 +286,9 @@
                                         });
                                     } else {
                                         archive_parents[p].size += artifact_data.meta.aggregations[node_group][parent_path];
+                                        if (parents.length - p_index > archive_parents[p].level) {
+                                            archive_parents[p].level = parents.length;
+                                        }
                                     }
 
                                     source = p_uri;
@@ -281,14 +311,17 @@
                                     label_id: node_id,
                                     group: node_group,
                                     size: artifact_data.meta.aggregations[node_group][node_id],
+                                    level: 1,
                                     x: position_node_group_x(node_group),
                                     y: position_node_group_y(node_group)
                                 });
 
-                                edges.push({
-                                    source: source_uri,
-                                    target: node_uri
-                                });
+                                if (node_group !== 'ArcArchive') {
+                                    edges.push({
+                                        source: source_uri,
+                                        target: node_uri
+                                    });
+                                }
                             }
                         }
                     }
@@ -375,6 +408,15 @@
         if (!waiting) {
             if (!time_prepared) {
                 prepare_time();
+
+                nodes.map(n => {
+                    if (n.group === 'ArcArchive') {
+                        edges.push({
+                            source: `/corpus/${corpus_id}/ArchiveParent/${facets['ArcArchive'].parents[n.label_id]}`,
+                            target: n.id
+                        });
+                    }
+                });
             } else {
                 update_time();
             }
@@ -385,7 +427,7 @@
     function prepare_graph() {
         drag = simulation => {
             function dragstarted(event) {
-                if (!event.active) simulation.alphaTarget(0.3).restart();
+                if (!event.active) simulation.alphaTarget(0.1).restart();
                 event.subject.fx = event.subject.x;
                 event.subject.fy = event.subject.y;
             }
@@ -409,13 +451,16 @@
         };
 
         simulation = d3.forceSimulation()
+            .velocityDecay(.8)
             .force("link", d3.forceLink().id(d => d.id).strength(.1))
-            .force("charge", d3.forceManyBody().strength(-50))
-            .force("collide", d3.forceCollide().radius(d => d.group === 'Corpus' ? 50 : normalize_radius(d.size, min_radius, max_radius, 10, 100) + 10).iterations(2))
+            //.force("charge", d3.forceManyBody().strength(-500))
+            .force("collide", d3.forceCollide().radius(d => d.group === 'Corpus' ? 50 : normalize_radius(d.size) + 10).iterations(2))
+            .force("r", d3.forceRadial(d => (max_node_radius * 4) + ((max_node_radius * 1.5) * (d.level > 0 ? d.level - 1 : 0))).strength(5))
+            //.force("r", d3.forceRadial(d => d.group === 'Corpus' ? 800 : (600 - normalize_radius(d.size, min_radius, max_radius, 10, 100))).strength(10))
             //.force("x", d3.forceX())
             //.force("x", d3.forceX())
-            .force("x", d3.forceX().strength(.5).x(d => selected_nodes.includes(d.id) ? 0 : position_node_group_x(d.group)))
-            .force("y", d3.forceY().strength(.5).y(d => selected_nodes.includes(d.id) ? 0 : position_node_group_y(d.group)))
+            //.force("x", d3.forceX().strength(.1).x(d => selected_nodes.includes(d.id) ? 0 : position_node_group_x(d.group)))
+            //.force("y", d3.forceY().strength(.1).y(d => selected_nodes.includes(d.id) ? 0 : position_node_group_y(d.group)))
             .on("tick", tick_graph);
 
         svg = d3.select("#graph")
@@ -486,10 +531,10 @@
     }
 
     // TODO: consider using d3's scaleLinear() method instead of below; see https://observablehq.com/@d3/sortable-bar-chart
-    function normalize_radius(actual, min_actual, max_actual, min_normalized, max_normalized) {
-        let mx = (actual - min_actual) / (max_actual - min_actual);
-        let preshiftNormalized = mx * (max_normalized - min_normalized);
-        let shiftedNormalized = preshiftNormalized + min_normalized;
+    function normalize_radius(actual) {
+        let mx = (actual - min_size) / (max_size - min_size);
+        let preshiftNormalized = mx * (max_node_radius - min_node_radius);
+        let shiftedNormalized = preshiftNormalized + min_node_radius;
 
         return shiftedNormalized;
     }
@@ -503,6 +548,13 @@
         if(d.group === "ArcDiscipline") return "discipline";
         if(d.group === "ArcType") return "format";
         return "resource";
+    }
+
+    function get_node_stratum(d) {
+        if (d.group === "ArcType") return 300;
+        if (d.group === "ArcDiscipline") return 500;
+        if (d.group === "ArcGenre") return 700;
+        return 10;
     }
 
     function position_node_group_x(group) {
@@ -522,8 +574,8 @@
         let node_ids = [];
 
         let new_nodes = nodes.map(d => {
-            if (d.size < min_radius) min_radius = d.size;
-            if (d.size > max_radius) max_radius = d.size;
+            if (d.size < min_size) min_size = d.size;
+            if (d.size > max_size) max_size = d.size;
             node_ids.push(d.id);
             let combined_node = Object.assign(old_nodes.get(d.id) || {}, d);
             if (!combined_node.hasOwnProperty('label')){
@@ -568,7 +620,7 @@
         node.selectAll("circle").remove();
         node.append("circle").lower()
             .attr("stroke-width", 1.5)
-            .attr("r", d => d.group === "Corpus" ? 35 : normalize_radius(d.size, min_radius, max_radius, 10, 100))
+            .attr("r", d => d.group === "Corpus" ? 35 : normalize_radius(d.size))
             .attr("class", d => get_node_class(d));
 
         node.selectAll("image").remove();
@@ -588,6 +640,7 @@
         simulation.force("link").links(new_edges);
         //if (finished) {
         simulation.alpha(.2).restart();
+        //simulation.start()
         //}
     }
 
