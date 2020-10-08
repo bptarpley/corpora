@@ -1,4 +1,5 @@
 import csv
+import chardet
 from huey.contrib.djhuey import db_task
 from corpus import *
 
@@ -49,7 +50,17 @@ def import_csv_data(job_id):
 
     if os.path.exists(csv_file.path) and content_type in corpus.content_types:
         ct = corpus.content_types[content_type]
-        with open(csv_file.path) as csv_in:
+
+        # attempt to detect file encoding
+        file_encoding = 'utf-8'
+        detection = None
+        with open(csv_file.path, 'rb') as csv_in:
+            detection = chardet.detect(csv_in.read())
+
+        if detection:
+            file_encoding = detection['encoding']
+
+        with open(csv_file.path, 'r', encoding=file_encoding) as csv_in:
             csv_reader = csv.DictReader(csv_in)
             for row in csv_reader:
                 content = None
