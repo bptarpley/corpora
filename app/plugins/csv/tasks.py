@@ -2,6 +2,7 @@ import csv
 import chardet
 from huey.contrib.djhuey import db_task
 from corpus import *
+from dateutil import parser
 
 
 REGISTRY = {
@@ -47,6 +48,7 @@ def import_csv_data(job_id):
     field_keys = job.configuration['parameters']['field_keys']['value']
     field_keys = [fk.strip() for fk in field_keys.split(',') if fk]
     csv_file = corpus.files[csv_file_key]
+    default_date = datetime(1, 1, 1, 0, 0)
 
     if os.path.exists(csv_file.path) and content_type in corpus.content_types:
         ct = corpus.content_types[content_type]
@@ -90,8 +92,13 @@ def import_csv_data(job_id):
                 for field_name in row.keys():
                     ct_field = ct.get_field(field_name.strip())
                     if ct_field:
-                        if row[field_name].strip():
-                            setattr(content, field_name.strip(), row[field_name].strip())
+                        val = row[field_name].strip()
+                        if val:
+
+                            if ct_field.type == 'date':
+                                val = parser.parse(val, default=default_date)
+
+                            setattr(content, field_name.strip(), val)
                         else:
                             setattr(content, field_name.strip(), None)
                         needs_saving = True
