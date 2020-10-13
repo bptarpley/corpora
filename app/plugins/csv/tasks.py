@@ -87,14 +87,13 @@ def import_csv_data(job_id):
 
                 needs_saving = False
 
-                field_names = [f.strip() for f in row.keys()]
-                for field_name in field_names:
-                    ct_field = ct.get_field(field_name)
+                for field_name in row.keys():
+                    ct_field = ct.get_field(field_name.strip())
                     if ct_field:
                         if row[field_name].strip():
-                            setattr(content, field_name, row[field_name].strip())
+                            setattr(content, field_name.strip(), row[field_name].strip())
                         else:
-                            setattr(content, field_name, None)
+                            setattr(content, field_name.strip(), None)
                         needs_saving = True
 
                 if needs_saving:
