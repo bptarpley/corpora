@@ -78,9 +78,9 @@ class Field(mongoengine.EmbeddedDocument):
                 return mongoengine.IntField()
         elif self.type == 'decimal':
             if self.unique and not self.unique_with:
-                return mongoengine.DecimalField(unique=True, sparse=True)
+                return mongoengine.FloatField(unique=True, sparse=True)
             else:
-                return mongoengine.DecimalField()
+                return mongoengine.FloatField()
         elif self.type == 'date':
             if self.unique and not self.unique_with:
                 return mongoengine.DateField(unique=True, sparse=True)
