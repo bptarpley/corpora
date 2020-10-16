@@ -109,6 +109,13 @@
                     </div>
                 `;
             },
+            decimal: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value}
+                    </div>
+                `;
+            },
             date: function(field, value) {
                 return `
                     <div class="col-10 d-flex align-left field-value ${field.type}-value">
