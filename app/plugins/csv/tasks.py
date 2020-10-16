@@ -98,6 +98,9 @@ def import_csv_data(job_id):
                             if ct_field.type == 'date':
                                 val = parser.parse(val, default=default_date)
 
+                            if ct_field.type == 'decimal':
+                                val = float(val)
+
                             setattr(content, field_name.strip(), val)
                         else:
                             setattr(content, field_name.strip(), None)

@@ -297,9 +297,11 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                     elif ct_fields[field_name].type == 'cross_reference':
                         field_value = corpus.get_content(ct_fields[field_name].cross_reference_type, field_value).to_dbref()
 
-                    # set value for number fields
-                    elif ct_fields[field_name].type == 'number' and not field_value:
+                    # set value for number/decimal fields
+                    elif ct_fields[field_name].type in ['number', 'decimal'] and not field_value:
                         field_value = None
+                    elif ct_fields[field_name].type == 'decimal':
+                        field_value = float(field_value)
 
                     # set value for date fields
                     elif ct_fields[field_name].type == 'date' and not field_value:
