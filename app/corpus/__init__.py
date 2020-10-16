@@ -21,7 +21,7 @@ from elasticsearch_dsl.connections import get_connection
 from django.template import Template, Context
 
 
-FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'date', 'file', 'link', 'cross_reference', 'embedded')
+FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'date', 'file', 'link', 'cross_reference', 'embedded')
 MIME_TYPES = ('text/html', 'text/xml', 'application/json')
 
 
@@ -76,6 +76,11 @@ class Field(mongoengine.EmbeddedDocument):
                 return mongoengine.IntField(unique=True, sparse=True)
             else:
                 return mongoengine.IntField()
+        elif self.type == 'decimal':
+            if self.unique and not self.unique_with:
+                return mongoengine.DecimalField(unique=True, sparse=True)
+            else:
+                return mongoengine.DecimalField()
         elif self.type == 'date':
             if self.unique and not self.unique_with:
                 return mongoengine.DateField(unique=True, sparse=True)
@@ -1683,6 +1688,7 @@ class Corpus(mongoengine.Document):
                 'keyword': 'keyword',
                 'html': 'text',
                 'number': 'integer',
+                'decimal': 'float',
                 'date': 'date',
                 'file': 'text',
                 'image': 'text',

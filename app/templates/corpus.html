@@ -184,10 +184,11 @@
                         <label for="new-f-type-box">Type</label>
                         <select id="new-f-type-box">
                             <option value="keyword" selected>Keyword</option>
-                            <option value="text" selected>Text</option>
-                            <option value="large_text" selected>Large Text</option>
+                            <option value="text">Text</option>
+                            <option value="large_text">Large Text</option>
                             <option value="html">HTML</option>
                             <option value="number">Number</option>
+                            <option value="decimal">Decimal</option>
                             <option value="date">Date</option>
                             <option value="link">Link</option>
                             <option value="file">File Upload</option>
@@ -539,6 +540,7 @@
             html: 'HTML',
             choice: 'Choice',
             number: 'Number',
+            decimal: 'Decimal',
             date: 'Date',
             file: 'File',
             link: 'Link',
@@ -1470,7 +1472,7 @@
                     $('#new-f-name-box').val('');
                     $('#new-f-name-box').prop('disabled', false);
                     $('#new-f-label-box').val('');
-                    $('#new-f-type-box').val('text');
+                    $('#new-f-type-box').val('keyword');
                     $('#new-f-in-lists-checkbox').prop('checked', true);
                     $('#new-f-indexed-checkbox').prop('checked', false);
                     $('#new-f-unique-checkbox').prop('checked', false);
