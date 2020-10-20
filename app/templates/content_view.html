@@ -8,6 +8,8 @@
             margin-bottom: 20px;
         }
     </style>
+    <link href="{% static 'css/vis-network.min.css' %}" rel="stylesheet">
+
 {% endblock %}
 
 {% block main %}
@@ -21,9 +23,27 @@
                         <!-- title -->
                     </h4>
                 </div>
-                <div class="card-body content-type-card" id="content-div">
-
+                <div class="card-body h-100">
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link active" id="metadata-tab" data-toggle="tab" href="#metadata" role="tab" aria-controls="metadata" aria-selected="true">Metadata</a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link disabled" id="explore-tab" data-toggle="tab" href="#explore" role="tab" aria-controls="explore" aria-selected="false">Explore</a>
+                        </li>
+                    </ul>
+                    <div class="tab-content h-100">
+                        <div class="tab-pane fade show active" id="metadata" role="tabpanel" aria-labelledby="metadata-tab">
+                            <div class="content-type-card" id="content-div">
+                                <!-- content metadata -->
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="explore" role="tabpanel" aria-labelledby="explore-tab" style="height: 800px;">
+                            <div id="explore-div" style="height: 800px;"></div>
+                        </div>
+                    </div>
                 </div>
+
                 <div class="card-footer" id="content-footer">
                     {% if response.scholar.is_admin or role == 'Editor' %}
                         <a href="/corpus/{{ corpus_id }}/{{ content_type }}/{{ content_id }}/edit/">
@@ -40,12 +60,18 @@
 {% block js %}
     <script src="{% static 'js/filepond.js' %}"></script>
     <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
+    <!--<script src="{% static 'js/d3.min.js' %}"></script>
+    <script src="{% static 'js/neo4jd3.min.js' %}"></script>-->
+    <script src="{% static 'js/vis-network.min.js' %}"></script>
     <script type="application/javascript">
         var corpus_id = '{{ corpus_id }}';
         var content_type_name = '{{ content_type }}';
         var content_id = '{% if content_id %}{{ content_id }}{% endif %}';
         var content_type = null;
         var content = null;
+        var nodes = null;
+        var edges = null;
+        var network = null;
 
         var field_templates = {
             text: function(field, value) {
@@ -77,6 +103,13 @@
                 `;
             },
             number: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value}
+                    </div>
+                `;
+            },
+            decimal: function(field, value) {
                 return `
                     <div class="col-10 d-flex align-left field-value ${field.type}-value">
                         ${value}
@@ -115,6 +148,13 @@
         };
 
         $(document).ready(function() {
+            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+                if (e.target.id === 'explore-tab') {
+                    network.fit();
+                    nodes.update([{ id: content.uri, label: content.label, title: null, fixed: true }]);
+                }
+            });
+
             corpora.get_corpus(corpus_id, function(corpus_data) {
                 add_breadcrumb(corpus_data.name, `/corpus/${corpus_id}/`);
                 content_type = corpus_data.content_types[content_type_name];
@@ -123,6 +163,96 @@
                     content = content_data;
                     add_breadcrumb(content.label, `/corpus/${corpus_id}/${content_type_name}/${content_id}/`);
                     inject_content();
+
+                    corpora.get_network_json(corpus_id, content_type_name, content_id, function(net_json) {
+                        nodes = new vis.DataSet(net_json.nodes);
+                        edges = new vis.DataSet(net_json.edges);
+
+                        let explore_div = $('#explore-div')[0];
+                        network = new vis.Network(
+                            explore_div,
+                            {
+                                nodes: nodes,
+                                edges: edges
+                            },
+                            {
+                                nodes: {
+                                    shape: 'hexagon'
+                                },
+                                interaction: {
+                                    zoomSpeed: 0.4,
+                                    hover: true,
+                                    tooltipDelay: 100
+                                }
+                            }
+                        );
+
+                        $('#explore-tab').removeClass('disabled');
+
+                        network.on("dragStart", function(params){
+                            params.nodes.map(id => {
+                                let n = nodes.get(id);
+                                let n_label = n.title ? n.title : n.label;
+
+                                nodes.update([{ id: id, fixed: false, label: n_label, title: null }]);
+                            });
+                        });
+
+                        network.on("dragEnd", function(params){
+                            params.nodes.map(id => {
+                                nodes.update([{ id: id, fixed: true }]);
+                            });
+                        });
+
+                        network.on("doubleClick", function(params){
+                            if (params.nodes.length > 0) {
+                                let node = nodes.get(params.nodes[0]);
+                                let node_ct = node.group;
+                                let node_id = node.id.split('/').slice(-1)[0];
+
+                                corpora.get_network_json(corpus_id, node_ct, node_id, function(net_json) {
+                                    net_json.nodes.map(n => {
+                                        if (!nodes.get(n.id)) {
+                                            nodes.add(n);
+                                        }
+                                    });
+
+                                    net_json.edges.map(e => {
+                                        if (!edges.get(e.id)) {
+                                            edges.add(e);
+                                        }
+                                    });
+                                });
+                            }
+                        });
+
+                        /*
+                        neo4jd3 = new Neo4jd3('#explore-div', {
+                            highlight: [
+                                {
+                                    class: content_type_name,
+                                    property: 'label',
+                                    value: content.label
+                                }
+                            ],
+                            minCollision: 60,
+                            neo4jData: neojson,
+                            onNodeDoubleClick: function(node) {
+                                let node_ct = node.labels[0];
+                                let node_id = node.properties.id;
+                                corpora.get_neo_json(corpus_id, node_ct, node_id, function(neojson) {
+                                    let first_iter = { nodes: neojson.nodes, relationships: [] };
+                                    let second_iter = { nodes: [], relationships: neojson.relationships };
+
+                                    neo4jd3.updateWithD3Data(first_iter);
+                                    neo4jd3.updateWithD3Data(second_iter);
+
+                                }, mode='vis.js');
+                            },
+                            zoomFit: true
+                        });
+                         */
+                    });
                 });
             });
         });

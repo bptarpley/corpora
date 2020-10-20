@@ -105,6 +105,7 @@ def _get_context(req):
         'general_query': '',
         'fields_query': {},
         'fields_filter': {},
+        'fields_range': {},
         'fields_sort': [],
         'page': 1,
         'page_size': 50,
@@ -116,7 +117,7 @@ def _get_context(req):
         value = req.GET[param]
         search_field_name = param[2:]
 
-        if param in ['q', 'page', 'page-size'] or param.startswith('q_') or param.startswith('s_') or param.startswith('f_'):
+        if param in ['q', 'page', 'page-size'] or param.startswith('q_') or param.startswith('s_') or param.startswith('f_') or param.startswith('r_'):
             context['search'] = default_search
         
         if param == 'msg':
@@ -133,6 +134,8 @@ def _get_context(req):
             context['search']['fields_sort'].append({search_field_name: {"order": value, "missing": "_first"}})
         elif param.startswith('f_'):
             context['search']['fields_filter'][search_field_name] = value
+        elif param.startswith('r_'):
+            context['search']['fields_range'][search_field_name] = value
         elif param == 'es_search_mode':
             context['search']['search_mode'] = value
         elif param == 'page':

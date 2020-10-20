@@ -9,6 +9,7 @@ from manager.utilities import _get_context, get_scholar_corpus, _contains, _clea
 from importlib import reload
 from plugins.nvs import tasks
 from rest_framework.decorators import api_view
+from PIL import Image, ImageDraw
 
 
 @login_required
@@ -337,6 +338,70 @@ def commentaries(request, corpus_id):
             'commentaries': commentaries
         }
     )
+
+
+def play_minimap(request, corpus_id):
+    corpus = get_corpus(corpus_id)
+    lines = corpus.get_content('PlayLine', all=True).order_by('line_number')
+
+    width = request.GET.get('width', '300')
+    height = request.GET.get('height', '900')
+    line_count = 0
+    max_line_length = 10
+
+    line_height = 3
+    line_spacing = 2
+
+    if width.isdigit() and height.isdigit():
+        width = int(width)
+        height = int(height)
+        ratio = width / height
+
+        for line in lines:
+            line_count += 1
+            line_text = ' '.join(line.words)
+            if len(line_text) > max_line_length:
+                max_line_length = len(line_text)
+
+        if line_count > 0:
+            min_img_height = (line_count * line_height) + ((line_count - 1) * line_spacing)
+            while min_img_height < height:
+                line_height += 2
+                line_spacing += 1
+                min_img_height = (line_count * line_height) + ((line_count - 1) * line_spacing)
+
+            min_img_width = int(min_img_height * ratio)
+            character_width = int(min_img_width / max_line_length)
+
+            img = Image.new('RGB', (min_img_width, min_img_height), '#FFFFFF')
+            draw = ImageDraw.Draw(img)
+
+            x = 0
+            y = 0
+            for line in lines:
+                text = ' '.join(line.words)
+                word_start = None
+
+                for char_index in range(0, len(text)):
+                    char = text[char_index]
+
+                    if not word_start:
+                        word_start = x
+
+                    if (char == ' ' or char_index == len(text) - 1) and word_start:
+                        word_end = x
+                        draw.rectangle([(word_start, y), (word_end, y + line_height)], fill='#9A9A99', outline=None, width=0)
+                        word_start = None
+                        x += character_width
+                    else:
+                        x += character_width
+
+                x = 0
+                y += (line_height + line_spacing)
+
+            response = HttpResponse(content_type="image/png")
+            img.save(response, 'PNG')
+            return response
 
 
 @api_view(['GET'])

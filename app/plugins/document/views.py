@@ -113,7 +113,7 @@ def document(request, corpus_id, document_id):
                 retry_job_id = _clean(request.POST, 'retry-job-id')
                 for completed_task in document.completed_tasks:
                     if completed_task.job_id == retry_job_id:
-                        job = Job.setup_retry_for_completed_task(corpus_id, document_id, completed_task)
+                        job = Job.setup_retry_for_completed_task(corpus_id, 'Document', document_id, completed_task)
                         document.modify(pull__completed_tasks=completed_task)
                         run_job(job.id)
 

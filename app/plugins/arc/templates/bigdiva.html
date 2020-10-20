@@ -1,0 +1,821 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BigDIVA</title>
+
+    <style>
+        html, body, #graph, #time {
+            height: 100%;
+            width: 100%;
+            padding: 0;
+            margin: 0;
+        }
+
+        #time-widget {
+            position: absolute;
+            width: 100%;
+            height: 10%;
+            max-height: 50px;
+            bottom: 0px;
+            background-color: rgba(68, 68, 68, .7);
+        }
+
+        .node-label {
+            background-color: #FFFFFF;
+        }
+
+        .resource {
+            fill: url(#gradient-resource-normal);
+            stroke: #0868ac;
+        }
+
+        .genre {
+            fill: url(#gradient-genre-normal);
+            stroke: #006d2c;
+        }
+
+        .discipline {
+            fill: url(#gradient-discipline-normal);
+            stroke: #e2aa00;
+        }
+
+        .format {
+            fill: url(#gradient-format-normal);
+            stroke: #810f7c;
+        }
+
+        .results {
+            fill: url(#gradient-results-normal);
+            stroke: #D9E8E5;
+        }
+
+        .disabled {
+            fill: url(#gradient-resource-disabled);
+            stroke: #444;
+        }
+
+        .root-node {
+            fill: url(#gradient-arc-root-normal);
+            stroke: #444;
+        }
+
+        .selected {
+            fill: orange;
+            stroke: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- GRAPH (where the nodes and edges go) -->
+    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="graph">
+        <g id="root">
+            <defs>
+                <linearGradient id="gradient-resource-normal" x1="0%" y1="0%" x2="100%" y2="100%" spreadMethod="pad">
+                    <stop offset="15%" stop-color="#43a2ca" stop-opacity="1"></stop>
+                    <stop offset="100%" stop-color="#0868ac" stop-opacity="1"></stop>
+                </linearGradient>
+                <linearGradient id="gradient-arc-root-normal" x1="0%" y1="0%" x2="100%" y2="100%" spreadMethod="pad">
+                    <stop offset="15%" stop-color="#f9f9f9" stop-opacity="1"></stop>
+                    <stop offset="100%" stop-color="#a2a2a2" stop-opacity="1"></stop>
+                </linearGradient>
+                <linearGradient id="gradient-resource-disabled" x1="0%" y1="0%" x2="100%" y2="100%" spreadMethod="pad">
+                    <stop offset="15%" stop-color="#a2a2a2" stop-opacity="1"></stop>
+                    <stop offset="100%" stop-color="#686868" stop-opacity="1"></stop>
+                </linearGradient>
+                <linearGradient id="gradient-genre-normal" x1="0%" y1="0%" x2="100%" y2="100%" spreadMethod="pad">
+                    <stop offset="15%" stop-color="#2ca25f" stop-opacity="1"></stop>
+                    <stop offset="100%" stop-color="#006d2c" stop-opacity="1"></stop>
+                </linearGradient>
+                <linearGradient id="gradient-discipline-normal" x1="0%" y1="0%" x2="100%" y2="100%" spreadMethod="pad">
+                    <stop offset="15%" stop-color="#efb915" stop-opacity="1"></stop>
+                    <stop offset="100%" stop-color="#e2aa00" stop-opacity="1"></stop>
+                </linearGradient>
+                <linearGradient id="gradient-format-normal" x1="0%" y1="0%" x2="100%" y2="100%" spreadMethod="pad">
+                    <stop offset="15%" stop-color="#8856a7" stop-opacity="1"></stop>
+                    <stop offset="100%" stop-color="#810f7c" stop-opacity="1"></stop>
+                </linearGradient>
+                <linearGradient id="gradient-results-normal" x1="0%" y1="0%" x2="100%" y2="100%" spreadMethod="pad">
+                    <stop offset="15%" stop-color="#D9E8E5" stop-opacity="1"></stop>
+                    <stop offset="100%" stop-color="#96C0B7" stop-opacity="1"></stop>
+                </linearGradient>
+            </defs>
+        </g>
+    </svg>
+
+    <!-- TIME WIDGET -->
+    <div id="time-widget">
+        <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="time">
+        </svg>
+    </div>
+
+    <script src="{% static 'js/jquery-3.3.1.min.js' %}"></script>
+    <script src="{% static 'js/corpora.js' %}"></script>
+    <script src="{% static 'js/d3.min.js' %}"></script>
+    <script type="application/javascript">
+    let corpora = null;
+    let corpus_id = '{{ corpus_id }}';
+    let criteria = {'page-size': 10};
+
+    // VARS NEEDED FOR GRAPH
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let total_results = 0;
+    let nodes = [
+        {
+            id: `/corpus/${corpus_id}/ArcFederation`,
+            label: 'ARC',
+            group: 'Corpus',
+            size: 1,
+            level: 2,
+            image: '{% static 'img/arc-logo.png' %}',
+            image_x: "-25px",
+            image_y: "-31px",
+            image_width: "50px",
+            image_height: "63px",
+            x: position_node_group_x('Corpus'),
+            y: position_node_group_y('Corpus')
+        },
+        {
+            id: `/corpus/${corpus_id}/ArcGenre`,
+            size: 1,
+            level: 2,
+            label: 'Genres',
+            group: 'ArcGenre',
+            x: position_node_group_x('ArcGenre'),
+            y: position_node_group_y('ArcGenre'),
+        },
+        {
+            id: `/corpus/${corpus_id}/ArcDiscipline`,
+            size: 1,
+            level: 2,
+            label: 'Disciplines',
+            group: 'ArcDiscipline',
+            x: position_node_group_x('ArcDiscipline'),
+            y: position_node_group_y('ArcDiscipline'),
+        },
+        {
+            id: `/corpus/${corpus_id}/ArcType`,
+            size: 1,
+            level: 2,
+            label: 'Formats',
+            group: 'ArcType',
+            x: position_node_group_x('ArcType'),
+            y: position_node_group_y('ArcType'),
+        },
+        {
+            id: `/corpus/${corpus_id}/ArchiveParent`,
+            size: 1,
+            level: 4,
+            label: 'Artifacts',
+            group: 'ArchiveParent',
+            x: position_node_group_x('ArchiveParent'),
+            y: position_node_group_y('ArchiveParent'),
+        },
+    ];
+    let node_uri_map = {};
+    let edges = [];
+    let facets = {
+        ArcGenre: {
+            loaded: false,
+            labels: {}
+        },
+        ArcDiscipline: {
+            loaded: false,
+            labels: {}
+        },
+        ArcType: {
+            loaded: false,
+            labels: {}
+        },
+        ArcFederation: {
+            loaded: false,
+            labels: {}
+        },
+        ArcArchive: {
+            loaded: false,
+            meta: {},
+            x_cursor: 0,
+            y_cursor: 0
+        }
+    };
+    let archive_uris = [];
+    let selected_nodes = [];
+    let graph_data_loaded = false;
+    let min_size = 1;
+    let max_size = 10;
+    let min_node_radius = 10;
+    let max_node_radius = 200;
+    let layout_radius = width / 2;
+    let drag, simulation, svg, g, link, node;
+
+    // VARS NEEDED FOR TIME
+    let decades = [];
+    let now = new Date();
+    let this_year = now.getFullYear();
+    let time_prepared = false;
+    let decade_scale, decade_size_scale;
+    let time_svg, time_bar, time_labels, time_brush;
+
+    $(document).ready(function() {
+        corpora = new Corpora({'csrf_token': "{{ csrf_token }}"});
+
+        for (let facet in facets) {
+            let facet_criteria = {only: '_id,label', 'page-size': 500};
+            if (facet === 'ArcArchive') {
+                facet_criteria.only += ',parent_path';
+                facet_criteria['s_parent_path'] = 'asc';
+            }
+
+            corpora.list_content(
+                corpus_id,
+                facet,
+                facet_criteria,
+                function (facet_data) {
+                    if (facet === 'ArcArchive') {
+                        facets.ArcArchive.x_cursor = 0 - facet_data.meta.total;
+                        facets.ArcArchive.y_cursor = 0 - facet_data.meta.total;
+                    }
+
+                    facet_data.records.map(f => {
+
+                        if (facet === 'ArcArchive') {
+                            facets[facet].meta[f.id] = {
+                                label: f.label,
+                                parent: f.parent_path,
+                                x: position_node_group_x(facet),
+                                y: position_node_group_y(facet)
+                            };
+                        } else {
+                            facets[facet].labels[f.id] = f.label;
+                        }
+                    });
+                    facets[facet].loaded = true;
+                },
+                true
+            );
+        }
+
+        prepare_graph();
+        perform_graph_query();
+        await_data_then_update_graph();
+    });
+
+    function perform_graph_query() {
+        graph_data_loaded = false;
+        corpora.make_request(
+            `/api/arc/${corpus_id}/query/`,
+            "GET",
+            criteria,
+            function(artifact_data) {
+                if (artifact_data.hasOwnProperty('meta') && artifact_data.meta.hasOwnProperty('aggregations')) {
+                    nodes.map(d => {
+                        d.size = 0;
+                        if (d.level === 1) {
+                            d.level = 5;
+                        }
+                    });
+                    decades = [];
+
+                    total_results = artifact_data.meta.total;
+
+                    for (let node_group in artifact_data.meta.aggregations) {
+                        if (node_group === 'decades') {
+                            for (let decade in artifact_data.meta.aggregations[node_group]) {
+                                if (decade.length > 2 && !isNaN(decade) && parseInt(decade) >= 400 && parseInt(decade) <= this_year) {
+                                    decades.push({
+                                        decade: parseInt(decade),
+                                        size: artifact_data.meta.aggregations[node_group][decade]
+                                    });
+                                }
+                            }
+                        }
+                        else if (node_group === 'ArchiveParent') {
+                            let archive_parents = {};
+                            for (let parent_path in artifact_data.meta.aggregations[node_group]) {
+                                let parents = parent_path.split('__');
+                                let source = `/corpus/${corpus_id}/ArchiveParent`;
+                                let p_uri = source;
+
+                                for (let p_index = 0; p_index < parents.length; p_index ++){
+                                    let p = parents[p_index];
+
+                                    if (p_index === 0) { p_uri += `/${p}`; }
+                                    else { p_uri += `__${p}`; }
+
+                                    if (!(p in archive_parents)) {
+                                        archive_parents[p] = {
+                                            id: p_uri,
+                                            label: p,
+                                            group: 'ArchiveParent',
+                                            size: artifact_data.meta.aggregations[node_group][parent_path],
+                                            level: parents.length - p_index + 1,
+                                            edge_source: source,
+                                            edge_target: p_uri,
+                                            x: position_node_group_x('ArchiveParent'),
+                                            y: position_node_group_y('ArchiveParent')
+                                        };
+                                    } else {
+                                        archive_parents[p].size += artifact_data.meta.aggregations[node_group][parent_path];
+                                        if (parents.length - p_index + 1 > archive_parents[p].level) {
+                                            archive_parents[p].level = parents.length - p_index + 1;
+                                        }
+                                    }
+
+                                    source = p_uri;
+                                }
+                            }
+
+                            let arch_parent_nodes = Object.keys(archive_parents);
+                            arch_parent_nodes.sort();
+                            arch_parent_nodes.map(arch_parent_node => {
+                                if (archive_parents[arch_parent_node].id in node_uri_map) {
+                                    nodes[node_uri_map[archive_parents[arch_parent_node].id]].size = archive_parents[arch_parent_node].size;
+                                } else {
+                                    nodes.push(
+                                        Object.assign({}, archive_parents[arch_parent_node])
+                                    );
+                                    node_uri_map[archive_parents[arch_parent_node].id] = nodes.length - 1;
+
+                                    edges.push({
+                                        source: archive_parents[arch_parent_node].edge_source,
+                                        target: archive_parents[arch_parent_node].edge_target
+                                    });
+                                }
+                            });
+                        }
+                        else {
+                            for (let node_id in artifact_data.meta.aggregations[node_group]) {
+                                let node_uri = `/corpus/${corpus_id}/${node_group}/${node_id}`;
+                                let source_uri = `/corpus/${corpus_id}/${node_group}`;
+
+                                if (node_uri in node_uri_map) {
+                                    nodes[node_uri_map[node_uri]].size = artifact_data.meta.aggregations[node_group][node_id];
+                                    nodes[node_uri_map[node_uri]].level = 1;
+                                } else {
+                                    nodes.push({
+                                        id: node_uri,
+                                        label_id: node_id,
+                                        group: node_group,
+                                        size: artifact_data.meta.aggregations[node_group][node_id],
+                                        level: 1,
+                                        x: position_node_group_x(node_group),
+                                        y: position_node_group_y(node_group)
+                                    });
+
+                                    node_uri_map[node_uri] = nodes.length - 1;
+
+                                    if (node_group !== 'ArcArchive') {
+                                        edges.push({
+                                            source: source_uri,
+                                            target: node_uri
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    /*
+                    artifact_data.records.map(artifact => {
+                        if (artifact.hasOwnProperty('archive')) {
+                            nodes.push({
+                                id: artifact.uri,
+                                label: artifact.label,
+                                group: 'Artifact',
+                                level: 0,
+                                x: 0,
+                                y: 0,
+                                size: 1,
+                            });
+
+                            edges.push({
+                                source: artifact.archive.uri,
+                                target: artifact.uri
+                            });
+
+                            if (artifact.hasOwnProperty('disciplines')) {
+                                artifact.disciplines.map(disc => {
+                                    edges.push({
+                                        source: disc.uri,
+                                        target: artifact.uri
+                                    });
+                                });
+                            }
+
+                            artifact.federations.map(fed => {
+                                edges.push({
+                                    source: fed.uri,
+                                    target: artifact.uri
+                                });
+                            });
+
+                            if (artifact.hasOwnProperty('genres')) {
+                                artifact.genres.map(genre => {
+                                    edges.push({
+                                        source: genre.uri,
+                                        target: artifact.uri
+                                    });
+                                });
+                            }
+
+                            if (artifact.hasOwnProperty('types')) {
+                                artifact.types.map(typ => {
+                                    edges.push({
+                                        source: typ.uri,
+                                        target: artifact.uri
+                                    });
+                                });
+                            }
+                        }
+                    });
+                    */
+
+                    graph_data_loaded = true;
+                }
+            }
+        );
+    }
+
+    function await_data_then_update_graph() {
+        let waiting = false;
+        for (let facet in facets) {
+            if (!facets[facet].loaded || !graph_data_loaded) {
+                setTimeout(await_data_then_update_graph, 500);
+                waiting = true;
+                break;
+            }
+        }
+
+        if (!waiting) {
+            if (!time_prepared) {
+                prepare_time();
+
+                nodes.map(n => {
+                    if (n.group === 'ArcArchive' && n.label_id in facets['ArcArchive'].meta) {
+                        n.label = facets['ArcArchive'].meta[n.label_id].label;
+                        n.x = facets['ArcArchive'].meta[n.label_id].x;
+                        n.y = facets['ArcArchive'].meta[n.label_id].y;
+
+                        if (`/corpus/${corpus_id}/ArchiveParent/${facets['ArcArchive'].meta[n.label_id].parent}` in node_uri_map) {
+                            edges.push({
+                                source: `/corpus/${corpus_id}/ArchiveParent/${facets['ArcArchive'].meta[n.label_id].parent}`,
+                                target: n.id
+                            });
+                        }
+                    }
+                });
+            } else {
+                update_time();
+            }
+            update_graph();
+        }
+    }
+
+    function prepare_graph() {
+        drag = simulation => {
+            function dragstarted(event) {
+                if (!event.active) simulation.alphaTarget(0.1).restart();
+                event.subject.fx = event.subject.x;
+                event.subject.fy = event.subject.y;
+            }
+
+            function dragged(event) {
+                event.subject.fx = event.x;
+                event.subject.fy = event.y;
+            }
+
+            function dragended(event) {
+                if (!event.active) simulation.alphaTarget(0);
+                // to unpin a node:
+                //event.subject.fx = null;
+                //event.subject.fy = null;
+            }
+
+            return d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended);
+        };
+
+        simulation = d3.forceSimulation()
+            .velocityDecay(.8)
+            .force("link", d3.forceLink().id(d => d.id).strength(.1))
+            .force("charge", d3.forceManyBody(-50))
+            .force("collide", d3.forceCollide().radius(d => d.group === 'Corpus' ? 50 : normalize_radius(d.size) + 10).iterations(2))
+            .force("r", d3.forceRadial(d => d.level === 0 ? 5 : layout_radius + (d.level * (max_node_radius * 2))).strength(100))
+            .on("tick", tick_graph);
+
+        svg = d3.select("#graph")
+            .attr("viewBox", [-width / 2, -height / 2, width, height])
+            .style("font", "12px Helvetica")
+            .style("background-color", "#444444");
+
+        g = svg.select("#root");
+
+        svg.call(d3.zoom()
+            .extent([[0, 0], [width, height]])
+            .scaleExtent([-5, 25])
+            .on("zoom", zoom_graph)
+        );
+
+        link = g.append("g")
+            .attr("stroke", "#999")
+            .attr("stroke-opacity", 0.6)
+            .selectAll("line");
+
+        node = g.append("g")
+            .selectAll("g");
+    }
+
+    function tick_graph() {
+        link
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+
+        node
+            .attr("transform", d => `translate(${d.x}, ${d.y})`);
+    }
+
+    function zoom_graph({transform}) {
+        g.attr("transform", transform);
+    }
+
+    function click_graph(event, d) {
+        if (event.defaultPrevented) return; // dragged
+
+        let group_field_map = {
+            ArcGenre: 'genres.uri',
+            ArcDiscipline: 'disciplines.uri',
+            ArcFederation: 'federations.uri',
+            ArcType: 'types.uri',
+            ArcArchive: 'archive.uri',
+            ArcParent: 'archive.parent_path'
+        };
+
+        let criteria_key = `f_${group_field_map[d.group]}`;
+
+        if (!selected_nodes.includes(d.id)) {
+            d3.select(this).selectAll("circle")
+                .attr("class", "selected");
+            criteria[criteria_key] = d.id;
+            selected_nodes.push(d.id);
+        } else {
+            selected_nodes = selected_nodes.filter(n => n !== d.id);
+            d3.select(this).selectAll("circle")
+                .attr("class", get_node_class(d));
+            delete criteria[criteria_key];
+        }
+
+        d.fx = null;
+        d.fy = null;
+        perform_graph_query();
+        await_data_then_update_graph();
+    }
+
+    // TODO: consider using d3's scaleLinear() method instead of below; see https://observablehq.com/@d3/sortable-bar-chart
+    function normalize_radius(actual) {
+        let mx = (actual - min_size) / (max_size - min_size);
+        let preshiftNormalized = mx * (max_node_radius - min_node_radius);
+        let shiftedNormalized = preshiftNormalized + min_node_radius;
+
+        return shiftedNormalized;
+    }
+
+    function get_node_class(d) {
+        if(selected_nodes.includes(d.id)) return "selected";
+        if(d.group === "Corpus") return "root-node";
+        if(d.group === "ArcFederation") return "root-node";
+        if(d.size === 0) return "disabled";
+        if(d.group === "ArcGenre") return "genre";
+        if(d.group === "ArcDiscipline") return "discipline";
+        if(d.group === "ArcType") return "format";
+        return "resource";
+    }
+
+    function get_node_stratum(d) {
+        if (d.group === "ArcType") return 300;
+        if (d.group === "ArcDiscipline") return 500;
+        if (d.group === "ArcGenre") return 700;
+        return 10;
+    }
+
+    function position_node_group_x(group) {
+        if(["ArcGenre", "ArcDiscipline"].includes(group)) return 0 - (width / 2) + (width / 8);
+        if(["ArcType", "ArchiveParent"].includes(group)) return (width / 2) - (width / 8);
+        if(group === "ArcArchive") {
+            let x = (width / 2) - (width / 8) + facets.ArcArchive.x_cursor;
+            facets.ArcArchive.x_cursor += 5;
+            return x;
+        }
+        return 0;
+    }
+
+    function position_node_group_y(group) {
+        if(["ArcGenre", "ArcType", "Corpus", "ArcFederation"].includes(group)) return 0 - (height / 2) + (height / 8);
+        if(["ArcDiscipline", "ArchiveParent"].includes(group)) return (height / 2) - (height / 8);
+        if(group === "ArcArchive") {
+            let y = (height / 2) - (height / 8) + facets.ArcArchive.y_cursor;
+            facets.ArcArchive.y_cursor += 5;
+            return y;
+        }
+        return 0;
+    }
+
+    function update_graph() {
+        let circumference = 0;
+
+        nodes.map(d => {
+            if (d.size < min_size) min_size = d.size;
+            if (d.size > max_size) max_size = d.size;
+            if (d.level === 1) { circumference += normalize_radius(d.size) }
+
+            if (!d.hasOwnProperty('label')){
+                d.label = facets[d.group].labels[d.label_id];
+            }
+        });
+        nodes.sort((a, b) => (a.size < b.size || b.group === 'Corpus') ? 1 : -1);
+        node_uri_map = {};
+        for (let node_index = 0; node_index < nodes.length; node_index++) {
+            node_uri_map[nodes[node_index].id] = node_index;
+        }
+
+        layout_radius = circumference / (2 * Math.PI);
+
+        g.select("#results-text").remove();
+        g.append("text")
+            .attr('id', 'results-text')
+            .style('font', '30px Helvetica')
+            .attr('text-anchor', 'middle')
+            .attr('fill', '#FFFFFF')
+            .text(total_results.toLocaleString() + " results");
+
+        node = node.data(nodes, d => d.id)
+            .join("g")
+            .call(drag(simulation))
+            .on("click", click_graph);
+
+        node.selectAll("text").remove();
+        node.filter(d => !d.hasOwnProperty('image'))
+            .append("text")
+            .attr("x", 8)
+            .attr("y", "0.31em")
+            .classed("node-label", true)
+            .text(d => d.label)
+            .call(get_bounding_box);
+
+        let label_bg_padding = 2;
+        node.selectAll("rect").remove();
+        node.filter(d => !d.hasOwnProperty('image'))
+            .insert("rect", "text")
+            .attr("x", d => d.bbox.x - label_bg_padding)
+            .attr("y", d => d.bbox.y - label_bg_padding)
+            .attr("width", d => d.bbox.width + (label_bg_padding * 2))
+            .attr("height", d => d.bbox.height + (label_bg_padding * 2))
+            .attr("fill", "white")
+            .attr("fill-opacity", .6);
+
+        node.selectAll("circle").remove();
+        node.append("circle").lower()
+            .attr("stroke-width", 1.5)
+            .attr("r", d => d.group === "Corpus" ? 35 : normalize_radius(d.size))
+            .attr("class", d => get_node_class(d));
+
+        node.selectAll("image").remove();
+        node.filter(d => d.hasOwnProperty('image'))
+            .append("image")
+            .attr("href", d => d.image)
+            .attr("width", d => d.image_width)
+            .attr("height", d => d.image_height)
+            .attr("x", d => d.image_x)
+            .attr("y", d => d.image_y);
+
+        link = link.data(edges, d => [d.source, d.target])
+            .join("line")
+            .attr("stroke-width", 2);
+
+        simulation.nodes(nodes);
+        simulation.force("link").links(edges);
+        //if (finished) {
+        simulation.alphaTarget(.05).restart();
+        setTimeout(settle_graph, 3000);
+        //simulation.start()
+        //}
+    }
+
+    function settle_graph() {
+        simulation.alphaTarget(0).restart();
+    }
+
+    function prepare_time() {
+        let time_widget_height = document.getElementById('time').clientHeight;
+        let min_decade = 3000;
+        let max_decade = 0;
+        let max_decade_size = 0;
+
+        // find max/min decade & max size
+        decades.map(d => {
+            if (d.decade < min_decade) min_decade = d.decade;
+            if (d.decade > max_decade) max_decade = d.decade;
+            if (d.size > max_decade_size) max_decade_size = d.size;
+        });
+
+        // instantiate decade/decade size scales for time bars
+        decade_scale = d3.scaleBand()
+            .domain(decades.map(d => d.decade))
+            .range([10, width - 10])
+            .padding(0.1);
+
+        decade_size_scale = d3.scaleLinear()
+            .domain([0, max_decade_size])
+            .range([0, time_widget_height]);
+
+        time_svg = d3.select("#time")
+            .attr('viewBox', [0, 0, width, time_widget_height])
+            .style('font', '12px Helvetica');
+
+        time_svg.selectAll("g").remove();
+
+        time_bar = time_svg.append("g")
+            .attr('fill', 'orange')
+            .selectAll("rect")
+            .data(decades)
+            .join("rect")
+            .attr('x', d => decade_scale(d.decade) - (decade_scale.bandwidth() / 2))
+            .attr('y', 0)
+            .attr('height', d => decade_size_scale(d.size))
+            .attr('width', decade_scale.bandwidth());
+
+        time_labels = time_svg.append("g")
+            .selectAll("text")
+            .data(decades)
+            .join("text")
+            .attr("x", d => decade_scale(d.decade))
+            .attr("y", (time_widget_height / 2) - 10)
+            .text(function(d, i){ if (i%3===0) {return d.decade} else {return ""} })
+            .attr("fill", 'white')
+            .style("writing-mode", 'tb');
+
+        time_brush = d3.brush()
+            .on("start brush end", time_brushed);
+
+        time_svg.append("g")
+            .classed('brush', true)
+            .call(time_brush)
+            .call(g => g.select(".overlay").style("cursor", "default"));
+
+        time_prepared = true;
+    }
+
+    function update_time() {
+        let new_decades = decades.map(d => d.decade);
+
+        time_bar.filter(d => new_decades.includes(d.decade))
+            .attr('fill', 'orange');
+
+        time_bar.filter(d => !new_decades.includes(d.decade))
+            .attr('fill', '#444');
+    }
+
+    function time_brushed(event) {
+        if (event.selection !== null) {
+            const [[x0, y0], [x1, y1]] = event.selection;
+            let decade_data_selected = time_labels
+                .attr('fill', 'white')
+                .filter(d => x0 <= decade_scale(d.decade) && decade_scale(d.decade) < x1)
+                .attr('fill', 'orange')
+                .data();
+
+            time_bar
+                .attr('fill', 'orange')
+                .filter(d => x0 <= decade_scale(d.decade) && decade_scale(d.decade) < x1)
+                .attr('fill', '#ffffff');
+
+            if (event.type === 'end') {
+                let decades_selected = [];
+                decade_data_selected.map(d => decades_selected.push(parseInt(d.decade)));
+                console.log(decades_selected);
+                if(decades_selected.length > 0) {
+                    let min_year = Math.min(...decades_selected);
+                    let max_year = Math.max(...decades_selected) + 9;
+                    criteria['r_years'] = `${min_year}__${max_year}`;
+                    perform_graph_query();
+                    await_data_then_update_graph();
+                }
+            }
+        } else {
+            delete criteria['r_years'];
+            perform_graph_query();
+            await_data_then_update_graph();
+        }
+    }
+
+    function get_bounding_box(selection) {
+        selection.each(function(d){d.bbox = this.getBBox();});
+    }
+    </script>
+</body>
+</html>

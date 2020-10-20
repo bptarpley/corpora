@@ -21,7 +21,7 @@ from elasticsearch_dsl.connections import get_connection
 from django.template import Template, Context
 
 
-FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'date', 'file', 'link', 'cross_reference', 'embedded')
+FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'date', 'file', 'link', 'cross_reference', 'embedded')
 MIME_TYPES = ('text/html', 'text/xml', 'application/json')
 
 
@@ -76,6 +76,11 @@ class Field(mongoengine.EmbeddedDocument):
                 return mongoengine.IntField(unique=True, sparse=True)
             else:
                 return mongoengine.IntField()
+        elif self.type == 'decimal':
+            if self.unique and not self.unique_with:
+                return mongoengine.FloatField(unique=True, sparse=True)
+            else:
+                return mongoengine.FloatField()
         elif self.type == 'date':
             if self.unique and not self.unique_with:
                 return mongoengine.DateField(unique=True, sparse=True)
@@ -444,6 +449,35 @@ class Job(object):
                 DETACH DELETE p
             ''',
             {'job_uri': "/job/{0}".format(self.id)}
+        )
+
+    def kill(self):
+        results = run_neo(
+            '''
+                MATCH (j:Job { uri: $job_uri }) -[rel:hasProcess]-> (p:Process)
+                return p
+            ''',
+            {'job_uri': "/job/{0}".format(self.id)}
+        )
+        if results:
+            for proc in results:
+                task_id = proc['p']['uri'].split('/')[-1]
+                if task_id:
+                    try:
+                        settings.HUEY.revoke_by_id(task_id)
+                    except:
+                        print('Attempt to revoke process {0} in Huey task queue failed:'.format(task_id))
+                        print(traceback.format_exc())
+
+        run_neo(
+            '''
+                MATCH (j:Job { uri: $job_uri })
+                OPTIONAL MATCH (j) -[rel:hasProcess]-> (p)
+                DETACH DELETE j, p
+            ''',
+            {
+                'job_uri': '/job/{0}'.format(self.id)
+            }
         )
 
     @property
@@ -1059,7 +1093,7 @@ class Corpus(mongoengine.Document):
             content_id
         )
 
-    def search_content(self, content_type, page=1, page_size=50, general_query="", fields_query=[], fields_filter=[], fields_sort=[], only=[], search_mode="wildcard"):
+    def search_content(self, content_type, page=1, page_size=50, general_query="", fields_query={}, fields_filter={}, fields_range={}, fields_sort=[], only=[], excludes=[], search_mode="wildcard", aggregations={}):
         results = {
             'meta': {
                 'content_type': content_type,
@@ -1067,7 +1101,8 @@ class Corpus(mongoengine.Document):
                 'page': page,
                 'page_size': page_size,
                 'num_pages': 1,
-                'has_next_page': False
+                'has_next_page': False,
+                'aggregations': {}
             },
             'records': []
         }
@@ -1076,10 +1111,16 @@ class Corpus(mongoengine.Document):
             start_index = (page - 1) * page_size
             end_index = page * page_size
 
+            # for keeping track of possible aggregations and their
+            # corresponding types, like "terms" or "nested"
+            agg_type_map = {}
+
             index_name = "corpus-{0}-{1}".format(self.id, content_type.lower())
             index = Index(index_name)
             should = []
             must = []
+            filter = []
+
             if general_query and not fields_query:
                 should.append(SimpleQueryString(query=general_query))
 
@@ -1113,7 +1154,7 @@ class Corpus(mongoengine.Document):
                                 )
                             ))
                         else:
-                            must.append(Q( search_mode, **{search_field: field_value}))
+                            must.append(Q(search_mode, **{search_field: field_value}))
 
             if fields_filter:
                 for search_field in fields_filter.keys():
@@ -1121,7 +1162,7 @@ class Corpus(mongoengine.Document):
                     for field_value in field_values:
                         if '.' in search_field:
                             field_parts = search_field.split('.')
-                            should.append(Q(
+                            filter.append(Q(
                                 "nested",
                                 path=field_parts[0],
                                 query=Q(
@@ -1130,22 +1171,46 @@ class Corpus(mongoengine.Document):
                                 )
                             ))
                         else:
-                            should.append(Q( search_mode, **{search_field: field_value}))
+                            filter.append(Q(search_mode, **{search_field: field_value}))
+
+            if fields_range:
+                for search_field in fields_range.keys():
+                    field_values = [value_part for value_part in fields_range[search_field].split('__') if value_part]
+                    if len(field_values) == 2 and field_values[0].isdigit() and field_values[1].isdigit():
+                        filter.append(Q(
+                            "range",
+                            **{search_field: {
+                                'gte': int(field_values[0]),
+                                'lte': int(field_values[1])
+                            }}
+                        ))
 
             if general_query and fields_query:
                 must.append(SimpleQueryString(query=general_query))
 
-            if should or must:
-                search_query = Q('bool', should=should, must=must)
+            if should or must or filter:
+
+                search_query = Q('bool', should=should, must=must, filter=filter)
 
                 extra = {'track_total_hits': True}
 
                 search_cmd = Search(using=get_connection(), index=index_name, extra=extra).query(search_query)
 
-                if only:
-                    if '_id' not in only:
+                # HANDLE RETURNING FIELD RESTRICTIONS (ONLY and EXCLUDES)
+                if only or excludes:
+                    if only and '_id' not in only:
                         only.append('_id')
-                    search_cmd = search_cmd.source(includes=only)
+
+                    search_cmd = search_cmd.source(includes=only, excludes=excludes)
+
+                # ADD ANY AGGREGATIONS TO SEARCH
+                for agg_name, agg in aggregations.items():
+
+                    # agg should be of type elasticsearch_dsl.A, so calling A's .to_dict()
+                    # method to get at what type ('terms', 'nested', etc) of aggregation
+                    # this is.
+                    agg_type_map[agg_name] = list(agg.to_dict().keys())[0]
+                    search_cmd.aggs.bucket(agg_name, agg)
 
                 if fields_sort:
                     adjusted_fields_sort = []
@@ -1181,9 +1246,9 @@ class Corpus(mongoengine.Document):
                     search_cmd = search_cmd.sort(*adjusted_fields_sort)
 
                 search_cmd = search_cmd[start_index:end_index]
-                # print(json.dumps(search_cmd.to_dict(), indent=4))
+                #print(json.dumps(search_cmd.to_dict(), indent=4))
                 search_results = search_cmd.execute().to_dict()
-                # print(json.dumps(search_results, indent=4))
+                #print(json.dumps(search_results, indent=4))
                 results['meta']['total'] = search_results['hits']['total']['value']
                 results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
                 results['meta']['has_next_page'] = results['meta']['page'] < results['meta']['num_pages']
@@ -1193,6 +1258,17 @@ class Corpus(mongoengine.Document):
                     record['id'] = hit['_id']
                     record['_search_score'] = hit['_score']
                     results['records'].append(record)
+
+                if 'aggregations' in search_results:
+                    for agg_name in search_results['aggregations'].keys():
+                        results['meta']['aggregations'][agg_name] = {}
+
+                        if agg_type_map[agg_name] == 'nested':
+                            for agg_result in search_results['aggregations'][agg_name]['names']['buckets']:
+                                results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
+                        else:
+                            for agg_result in search_results['aggregations'][agg_name]['buckets']:
+                                results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
 
         return results
 
@@ -1612,6 +1688,7 @@ class Corpus(mongoengine.Document):
                 'keyword': 'keyword',
                 'html': 'text',
                 'number': 'integer',
+                'decimal': 'float',
                 'date': 'date',
                 'file': 'text',
                 'image': 'text',
@@ -2223,7 +2300,6 @@ def search_scholars(page=1, page_size=50, general_query="", fields_query=[], fie
             search_cmd = search_cmd.sort(*fields_sort)
 
         search_cmd = search_cmd[start_index:end_index]
-        print(json.dumps(search_cmd.to_dict(), indent=4))
         search_results = search_cmd.execute().to_dict()
         results['meta']['total'] = search_results['hits']['total']['value']
         results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
@@ -2235,7 +2311,6 @@ def search_scholars(page=1, page_size=50, general_query="", fields_query=[], fie
             record['_search_score'] = hit['_score']
             results['records'].append(record)
 
-    print(json.dumps(results, indent=4))
     return results
 
 
@@ -2255,19 +2330,73 @@ def get_field_value_from_path(obj, path):
     return value
 
 
-def run_neo(cypher, params={}):
+def run_neo(cypher, params={}, tries=0):
     results = None
     with settings.NEO4J.session() as neo:
         try:
             results = list(neo.run(cypher, **params))
         except:
+            error = traceback.format_exc()
+            if 'defunct connection' in error and tries < 3:
+                print("Attempting to recover from stale Neo4J connection...")
+                neo.close()
+                return run_neo(cypher, params, tries + 1)
+
             print("Error running Neo4J cypher!")
             print("Cypher: {0}".format(cypher))
             print("Params: {0}".format(json.dumps(params, indent=4)))
-            print(traceback.format_exc())
+            print(error)
         finally:
             neo.close()
     return results
+
+
+def get_network_json(cypher):
+    net_json = {
+        'nodes': [],
+        'edges': []
+    }
+
+    node_id_to_uri_map = {}
+    rel_ids = []
+
+    results = run_neo(cypher)
+
+    for result in results:
+        graph = result.items()[0][1].graph
+        for node in graph.nodes:
+            if node.id not in node_id_to_uri_map:
+                node_props = {}
+                for key, val in node.items():
+                    node_props[key] = val
+
+                uri = node_props.get('uri', str(node.id))
+                label = node_props.get('label', str(node.id))
+                node_type = list(node.labels)[0]
+
+                if node_type == 'Corpus':
+                    label = node_props.get('name', str('Corpus'))
+
+                net_json['nodes'].append({
+                    'id': uri,
+                    'group': node_type,
+                    'title': label
+                })
+
+                node_id_to_uri_map[node.id] = uri
+
+        for rel in graph.relationships:
+            if rel.id not in rel_ids and rel.start_node.id in node_id_to_uri_map and rel.end_node.id in node_id_to_uri_map:
+                net_json['edges'].append({
+                    'id': str(rel.id),
+                    'title': rel.type,
+                    'from': node_id_to_uri_map[rel.start_node.id],
+                    'to': node_id_to_uri_map[rel.end_node.id],
+                })
+
+                rel_ids.append(rel.id)
+
+    return net_json
 
 
 def ensure_neo_indexes(node_names):

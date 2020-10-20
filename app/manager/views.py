@@ -66,10 +66,14 @@ def corpus(request, corpus_id):
             # HANDLE IMPORT DOCUMENT FILES FORM SUBMISSION
             if 'import-corpus-files' in request.POST:
                 import_files = json.loads(request.POST['import-corpus-files'])
-
                 upload_path = corpus.path + '/files'
+
                 for import_file in import_files:
                     import_file_path = "{0}{1}".format(upload_path, import_file)
+                    fixed_basename = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', os.path.basename(import_file_path))
+                    import_file_path = "{0}/{1}".format(os.path.dirname(import_file_path), fixed_basename)
+
+                    print(import_file_path)
                     if os.path.exists(import_file_path):
                         extension = import_file.split('.')[-1]
                         corpus.save_file(File.process(
@@ -103,6 +107,21 @@ def corpus(request, corpus_id):
                 else:
                     response['errors'].append("Please provide values for all task parameters.")
 
+            # HANDLE JOB RETRY
+            elif _contains(request.POST, ['retry-job-id']):
+                retry_job_id = _clean(request.POST, 'retry-job-id')
+                for completed_task in corpus.provenance:
+                    if completed_task.job_id == retry_job_id:
+                        job = Job.setup_retry_for_completed_task(corpus_id, 'Corpus', None, completed_task)
+                        corpus.modify(pull__provenance=completed_task)
+                        run_job(job.id)
+
+            # HANDLE JOB KILL
+            elif _contains(request.POST, ['kill-job-id']):
+                kill_job_id = _clean(request.POST, 'kill-job-id')
+                job = Job(kill_job_id)
+                job.kill()
+
             # HANDLE CONTENT TYPE SCHEMA SUBMISSION
             elif 'schema' in request.POST:
                 schema = json.loads(request.POST['schema'])
@@ -132,12 +151,26 @@ def corpus(request, corpus_id):
 
                     # content type actions
                     if not action_field_name:
+
+                        # delete content type
                         if action == 'delete':
                             run_job(corpus.queue_local_job(task_name="Delete Content Type", parameters={
                                 'content_type': action_content_type,
                             }))
 
                             response['messages'].append("Content type {0} successfully deleted.".format(action_content_type))
+
+                        # re-index content type
+                        elif action == 'reindex':
+                            run_job(corpus.queue_local_job(task_name="Adjust Content", parameters={
+                                'content_type': action_content_type,
+                                'reindex': True,
+                                'relabel': False,
+                                'resave': False
+                            }))
+
+                            response['messages'].append(
+                                "Content type {0} re-indexing successfully commenced.".format(action_content_type))
 
                     # field actions
                     else:
@@ -264,9 +297,11 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                     elif ct_fields[field_name].type == 'cross_reference':
                         field_value = corpus.get_content(ct_fields[field_name].cross_reference_type, field_value).to_dbref()
 
-                    # set value for number fields
-                    elif ct_fields[field_name].type == 'number' and not field_value:
+                    # set value for number/decimal fields
+                    elif ct_fields[field_name].type in ['number', 'decimal'] and not field_value:
                         field_value = None
+                    elif ct_fields[field_name].type == 'decimal':
+                        field_value = float(field_value)
 
                     # set value for date fields
                     elif ct_fields[field_name].type == 'date' and not field_value:
@@ -683,6 +718,7 @@ def api_corpus(request, corpus_id):
             content_type='application/json'
         )
 
+
 @api_view(['GET'])
 def api_content(request, corpus_id, content_type, content_id=None):
     context = _get_context(request)
@@ -702,6 +738,31 @@ def api_content(request, corpus_id, content_type, content_id=None):
 
     return HttpResponse(
         json.dumps(content),
+        content_type='application/json'
+    )
+
+
+@api_view(['GET'])
+def api_network_json(request, corpus_id, content_type, content_id):
+    context = _get_context(request)
+    network_json = {}
+
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+
+    if corpus and content_type in corpus.content_types:
+        network_json = get_network_json('''
+            MATCH path = (a:{0}) -[b]- (c)
+            WHERE a.uri = '/corpus/{1}/{0}/{2}'
+            RETURN path
+            LIMIT 10
+        '''.format(
+            content_type,
+            corpus_id,
+            content_id
+        ))
+
+    return HttpResponse(
+        json.dumps(network_json),
         content_type='application/json'
     )
 

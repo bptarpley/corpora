@@ -111,7 +111,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-success">
-                        One or more jobs have completed for this document. Click the "Refresh" button below to view results.
+                        One or more jobs have completed for this corpus. Click the "Refresh" button below to view results.
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -183,10 +183,12 @@
                     <div class="form-group">
                         <label for="new-f-type-box">Type</label>
                         <select id="new-f-type-box">
-                            <option value="text" selected>Text</option>
-                            <option value="large_text" selected>Large Text</option>
+                            <option value="keyword" selected>Keyword</option>
+                            <option value="text">Text</option>
+                            <option value="large_text">Large Text</option>
                             <option value="html">HTML</option>
                             <option value="number">Number</option>
+                            <option value="decimal">Decimal</option>
                             <option value="date">Date</option>
                             <option value="link">Link</option>
                             <option value="file">File Upload</option>
@@ -306,7 +308,6 @@
                     </div>
                     <div class="modal-body">
                         <input type="hidden" id="confirmation-ct-name" name="content_type" value="">
-                        <input type="hidden" id="confirmation-field-index" value="">
                         <input type="hidden" id="confirmation-field-name" name="field" value="">
                         <input type="hidden" id="confirmation-action" name="action" value="">
                         <div id="confirmation-modal-message" class="alert alert-danger"></div>
@@ -351,28 +352,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-
-
-            <div class="col-6">
-                <!-- JOBS -->
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <div class="d-flex w-100 justify-content-between align-items-center">
-                            <h4>Jobs</h4>
-                            {% if response.scholar.is_admin or role == 'Editor' %}
-                                <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
-                            {% else %}
-                                <span>&nbsp;</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="alert alert-info">
-                            There are currently no jobs running for this corpus.
-                        </div>
-                    </div>
-                </div>
 
                 <!-- FILES -->
                 <div class="card mb-3">
@@ -392,6 +371,45 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+
+            <div class="col-6">
+                <!-- JOBS -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h4>Running Jobs</h4>
+                            {% if response.scholar.is_admin or role == 'Editor' %}
+                                <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
+                            {% else %}
+                                <span>&nbsp;</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="running-jobs-div">
+                            <div id="no-running-jobs-div" class="alert alert-info">
+                                There are currently no jobs running for this corpus.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4>Provenance</h4>
+                    </div>
+                    <div class="card-body">
+                        <div id="provenance-div">
+                            <div class="alert alert-info">
+                                No jobs have been completed for this corpus.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
             </div>
 
         </div>
@@ -522,6 +540,7 @@
             html: 'HTML',
             choice: 'Choice',
             number: 'Number',
+            decimal: 'Decimal',
             date: 'Date',
             file: 'File',
             link: 'Link',
@@ -552,6 +571,36 @@
                         `);
                     }
                 }
+
+                // load corpus provenance
+                let provenance_div = $('#provenance-div');
+                if (corpus.provenance.length > 0) { provenance_div.html(''); }
+                corpus.provenance.forEach( prov => {
+                    let retry_form = '';
+                    if (role === 'Admin' || role === 'Editor') {
+                        retry_form = `
+                            <form method="post">
+                                <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
+                                <input type="hidden" name="retry-job-id" value="${prov.job_id}">
+                                <button type="submit" role="button" class="btn btn-danger">Retry</button>
+                            </form>
+                        `;
+                    }
+
+                    provenance_div.append(`
+                        <div id="provenance-${prov.job_id}-div" class="alert alert-${prov.status === "complete" ? 'success' : 'danger'} provenance">
+                            <div class="row">
+                                <div class="col-sm-10">
+                                    Task: <b>${prov.task_name}</b><br />
+                                    Completed: ${corpora.time_string(prov.completed)}
+                                </div>
+                                <div class="col-sm-2">
+                                    ${retry_form}
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                });
 
                 // load corpus files
                 let corpus_files_div = $('#corpus-files-div');
@@ -1051,7 +1100,7 @@
             // add the total number of results to the search criteria div
             current_search_div.append(`
                 <span class="badge badge-primary p-2 mr-2" style="font-size: 12px;">
-                    Total: ${content.meta.total}
+                    Total: ${content.meta.total.toLocaleString('en-US')}
                 </span>
             `);
 
@@ -1136,12 +1185,24 @@
 
             // records exist, so populate the content type table with a page of results
             } else {
-                // setup the page selector based on total # of pages
-                for (let x = 1; x <= content.meta.num_pages; x++) {
+                // setup the page selector based on total # of pages within 50 page range
+                let min_page = content.meta.page - 50;
+                let max_page = content.meta.page + 50;
+                let first_pg_msg = '';
+                let last_pg_msg = '';
+
+                if (min_page < 1) { min_page = 1; }
+                if (max_page > content.meta.num_pages) { max_page = content.meta.num_pages; }
+                if (min_page > 1) { first_pg_msg = ' and below'; }
+                if (max_page < content.meta.num_pages) { last_pg_msg = ' and above'; }
+
+                for (let x = min_page; x <= max_page; x++) {
                     let option_html = `<option value="${x}">Page ${x}</option>`;
-                    if (x === content.meta.page) {
-                        option_html = option_html.replace('">', '" selected>');
-                    }
+
+                    if (x === content.meta.page) { option_html = option_html.replace('">', '" selected>'); }
+                    if (x === min_page) { option_html = option_html.replace('</', `${first_pg_msg}</`); }
+                    else if (x === max_page) { option_html = option_html.replace('</', `${last_pg_msg}</`); }
+
                     page_selector.append(option_html);
                 }
                 page_selector.removeClass("d-none");
@@ -1179,18 +1240,26 @@
                                         value = `<a href="${value.uri}" target="_blank">${value.label}</a>`;
                                     }
                                 } else if (field.multiple) {
-                                    if (field.type == 'text' || field.type == 'large_text' || field.type == 'keyword') {
+                                    if (field.type === 'text' || field.type === 'large_text' || field.type === 'keyword') {
                                         value = value.join(' ');
                                     } else {
                                         let multi_value = '';
                                         for (let y in value) {
-                                            multi_value += `, ${value[y]}`;
+                                            if (field.type === 'date') {
+                                                multi_value += `, ${corpora.date_string(value[y])}`;
+                                            }
+                                            else {
+                                                multi_value += `, ${value[y]}`;
+                                            }
                                         }
                                         if (multi_value) {
                                             multi_value = multi_value.substring(2);
                                         }
                                         value = multi_value;
                                     }
+                                }
+                                else if (field.type === 'date') {
+                                    value = corpora.date_string(value);
                                 }
                             }
 
@@ -1234,7 +1303,7 @@
             let ct_div_prefix = `tm-ct-${ct_name}`;
 
             if ($(`#${ct_div_prefix}-container`).length === 0) {
-                let delete_or_lock_button = `<button id="${ct_div_prefix}-delete-button" class="btn btn-sm btn-danger"><span class="fas fa-trash-alt"></span></button>`;
+                let delete_or_lock_button = `<button id="${ct_div_prefix}-delete-button" class="btn btn-sm btn-danger" data-toggle="tooltip" data-placement="top" title="Delete"><span class="fas fa-trash-alt"></span></button>`;
                 if (corpus.content_types[ct_name].inherited) {
                     delete_or_lock_button = `<button class="btn btn-sm btn-danger" disabled><span class="fas fa-lock"></span></button>`;
                 }
@@ -1246,7 +1315,8 @@
                             <h5 id="${ct_div_prefix}-name" style="display: inline;">${ct_name}</h5>
                         </button>
                         <span class="float-right">
-                            <button id="${ct_div_prefix}-edit-button" class="btn btn-sm btn-primary"><span class="fas fa-edit"></span></button>
+                            <button id="${ct_div_prefix}-edit-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Edit"><span class="fas fa-edit"></span></button>
+                            <button id="${ct_div_prefix}-reindex-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Re-Index"><span class="fas fa-sync"></span></button>
                             ${delete_or_lock_button}
                         </span>
                         <div id="${ct_div_prefix}" class="alert alert-info collapse p-3 mt-2" aria-labelledby="${ct_div_prefix}-container" data-parent="#tm-ct-group">
@@ -1331,46 +1401,61 @@
                     $('#new-ct-modal').modal();
                 });
 
+                // REINDEX CONTENT TYPE BUTTPN
+                $(`#${ct_div_prefix}-reindex-button`).click(function() {
+                    $('#confirmation-ct-name').val(ct_name);
+                    $('#confirmation-field-index').val('');
+                    $('#confirmation-field-name').val('');
+                    $('#confirmation-action').val('reindex');
+                    $('#confirmation-confirm-button').attr('disabled', false);
+
+                    let message = `You are attempting to re-index the <b>${ct_name}</b> content type.
+                    Depending on how much content belongs to this type, this may take a long time, and
+                    while re-indexing is taking place, the content will be temporarily unavailable in
+                    lists. Do you wish to proceed?`;
+
+                    $('#confirmation-modal-message').html(message);
+                    $('#confirmation-modal').modal();
+                });
+
                 // DELETE CONTENT TYPE BUTTON
                 $(`#${ct_div_prefix}-delete-button`).click(function() {
                     if (!corpus.content_types[ct_name].inherited) {
                         if (!corpus.content_types[ct_name].hasOwnProperty('is_new')) {
-                            $(`#${ct_div_prefix}-delete-button`).click(function () {
-                                $('#confirmation-ct-name').val(ct_name);
-                                $('#confirmation-field-index').val('');
-                                $('#confirmation-field-name').val('');
-                                $('#confirmation-action').val('delete');
-                                $('#confirmation-confirm-button').attr('disabled', false);
+                            $('#confirmation-ct-name').val(ct_name);
+                            $('#confirmation-field-index').val('');
+                            $('#confirmation-field-name').val('');
+                            $('#confirmation-action').val('delete');
+                            $('#confirmation-confirm-button').attr('disabled', false);
 
-                                let message = `You are attempting to delete the <b>${ct_name}</b> content type.
-                                Upon doing so, <b>all content of this type will be irreversibly deleted</b>. Some templates may also need to be
-                                regenerated or manually adjusted. Are you sure you want to proceed?`;
+                            let message = `You are attempting to delete the <b>${ct_name}</b> content type.
+                            Upon doing so, <b>all content of this type will be irreversibly deleted</b>. Some templates may also need to be
+                            regenerated or manually adjusted. Are you sure you want to proceed?`;
 
-                                let referencing_fields = [];
-                                for (let x in corpus.content_types) {
-                                    for (let y = 0; y < corpus.content_types[x].fields.length; y++) {
-                                        if (corpus.content_types[x].fields[y].cross_reference_type === ct_name) {
-                                            referencing_fields.push(`${x} -> ${corpus.content_types[x].fields[y].name}`);
-                                        }
+                            let referencing_fields = [];
+                            for (let x in corpus.content_types) {
+                                for (let y = 0; y < corpus.content_types[x].fields.length; y++) {
+                                    if (corpus.content_types[x].fields[y].cross_reference_type === ct_name) {
+                                        referencing_fields.push(`${x} -> ${corpus.content_types[x].fields[y].name}`);
                                     }
                                 }
+                            }
 
-                                if (referencing_fields.length > 0) {
-                                    message = `
-                                        You are attempting to delete the ${ct_name} content type.
-                                        This is currently not possible, as the following fields reference this content type:<ul class="mt-2">
-                                    `;
-                                    referencing_fields.map(x => message += `<li>${x}</li>`);
-                                    message += `
-                                        </ul>If you still wish to delete the ${ct_name} content type,
-                                        you must first delete the above fields.
-                                    `;
-                                    $('#confirmation-confirm-button').attr('disabled', true);
-                                }
+                            if (referencing_fields.length > 0) {
+                                message = `
+                                    You are attempting to delete the ${ct_name} content type.
+                                    This is currently not possible, as the following fields reference this content type:<ul class="mt-2">
+                                `;
+                                referencing_fields.map(x => message += `<li>${x}</li>`);
+                                message += `
+                                    </ul>If you still wish to delete the ${ct_name} content type,
+                                    you must first delete the above fields.
+                                `;
+                                $('#confirmation-confirm-button').attr('disabled', true);
+                            }
 
-                                $('#confirmation-modal-message').html(message);
-                                $('#confirmation-modal').modal();
-                            });
+                            $('#confirmation-modal-message').html(message);
+                            $('#confirmation-modal').modal();
                         } else {
                             delete corpus.content_types[ct_name];
                             $(`#${ct_div_prefix}-container`).remove();
@@ -1387,7 +1472,7 @@
                     $('#new-f-name-box').val('');
                     $('#new-f-name-box').prop('disabled', false);
                     $('#new-f-label-box').val('');
-                    $('#new-f-type-box').val('text');
+                    $('#new-f-type-box').val('keyword');
                     $('#new-f-in-lists-checkbox').prop('checked', true);
                     $('#new-f-indexed-checkbox').prop('checked', false);
                     $('#new-f-unique-checkbox').prop('checked', false);
@@ -1582,21 +1667,19 @@
                 });
 
                 // FIELD DELETE BUTTON CLICK
-                if (!ct.fields[f_index].inherited) {
-                    $(`#${f_div_prefix}-delete-button`).click(function () {
-                        $('#confirmation-ct-index').val(sender.index);
-                        $('#confirmation-ct-name').val(sender.name);
-                        $('#confirmation-field-index').val(f_index);
+                $(`#${f_div_prefix}-delete-button`).click(function () {
+                    if (!ct.fields[f_index].inherited) {
+                        $('#confirmation-ct-name').val(ct_name);
                         $('#confirmation-field-name').val(ct.fields[f_index].name);
                         $('#confirmation-action').val('delete');
                         $('#confirmation-confirm-button').attr('disabled', false);
 
-                        let message = `You are attempting to delete the <b>${sender.name} -> ${ct.fields[f_index].name}</b> field.
-                    Upon doing so, <b>all content stored in this field will be irreversibly deleted</b>. Some templates may also need to be
-                    regenerated or manually adjusted. Are you sure you want to proceed?`;
+                        let message = `You are attempting to delete the <b>${ct_name} -> ${ct.fields[f_index].name}</b> field.
+                        Upon doing so, <b>all content stored in this field will be irreversibly deleted</b>. Some templates may also need to be
+                        regenerated or manually adjusted. Are you sure you want to proceed?`;
 
                         if (ct.fields.length === 1) {
-                            message = `You are attempting to delete the <b>${sender.name} -> ${ct.fields[f_index].name}</b> field.
+                            message = `You are attempting to delete the <b>${ct_name} -> ${ct.fields[f_index].name}</b> field.
                         This is currently not possible, as all content types must have at least one field. Please create another field for
                         this content type before deleting this field.`;
                             $('#confirmation-confirm-button').attr('disabled', true);
@@ -1604,23 +1687,21 @@
 
                         $('#confirmation-modal-message').html(message);
                         $('#confirmation-modal').modal();
-                    });
-                }
+                    }
+                });
 
                 // FIELD SHIFT UP BUTTON
                 $(`#${f_div_prefix}-shift-up-button`).click(function () {
-                    $('#confirmation-ct-index').val(sender.index);
-                    $('#confirmation-ct-name').val(sender.name);
-                    $('#confirmation-field-index').val(f_index);
+                    $('#confirmation-ct-name').val(ct_name);
                     $('#confirmation-field-name').val(ct.fields[f_index].name);
                     $('#confirmation-action').val('shift_up');
                     $('#confirmation-confirm-button').attr('disabled', false);
 
-                    let message = `You are attempting to shift the <b>${sender.name} -> ${ct.fields[f_index].name}</b> field up
+                    let message = `You are attempting to shift the <b>${ct_name} -> ${ct.fields[f_index].name}</b> field up
                     in position. This will affect the order in which fields appear in lists, views, etc. Are you sure you want to proceed?`;
 
                     if (f_index === 0) {
-                        message = `You are attempting to shift the <b>${sender.name} -> ${ct.fields[f_index].name}</b> field up
+                        message = `You are attempting to shift the <b>${ct_name} -> ${ct.fields[f_index].name}</b> field up
                         in position. This is currently not possible, as that field already occupies the first position.`;
                         $('#confirmation-confirm-button').attr('disabled', true);
                     }
@@ -1793,6 +1874,21 @@
                                 ${note_html}
                             </div>
                         `;
+                    } else if (parameters[parameter]['type'] === 'content_type') {
+                        let select_options = '';
+                        Object.keys(corpus.content_types).forEach(ct => {
+                            select_options += `<option value="${ct}">${corpus.content_types[ct].name}</option>`;
+                        });
+
+                        parameter_html = `
+                            <div class="form-group">
+                                <label for="corpus-ct-selector">${parameters[parameter]['label']}</label>
+                                <select id="corpus-ct-selector" class="form-control" name="${parameter}">
+                                    ${select_options}
+                                </select>
+                                ${note_html}
+                            </div>
+                        `;
                     } else if (parameters[parameter]['type'] === 'choice' && parameters[parameter].hasOwnProperty('choices')) {
                         let select_options = '';
                         parameters[parameter]['choices'].forEach(choice => {
@@ -1828,6 +1924,8 @@
                 let has_running = false;
                 let has_completed = false;
                 let stale_jobs = [];
+                let stale_window = 1000 * 60 * 60 * 24;
+
                 $('.running-job').each(function(index, item) {
                     stale_jobs.push($(item).attr('id').replace('running-job-', '').replace('-div', ''));
                 });
@@ -1862,20 +1960,42 @@
                             $(`#running-job-${job_id}-progress-bar`).attr("aria-valuenow", progress_value);
                             $(`#running-job-${job_id}-progress-bar`).html(progress_value);
                         } else {
+                            let kill_job_form = '';
+                            let job_status_time = jobs[x].status_time * 1000;
+
+                            if ((Date.now() - job_status_time) > stale_window && (role === 'Admin' || role === 'Editor')) {
+                                kill_job_form = `
+                                    <form method="post">
+                                        <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
+                                        <input type="hidden" name="kill-job-id" value="${job_id}">
+                                        <button type="submit" role="button" class="btn btn-danger">Kill</button>
+                                    </form>
+                                `;
+                            }
+
                             let job_html = `
                                 <div id="running-job-${job_id}-div" class="alert alert-info running-job">
-                                    Task: <b>${task_name}</b>
-                                    <div class="progress">
-                                        <div id="running-job-${job_id}-progress-bar"
-                                             class="progress-bar progress-bar-striped bg-success progress-bar-animated"
-                                             role="progressbar"
-                                             aria-valuenow="${progress_value}"
-                                             aria-valuemin="0"
-                                             aria-valuemax="100"
-                                             style="width: ${progress_value}%">
-                                            ${label}
+                                    <div class="row">
+                                        <div class="col-sm-10">
+                                            Task: <b>${task_name}</b>
+                                        </div>
+                                        <div class="col-sm-2">
+                                            ${kill_job_form}
                                         </div>
                                     </div>
+                                    <div class="row"><div class="col-sm-12">
+                                        <div class="progress">
+                                            <div id="running-job-${job_id}-progress-bar"
+                                                 class="progress-bar progress-bar-striped bg-success progress-bar-animated"
+                                                 role="progressbar"
+                                                 aria-valuenow="${progress_value}"
+                                                 aria-valuemin="0"
+                                                 aria-valuemax="100"
+                                                 style="width: ${progress_value}%">
+                                                ${label}
+                                            </div>
+                                        </div>
+                                    </div></div>
                                 </div>
                             `;
 
@@ -1895,7 +2015,7 @@
                 if (!has_running && !$('#no-running-jobs-div').length) {
                     $('#running-jobs-div').append(`
                         <div id="no-running-jobs-div" class="alert alert-info">
-                            There are currently no jobs running for this document.
+                            There are currently no jobs running for this corpus.
                         </div>
                     `);
                 }
