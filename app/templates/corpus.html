@@ -13,6 +13,22 @@
         .corpora-content-cell {
             max-height: 100px;
             overflow: scroll;
+            -ms-overflow-style: -ms-autohiding-scrollbar;
+        }
+
+        .ct-selection-cell {
+            white-space: nowrap;
+        }
+
+        .ct-selection-box {
+            position: relative;
+            top: 3px;
+        }
+
+        #provenance-div {
+            max-height: 200px;
+            overflow: scroll;
+            -ms-overflow-style: -ms-autohiding-scrollbar;
         }
     </style>
 {% endblock %}
@@ -423,6 +439,7 @@
         <div class="row">
             <!-- CONTENT TYPE MANAGER -->
             <div class="col">
+                <a name="ct_manager_div"></a>
                 <div id="type-manager-div" class="card mt-4">
                     <div class="card-header">
                         <h4>Content Type Manager</h4>
@@ -500,7 +517,7 @@
         var check_jobs_timer = null;
         var check_jobs_interval = 10;
         var ct_search = {};
-        var selected_content = [];
+        var selected_content = {};
         var import_editor;
         var template_editor;
 
@@ -659,6 +676,7 @@
                     }
                 }
 
+                // setup content type manager
                 if (role === 'Editor' || role === 'Admin') {
                     // setup the editor for importing a content type schema
                     import_editor = ace.edit("import-editor");
@@ -865,13 +883,41 @@
                     });
                 }
 
+                // load first pages of 5 items for each content type; setup content type nav
+                let breadcrumb = $('#breadcrumb');
+                let breadcrumb_inner = $('#breadcrumb-inner');
+                let ct_nav = `
+                    <ul class="nav">
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle p-0 mr-2" id="ct_nav_dropdown" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Content Types</a>
+                            <div class="dropdown-menu" aria-labelledby="ct_nav_dropdown">
+                `;
                 for (let ct_name in corpus.content_types) {
                     build_content_table(ct_name);
+                    selected_content[ct_name] = [];
 
                     if (role === 'Editor' || role === 'Admin') {
                         manage_content_type(ct_name);
                     }
+
+                    let ct_plural_name = corpus.content_types[ct_name].plural_name;
+                    if (corpus.content_types[ct_name].show_in_nav) {
+                        ct_nav += `<a class="dropdown-item" href="#${ct_plural_name}">${ct_plural_name}</a>`;
+                    }
                 }
+                ct_nav += `</div></li>`;
+                if (role === 'Editor' || role === 'Admin') {
+                    ct_nav += `
+                        <li class="nav-item">
+                            <a class="nav-link p-0" href="#ct_manager_div">Content Type Manager</a>
+                        </li>
+                    `;
+                }
+                ct_nav += `</ul>`;
+                breadcrumb_inner.append(ct_nav);
+                breadcrumb_inner.css('overflow', 'unset');
+                breadcrumb.removeClass('d-none');
+                breadcrumb.css('position', 'fixed');
 
                 // SETUP JOBS
                 corpora.get_jobsites(function(jobsites_data) {
@@ -932,7 +978,7 @@
                         <a name="${ct.plural_name}"></a>
                         <div class="card mt-4">
                             <div class="card-header" style="padding: 0 !important;">
-                                <div class="d-flex w-100 justify-content-between align-items-center text-nowrap" style="padding: 0.75rem 1.25rem;">
+                                <div class="d-flex w-100 justify-content-between align-items-center text-nowrap p-2 ml-2">
                                     <h4>${ct.plural_name}</h4>
                                     <div class="input-group ml-2 mr-2">
                                         <input type="text" class="form-control form-control" id="ct-${ct.name}-search-box" placeholder="Search" />
@@ -1211,11 +1257,17 @@
 
                 // iterate through the records, adding a row for each one
                 content.records.forEach(item => {
+                    let selected = '';
+                    if (selected_content[ct.name].includes(item.id)) {
+                        selected = "checked";
+                    }
+
                     let row_html = `
                         <tr>
-                            <td>
+                            <td class="ct-selection-cell">
+                                <input type="checkbox" id="ct_${ct.name}_${item.id}_selection-box" class="ct-selection-box" ${selected}>
                                 <a href="${item.uri}" target="_blank">
-                                    <span class="fas fa-external-link-square-alt"></span>
+                                    <span class="badge">Open <span class="fas fa-external-link-square-alt"></span></span>
                                 </a>
                             </td>
                     `;

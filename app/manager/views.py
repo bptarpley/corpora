@@ -745,21 +745,55 @@ def api_content(request, corpus_id, content_type, content_id=None):
 @api_view(['GET'])
 def api_network_json(request, corpus_id, content_type, content_id):
     context = _get_context(request)
-    network_json = {}
+    per_type_limit = int(request.GET.get('per_type_limit', '20'))
+    per_type_skip = int(request.GET.get('per_type_skip', '0'))
+    network_json = {
+        'nodes': [],
+        'edges': []
+    }
 
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
 
     if corpus and content_type in corpus.content_types:
-        network_json = get_network_json('''
-            MATCH path = (a:{0}) -[b]- (c)
-            WHERE a.uri = '/corpus/{1}/{0}/{2}'
-            RETURN path
-            LIMIT 10
-        '''.format(
-            content_type,
+        content_uri = '/corpus/{0}/{1}/{2}'.format(
             corpus_id,
+            content_type,
             content_id
-        ))
+        )
+
+        distinct_relationships = run_neo(
+            '''
+                MATCH (a:{0}) -[b]- (c)
+                WHERE a.uri = '{1}'
+                RETURN distinct type(b)
+            '''.format(
+                    content_type,
+                    content_uri
+                 )
+            , {}
+        )
+        distinct_relationships = [rel.value() for rel in distinct_relationships]
+
+        for relationship in distinct_relationships:
+            rel_net_json = get_network_json(
+                '''
+                    MATCH path = (a:{0}) -[b:{1}]- (c)
+                    WHERE a.uri = '{2}'
+                    RETURN path
+                    SKIP {3}
+                    LIMIT {4}
+                '''.format(
+                        content_type,
+                        relationship,
+                        content_uri,
+                        per_type_skip,
+                        per_type_limit
+                    )
+            )
+
+            node_uris = [n['id'] for n in network_json['nodes']]
+            network_json['nodes'] += [n for n in rel_net_json['nodes'] if n['id'] not in node_uris]
+            network_json['edges'] += rel_net_json['edges']
 
     return HttpResponse(
         json.dumps(network_json),
