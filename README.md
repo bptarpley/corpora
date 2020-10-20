@@ -38,35 +38,35 @@ not to make your corpus open access, however, two things must be true before you
 
 Content can be listed or queried for en-masse via the List endpoint, which can be accessed at the following URL:
 
-https://[ your.corpora.domain ]/api/corpus/[ corpus ID ]/[ content type name ]/
+`https://[ your.corpora.domain ]/api/corpus/[ corpus ID ]/[ content type name ]/`
 
 Your corpus ID can be determined by visiting your corpus' main page. For instance, if you created a corpus called "My Corpus,"
 you would click on your corpus' name ("My Corpus") on the main landing page at https://[ your.corpora.domain ]. Once you're on your corpus' main page,
 you'll note that the URL looks something like this:
 
-https://[ your.corpora.domain ]/corpus/5f60bf2cc879ea00329af449/
+`https://[ your.corpora.domain ]/corpus/5f60bf2cc879ea00329af449/`
 
 Your corpus' ID is located between the last two slashes of the URL (in the above example, the ID for the corpus is 5f60bf2cc879ea00329af449).
 
 The content type name is the name you provided for your content type when you created it in the Content Type Manager for your corpus. At present,
 all corpuses come with the "Document" content type by default. To access the List API for the Document content type in the example corpus above, for example, you'd use this endpoint:
 
-https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Document/
+`https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Document/`
 
 This endpoint accepts several different GET parameters (passed via the query string):
 
 | Parameter | Purpose | Example
 | --------- | ------- | -------
-| q | To perform a general query against all keyword and text fields for your content | [endpoint url]?q=search
-| q_[field name] | To perform a query against a specific field | [endpoint url]?q_title=Ulysses
-| s_[field name] | To sort results by field name, settings value to either "ASC" or "DESC" | [endpoint_url]?s_pub_date=DESC
-| page-size | To specify the size of each page of results | [endpoint_url]?page-size=50
-| page | To specify which page of results you'd like | [endpoint_url]?page=1
+| `q` | To perform a general query against all keyword and text fields for your content | [endpoint url]?q=search
+| `q_[field name]` | To perform a query against a specific field | [endpoint url]?q_title=Ulysses
+| `s_[field name]` | To sort results by field name, settings value to either "ASC" or "DESC" | [endpoint_url]?s_pub_date=DESC
+| `page-size` | To specify the size of each page of results | [endpoint_url]?page-size=50
+| `page` | To specify which page of results you'd like | [endpoint_url]?page=1
 
 Parameters can of course be chained together. If you wanted, for instance, to see the first 50 Documents with "Ulysses" in the title
 sorted by publication date in descending order, you could query the endpoint like this:
 
-https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Document/?q_title=Ulysses&s_pub_date=DESC&page-size=50&page=1
+`https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Document/?q_title=Ulysses&s_pub_date=DESC&page-size=50&page=1`
 
 Results are returned in JSON format, with two main (upper-level) keys: "meta," and "records." The "meta" key is a hash with the following key/value pairs:
 
@@ -85,11 +85,11 @@ The "records" key refers to a list of actual results (the content being queried 
 Whereas the List endpoint provides a way to query for content and see values for fields marked as being "In Lists," the detail endpoint allows you to
 see the values for _every_ field for a given, individual piece of content. To access the endpoint for an individual piece of content, use this URL:
 
-https://[ your.corpora.domain ]/api/corpus/[ corpus ID ]/[ content type name ]/[ content ID ]/
+`https://[ your.corpora.domain ]/api/corpus/[ corpus ID ]/[ content type name ]/[ content ID ]/`
 
 So, for instance, assuming you're interested in all the data for a Document with the
 ID "5f734833741449002ba9907e," you could access that data at the following URL:
 
-https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Document/5f734833741449002ba9907e/
+`https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Document/5f734833741449002ba9907e/`
 
 Results are returned in JSON format, as a hash where keys are field names and values are the data stored in those fields.
