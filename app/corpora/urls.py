@@ -23,6 +23,7 @@ for plugin in plugins:
 
 urlpatterns += [
     path('corpus/<str:corpus_id>/<str:content_type>/', manager_views.edit_content),
+    path('corpus/<str:corpus_id>/<str:content_type>/explore/', manager_views.explore_content),
     path('corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/', manager_views.view_content),
     path('corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/edit/', manager_views.edit_content),
 

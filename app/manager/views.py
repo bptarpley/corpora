@@ -380,6 +380,30 @@ def view_content(request, corpus_id, content_type, content_id):
         }
     )
 
+
+def explore_content(request, corpus_id, content_type):
+    context = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+    content_ids = _clean(request.POST, 'content-ids', '')
+
+    if not corpus or content_type not in corpus.content_types or not content_ids:
+        raise Http404("Corpus does not exist, or you are not authorized to view it.")
+    else:
+        content_ids = content_ids.split(',')
+
+    return render(
+        request,
+        'content_explore.html',
+        {
+            'response': context,
+            'corpus_id': corpus_id,
+            'role': role,
+            'content_type': content_type,
+            'content_ids': content_ids,
+        }
+    )
+
+
 @login_required
 def scholars(request):
     response = _get_context(request)

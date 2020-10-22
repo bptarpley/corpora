@@ -1143,18 +1143,28 @@ class Corpus(mongoengine.Document):
                             must.append(~Q('exists', field=search_field))
 
                     for field_value in field_values:
+
                         if '.' in search_field:
                             field_parts = search_field.split('.')
-                            must.append(Q(
+
+                            should.append(Q(
                                 "nested",
                                 path=field_parts[0],
                                 query=Q(
-                                    search_mode,
-                                    **{search_field: field_value}
+                                    'match',
+                                    **{search_field: {
+                                        'query': field_value,
+                                        'operator': 'and',
+                                        'fuzziness': 'AUTO'
+                                    }}
                                 )
                             ))
                         else:
-                            must.append(Q(search_mode, **{search_field: field_value}))
+                            should.append(Q('match', **{search_field: {
+                                'query': field_value,
+                                'operator': 'and',
+                                'fuzziness': 'AUTO'
+                            }}))
 
             if fields_filter:
                 for search_field in fields_filter.keys():

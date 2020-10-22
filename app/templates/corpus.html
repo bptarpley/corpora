@@ -20,11 +20,6 @@
             white-space: nowrap;
         }
 
-        .ct-selection-box {
-            position: relative;
-            top: 3px;
-        }
-
         #provenance-div {
             max-height: 200px;
             overflow: scroll;
@@ -433,6 +428,10 @@
 
             <!-- CONTENT TYPES LISTED HERE -->
 
+            <form id="explore-form" method="post" action="/not/set">
+                {% csrf_token %}
+                <input id="explore-content-ids" name="content-ids" type="hidden" value="">
+            </form>
         </div>
 
         {% if response.scholar.is_admin or role == 'Editor' %}
@@ -507,24 +506,24 @@
     <script src={% static 'js/beautify/beautify-css.js' %}></script>
     <script src={% static 'js/beautify/beautify-html.js' %}></script>
     <script type="application/javascript">
-        var corpus_id = "{{ corpus_id }}";
-        var role = "{{ role }}";
-        var corpus = null;
-        var template_formats = null;
-        var jobsites = [];
-        var local_jobsite_id = null;
-        var tasks = [];
-        var check_jobs_timer = null;
-        var check_jobs_interval = 10;
-        var ct_search = {};
-        var selected_content = {};
-        var import_editor;
-        var template_editor;
+        let corpus_id = "{{ corpus_id }}";
+        let role = "{{ role }}";
+        let corpus = null;
+        let template_formats = null;
+        let jobsites = [];
+        let local_jobsite_id = null;
+        let tasks = [];
+        let check_jobs_timer = null;
+        let check_jobs_interval = 10;
+        let ct_search = {};
+        let selected_content = {};
+        let import_editor;
+        let template_editor;
 
         // VARS FOR FILE UPLOADS/IMPORTS
-        var file_upload_path = '';
-        var file_uploads = [];
-        var import_files = [];
+        let file_upload_path = '';
+        let file_uploads = [];
+        let import_files = [];
 
         // CREATE FILE POND FOR IMPORT CORPUS FILES MODAL
         const import_corpus_file_pond = FilePond.create(document.querySelector('#import-corpus-filepond'), {
@@ -894,7 +893,10 @@
                 `;
                 for (let ct_name in corpus.content_types) {
                     build_content_table(ct_name);
-                    selected_content[ct_name] = [];
+                    selected_content[ct_name] = {
+                        all: false,
+                        ids: []
+                    };
 
                     if (role === 'Editor' || role === 'Admin') {
                         manage_content_type(ct_name);
@@ -1019,6 +1021,13 @@
                                     <tbody id="ct-${ct.name}-table-body">
                                     </tbody>
                                 </table>
+                                <div class="form-inline">
+                                    With selected:
+                                    <select class="form-control-sm btn-primary ml-1 mr-1" id="ct-${ct.name}-selection-action-selector">
+                                        <option value="explore" selected>Explore</option>
+                                    </select>
+                                    <button type="button" class="btn btn-sm btn-secondary" id="ct-${ct.name}-selection-action-go-button" disabled>Go</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1029,6 +1038,7 @@
             let table_header_row = $(`#ct-${ct.name}-table-header-row`);
             table_header_row.append(`
                 <th scope="col">
+                    <input type="checkbox" id="ct_${ct.name}_select-all_box">
                 </th>
             `);
             for (let x = 0; x < ct.fields.length; x++) {
@@ -1040,6 +1050,33 @@
                     `);
                 }
             }
+
+            // handle select all box checking/unchecking
+            $(`#ct_${ct.name}_select-all_box`).change(function() {
+                let id_parts = this.id.split('_');
+                let ct_name = id_parts[1];
+                let go_button = $(`#ct-${ct_name}-selection-action-go-button`);
+
+                if ($(this).is(':checked')) {
+                    selected_content[ct_name].all = true;
+                    selected_content[ct_name].ids = [];
+
+                    $(`.ct-${ct_name}-selection-box`).each(function() {
+                        $(this).prop("checked", true);
+                        $(this).attr("disabled", true);
+                    });
+
+                    go_button.removeAttr('disabled');
+                } else {
+                    selected_content[ct_name].all = false;
+                    $(`.ct-${ct_name}-selection-box`).each(function() {
+                        $(this).prop("checked", false);
+                        $(this).removeAttr("disabled");
+                    });
+
+                    go_button.attr('disabled', true);
+                }
+            });
 
             // setup content type search fields
             let search_settings_menu = $(`#ct-${ct.name}-search-settings-menu`);
@@ -1081,6 +1118,7 @@
 
             $(`#ct-${ct.name}-per-page-selector`).on("change", function () {
                 ct_search[ct.name]['page-size'] = parseInt($(`#ct-${ct.name}-per-page-selector`).val());
+                ct_search[ct.name]['page'] = 1;
                 corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
             });
 
@@ -1117,6 +1155,19 @@
                 corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
             });
 
+            $(`#ct-${ct.name}-selection-action-go-button`).click(function() {
+                let id_parts = this.id.split('-');
+                let ct_name = id_parts[1];
+                let action = $(`#ct-${ct.name}-selection-action-selector`).val();
+                let explore_form = $('#explore-form');
+
+                if (action === 'explore') {
+                    $('#explore-content-ids').val(selected_content[ct_name].ids.join(','));
+                    explore_form.attr('action', `/corpus/${corpus_id}/${ct_name}/explore/`);
+                    explore_form.submit();
+                }
+            });
+
             // default search settings
             ct_search[ct.name] = {
                 'page': 1,
@@ -1145,7 +1196,7 @@
 
             // add the total number of results to the search criteria div
             current_search_div.append(`
-                <span class="badge badge-primary p-2 mr-2" style="font-size: 12px;">
+                <span id="ct-${ct.name}-total-badge" class="badge badge-primary p-2 mr-2" data-total="${content.meta.total}" style="font-size: 12px;">
                     Total: ${content.meta.total.toLocaleString('en-US')}
                 </span>
             `);
@@ -1258,14 +1309,16 @@
                 // iterate through the records, adding a row for each one
                 content.records.forEach(item => {
                     let selected = '';
-                    if (selected_content[ct.name].includes(item.id)) {
+                    if (selected_content[ct.name].all) {
+                        selected = "checked disabled";
+                    } else if (selected_content[ct.name].ids.includes(item.id)) {
                         selected = "checked";
                     }
 
                     let row_html = `
                         <tr>
                             <td class="ct-selection-cell">
-                                <input type="checkbox" id="ct_${ct.name}_${item.id}_selection-box" class="ct-selection-box" ${selected}>
+                                <input type="checkbox" id="ct_${ct.name}_${item.id}_selection-box" class="ct-${ct.name}-selection-box" ${selected}>
                                 <a href="${item.uri}" target="_blank">
                                     <span class="badge">Open <span class="fas fa-external-link-square-alt"></span></span>
                                 </a>
@@ -1328,6 +1381,23 @@
                     ct_table_body.append(row_html);
                 });
             }
+
+            // handle checking/unchecking content selection boxes
+            $(`.ct-${ct.name}-selection-box`).change(function() {
+                let id_parts = this.id.split('_');
+                let ct_name = id_parts[1];
+                let content_id = id_parts[2];
+                let go_button = $(`#ct-${ct_name}-selection-action-go-button`);
+
+                if($(this).is(':checked')) {
+                    selected_content[ct_name].ids.push(content_id);
+                } else {
+                    selected_content[ct_name].ids = selected_content[ct_name].ids.filter(id => id !== content_id);
+                }
+
+                if (selected_content[ct_name].ids.length > 0) { go_button.removeAttr('disabled'); }
+                else { go_button.attr('disabled', true); }
+            });
         }
 
         function ct_order_by(ct_name, field) {

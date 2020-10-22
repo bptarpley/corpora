@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+    <style type="text/css">
+        canvas {
+            outline: none;
+            -webkit-tap-highlight-color: rgba(255, 255, 255, 0); /* mobile webkit */
+        }
+    </style>
+    <link href="{% static 'css/vis-network.min.css' %}" rel="stylesheet">
+
+{% endblock %}
+
+{% block main %}
+    <div class="row mt-4">
+        <div id="explore" class="col-12">
+            <div id="explore-legend" class="d-inline-flex align-items-start"></div>
+            <div id="explore-div" style="height: 800px;"></div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'js/filepond.js' %}"></script>
+    <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
+    <script src="{% static 'js/vis-network.min.js' %}"></script>
+    <script type="application/javascript">
+        let corpus_id = '{{ corpus_id }}';
+        let content_type_name = '{{ content_type }}';
+        let content_ids = {{ content_ids|safe }};
+        let content_type = null;
+        let content, network, nodes, edges = null;
+        let per_group_limit = 20;
+        let groups = {};
+        let group_colors = [
+            '#EF3E36',
+            '#091540',
+            '#17BEBB',
+            '#BFC0C0',
+            '#2191FB',
+            '#297045',
+            '#9448BC',
+            '#FFB627',
+            '#CCC9E7',
+            '#E9E3B4',
+        ];
+        let group_color_cursor = 0;
+
+        $(document).ready(function() {
+            /* when finished loading:
+            network.fit();
+            nodes.update([{ id: content.uri, label: content.label, title: null, fixed: true }]);
+            hide_loading_overlay();
+             */
+            
+            corpora.get_corpus(corpus_id, function(corpus_data) {
+                add_breadcrumb(corpus_data.name, `/corpus/${corpus_id}/`);
+                content_type = corpus_data.content_types[content_type_name];
+
+                if (content_ids.length > 0) {
+                    let seed_id = content_ids[0];
+                    corpora.get_network_json(corpus_id, content_type_name, seed_id, {per_type_limit: per_group_limit}, function(net_json) {
+                        nodes = new vis.DataSet(net_json.nodes);
+                        edges = new vis.DataSet(net_json.edges);
+                        determine_group_colors();
+
+                        /* set shape for root node
+                        nodes.update([{
+                            id: content_uri,
+                            shape: 'image',
+                            image: '{% static 'img/icon/apple-touch-icon.png' %}',
+                            size: 20,
+                            skip: per_group_limit,
+                        }]);
+                        */
+
+                        let explore_div = $('#explore-div')[0];
+                        network = new vis.Network(
+                            explore_div,
+                            {
+                                nodes: nodes,
+                                edges: edges
+                            },
+                            {
+                                nodes: {
+                                    shape: 'dot',
+                                    size: 10
+                                },
+                                groups: groups,
+                                interaction: {
+                                    zoomSpeed: 0.4,
+                                    hover: true,
+                                    tooltipDelay: 100
+                                }
+                            }
+                        );
+
+                        $('#explore-tab').removeClass('disabled');
+
+                        network.on("dragStart", function(params){
+                            params.nodes.map(id => {
+                                let n = nodes.get(id);
+                                n.fixed = false;
+                                affix_node_label(n);
+                                nodes.update(n);
+                            });
+                        });
+
+                        network.on("dragEnd", function(params){
+                            params.nodes.map(id => {
+                                nodes.update([{ id: id, fixed: true }]);
+                            });
+                        });
+
+                        network.on("doubleClick", function(params){
+                            if (params.nodes.length > 0) {
+                                let node = nodes.get(params.nodes[0]);
+                                affix_node_label(node);
+
+                                let node_ct = node.group;
+                                let node_id = node.id.split('/').slice(-1)[0];
+                                let skip = 0;
+
+                                if (node.hasOwnProperty('skip')) {
+                                    skip = node.skip;
+                                }
+
+                                sprawl_node(node_ct, node_id, skip);
+
+                                node.skip = skip += per_group_limit;
+                                nodes.update(node);
+                            }
+                        });
+
+                        for (let x = 1; x < content_ids.length; x++) {
+                            sprawl_node(content_type_name, content_ids[x]);
+                        }
+                    });
+                }
+            });
+
+            hide_loading_overlay();
+        });
+
+        function sprawl_node(node_ct, node_id, skip=0) {
+            corpora.get_network_json(corpus_id, node_ct, node_id, {per_type_skip: skip, per_type_limit: per_group_limit}, function(net_json) {
+                net_json.nodes.map(n => {
+                    if (!nodes.get(n.id)) {
+                        nodes.add(n);
+                    }
+                });
+
+                net_json.edges.map(e => {
+                    if (!edges.get(e.id)) {
+                        edges.add(e);
+                    }
+                });
+
+                determine_group_colors();
+                network.setOptions({groups: groups});
+            });
+        }
+
+        function affix_node_label(node) {
+            if (node.title) {
+                node.label = node.title;
+                node.title = null;
+            }
+        }
+
+        function determine_group_colors() {
+            let group_names = nodes.map(n => n.group);
+            group_names = [...new Set(group_names)];
+            group_names.map(group_name => {
+                if (!Object.keys(groups).includes(group_name)) {
+                    groups[group_name] = {
+                        color: group_colors[group_color_cursor]
+                    };
+                    group_color_cursor++;
+                    if (group_color_cursor >= group_colors.length) group_color_cursor = 0;
+                }
+            });
+
+            let legend = $('#explore-legend');
+            legend.html('');
+            for (let group_name in groups) {
+                legend.append(`
+                    <span class="badge mr-1" style="background-color: ${groups[group_name].color}; color: #FFFFFF;">${group_name}</span>
+                `);
+            }
+        }
+
+    </script>
+{% endblock %}

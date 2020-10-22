@@ -7,6 +7,11 @@
         .content-type-card .row {
             margin-bottom: 20px;
         }
+
+        canvas {
+            outline: none;
+            -webkit-tap-highlight-color: rgba(255, 255, 255, 0); /* mobile webkit */
+        }
     </style>
     <link href="{% static 'css/vis-network.min.css' %}" rel="stylesheet">
 
@@ -17,7 +22,7 @@
         <div class="col-12">
 
             <!-- CONTENT CARD -->
-            <div class="card">
+            <div class="card h-100">
                 <div class="card-header">
                     <h4 id="header-label">
                         <!-- title -->
@@ -32,7 +37,7 @@
                             <a class="nav-link disabled" id="explore-tab" data-toggle="tab" href="#explore" role="tab" aria-controls="explore" aria-selected="false">Explore</a>
                         </li>
                     </ul>
-                    <div class="tab-content h-100">
+                    <div class="tab-content h-100 p-3">
                         <div class="tab-pane fade show active" id="metadata" role="tabpanel" aria-labelledby="metadata-tab">
                             <div class="content-type-card" id="content-div">
                                 <!-- content metadata -->
