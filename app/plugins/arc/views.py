@@ -6,6 +6,7 @@ from django.shortcuts import render, HttpResponse, redirect
 from django.http import Http404
 from elasticsearch_dsl import A
 
+
 @api_view(['GET'])
 def query(request, corpus_id):
     context = _get_context(request)

@@ -106,18 +106,19 @@ def _get_context(req):
         'fields_query': {},
         'fields_filter': {},
         'fields_range': {},
+        'fields_wildcard': {},
         'fields_sort': [],
         'page': 1,
         'page_size': 50,
         'only': [],
-        'search_mode': "match"
+        'operator': "and"
     }
 
     for param in req.GET.keys():
         value = req.GET[param]
         search_field_name = param[2:]
 
-        if param in ['q', 'page', 'page-size'] or param.startswith('q_') or param.startswith('s_') or param.startswith('f_') or param.startswith('r_'):
+        if param in ['q', 'page', 'page-size', 'operator'] or param.startswith('q_') or param.startswith('s_') or param.startswith('f_') or param.startswith('r_') or param.startswith('w_'):
             context['search'] = default_search
         
         if param == 'msg':
@@ -136,8 +137,10 @@ def _get_context(req):
             context['search']['fields_filter'][search_field_name] = value
         elif param.startswith('r_'):
             context['search']['fields_range'][search_field_name] = value
-        elif param == 'es_search_mode':
-            context['search']['search_mode'] = value
+        elif param.startswith('w_'):
+            context['search']['fields_wildcard'][search_field_name] = value
+        elif param == 'operator':
+            context['search']['operator'] = value
         elif param == 'page':
             context['search']['page'] = int(value)
         elif param == 'page-size':

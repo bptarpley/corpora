@@ -192,11 +192,11 @@ class Corpora {
         )
     }
 
-    get_network_json(corpus_id, content_type, content_id, callback) {
+    get_network_json(corpus_id, content_type, content_id, options={}, callback) {
         this.make_request(
             `/api/corpus/${corpus_id}/${content_type}/${content_id}/network-json/`,
             "GET",
-            {},
+            options,
             callback
         );
     }

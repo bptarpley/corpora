@@ -58,15 +58,27 @@ This endpoint accepts several different GET parameters (passed via the query str
 | Parameter | Purpose | Example
 | --------- | ------- | -------
 | `q` | To perform a general query against all keyword and text fields for your content | [endpoint url]?q=search
-| `q_[field name]` | To perform a query against a specific field | [endpoint url]?q_title=Ulysses
+| `q_[field name]` | To perform a full-text query against a specific field | [endpoint url]?q_title=Ulysses
+| `f_[field name]` | To filter by an exact value for a specific field | [endpoint url]?f_color=green
+| `w_[field name]` | To perform wildcard matching on a specific field (note: if no asterix is found in the search term, one will be automatically appended at the end) | [endpoint url]?w_name=Br*
+| `r_[field name]` | To filter using a range of possible values (numeric fields only). Separate min and max values by two underscores (if either min or max are omitted, range will just be "less than or equal to" or "greater than or equal to" respectively). | [endpoint url]?r_size=6__10
 | `s_[field name]` | To sort results by field name, settings value to either "ASC" or "DESC" | [endpoint_url]?s_pub_date=DESC
 | `page-size` | To specify the size of each page of results | [endpoint_url]?page-size=50
 | `page` | To specify which page of results you'd like | [endpoint_url]?page=1
+| `operator` | To specify which logical operator is used to combine queries (default "and") | [endpoint_url]?q_color=red&q_holiday=Christmas&operator=or
 
 Parameters can of course be chained together. If you wanted, for instance, to see the first 50 Documents with "Ulysses" in the title
 sorted by publication date in descending order, you could query the endpoint like this:
 
 `https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Document/?q_title=Ulysses&s_pub_date=DESC&page-size=50&page=1`
+
+You may perform queries using multiple search terms on the same field, though this is _not_ acheived by chaining the same GET parameter together. In order to do this, you must separate the multiple values with two underscores (__) as your delimiter. So, to search a hypothetical field named "color" for both "red" and "green" values, do this:
+
+`https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Clothing/?q_color=red__green`
+
+By default, however, the "and" operator is used to combine queries, so you'll likely also want to add `operator=or` so that results that are either "red" or "green" are returned:
+
+`https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Clothing/?q_color=red__green&operator=or`
 
 Results are returned in JSON format, with two main (upper-level) keys: "meta," and "records." The "meta" key is a hash with the following key/value pairs:
 
