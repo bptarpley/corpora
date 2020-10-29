@@ -343,6 +343,9 @@ def commentaries(request, corpus_id):
 def play_minimap(request, corpus_id):
     corpus = get_corpus(corpus_id)
     lines = corpus.get_content('PlayLine', all=True).order_by('line_number')
+    highlight_lines = request.GET.get('h', None)
+    if highlight_lines:
+        highlight_lines = highlight_lines.split(',')
 
     width = request.GET.get('width', '300')
     height = request.GET.get('height', '900')
@@ -379,6 +382,10 @@ def play_minimap(request, corpus_id):
             x = 0
             y = 0
             for line in lines:
+                line_color = '#9A9A99'
+                if highlight_lines and line.line_label in highlight_lines:
+                    line_color = '#F99B4E'
+
                 text = ' '.join(line.words)
                 word_start = None
 
@@ -390,7 +397,7 @@ def play_minimap(request, corpus_id):
 
                     if (char == ' ' or char_index == len(text) - 1) and word_start:
                         word_end = x
-                        draw.rectangle([(word_start, y), (word_end, y + line_height)], fill='#9A9A99', outline=None, width=0)
+                        draw.rectangle([(word_start, y), (word_end, y + line_height)], fill=line_color, outline=None, width=0)
                         word_start = None
                         x += character_width
                     else:

@@ -114,7 +114,46 @@ REGISTRY = {
         "configuration": {},
         "module": 'manager.tasks',
         "functions": ['delete_corpus']
-    }
+    },
+    "Merge Content": {
+        "version": "0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "content_type": {
+                    "value": "",
+                    "type": "content_type",
+                    "label": "Content Type"
+                },
+                "target_id": {
+                    "value": "",
+                    "type": "text",
+                    "label": "ID of Target of Merge"
+                },
+                "merge_ids": {
+                    "value": "",
+                    "type": "text",
+                    "label": "IDs of Content to Merge",
+                    "note": "IDs separated by comma."
+                },
+                "delete_merged": {
+                    "value": True,
+                    "type": "boolean",
+                    "label": "Delete Merged Content?"
+                },
+                "cascade_deletion": {
+                    "value": True,
+                    "type": "boolean",
+                    "label": "Cascade Deletion?",
+                    "note": "Deletes any isolated content connected to merged content."
+                }
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['merge_content']
+    },
 }
 
 
@@ -268,4 +307,153 @@ def delete_corpus(job_id):
     job = Job(job_id)
     job.set_status('running')
     job.corpus.delete()
+    job.complete(status='complete')
+
+
+@db_task(priority=5)
+def merge_content(job_id):
+    job = Job(job_id)
+    corpus = job.corpus
+    job.set_status('running')
+
+    content_type = job.configuration['parameters']['content_type']['value']
+    target_id = job.configuration['parameters']['target_id']['value']
+    merge_ids = job.configuration['parameters']['merge_ids']['value']
+    delete_merged = job.configuration['parameters']['delete_merged']['value']
+    cascade_deletion = job.configuration['parameters']['cascade_deletion']['value']
+
+    merged_values = 0
+    merged_deletions = 0
+    cascade_deletions = 0
+
+    if corpus.path:
+        merge_report_dir = "{0}/files/merge_reports".format(corpus.path)
+        os.makedirs(merge_report_dir, exist_ok=True)
+        merge_report_path = "{0}/{1}.txt".format(merge_report_dir, job_id)
+        with open(merge_report_path, 'w') as report:
+            report.write("Content Type: {0}\n".format(content_type))
+            report.write("Target ID: {0}\n".format(target_id))
+            report.write("Merge IDs: {0}\n".format(merge_ids))
+            report.write("Delete Merged?: {0}\n".format(delete_merged))
+            report.write("Cascade Deletion?: {0}\n".format(cascade_deletion))
+            report.write("--------------------------------------\n\n")
+
+            merge_ids = [merge_id for merge_id in merge_ids.split(',') if merge_id]
+
+            if content_type in corpus.content_types and target_id and merge_ids:
+                target_content = corpus.get_content(content_type, target_id)
+                if target_content:
+                    report.write("Target found.\n")
+
+                    for merge_id in merge_ids:
+                        report.write("\nAttempting to merge {0} into target...\n".format(merge_id))
+                        no_problems_merging = True
+                        merge_content = None
+
+                        try:
+                            # explore inbound connections
+                            explored_content = corpus.explore_content(
+                                content_type,
+                                left_id=merge_id,
+                                cardinality=2
+                            )
+                            if len(explored_content) == 1:
+                                merge_content = explored_content[0]
+                                report.write("Inbound connections queried...\n")
+
+                                if hasattr(merge_content, '_exploration'):
+                                    report.write("Inbound connections found...\n")
+                                    for relationship in merge_content._exploration.keys():
+                                        if relationship.startswith('has'):
+                                            field_name = relationship[3:]
+                                            for related_dict in merge_content._exploration[relationship]:
+                                                print(related_dict)
+                                                related_ct = related_dict['content_type']
+                                                related_id = related_dict['id']
+                                                related_field = corpus.content_types[related_ct].get_field(field_name)
+                                                report.write("Inspecting value of field '{0}' for {1} with ID {2}...\n".format(
+                                                    field_name,
+                                                    related_ct,
+                                                    related_id
+                                                ))
+
+                                                if related_field and related_field.type == 'cross_reference' and related_field.cross_reference_type == content_type:
+                                                    related_content = corpus.get_content(related_ct, related_id)
+
+                                                    if related_content and not related_field.multiple and hasattr(related_content, field_name) and getattr(related_content, field_name).id == merge_content.id:
+                                                        setattr(related_content, field_name, target_content.id)
+                                                        related_content.save()
+                                                        merged_values += 1
+                                                        report.write("Successfully changed field value from merge ID {0} to target ID {1}!\n".format(merge_content.id, target_id))
+
+                                                    elif related_content and related_field.multiple and hasattr(related_content, field_name):
+                                                        new_reffs = []
+                                                        for reffed_content in getattr(related_content, field_name):
+                                                            if reffed_content.id == merge_content.id:
+                                                                new_reffs.append(target_content.id)
+                                                            else:
+                                                                new_reffs.append(reffed_content.id)
+
+                                                        setattr(related_content, field_name, new_reffs)
+                                                        related_content.save()
+                                                        merged_values += 1
+                                                        report.write("Successfully changed field value from merge ID {0} to target ID {1}!\n".format(merge_content.id, target_id))
+                        except:
+                            no_problems_merging = False
+                            report.write("ERROR MERGING:")
+                            report.write(traceback.format_exc())
+
+                        if merge_content and no_problems_merging and delete_merged:
+                            report.write("Attempting to delete merged {0} with ID {1}...\n".format(content_type, merge_content.id))
+
+                            if cascade_deletion:
+                                report.write("Attempting to cascade delete any singularly connected content...\n".format(content_type, merge_content.id))
+                                cascaded_contents = []
+
+                                for field in corpus.content_types[content_type].fields:
+                                    if field.type == 'cross_reference' and getattr(merge_content, field.name):
+                                        if not field.multiple:
+                                            cascaded_contents.append(getattr(merge_content, field.name))
+                                        else:
+                                            for cascaded_content in getattr(merge_content, field.name):
+                                                cascaded_contents.append(cascaded_content)
+
+                                for cascaded_content in cascaded_contents:
+                                    report.write("Investigating cascade deletion of {0} with ID {1}...\n".format(cascaded_content.content_type, cascaded_content.id))
+
+                                    explored_content = corpus.explore_content(
+                                        cascaded_content.content_type,
+                                        left_id=cascaded_content.id,
+                                        cardinality=0 # <- both in and outbound connections
+                                    )
+
+                                    if len(explored_content) == 1:
+                                        cascaded_content = explored_content[0]
+                                        eligible_for_deletion = True
+
+                                        if hasattr(cascaded_content, '_exploration'):
+                                            relationships = list(cascaded_content._exploration.keys())
+                                            if len(relationships) <= 1:
+                                                if relationships and len(cascaded_content._exploration[relationships[0]]) > 1:
+                                                    eligible_for_deletion = False
+                                            else:
+                                                eligible_for_deletion = False
+
+                                        if eligible_for_deletion:
+                                            cascaded_content.delete()
+                                            cascade_deletions += 1
+                                            report.write("Successfully cascade deleted {0} with ID {1}!\n".format(cascaded_content.content_type, cascaded_content.id))
+                                        else:
+                                            report.write("{0} with ID {1} ineligible for cascade deletion.\n".format(cascaded_content.content_type, cascaded_content.id))
+
+                            merge_content.delete()
+                            merged_deletions += 1
+                            report.write("Successfully deleted merged {0} with ID {1}!\n".format(content_type, merge_content.id))
+
+            report.write("\n--------------------------------------\n")
+            report.write("MERGE COMPLETED with following stats:\n")
+            report.write("Merged values: {0}\n".format(merged_values))
+            report.write("Merged deletions: {0}\n".format(merged_deletions))
+            report.write("Cascade deletions: {0}\n".format(cascade_deletions))
+
     job.complete(status='complete')

@@ -428,9 +428,9 @@
 
             <!-- CONTENT TYPES LISTED HERE -->
 
-            <form id="explore-form" method="post" action="/not/set">
+            <form id="multiselect-form" method="post" action="/not/set">
                 {% csrf_token %}
-                <input id="explore-content-ids" name="content-ids" type="hidden" value="">
+                <input id="multiselect-content-ids" name="content-ids" type="hidden" value="">
             </form>
         </div>
 
@@ -1025,6 +1025,7 @@
                                     With selected:
                                     <select class="form-control-sm btn-primary ml-1 mr-1" id="ct-${ct.name}-selection-action-selector">
                                         <option value="explore" selected>Explore</option>
+                                        <option value="merge">Merge</option>
                                     </select>
                                     <button type="button" class="btn btn-sm btn-secondary" id="ct-${ct.name}-selection-action-go-button" disabled>Go</button>
                                 </div>
@@ -1159,12 +1160,15 @@
                 let id_parts = this.id.split('-');
                 let ct_name = id_parts[1];
                 let action = $(`#ct-${ct.name}-selection-action-selector`).val();
-                let explore_form = $('#explore-form');
+                let multi_form = $('#multiselect-form');
+                $('#multiselect-content-ids').val(selected_content[ct_name].ids.join(','));
 
                 if (action === 'explore') {
-                    $('#explore-content-ids').val(selected_content[ct_name].ids.join(','));
-                    explore_form.attr('action', `/corpus/${corpus_id}/${ct_name}/explore/`);
-                    explore_form.submit();
+                    multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/explore/`);
+                    multi_form.submit();
+                } else if (action === 'merge') {
+                    multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/merge/`);
+                    multi_form.submit();
                 }
             });
 

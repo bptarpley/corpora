@@ -813,10 +813,10 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
         recolored_notes = {}
         for line in lines:
             line.witness_meter = "0" * len(witnesses)
-            if hasattr(line, '_haslines'):
+            if hasattr(line, '_exploration') and 'haslines' in line._exploration:
                 color_offset = 0
 
-                for note_dict in line._haslines:
+                for note_dict in line._exploration['haslines']:
                     note_id = note_dict['id']
                     note = note_id_map[note_id]
 

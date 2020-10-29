@@ -352,6 +352,7 @@ def view_content(request, corpus_id, content_type, content_id):
     context = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
     render_template = _clean(request.GET, 'render_template', None)
+    popup = 'popup' in request.GET
 
     if not corpus or content_type not in corpus.content_types:
         raise Http404("Corpus does not exist, or you are not authorized to view it.")
@@ -375,6 +376,7 @@ def view_content(request, corpus_id, content_type, content_id):
             'response': context,
             'corpus_id': corpus_id,
             'role': role,
+            'popup': popup,
             'content_type': content_type,
             'content_id': content_id,
         }
@@ -402,6 +404,58 @@ def explore_content(request, corpus_id, content_type):
             'content_ids': content_ids,
         }
     )
+
+
+@login_required
+def merge_content(request, corpus_id, content_type):
+    context = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+    merge_ids = request.POST.get('content-ids', '')
+    merge_ids = [merge_id for merge_id in merge_ids.split(',') if merge_id]
+
+    if (merge_ids and context['scholar'].is_admin or role == 'Editor') and corpus and content_type in corpus.content_types:
+        merge_contents = corpus.get_content(content_type, {'id__in': merge_ids})
+
+        target_id = request.POST.get('target-id', '')
+        delete_merged = 'delete-merged' in request.POST
+        cascade_deletion = 'cascade-deletion' in request.POST
+
+        if not target_id:
+            return render(
+                request,
+                'content_merge.html',
+                {
+                    'corpus_id': corpus_id,
+                    'response': context,
+                    'content_type': content_type,
+                    'content_type_plural': corpus.content_types[content_type].plural_name,
+                    'merge_contents': merge_contents,
+                }
+            )
+        else:
+            job_id = corpus.queue_local_job(task_name="Merge Content", parameters={
+                'content_type': content_type,
+                'target_id': target_id,
+                'merge_ids': ','.join(merge_ids),
+                'delete_merged': delete_merged,
+                'cascade_deletion': cascade_deletion
+            })
+            run_job(job_id)
+            sleep(4)
+            return render(
+                request,
+                'content_merge.html',
+                {
+                    'corpus_id': corpus_id,
+                    'response': context,
+                    'content_type': content_type,
+                    'content_type_plural': corpus.content_types[content_type].plural_name,
+                    'merge_contents': merge_contents,
+                    'job_id': job_id
+                }
+            )
+
+    raise Http404("You are not authorized to view this page.")
 
 
 @login_required
@@ -605,6 +659,23 @@ def get_file(request, file_uri):
         response = HttpResponse(content_type=mime_type)
         response['X-Accel-Redirect'] = "/files/{0}".format(file_path.replace('/corpora/', ''))
         return response
+
+    raise Http404("File not found.")
+
+
+@login_required
+def get_corpus_file(request, corpus_id):
+    context = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+    path = request.GET.get('path', None)
+
+    if corpus and path and (context['scholar'].is_admin or role == 'Editor'):
+        file_path = "{0}/files/{1}".format(corpus.path, path)
+        if os.path.exists(file_path):
+            mime_type, encoding = mimetypes.guess_type(file_path)
+            response = HttpResponse(content_type=mime_type)
+            response['X-Accel-Redirect'] = "/files/{0}".format(file_path.replace('/corpora/', ''))
+            return response
 
     raise Http404("File not found.")
 

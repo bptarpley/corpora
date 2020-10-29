@@ -1093,7 +1093,22 @@ class Corpus(mongoengine.Document):
             content_id
         )
 
-    def search_content(self, content_type, page=1, page_size=50, general_query="", fields_query={}, fields_filter={}, fields_range={}, fields_sort=[], only=[], excludes=[], search_mode="wildcard", aggregations={}):
+    def search_content(
+            self,
+            content_type,
+            page=1,
+            page_size=50,
+            general_query="",
+            fields_query={},
+            fields_wildcard={},
+            fields_filter={},
+            fields_range={},
+            fields_sort=[],
+            only=[],
+            excludes=[],
+            operator="and",
+            aggregations={}
+    ):
         results = {
             'meta': {
                 'content_type': content_type,
@@ -1143,11 +1158,11 @@ class Corpus(mongoengine.Document):
                             must.append(~Q('exists', field=search_field))
 
                     for field_value in field_values:
+                        q = None
 
                         if '.' in search_field:
                             field_parts = search_field.split('.')
-
-                            should.append(Q(
+                            q = Q(
                                 "nested",
                                 path=field_parts[0],
                                 query=Q(
@@ -1158,13 +1173,48 @@ class Corpus(mongoengine.Document):
                                         'fuzziness': 'AUTO'
                                     }}
                                 )
-                            ))
+                            )
                         else:
-                            should.append(Q('match', **{search_field: {
+                            q = Q('match', **{search_field: {
                                 'query': field_value,
                                 'operator': 'and',
                                 'fuzziness': 'AUTO'
-                            }}))
+                            }})
+
+                        if q:
+                            if operator == 'and':
+                                must.append(q)
+                            else:
+                                should.append(q)
+
+            if fields_wildcard:
+                for search_field in fields_wildcard.keys():
+                    field_values = [value_part for value_part in fields_wildcard[search_field].split('__') if value_part]
+
+                    for field_value in field_values:
+                        if '*' not in field_value:
+                            field_value += '*'
+
+                        q = None
+
+                        if '.' in search_field:
+                            field_parts = search_field.split('.')
+                            q = Q(
+                                "nested",
+                                path=field_parts[0],
+                                query=Q(
+                                    'wildcard',
+                                    **{search_field: field_value}
+                                )
+                            )
+                        else:
+                            q = Q('wildcard', **{search_field: field_value})
+
+                        if q:
+                            if operator == 'and':
+                                must.append(q)
+                            else:
+                                should.append(q)
 
             if fields_filter:
                 for search_field in fields_filter.keys():
@@ -1176,12 +1226,12 @@ class Corpus(mongoengine.Document):
                                 "nested",
                                 path=field_parts[0],
                                 query=Q(
-                                    search_mode,
+                                    'term',
                                     **{search_field: field_value}
                                 )
                             ))
                         else:
-                            filter.append(Q(search_mode, **{search_field: field_value}))
+                            filter.append(Q('term', **{search_field: field_value}))
 
             if fields_range:
                 for search_field in fields_range.keys():
@@ -1192,6 +1242,20 @@ class Corpus(mongoengine.Document):
                             **{search_field: {
                                 'gte': int(field_values[0]),
                                 'lte': int(field_values[1])
+                            }}
+                        ))
+                    elif len(field_values) == 1 and fields_range[search_field].endswith('__'):
+                        filter.append(Q(
+                            "range",
+                            **{search_field: {
+                                'gte': int(field_values[0]),
+                            }}
+                        ))
+                    elif len(field_values) == 1 and fields_range[search_field].startswith('__'):
+                        filter.append(Q(
+                            "range",
+                            **{search_field: {
+                                'lte': int(field_values[0]),
                             }}
                         ))
 
@@ -1286,7 +1350,7 @@ class Corpus(mongoengine.Document):
             self,
             left_content_type,
             left_id=None,
-            left_content=None,
+            left_content=[],
             relationship_cypher=None,
             relationship=None,
             cardinality=1,
@@ -1307,7 +1371,7 @@ class Corpus(mongoengine.Document):
                     left_content = self.get_content(left_content_type, all=True)
 
             if left_content:
-                left_content = [lefty for lefty in left_content]
+                left_content = [lefty for lefty in left_content] # <- in case left content is a queryset
                 for left_index in range(0, len(left_content)):
                     left_uri_constraints.append(
                         "/corpus/{0}/{1}/{2}".format(
@@ -1323,7 +1387,7 @@ class Corpus(mongoengine.Document):
 
                 # determine relationship cypher based on relationship and cardinality
                 if not relationship_cypher:
-                    relationship_cypher = ""
+                    relationship_cypher = "[rel]"
                     if relationship:
                         relationship_cypher = "[rel:{0}]".format(relationship)
 
@@ -1366,11 +1430,12 @@ class Corpus(mongoengine.Document):
                 for result in results:
                     result = result.data()
                     left_id = result['left.id']
-                    relation = "_" + result['type(rel)']
+                    relation = result['type(rel)']
                     right_uri = result['right.uri']
                     right_uri_parts = [uri_part for uri_part in right_uri.split('/') if uri_part]
                     if len(right_uri_parts) == 4:
                         right_id = right_uri_parts[3]
+                        right_content_type = right_uri_parts[2]
 
                         if left_id in left_id_map:
                             left_index = left_id_map[left_id]
@@ -1380,10 +1445,13 @@ class Corpus(mongoengine.Document):
                                 'uri': right_uri
                             }
 
-                            if not hasattr(left_content[left_index], relation):
-                                setattr(left_content[left_index], relation, [right_dict])
+                            if not hasattr(left_content[left_index], '_exploration'):
+                                setattr(left_content[left_index], '_exploration', {})
+
+                            if relation not in left_content[left_index]._exploration:
+                                left_content[left_index]._exploration[relation] = [right_dict]
                             else:
-                                getattr(left_content[left_index], relation).append(right_dict)
+                                left_content[left_index]._exploration[relation].append(right_dict)
 
                             results_added += 1
 
@@ -2107,6 +2175,7 @@ class Content(mongoengine.Document):
             print(traceback.format_exc())
 
     def _do_linking(self):
+        # here we're making sure the node exists and has a relationship with the corpus
         run_neo(
             '''
                 MATCH (c:Corpus {{ uri: $corpus_uri }})
@@ -2122,6 +2191,19 @@ class Content(mongoengine.Document):
                 'content_uri': self.uri,
                 'content_id': str(self.id),
                 'content_label': self.label
+            }
+        )
+
+        # here we're deleting all outbound relationships (they will be rebuilt below as necessary);
+        # this is to ensure changed or deleted cross references are reflected in the graph (no stale
+        # relationships)
+        run_neo(
+            '''
+                MATCH (d:{content_type} {{ uri: $content_uri }}) -[rel]-> ()
+                DELETE rel
+            '''.format(content_type=self.content_type),
+            {
+                'content_uri': self.uri,
             }
         )
 
