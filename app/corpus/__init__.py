@@ -2129,7 +2129,7 @@ class Content(mongoengine.Document):
         for field in self._ct.fields:
             if field.in_lists:
                 field_value = getattr(self, field.name)
-                if field_value:
+                if field_value or ((field.type == 'number' or field.type == 'decimal') and field_value == 0):
                     if field.cross_reference_type:
                         if field.multiple:
                             field_value = []

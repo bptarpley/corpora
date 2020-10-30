@@ -440,7 +440,7 @@
                             });
                         }
                     } else {
-                        field_div.append(field_templates[field.type](field, content[field.name] ? content[field.name] : "", ""));
+                        field_div.append(field_templates[field.type](field, (content[field.name] || content[field.name] === 0) ? content[field.name] : "", ""));
                     }
                 }
             }
