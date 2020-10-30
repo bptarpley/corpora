@@ -88,7 +88,7 @@ def corpus(request, corpus_id):
             elif _contains(request.POST, ['jobsite', 'task']):
                 jobsite = JobSite.objects(id=_clean(request.POST, 'jobsite'))[0]
                 task = Task.objects(id=_clean(request.POST, 'task'))[0]
-                task_parameters = [key for key in task.configuration['parameters'].keys()]
+                task_parameters = [key for key in task.configuration['parameters'].keys() if task.configuration['parameters'][key]['type'] != 'boolean']
                 if _contains(request.POST, task_parameters):
                     job = Job()
                     job.corpus_id = corpus_id
@@ -99,8 +99,13 @@ def corpus(request, corpus_id):
                     job.jobsite_id = str(jobsite.id)
                     job.status = "preparing"
                     job.configuration = task.configuration
+
                     for parameter in task_parameters:
-                        job.configuration['parameters'][parameter]['value'] = _clean(request.POST, parameter)
+                        job.configuration['parameters'][parameter]['value'] = unescape(_clean(request.POST, parameter))
+
+                    for bool_parameter in [key for key in task.configuration['parameters'].keys() if task.configuration['parameters'][key]['type'] == 'boolean']:
+                        job.configuration['parameters'][bool_parameter]['value'] = bool_parameter in request.POST
+
                     job.save()
                     run_job(job.id)
                     response['messages'].append("Job successfully submitted.")

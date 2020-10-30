@@ -1993,8 +1993,8 @@
 
                         parameter_html = `
                             <div class="form-group">
-                                <label for="corpus-file-selector">${parameters[parameter]['label']}</label>
-                                <select id="corpus-file-selector" class="form-control" name="${parameter}">
+                                <label for="${parameter}-file-selector">${parameters[parameter]['label']}</label>
+                                <select id="${parameter}-file-selector" class="form-control" name="${parameter}">
                                     ${select_options}
                                 </select>
                                 ${note_html}
@@ -2008,11 +2008,37 @@
 
                         parameter_html = `
                             <div class="form-group">
-                                <label for="corpus-ct-selector">${parameters[parameter]['label']}</label>
-                                <select id="corpus-ct-selector" class="form-control" name="${parameter}">
+                                <label for="${parameter}-ct-selector">${parameters[parameter]['label']}</label>
+                                <select id="${parameter}-ct-selector" class="form-control" name="${parameter}">
                                     ${select_options}
                                 </select>
                                 ${note_html}
+                            </div>
+                        `;
+                    } else if (parameters[parameter]['type'] === 'content_type_field') {
+                        let select_options = '';
+                        Object.keys(corpus.content_types).forEach(ct => {
+                            corpus.content_types[ct].fields.map(f => {
+                                select_options += `<option value="${ct}->${f.name}">${ct} -> ${f.label}</option>`;
+                            });
+                        });
+
+                        parameter_html = `
+                            <div class="form-group">
+                                <label for="${parameter}-ct-field-selector">${parameters[parameter]['label']}</label>
+                                <select id="${parameter}-ct-field-selector" class="form-control" name="${parameter}">
+                                    ${select_options}
+                                </select>
+                                ${note_html}
+                            </div>
+                        `;
+                    } else if (parameters[parameter]['type'] === 'boolean') {
+                        let checked = parameters[parameter]['value'] ? 'checked' : '';
+
+                        parameter_html = `
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="${parameter}-boolean-checkbox" name="${parameter}" ${checked}>
+                                <label class="form-check-label" for="${parameter}-boolean-checkbox">${parameters[parameter]['label']}</label>
                             </div>
                         `;
                     } else if (parameters[parameter]['type'] === 'choice' && parameters[parameter].hasOwnProperty('choices')) {
@@ -2030,6 +2056,14 @@
                                 ${note_html}
                             </div>
                         `;
+                    } else if (parameters[parameter]['type'] === 'pep8_text') {
+                        parameter_html = `
+                            <div class="form-group">
+                                <label for="${parameter}-pep8-text-box">${parameters[parameter]['label']}</label>
+                                <input type="text" class="form-control" id="${parameter}-pep8-text-box" name="${parameter}" />
+                                ${note_html}
+                            </div>
+                        `;
                     } else if (parameters[parameter]['type'] === 'text') {
                         parameter_html = `
                             <div class="form-group">
@@ -2041,6 +2075,13 @@
                     }
 
                     $('#task-parameters-div').append(parameter_html);
+
+                    if (parameters[parameter]['type'] === 'pep8_text') {
+                        $(`#${parameter}-pep8-text-box`).focusout(function () {
+                            let pep8_box = $(`#${parameter}-pep8-text-box`);
+                            pep8_box.val(pep8_variable_format(pep8_box.val()));
+                        });
+                    }
                 }
             }
         }

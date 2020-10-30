@@ -397,6 +397,11 @@ class Job(object):
             'percent_complete': self.percent_complete
         }
 
+    def get_param_value(self, parameter):
+        if 'parameters' in self.configuration and parameter in self.configuration['parameters'] and 'value' in self.configuration['parameters'][parameter]:
+            return self.configuration['parameters'][parameter]['value']
+        return None
+
     def set_status(self, status):
         self.status = status
         self.status_time = datetime.now()
@@ -1469,7 +1474,6 @@ class Corpus(mongoengine.Document):
         ct_name = schema['name']
 
         default_field_values = {
-            'show_in_nav': True,
             'in_lists': True,
             'indexed': False,
             'indexed_with': [],
@@ -1494,6 +1498,7 @@ class Corpus(mongoengine.Document):
         invalid_field_names = deepcopy(default_invalid_field_names)
         if 'invalid_field_names' in schema:
             invalid_field_names += schema['invalid_field_names']
+            invalid_field_names = list(set(invalid_field_names))
 
         # NEW CONTENT TYPE
         if ct_name not in self.content_types:

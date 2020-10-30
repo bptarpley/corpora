@@ -154,6 +154,45 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['merge_content']
     },
+    "Convert Foreign Key Field to Cross Reference": {
+        "version": "0.2",
+        "jobsite_type": "HUEY",
+        "track_provenance": True,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "source_ct_field": {
+                    "value": "",
+                    "type": "content_type_field",
+                    "label": "Foreign Key Field",
+                    "note": "Choose the content type and field containing the foreign key you wish to convert."
+                },
+                "target_ct_field": {
+                    "value": "",
+                    "type": "content_type_field",
+                    "label": "Field Referenced by Foreign Key",
+                    "note": "Choose the content type and field to which the foreign key refers."
+                },
+                "new_field_name": {
+                    "value": "",
+                    "type": "pep8_text",
+                    "label": "New Field Name for Cross Reference",
+                },
+                "new_field_label": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Label for New Field",
+                },
+                "delete_old_field": {
+                    "value": True,
+                    "type": "boolean",
+                    "label": "Delete Old Foreign Key Field After Conversion?"
+                }
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['convert_foreign_key_to_xref']
+    },
 }
 
 
@@ -455,5 +494,72 @@ def merge_content(job_id):
             report.write("Merged values: {0}\n".format(merged_values))
             report.write("Merged deletions: {0}\n".format(merged_deletions))
             report.write("Cascade deletions: {0}\n".format(cascade_deletions))
+
+    job.complete(status='complete')
+
+
+@db_task(priority=5)
+def convert_foreign_key_to_xref(job_id):
+    job = Job(job_id)
+    corpus = job.corpus
+    job.set_status('running')
+
+    source_ct_field = job.get_param_value('source_ct_field')
+    target_ct_field = job.get_param_value('target_ct_field')
+    new_field_name = job.get_param_value('new_field_name')
+    new_field_label = job.get_param_value('new_field_label')
+    delete_old_field = job.get_param_value('delete_old_field')
+
+    if source_ct_field and target_ct_field and new_field_name:
+        print(source_ct_field)
+        source_parts = source_ct_field.split('->')
+        print(source_parts)
+        source_ct = source_parts[0]
+        source_field = source_parts[1]
+
+        target_parts = target_ct_field.split('->')
+        target_ct = target_parts[0]
+        target_field = target_parts[1]
+
+        if source_ct in corpus.content_types and corpus.content_types[source_ct].get_field(source_field) and \
+                target_ct in corpus.content_types and corpus.content_types[target_ct].get_field(target_field):
+
+            if not corpus.content_types[source_ct].get_field(new_field_name):
+                source_schema = corpus.content_types[source_ct].to_dict()
+                source_schema['fields'].append({
+                    'name': new_field_name,
+                    'label': new_field_label,
+                    'type': 'cross_reference',
+                    'cross_reference_type': target_ct,
+                    'multiple': False,
+                    'in_lists': True,
+                    'indexed': False,
+                    'indexed_with': [],
+                    'unique': False,
+                    'unique_with': [],
+                    'proxy_field': "",
+                    'inherited': False,
+                })
+                adjustment_jobs = corpus.save_content_type(source_schema)
+                for adjustment_job in adjustment_jobs:
+                    run_job(adjustment_job)
+                time.sleep(10 * len(adjustment_jobs))
+
+                if corpus.content_types[source_ct].get_field(new_field_name):
+                    all_targets_found = True
+
+                    source_contents = corpus.get_content(source_ct, all=True)
+                    for source_content in source_contents:
+                        old_field_value = getattr(source_content, source_field)
+                        if old_field_value or old_field_value == 0:
+                            target_content = corpus.get_content(target_ct, {target_field: old_field_value})[0]
+                            if target_content:
+                                setattr(source_content, new_field_name, target_content.id)
+                                source_content.save()
+                            else:
+                                all_targets_found = False
+
+                    if all_targets_found and delete_old_field:
+                        corpus.delete_content_type_field(source_ct, source_field)
 
     job.complete(status='complete')
