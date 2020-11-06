@@ -118,7 +118,7 @@ def _get_context(req):
         value = req.GET[param]
         search_field_name = param[2:]
 
-        if param in ['q', 'page', 'page-size', 'operator'] or param.startswith('q_') or param.startswith('s_') or param.startswith('f_') or param.startswith('r_') or param.startswith('w_'):
+        if not context['search'] and param in ['q', 'page', 'page-size', 'only', 'operator'] or param.startswith('q_') or param.startswith('s_') or param.startswith('f_') or param.startswith('r_') or param.startswith('w_'):
             context['search'] = default_search
         
         if param == 'msg':
@@ -146,7 +146,7 @@ def _get_context(req):
         elif param == 'page-size':
             context['search']['page_size'] = int(value)
 
-    if context['search'] and (not context['search']['general_query'] and not context['search']['fields_query'] and not context['search']['fields_filter']):
+    if context['search'] and (not context['search']['general_query'] and not context['search']['fields_query'] and not context['search']['fields_filter'] and not context['search']['fields_wildcard'] and not context['search']['fields_range']):
         context['search']['general_query'] = "*"
 
     if req.user.is_authenticated:

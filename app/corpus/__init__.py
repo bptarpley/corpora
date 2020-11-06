@@ -1141,12 +1141,16 @@ class Corpus(mongoengine.Document):
             must = []
             filter = []
 
-            if general_query and not fields_query:
-                should.append(SimpleQueryString(query=general_query))
+            if general_query:
+                if operator == 'and':
+                    must.append(SimpleQueryString(query=general_query))
+                else:
+                    should.append(SimpleQueryString(query=general_query))
 
             if fields_query:
                 for search_field in fields_query.keys():
                     field_values = [value_part for value_part in fields_query[search_field].split('__') if value_part]
+                    field_type = self.content_types[content_type].get_field(search_field).type
 
                     if not field_values:
                         if '.' in search_field:
@@ -1165,26 +1169,23 @@ class Corpus(mongoengine.Document):
                     for field_value in field_values:
                         q = None
 
+                        search_criteria = {
+                            search_field: {'query': field_value}
+                        }
+
+                        if field_type in ['text', 'large_text', 'html']:
+                            search_criteria[search_field]['operator'] = 'and'
+                            search_criteria[search_field]['fuzziness'] = 'AUTO'
+
                         if '.' in search_field:
                             field_parts = search_field.split('.')
                             q = Q(
                                 "nested",
                                 path=field_parts[0],
-                                query=Q(
-                                    'match',
-                                    **{search_field: {
-                                        'query': field_value,
-                                        'operator': 'and',
-                                        'fuzziness': 'AUTO'
-                                    }}
-                                )
+                                query=Q('match', **search_criteria)
                             )
                         else:
-                            q = Q('match', **{search_field: {
-                                'query': field_value,
-                                'operator': 'and',
-                                'fuzziness': 'AUTO'
-                            }})
+                            q = Q('match', **search_criteria)
 
                         if q:
                             if operator == 'and':
@@ -1241,31 +1242,31 @@ class Corpus(mongoengine.Document):
             if fields_range:
                 for search_field in fields_range.keys():
                     field_values = [value_part for value_part in fields_range[search_field].split('__') if value_part]
-                    if len(field_values) == 2 and field_values[0].isdigit() and field_values[1].isdigit():
-                        filter.append(Q(
-                            "range",
-                            **{search_field: {
-                                'gte': int(field_values[0]),
-                                'lte': int(field_values[1])
-                            }}
-                        ))
-                    elif len(field_values) == 1 and fields_range[search_field].endswith('__'):
-                        filter.append(Q(
-                            "range",
-                            **{search_field: {
-                                'gte': int(field_values[0]),
-                            }}
-                        ))
-                    elif len(field_values) == 1 and fields_range[search_field].startswith('__'):
-                        filter.append(Q(
-                            "range",
-                            **{search_field: {
-                                'lte': int(field_values[0]),
-                            }}
-                        ))
+                    field_type = self.content_types[content_type].get_field(search_field).type
 
-            if general_query and fields_query:
-                must.append(SimpleQueryString(query=general_query))
+                    if field_type in ['number', 'decimal']:
+                        if len(field_values) == 2 and field_values[0].isdigit() and field_values[1].isdigit():
+                            filter.append(Q(
+                                "range",
+                                **{search_field: {
+                                    'gte': int(field_values[0]),
+                                    'lte': int(field_values[1])
+                                }}
+                            ))
+                        elif len(field_values) == 1 and fields_range[search_field].endswith('__') and field_values[0].isdigit():
+                            filter.append(Q(
+                                "range",
+                                **{search_field: {
+                                    'gte': int(field_values[0]),
+                                }}
+                            ))
+                        elif len(field_values) == 1 and fields_range[search_field].startswith('__') and field_values[0].isdigit():
+                            filter.append(Q(
+                                "range",
+                                **{search_field: {
+                                    'lte': int(field_values[0]),
+                                }}
+                            ))
 
             if should or must or filter:
 
