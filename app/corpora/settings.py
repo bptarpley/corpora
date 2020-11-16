@@ -171,10 +171,17 @@ try:
 except:
     print("Neo4J database uninitialized.")
 
-# Elasticsearch connection
+# Elasticsearch configuration
 connections.configure(
     default={'hosts': os.environ['CRP_ELASTIC_HOST'], 'timeout': 60}
 )
+
+ES_SYNONYM_OPTIONS = {
+    "early_modern": {
+        "label": "Early Modern",
+        "file": "early_modern_synonyms.txt"
+    }
+}
 
 # eMOP db info
 EMOP = {

@@ -88,6 +88,7 @@ services:
     environment:
       discovery.type: single-node
     volumes:
+      - ./elasticsearch/early_modern_synonyms.txt:/usr/share/elasticsearch/config/early_modern_synonyms.txt
       - /your/corpora/basedir/search:/usr/share/elasticsearch/data
     ports:
       - 9200:9200

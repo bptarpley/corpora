@@ -15,12 +15,22 @@ from string import punctuation
 
 REGISTRY = {
     "Import NVS Data from TEI": {
-        "version": "0.2",
+        "version": "0.4",
         "jobsite_type": "HUEY",
         "track_provenance": True,
         "content_type": "Corpus",
         "configuration": {
             "parameters": {
+                "play_title": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Play Title",
+                },
+                "play_prefix": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Play Prefix",
+                },
                 "driver_file": {
                     "value": "",
                     "type": "corpus_file",
@@ -46,12 +56,18 @@ REGISTRY = {
         "functions": ['import_data']
     },
     "Perform Textual Note Transforms": {
-        "version": "0.1",
+        "version": "0.2",
         "jobsite_type": "HUEY",
         "track_provenance": True,
         "content_type": "Corpus",
         "configuration": {
-            "parameters": {}
+            "parameters": {
+                "play_prefix": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Play Prefix",
+                },
+            }
         },
         "module": 'plugins.nvs.tasks',
         "functions": ['perform_note_transforms']
@@ -103,19 +119,19 @@ nvs_document_fields = [
     },
 ]
 
-text_replacements = {}
-
 
 def import_data(job_id):
     job = Job(job_id)
     corpus = job.corpus
-    driver_file_key = job.configuration['parameters']['driver_file']['value']
+    driver_file_key = job.get_param_value('driver_file')
     driver_file = corpus.files[driver_file_key]
-    basetext_siglum = job.configuration['parameters']['basetext_siglum']['value']
-    delete_existing = job.configuration['parameters']['delete_existing']['value'] == 'Yes'
+    play_title = job.get_param_value('play_title')
+    play_prefix = job.get_param_value('play_prefix')
+    basetext_siglum = job.get_param_value('basetext_siglum')
+    delete_existing = job.get_param_value('delete_existing') == 'Yes'
 
     try:
-        '''
+
         for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
             if delete_existing and nvs_content_type['name'] in corpus.content_types:
                 corpus.delete_content_type(nvs_content_type['name'])
@@ -135,8 +151,6 @@ def import_data(job_id):
             nvs_doc_schema['fields'] += nvs_document_fields
             nvs_doc_schema['templates']['Label']['template'] = "{{ Document.siglum_label|safe }}"
             corpus.save_content_type(nvs_doc_schema)
-        '''
-
 
         es_logger = logging.getLogger('elasticsearch')
         es_log_level = es_logger.getEffectiveLevel()
@@ -146,9 +160,6 @@ def import_data(job_id):
 
             with open(driver_file.path, 'r') as tei_in:
                 tei = BeautifulSoup(tei_in, "xml")
-                extract_text_replacements(tei_in)
-
-            print(text_replacements)
 
             tei_root = tei.TEI
 
@@ -189,6 +200,7 @@ def import_data(job_id):
                     include_file_paths['endpapers'] = href
 
             print(json.dumps(include_file_paths, indent=4))
+
             include_files_exist = True
             for include_file in include_file_paths.keys():
                 full_path = os.path.join(os.path.dirname(driver_file.path), include_file_paths[include_file])
@@ -199,26 +211,45 @@ def import_data(job_id):
                     break
 
             if include_files_exist:
-                #parse_front_file(corpus, include_file_paths['front'])
-                #parse_playtext_file(corpus, include_file_paths['playtext'], basetext_siglum)
-                #parse_textualnotes_file(corpus, include_file_paths['textualnotes'])
-                #parse_bibliography(corpus, include_file_paths['bibliography'])
-                parse_commentary(corpus, include_file_paths['commentary'])
-                #render_lines_html(corpus)
+                # retrieve/make play using play prefix
+                play = None
+                try:
+                    play = corpus.get_content('Play', {'prefix': play_prefix})[0]
+                except:
+                    play = corpus.get_content('Play')
+                    play.title = play_title
+                    play.prefix = play_prefix
+                    play.save()
+                    play.reload()
+
+                if play:
+                    parse_front_file(corpus, play, include_file_paths['front'])
+                    parse_playtext_file(corpus, play, include_file_paths['playtext'], basetext_siglum)
+                    parse_textualnotes_file(corpus, play, include_file_paths['textualnotes'])
+                    parse_bibliography(corpus, play, include_file_paths['bibliography'])
+                    parse_commentary(corpus, play, include_file_paths['commentary'])
+                    render_lines_html(corpus, play)
 
         es_logger.setLevel(es_log_level)
     except:
         print(traceback.format_exc())
 
 
-def parse_front_file(corpus, front_file_path):
+def parse_front_file(corpus, play, front_file_path):
     with open(front_file_path, 'r') as tei_in:
-        tei = BeautifulSoup(tei_in, "xml")
+        tei_text = tei_in.read()
+        text_replacements = extract_text_replacements(tei_in)
+
+        for text, replacement in text_replacements.items():
+            tei_text = tei_text.replace(text, replacement)
+
+        tei = BeautifulSoup(tei_text, "xml")
 
     front = tei.container.front
 
     # extract series_title page and byline
     st_block = corpus.get_content('ContentBlock')
+    st_block.play = play.id
     st_block.handle = "series_title"
     st_block.html = ""
 
@@ -232,12 +263,14 @@ def parse_front_file(corpus, front_file_path):
 
     series_byline = series_title_page.byline
     byline_block = corpus.get_content('ContentBlock')
+    byline_block.play = play.id
     byline_block.handle = "series_byline"
     byline_block.html = tei_to_html(series_byline)
     byline_block.save()
 
     # extract main_title page and byline
     main_block = corpus.get_content('ContentBlock')
+    main_block.play = play.id
     main_block.handle = "main_title"
     main_block.html = ""
 
@@ -247,18 +280,21 @@ def parse_front_file(corpus, front_file_path):
     main_block.save()
 
     main_byline = corpus.get_content('ContentBlock')
+    main_byline.play = play.id
     main_byline.handle = "main_byline"
     main_byline.html = tei_to_html(main_title_page.byline)
     main_byline.save()
 
     # extract imprint and copyright
     imprint = corpus.get_content('ContentBlock')
+    imprint.play = play.id
     imprint.handle = "main_imprint"
     imprint.html = tei_to_html(main_title_page.docImprint.publisher)
     imprint.save()
 
     copyright_div = front.find('div', type='copyright')
     copyright = corpus.get_content('ContentBlock')
+    copyright.play = play.id
     copyright.handle = "main_copyright"
     copyright.html = tei_to_html(copyright_div)
     copyright.save()
@@ -267,6 +303,7 @@ def parse_front_file(corpus, front_file_path):
 
     # extract preface
     preface_div = corpus.get_content('ContentBlock')
+    preface_div.play = play.id
     preface_div.handle = "preface"
     preface_div.html = tei_to_html(front.find('div', type='preface'))
     preface_div.save()
@@ -317,12 +354,18 @@ def parse_front_file(corpus, front_file_path):
                     witness.pub_date = re.sub(r"\D", "", witness.pub_date)
                     witness.pub_date = witness.pub_date[:4]
                     witness.save()
+
+                    if witness.nvs_doc_type == 'witness':
+                        play.primary_witnesses.append(witness.id)
+
                 elif 'corresp' in witness_tag.attrs:
                     witness_collections.append({
                         'siglum': siglum,
                         'siglum_label': siglum_label,
                         'tag': witness_tag
                     })
+
+            play.save()
 
         for witness_collection_info in witness_collections:
             witness_collection = corpus.get_content('DocumentCollection')
@@ -381,74 +424,78 @@ def parse_front_file(corpus, front_file_path):
     '''
 
 
-def parse_playtext_file(corpus, playtext_file_path, basetext_siglum):
+def parse_playtext_file(corpus, play, playtext_file_path, basetext_siglum, start_line_xml_id=None, end_line_xml_id=None):
     unhandled_tags = []
 
     with open(playtext_file_path, 'r') as tei_in:
-        tei = BeautifulSoup(tei_in, "xml")
+        tei_text = tei_in.read()
+        text_replacements = extract_text_replacements(tei_in)
+
+        for text, replacement in text_replacements.items():
+            tei_text = tei_text.replace(text, replacement)
+
+        tei = BeautifulSoup(tei_text, "xml")
 
     # retrieve basetext document
     basetext = corpus.get_content("Document", {'siglum': basetext_siglum})[0]
 
-    # extract dramatis personae
     try:
+        # setup context info for parsing playlines
         line_info = {
             'line_number': 0,
             'line_xml_id': None,
             'line_label': None,
+            'start_line_xml_id': start_line_xml_id,
+            'end_line_xml_id': end_line_xml_id,
             'act': None,
             'scene': None,
             'witness_location_id': None,
             'witness_count': corpus.get_content('Document', {'nvs_doc_type': 'witness'}).count(),
             'basetext_id': basetext.id,
-            'saved_lines': {},
-            'playtags': [],
             'unhandled_tags': [],
-            'words': [],
+            'characters': [],
+            'character_id_map': {},
+            'current_speech': None,
+            'current_speech_ended': False,
+            'text': ''
         }
 
+        # extract dramatis personae, add to context info
+        cast_list = tei.find("castList")
+        for cast_item in cast_list.find_all("castItem"):
+            current_role = None
+            if hasattr(cast_item, 'roleDesc'):
+                current_role = _str(cast_item.roleDesc)
+
+            for role in cast_item.find_all("role"):
+                character = corpus.get_content('Character')
+                character.play = play.id
+                character.xml_id = role['xml:id']
+                character.name = _str(role)
+                if not character.name:
+                    character.name = character.xml_id
+                if current_role:
+                    character.role = current_role
+
+                character.save()
+                line_info['characters'].append(character)
+                line_info['character_id_map'][character.xml_id] = character.id
+
+        # start recursively parsing the playtext
         for child in tei.find('div', attrs={'type': 'playtext', 'xml:id': 'div_playtext'}).children:
-            handle_playtext_tag(corpus, child, line_info)
+            handle_playtext_tag(corpus, play, child, line_info)
 
         fakeline = BeautifulSoup('<lb xml:id="fake" n="fake"/>', 'xml')
-        handle_playtext_tag(corpus, fakeline.lb, line_info)
-
-        for playtag_info in line_info['playtags']:
-            start_line = playtag_info['starting_line_no']
-            start_word = playtag_info['starting_word_index']
-            end_line = playtag_info['ending_line_no']
-            end_word = playtag_info['ending_word_index']
-
-            playtag_uri = "/corpus/{0}/PlayTag/{1}".format(corpus.id, playtag_info['id'])
-            line_nos = range(start_line, end_line + 1)
-            for line_no in line_nos:
-                line_uri = "/corpus/{0}/PlayLine/{1}".format(corpus.id, line_info['saved_lines'][line_no]['id'])
-                word_indexes = []
-
-                if line_no == start_line and line_no == end_line:
-                    word_indexes = list(range(start_word, end_word))
-                elif line_no == start_line:
-                    word_indexes = list(range(start_word, line_info['saved_lines'][line_no]['word_length']))
-                elif line_no == end_line:
-                    word_indexes = list(range(0, end_word))
-                else:
-                    word_indexes = list(range(0, line_info['saved_lines'][line_no]['word_length']))
-
-                if word_indexes:
-                    corpus.make_link(
-                        line_uri,
-                        playtag_uri,
-                        'hasTag',
-                        {'word_indexes': word_indexes}
-                    )
+        handle_playtext_tag(corpus, play, fakeline.lb, line_info)
 
     except:
         print(json.dumps(unhandled_tags, indent=4))
         print(traceback.format_exc())
 
 
-def handle_playtext_tag(corpus, tag, line_info):
+def handle_playtext_tag(corpus, play, tag, line_info):
 
+    # if the tag has a name, it's an XML node
     if tag.name:
         # milestone
         if tag.name == 'milestone' and _contains(tag.attrs, ['unit', 'n']):
@@ -462,40 +509,44 @@ def handle_playtext_tag(corpus, tag, line_info):
         elif tag.name == 'lb' and _contains(tag.attrs, ['xml:id', 'n']):
             if line_info['line_xml_id']:
                 line = corpus.get_content('PlayLine')
+                line.play = play.id
                 line.xml_id = line_info['line_xml_id']
                 line.line_label = line_info['line_label']
                 line.line_number = line_info['line_number']
                 line.act = line_info['act']
                 line.scene = line_info['scene']
                 line.witness_locations.append(line_info['witness_location_id'])
-                line.words = line_info['words']
+                line.text = line_info['text'].strip()
                 line.witness_meter = "0" * line_info['witness_count']
                 line.save()
 
-                line_info['saved_lines'][line.line_number] = {
-                    'id': line.id,
-                    'word_length': len(line.words)
-                }
+                if line_info['current_speech']:
+                    line_info['current_speech'].lines.append(line)
+
+                    if line_info['current_speech_ended']:
+                        line_info['current_speech'].text = stitch_lines(line_info['current_speech'].lines)
+                        line_info['current_speech'].lines = [line.id for line in line_info['current_speech'].lines]
+                        line_info['current_speech'].save()
+                        line_info['current_speech'] = None
+                        line_info['current_speech_ended'] = False
 
             line_info['line_number'] += 1
             line_info['line_xml_id'] = tag['xml:id']
             line_info['line_label'] = tag['n']
-            line_info['words'] = []
+            line_info['text'] = ''
 
         # div for act/scene
         elif tag.name == 'div' and _contains(tag.attrs, ['type', 'n']):
             line_info[tag['type']] = tag['n']
 
             for child in tag.children:
-                handle_playtext_tag(corpus, child, line_info)
+                handle_playtext_tag(corpus, play, child, line_info)
 
         # all other tags handled by PlayTag convention
         else:
             playtag = None
             playtag_name = None
             playtag_classes = None
-            starting_line_no = line_info['line_number']
-            starting_word_index = len(line_info['words'])
 
             # stage
             if tag.name == 'stage' and 'type' in tag.attrs:
@@ -505,7 +556,15 @@ def handle_playtext_tag(corpus, tag, line_info):
             # sp
             elif tag.name == 'sp' and 'who' in tag.attrs:
                 playtag_name = 'span'
-                playtag_classes = 'speech {0}'.format(tag['who'].replace('#', ''))
+                speaking = tag['who'].replace('#', '')
+                playtag_classes = 'speech {0}'.format(speaking)
+
+                line_info['current_speech'] = corpus.get_content('Speech')
+                line_info['current_speech'].play = play.id
+                line_info['current_speech'].act = line_info['act']
+                line_info['current_speech'].scene = line_info['scene']
+                for char_id in [line_info['character_id_map'][xml_id] for xml_id in speaking.split() if xml_id]:
+                    line_info['current_speech'].speaking.append(char_id)
 
             # name
             elif tag.name == 'name':
@@ -574,54 +633,65 @@ def handle_playtext_tag(corpus, tag, line_info):
 
             if playtag_name:
                 playtag = corpus.get_content('PlayTag')
+                playtag.play = play.id
                 playtag.name = playtag_name
                 playtag.classes = playtag_classes
-                playtag.order = len(line_info['playtags'])
-                playtag.save()
+                playtag.start_location = make_text_location(line_info['line_number'], len(line_info['text']))
 
             for child in tag.children:
-                handle_playtext_tag(corpus, child, line_info)
-
-            ending_line_no = line_info['line_number']
-            ending_word_index = len(line_info['words'])
+                handle_playtext_tag(corpus, play, child, line_info)
 
             if playtag:
-                line_info['playtags'].append({
-                    'id': str(playtag.id),
-                    'starting_line_no': starting_line_no,
-                    'starting_word_index': starting_word_index,
-                    'ending_line_no': ending_line_no,
-                    'ending_word_index': ending_word_index
-                })
+                playtag.end_location = make_text_location(line_info['line_number'], len(line_info['text']))
+                playtag.save()
 
+                if line_info['current_speech'] and 'speech' in playtag.classes:
+                    line_info['current_speech_ended'] = True
+
+                elif playtag.classes == 'speaker-abbreviation':
+                    if line_info['current_speech'] and len(line_info['current_speech'].speaking) == 1:
+                        char_id = line_info['current_speech'].speaking[0]
+                        for char in line_info['characters']:
+                            if char.id == char_id:
+                                if line_info['text'] not in char.speaker_abbreviations:
+                                    char.speaker_abbreviations.append(line_info['text'])
+                                    char.save(do_linking=False)
+
+                    line_info['text'] += ' ' # <- adding a space after speaker abbrevs (not present in TEI)
+
+    # otherwise, this is a string of the playtext to be kept track of for building the playlines
     else:
         new_words = str(tag)
-        if new_words:
-            new_words = [word for word in new_words.split() if word]
-            for new_word in new_words:
-                if new_word.strip() in punctuation and line_info['words']:
-                    line_info['words'][-1] += new_word.strip()
-                else:
-                    line_info['words'].append(new_word.strip())
+        line_info['text'] += new_words.replace('\n', '')
 
 
-def parse_textualnotes_file(corpus, textualnotes_file_path):
+def make_text_location(line_number, char_index):
+    text_location = str(char_index)
+    while len(text_location) < 3:
+        text_location = '0' + text_location
+    text_location = "{0}.{1}".format(line_number, text_location)
+    return float(text_location)
+
+
+def parse_textualnotes_file(corpus, play, textualnotes_file_path):
     parse_report = []
 
     try:
 
-
+        '''
         for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
             if nvs_content_type['name'] in ['TextualNote', 'TextualVariant']:
                 corpus.delete_content_type(nvs_content_type['name'])
                 corpus.save_content_type(nvs_content_type)
-
+        '''
 
         # open textualnotes xml, read raw text into tei_text,
         # and perform special text replacements before feeding
         # into BeautifulSoup
         with open(textualnotes_file_path, 'r') as tei_in:
             tei_text = tei_in.read()
+            text_replacements = extract_text_replacements(tei_in)
+
             for text, replacement in text_replacements.items():
                 tei_text = tei_text.replace(text, replacement)
 
@@ -632,14 +702,15 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
 
         # build line_id_map to quickly match line xml_ids w/ mongodb objectids
         line_id_map = {}
-        lines = corpus.get_content('PlayLine', all=True, only=['id', 'xml_id', 'witness_meter'])
+        lines = corpus.get_content('PlayLine', {'play': play.id}, only=['id', 'xml_id', 'witness_meter'])
         lines = lines.order_by('line_number')
         for line in lines:
             line_id_map[line.xml_id] = line.id
 
         # get list of witnesses ordered by publication date so as
         # to handle witness ranges
-        witnesses = corpus.get_content('Document', {'nvs_doc_type': 'witness'})
+        primary_witness_ids = [wit.id for wit in play.primary_witnesses]
+        witnesses = corpus.get_content('Document', {'id__in': primary_witness_ids})
         witnesses = list(witnesses.order_by('published'))
 
         for witness in witnesses:
@@ -659,6 +730,7 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
 
             # create instance of TextualNote
             textual_note = corpus.get_content('TextualNote')
+            textual_note.play = play.id
             textual_note.xml_id = note['xml:id']
             textual_note.witness_meter = "0" * len(witnesses)
 
@@ -673,6 +745,7 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
 
             for variant in variants:
                 textual_variant = corpus.get_content('TextualVariant')
+                textual_variant.play = play.id
 
                 reading_description = variant.find('rdgDesc')
                 if reading_description:
@@ -799,7 +872,7 @@ def parse_textualnotes_file(corpus, textualnotes_file_path):
             textual_note.save()
             note_id_map[str(textual_note.id)] = textual_note
 
-        lines = corpus.get_content('PlayLine', all=True)
+        lines = corpus.get_content('PlayLine', {'play': play.id})
         lines = lines.order_by('line_number')
         lines = corpus.explore_content(
             left_content_type='PlayLine',
@@ -858,9 +931,12 @@ def collapse_indicators(variant, base):
 def perform_note_transforms(job_id):
     job = Job(job_id)
     corpus = job.corpus
+    play_prefix = job.get_param_value('play_prefix')
 
     try:
-        notes = corpus.get_content('TextualNote', all=True)
+        play = corpus.get_content('Play', {'prefix': play_prefix})[0]
+
+        notes = corpus.get_content('TextualNote', {'play': play.id})
         #notes = corpus.get_content('TextualNote', {'xml_id': 'tn_70-03'})
 
         for note in notes:
@@ -943,19 +1019,16 @@ def make_witness_meter(indicators, marker="1"):
 def perform_variant_transform(corpus, note, variant):
     result = ""
     original_text = ""
-    words = []
 
     if type(note.lines[0]) is ObjectId:
-        lines = corpus.get_content('PlayLine', {'id__in': note.lines}, only=['words'])
+        lines = corpus.get_content('PlayLine', {'id__in': note.lines}, only=['text'])
         lines = lines.order_by('line_number')
-        for line in lines:
-            words.extend(line.words)
-    elif hasattr(note.lines[0], 'words'):
-        for line in note.lines:
-            words.extend(line.words)
+        original_text = stitch_lines(lines)
 
-    if words:
-        original_text = " ".join(words)
+    elif hasattr(note.lines[0], 'text'):
+        original_text = stitch_lines(note.lines)
+
+    if original_text:
         ellipsis = ' . . . '
         swung_dash = ' ~ '
         under_carrot = '‸'
@@ -1121,15 +1194,17 @@ def perform_variant_transform(corpus, note, variant):
     return result
 
 
-def parse_bibliography(corpus, bibliography_file_path):
-
+def parse_bibliography(corpus, play, bibliography_file_path):
+    '''
     old_bibs = corpus.get_content('Document', {'nvs_doc_type': 'bibliography'})
     for bib in old_bibs:
         bib.delete()
-
+    '''
 
     with open(bibliography_file_path, 'r') as tei_in:
         tei_text = tei_in.read()
+        text_replacements = extract_text_replacements(tei_in)
+
         for text, replacement in text_replacements.items():
             tei_text = tei_text.replace(text, replacement)
 
@@ -1255,31 +1330,31 @@ def handle_bibl_title(tag, toggle_italics=False):
     return html
 
 
-def parse_commentary(corpus, commentary_file_path):
+def parse_commentary(corpus, play, commentary_file_path):
     parse_report = []
 
     try:
-
-
+        '''
         for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
             if nvs_content_type['name'] in ['Commentary']:
                 corpus.delete_content_type(nvs_content_type['name'])
                 corpus.save_content_type(nvs_content_type)
-
-
+        '''
 
         # open commentary xml, read raw text into tei_text,
         # and perform special text replacements before feeding
         # into BeautifulSoup
         with open(commentary_file_path, 'r') as tei_in:
             tei_text = tei_in.read()
+            text_replacements = extract_text_replacements(tei_in)
+
             for text, replacement in text_replacements.items():
                 tei_text = tei_text.replace(text, replacement)
 
             tei = BeautifulSoup(tei_text, "xml")
 
         line_id_map = {}
-        lines = corpus.get_content('PlayLine', all=True, only=['id', 'xml_id'])
+        lines = corpus.get_content('PlayLine', {'play': play.id}, only=['id', 'xml_id'])
         lines.order_by('line_number')
         for line in lines:
             line_id_map[line.xml_id] = line.id
@@ -1289,9 +1364,14 @@ def parse_commentary(corpus, commentary_file_path):
 
         for note_tag in note_tags:
             note = corpus.get_content('Commentary')
+            note.play = play.id
             note.xml_id = note_tag['xml:id']
 
             note.lines = get_line_ids(line_id_map, note_tag['target'], note_tag.attrs.get('targetEnd', None))
+            if len(note.lines) < 1:
+                print("\n-----------------------------------------------")
+                print("ERROR FINDING LINES FOR Commentary w/ XML ID {0}".format(note.xml_id))
+                print("-----------------------------------------------\n")
 
             note.contents = ""
             note_data = {}
@@ -1305,7 +1385,7 @@ def parse_commentary(corpus, commentary_file_path):
 
                 # build lemma span for line html
                 try:
-                    mark_commentary_lemma(corpus, note)
+                    mark_commentary_lemma(corpus, play, note)
                 except:
                     print("error marking lemma for note {0}".format(note.id))
                     print(traceback.format_exc())
@@ -1466,119 +1546,154 @@ def handle_commentary_tag(tag, data={}):
     return html
 
 
-def mark_commentary_lemma(corpus, note, variation=0):
+def mark_commentary_lemma(corpus, play, note):
     note.reload()
-    lemma = strip_tags(note.subject_matter)
-    starting_line = note.lines[0]
-    ending_line = note.lines[-1]
+    lemma_string = strip_tags(note.subject_matter)
 
     all_words = ""
     char_index_map = {}
     char_cursor = 0
+
+    line_groups = []
+    lemmas = []
+    current_line_group = []
+
     for line_index in range(0, len(note.lines)):
-        line = note.lines[line_index]
-        for word_index in range(0, len(line.words)):
-            for char in line.words[word_index]:
-                char_index_map[char_cursor] = {
-                    'line_number': line.line_number,
-                    'word_index': word_index
-                }
-                all_words += char
+        this_line = note.lines[line_index]
+        prev_line = None
+
+        if line_index > 0:
+            prev_line = note.lines[line_index - 1]
+
+        if not prev_line or this_line.line_number - prev_line.line_number == 1:
+            current_line_group.append(this_line)
+        else:
+            line_groups.append(current_line_group)
+            current_line_group = [this_line]
+
+    if current_line_group:
+        line_groups.append(current_line_group)
+
+    if len(line_groups) > 1:
+        lemmas = [l.strip() for l in lemma_string.split(',') if l]
+        if len(line_groups) != len(lemmas):
+            print("\n-----------------------------------------------")
+            print("ERROR BUILDING LINE GROUPS and LEMMAS for note {0} w/ lemma [{1}]".format(note.id, lemma_string))
+            print("-----------------------------------------------\n")
+            return None
+    else:
+        lemmas.append(lemma_string)
+
+    for group_index in range(0, len(line_groups)):
+        lines = line_groups[group_index]
+        lemma = lemmas[group_index]
+
+        for line in lines:
+            line_char_index = 0
+            word_broken = False
+
+            for char in line.text:
+                if char == '\xad':
+                    word_broken = True
+                else:
+                    all_words += char
+                    char_index_map[char_cursor] = make_text_location(line.line_number, line_char_index)
+                    line_char_index += 1
+                    char_cursor += 1
+
+            if not word_broken:
+                all_words += ' '
+                char_index_map[char_cursor] = make_text_location(line.line_number, line_char_index)
                 char_cursor += 1
 
-            if variation == 0 or \
-                    word_index < len(line.words) - 1 or \
-                    (variation == 1 and line_index > 0) or \
-                    (variation == 2 and line_index < len(note.lines) - 1):
-                all_words += " "
-                char_cursor += 1
+        starting_location = None
+        ending_location = None
 
-    all_words = all_words.strip()
+        ellipsis = ' . . . '
+        if ellipsis in lemma:
+            start_and_end = lemma.split(ellipsis)
+            starting_char_index = all_words.find(start_and_end[0])
 
-    starting_word_index = -1
-    ending_word_index = -1
+            if starting_char_index > -1:
+                starting_location = char_index_map[starting_char_index]
 
-    ellipsis = ' . . . '
-    if ellipsis in lemma:
-        start_and_end = lemma.split(ellipsis)
-        starting_char_index = all_words.find(start_and_end[0])
+                ending_char_index = all_words.rfind(start_and_end[1])
+                if ending_char_index > -1 and ending_char_index + len(start_and_end[1]) in char_index_map:
+                    ending_location = char_index_map[ending_char_index + len(start_and_end[1])]
 
-        if starting_char_index > -1:
-            starting_word_index = char_index_map[starting_char_index]['word_index']
+        else:
+            starting_char_index = all_words.find(lemma)
+            if starting_char_index > -1 and starting_char_index + len(lemma) in char_index_map:
+                starting_location = char_index_map[starting_char_index]
+                ending_location = char_index_map[starting_char_index + len(lemma)]
 
-            ending_char_index = all_words.rfind(start_and_end[1])
-            if ending_char_index > -1 and ending_char_index + len(start_and_end[1]) -1 in char_index_map:
-                ending_word_index = char_index_map[ending_char_index + len(start_and_end[1]) -1]['word_index'] + 1
+        if starting_location and ending_location:
+            lemma_span = corpus.get_content('PlayTag')
+            lemma_span.play = play.id
+            lemma_span.name = 'comspan'
+            lemma_span.classes = "commentary-lemma-{0}".format(note.id)
+            lemma_span.start_location = starting_location
+            lemma_span.end_location = ending_location
+            lemma_span.save()
 
-    else:
-        starting_char_index = all_words.find(lemma)
-        if starting_char_index > -1 and starting_char_index + len(lemma) -1 in char_index_map:
-            starting_word_index = char_index_map[starting_char_index]['word_index']
-            ending_word_index = char_index_map[starting_char_index + len(lemma) -1]['word_index'] + 1
-
-    if starting_word_index > -1 and ending_word_index > -1:
-        lemma_span = corpus.get_content('PlayTag')
-        lemma_span.name = 'comspan'
-        lemma_span.classes = "commentary-lemma-{0}".format(note.id)
-        lemma_span.save()
-        lemma_span_uri = "/corpus/{0}/PlayTag/{1}".format(corpus.id, lemma_span.id)
-
-        for line in note.lines:
-            line_uri = "/corpus/{0}/PlayLine/{1}".format(corpus.id, line.id)
-            word_indexes = []
-
-            if line.line_number == starting_line.line_number and line.line_number == ending_line.line_number:
-                word_indexes = list(range(starting_word_index, ending_word_index))
-            elif line.line_number == starting_line.line_number:
-                word_indexes = list(range(starting_word_index, len(line.words)))
-            elif line.line_number == ending_line.line_number:
-                word_indexes = list(range(0, ending_word_index))
-            else:
-                word_indexes = list(range(0, len(line.words)))
-
-            if word_indexes:
-                corpus.make_link(
-                    line_uri,
-                    lemma_span_uri,
-                    'hasTag',
-                    {'word_indexes': word_indexes}
-                )
-
-                if variation > 0:
-                    "Variation {0} worked for note {1}".format(variation, note.id)
-    elif variation < 3:
-        mark_commentary_lemma(corpus, note, variation + 1)
-    else:
-        print("LEMMA NOT FOUND for note {0} w/ lemma [{1}]".format(note.id, lemma))
+        else:
+            print("\n-----------------------------------------------")
+            print("LEMMA NOT FOUND for note {0} w/ lemma [{1}]".format(note.id, lemma))
+            print("TEXT: {0}".format(all_words))
+            print("-----------------------------------------------\n")
 
 
 def get_line_ids(line_id_map, xml_id_start, xml_id_end=None):
     line_ids = []
 
-    target_xml_ids = xml_id_start.replace('#', '').split()
-    for target_xml_id in target_xml_ids:
-        line_ids.append(line_id_map[target_xml_id])
+    if xml_id_start and xml_id_end and len(xml_id_start.split()) == len(xml_id_end.split()):
+        starts = xml_id_start.split()
+        ends = xml_id_end.split()
 
-    if xml_id_end:
-        ending_xml_id = xml_id_end.replace('#', '')
+        for pair_index in range(0, len(starts)):
+            start_id = starts[pair_index].replace('#', '')
+            end_id = ends[pair_index].replace('#', '')
 
-        start_found = False
-        for line_xml_id in line_id_map.keys():
-            if not start_found and line_xml_id == target_xml_ids[0]:
-                start_found = True
+            if int(start_id.replace('tln_', '')) < int(end_id.replace('tln_', '')):
+                started = False
+                for line_xml_id in line_id_map.keys():
+                    if not started and line_xml_id == start_id:
+                        started = True
 
-            elif start_found and line_id_map[line_xml_id] not in line_ids:
-                line_ids.append(line_id_map[line_xml_id])
+                    if started:
+                        line_ids.append(line_id_map[line_xml_id])
 
-            if start_found and line_xml_id == ending_xml_id:
-                break
+                    if started and line_xml_id == end_id:
+                        break
+
+    elif xml_id_start and not xml_id_end:
+        xml_ids = xml_id_start.replace('#', '').split()
+        for xml_id in xml_ids:
+            line_ids.append(line_id_map[xml_id])
 
     return line_ids
+
+
+def stitch_lines(lines):
+    stitched = ""
+
+    for line in lines:
+        if not stitched:
+            stitched += line.text
+        elif stitched.endswith('\xad'):
+            stitched = stitched[:-1] + line.text
+        elif stitched.endswith('-'):
+            stitched += line.text
+        else:
+            stitched += ' ' + line.text
+
+    return stitched
 
 
 def extract_text_replacements(file):
     file.seek(0)
     pattern = re.compile(r'<!ENTITY ([^ ]*)\s*"([^"]*)"')
+    text_replacements = {}
 
     for line in file:
         if line.strip() == ']>':
@@ -1592,12 +1707,16 @@ def extract_text_replacements(file):
                 if text not in text_replacements:
                     text_replacements['&' + text + ';'] = replacement
 
+    print("TEXT REPLACEMENTS")
+    print(text_replacements)
+    return text_replacements
+
 
 def _str(val):
     if val and hasattr(val, 'string'):
         val = str(val.string)
-        for text, replacement in text_replacements.items():
-            val = val.replace(text, replacement)
+        #for text, replacement in text_replacements.items():
+        #    val = val.replace(text, replacement)
         return val
     return ''
 
@@ -1638,8 +1757,8 @@ def tei_to_html(tei):
     for child in tei.children:
         child_html = str(child)
 
-        for text, replacement in text_replacements.items():
-            child_html = child_html.replace(text, replacement)
+        #for text, replacement in text_replacements.items():
+        #    child_html = child_html.replace(text, replacement)
 
         for tei_conversion in tei_conversions:
             child_html = re.sub(tei_conversion[0], tei_conversion[1], child_html)
@@ -1713,53 +1832,117 @@ def save_content(content):
         print("{0} already exists!".format(content.content_type.name))
 
 
-def render_lines_html(corpus, starting_line_no=None, ending_line_no=None):
+def render_lines_html(corpus, play, starting_line_no=None, ending_line_no=None):
+    lines = None
+    tags = corpus.get_content('PlayTag', {'play': play.id})
+
     if starting_line_no:
         lines = corpus.get_content('PlayLine', {'line_number__gte': starting_line_no, 'line_number__lte': ending_line_no})
+        tags = tags.filter(
+            (
+                (Q(start_location__gte=starting_line_no) & Q(start_location__lte=ending_line_no)) |
+                (Q(end_location__gte=starting_line_no) & Q(end_location__lte=ending_line_no))
+            ) |
+            (
+                Q(start_location__lt=starting_line_no) &
+                Q(ending_location__gt=ending_line_no)
+            )
+        )
     else:
-        lines = corpus.get_content('PlayLine', all=True)
+        lines = corpus.get_content('PlayLine', {'play': play.id})
+
     lines = lines.order_by('line_number')
     lines = list(lines)
-    line_uris = ["/corpus/{0}/PlayLine/{1}".format(corpus.id, line.id) for line in lines]
 
-    tag_nodes = run_neo('''
-            MATCH (pl:PlayLine) -[rel:hasTag]-> (pt:PlayTag)
-            WHERE pl.uri IN $line_uris
-            RETURN pl.uri, rel.word_indexes, pt.label
-            ORDER BY pt.uri
-        ''',
-        {
-            'line_uris': line_uris
-        }
-    )
+    tags = tags.order_by('+start_location', '-end_location')
+    tags = list(tags)
 
-    for tag_node in tag_nodes:
-        line_uri = tag_node[0]
-        line_index = line_uris.index(line_uri)
-        word_indexes = tag_node[1]
-        open_html = tag_node[2].replace('[', '<').replace(']', '>')
+    taggings = {}
+    for tag in tags:
+        if tag.start_location not in taggings:
+            taggings[tag.start_location] = {'open': [], 'close': []}
+        if tag.end_location not in taggings:
+            taggings[tag.end_location] = {'open': [], 'close': []}
+
+        open_html = tag.label.replace('[', '<').replace(']', '>')
         close_html = "</{0}>".format(open_html[1:open_html.index(" ")])
 
-        if max(word_indexes) in range(0, len(lines[line_index].words)):
+        if tag.start_location == tag.end_location:
+            if 'empty' not in taggings[tag.start_location]:
+                taggings[tag.start_location]['empty'] = []
+            taggings[tag.start_location]['empty'].append({
+                'html': open_html + close_html,
+                'id': str(tag.id)
+            })
 
-            if not hasattr(lines[line_index], 'tags'):
-                lines[line_index].tags = ["{0}" for x in range(0, len(lines[line_index].words))]
-
-            lines[line_index].tags[min(word_indexes)] = open_html + lines[line_index].tags[min(word_indexes)]
-            lines[line_index].tags[max(word_indexes)] += close_html
         else:
-            print("{0} out of range for line {1}".format(tag_node[2], line_uri))
+            taggings[tag.start_location]['open'].append({
+                'html': open_html,
+                'id': str(tag.id)
+            })
+            taggings[tag.end_location]['close'].insert(0, {
+                'html': close_html,
+                'id': str(tag.id)
+            })
 
-    for line_index in range(0, len(lines)):
-        if hasattr(lines[line_index], 'tags'):
-            lines[line_index].rendered_html = ""
+    open_tags = []
 
-            for word_index in range(0, len(lines[line_index].words)):
-                lines[line_index].rendered_html += lines[line_index].tags[word_index].format(lines[line_index].words[word_index]) + " "
+    for line in lines:
+        line.rendered_html = ""
 
-            lines[line_index].rendered_html = lines[line_index].rendered_html.strip()
-        else:
-            lines[line_index].rendered_html = " ".join(lines[line_index].words)
+        for tag in open_tags:
+            line.rendered_html += tag['html']
 
-        lines[line_index].save()
+        for char_index in range(0, len(line.text)):
+            location = make_text_location(line.line_number, char_index)
+            if location in taggings:
+                for closing_tag in taggings[location]['close']:
+                    line.rendered_html += closing_tag['html']
+                    remove_tag_index = -1
+                    for tag_index in range(0, len(open_tags)):
+                        if open_tags[tag_index]['id'] == closing_tag['id']:
+                            remove_tag_index = tag_index
+                            break
+                    if remove_tag_index > -1:
+                        open_tags.pop(remove_tag_index)
+
+                if 'empty' in taggings[location]:
+                    for empty_tag in taggings[location]['empty']:
+                        line.rendered_html += empty_tag['html']
+
+                for opening_tag in taggings[location]['open']:
+                    line.rendered_html += opening_tag['html']
+                    open_tags.append(opening_tag)
+
+            char = line.text[char_index]
+            if char == '\xad':
+                char = '-'
+            line.rendered_html += char
+
+        location = make_text_location(line.line_number, len(line.text))
+        if location in taggings:
+            for closing_tag in taggings[location]['close']:
+                line.rendered_html += closing_tag['html']
+                remove_tag_index = -1
+                for tag_index in range(0, len(open_tags)):
+                    if open_tags[tag_index]['id'] == closing_tag['id']:
+                        remove_tag_index = tag_index
+                        break
+                if remove_tag_index > -1:
+                    open_tags.pop(remove_tag_index)
+
+            for opening_tag in taggings[location]['open']:
+                line.rendered_html += opening_tag['html']
+                open_tags.append(opening_tag)
+
+            if 'empty' in taggings[location]:
+                for empty_tag in taggings[location]['empty']:
+                    line.rendered_html += empty_tag['html']
+
+        for open_tag in reversed(open_tags):
+            close_html = "</{0}>".format(open_tag['html'][1:open_tag['html'].index(" ")])
+            line.rendered_html += close_html
+
+        line.save()
+
 

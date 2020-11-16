@@ -209,6 +209,12 @@
                             <option value="Document">Document</option>
                         </select>
                     </div>
+                    <div class="form-group d-none" id="new-f-synonym-div">
+                        <label for="new-f-synonym-box">Synonyms for Searching this Field</label>
+                        <select id="new-f-synonym-box">
+                            <option value="None">None</option>
+                        </select>
+                    </div>
                     <div class="form-check">
                         <input id="new-f-in-lists-checkbox" type="checkbox" value="" class="form-check-input">
                         <label for="new-f-in-lists-checkbox">Include in Lists?</label>
@@ -687,6 +693,16 @@
                     template_editor.setTheme("ace/theme/monokai");
                     template_editor.getSession().setMode("ace/mode/django");
 
+                    // populate synonym file options
+                    if (corpus.hasOwnProperty('available_synonyms')) {
+                        let synonym_box = $('#new-f-synonym-box');
+                        for (let synonym_option in corpus.available_synonyms) {
+                            synonym_box.append(`
+                                <option value='${synonym_option}'>${corpus.available_synonyms[synonym_option].label}</option>
+                            `);
+                        }
+                    }
+
                     // setup event for showing schema import modal
                     $('#show-import-modal-button').click(function () {
                         import_editor.setValue('');
@@ -775,10 +791,16 @@
                     $('#new-f-type-box').change(function () {
                         let selection = $(this).val();
 
-                        if (selection == 'cross_reference') {
+                        if (selection === 'cross_reference') {
                             $('#new-f-cross-reference-box').removeClass('d-none');
                         } else {
                             $('#new-f-cross-reference-box').addClass('d-none');
+                        }
+
+                        if (['text', 'large_text', 'html'].includes(selection)) {
+                            $('#new-f-synonym-div').removeClass('d-none');
+                        } else {
+                            $('#new-f-synonym-div').addClass('d-none');
                         }
                     });
 
@@ -806,6 +828,7 @@
 
                     // CREATE FIELD BUTTON CLICK
                     $('#new-f-create-button').click(function () {
+                        let synonym_file = $('#new-f-synonym-box').val();
                         let cross_reference_type = '';
                         if ($('#new-f-type-box').val() == 'cross_reference') {
                             cross_reference_type = $('#new-f-cross-reference-box').val();
@@ -821,6 +844,7 @@
                             unique_with: $('#new-f-unique-with-box').val(),
                             multiple: $('#new-f-multiple-checkbox').is(':checked'),
                             cross_reference_type: cross_reference_type,
+                            synonym_file: synonym_file !== 'None' ? synonym_file : null,
                             type: $('#new-f-type-box').val(),
                         };
 
@@ -1599,6 +1623,8 @@
                     $('#new-f-name-box').prop('disabled', false);
                     $('#new-f-label-box').val('');
                     $('#new-f-type-box').val('keyword');
+                    $('#new-f-synonym-box').val('None');
+                    $('#new-f-synonym-div').addClass('d-none');
                     $('#new-f-in-lists-checkbox').prop('checked', true);
                     $('#new-f-indexed-checkbox').prop('checked', false);
                     $('#new-f-unique-checkbox').prop('checked', false);
@@ -1674,6 +1700,13 @@
                 case 'cross_reference':
                     field_type_display = ct.fields[f_index].cross_reference_type;
                     break;
+                case 'text':
+                    field_type_display = 'Text';
+                    let syn_file_key = ct.fields[f_index].synonym_file;
+                    if (syn_file_key) {
+                        field_type_display += ` (${corpus.available_synonyms[syn_file_key].label})`;
+                    }
+                    break;
                 default:
                     field_type_display = FIELD_TYPE_LABELS[ct.fields[f_index].type];
                     break;
@@ -1737,11 +1770,19 @@
                     $('#new-f-name-box').prop('disabled', true);
                     $('#new-f-label-box').val(ct.fields[f_index].label);
                     $('#new-f-type-box').val(ct.fields[f_index].type);
+
                     if (ct.fields[f_index].type === 'cross_reference') {
                         $('#new-f-cross-reference-box').removeClass('d-none');
                         $('#new-f-cross-reference-box').val(ct.fields[f_index].cross_reference_type);
                     } else {
                         $('#new-f-cross-reference-box').addClass('d-none');
+                    }
+
+                    $('#new-f-synonym-box').val(ct.fields[f_index].synonym_file == null ? 'None' : ct.fields[f_index].synonym_file);
+                    if (['text', 'large_text', 'html'].includes(ct.fields[f_index].type)) {
+                        $('#new-f-synonym-div').removeClass('d-none');
+                    } else {
+                        $('#new-f-synonym-div').addClass('d-none');
                     }
 
                     $('.f-with').html('');

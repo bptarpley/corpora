@@ -23,6 +23,7 @@
         .comm-heading {
             background-color: #c4dffc;
             font-family: 'Libre Baskerville', serif;
+            cursor: pointer;
             color: #525e69;
         }
 
@@ -37,7 +38,7 @@
     <div class="container-fluid">
         {% for comm in commentaries %}
             <div class="row">
-                <div id="commentary-note-{{ comm.id }}" class="col-sm-12 comm-heading">
+                <div id="commentary-note-{{ comm.id }}" class="col-sm-12 comm-heading" onClick="parent.document.getElementsByClassName('commentary-lemma-{{ comm.id }}')[0].scrollIntoView();">
                     <a name="commentary-note-{{ comm.id }}"></a>
                     {{ comm.line_label }}: {{ comm.subject_matter|safe }}
                 </div>

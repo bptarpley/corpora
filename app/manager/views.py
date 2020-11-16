@@ -807,6 +807,7 @@ def api_corpus(request, corpus_id):
     if corpus:
         corpus_dict = corpus.to_dict()
         corpus_dict['scholar_role'] = role
+        corpus_dict['available_synonyms'] = settings.ES_SYNONYM_OPTIONS
 
         return HttpResponse(
             json.dumps(corpus_dict),

@@ -310,9 +310,10 @@ def adjust_line_tags(line_tags, html):
             line_tags['close'].insert(0, "</" + tag + ">")
 
 
-def design(request, corpus_id, starting_line_no, ending_line_no):
+def design(request, corpus_id, play_prefix):
     corpus = get_corpus(corpus_id)
-    lines = corpus.get_content('PlayLine', all=True).order_by('line_number') #.limit(50)
+    play = corpus.get_content('Play', {'prefix': play_prefix})[0]
+    lines = corpus.get_content('PlayLine', {'play': play.id}).order_by('line_number')
 
     return render(
         request,
@@ -320,15 +321,15 @@ def design(request, corpus_id, starting_line_no, ending_line_no):
         {
             'corpus_id': corpus_id,
             'lines': lines,
-            'starting_line_no': starting_line_no,
-            'ending_line_no': ending_line_no
+            'play': play
         }
     )
 
 
-def commentaries(request, corpus_id):
+def commentaries(request, corpus_id, play_prefix):
     corpus = get_corpus(corpus_id)
-    commentaries = corpus.get_content('Commentary', all=True).order_by('id')
+    play = corpus.get_content('Play', {'prefix': play_prefix})[0]
+    commentaries = corpus.get_content('Commentary', {'play': play.id}).order_by('id')
 
     return render(
         request,
@@ -340,9 +341,10 @@ def commentaries(request, corpus_id):
     )
 
 
-def play_minimap(request, corpus_id):
+def play_minimap(request, corpus_id, play_prefix):
     corpus = get_corpus(corpus_id)
-    lines = corpus.get_content('PlayLine', all=True).order_by('line_number')
+    play = corpus.get_content('Play', {'prefix': play_prefix})[0]
+    lines = corpus.get_content('PlayLine', {'play': play.id}).order_by('line_number')
     highlight_lines = request.GET.get('h', None)
     if highlight_lines:
         highlight_lines = highlight_lines.split(',')
@@ -362,9 +364,8 @@ def play_minimap(request, corpus_id):
 
         for line in lines:
             line_count += 1
-            line_text = ' '.join(line.words)
-            if len(line_text) > max_line_length:
-                max_line_length = len(line_text)
+            if len(line.text) > max_line_length:
+                max_line_length = len(line.text)
 
         if line_count > 0:
             min_img_height = (line_count * line_height) + ((line_count - 1) * line_spacing)
@@ -386,16 +387,15 @@ def play_minimap(request, corpus_id):
                 if highlight_lines and line.line_label in highlight_lines:
                     line_color = '#F99B4E'
 
-                text = ' '.join(line.words)
                 word_start = None
 
-                for char_index in range(0, len(text)):
-                    char = text[char_index]
+                for char_index in range(0, len(line.text)):
+                    char = line.text[char_index]
 
                     if not word_start:
                         word_start = x
 
-                    if (char == ' ' or char_index == len(text) - 1) and word_start:
+                    if (char == ' ' or char_index == len(line.text) - 1) and word_start:
                         word_end = x
                         draw.rectangle([(word_start, y), (word_end, y + line_height)], fill=line_color, outline=None, width=0)
                         word_start = None

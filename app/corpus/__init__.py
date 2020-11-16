@@ -15,7 +15,7 @@ from bson import DBRef
 from PIL import Image
 from django.conf import settings
 from elasticsearch_dsl import Index, Mapping, analyzer, Keyword, Text, Integer, Date, \
-    Nested, char_filter, Q, Search
+    Nested, token_filter, char_filter, Q, Search
 from elasticsearch_dsl.query import SimpleQueryString, Ids
 from elasticsearch_dsl.connections import get_connection
 from django.template import Template, Context
@@ -35,6 +35,7 @@ class Field(mongoengine.EmbeddedDocument):
     type = mongoengine.StringField(choices=FIELD_TYPES)
     choices = mongoengine.ListField()
     cross_reference_type = mongoengine.StringField()
+    synonym_file = mongoengine.StringField(choices=list(settings.ES_SYNONYM_OPTIONS.keys()))
     indexed_with = mongoengine.ListField()
     unique_with = mongoengine.ListField()
     stats = mongoengine.DictField()
@@ -94,6 +95,32 @@ class Field(mongoengine.EmbeddedDocument):
             else:
                 return mongoengine.StringField()
 
+    def get_elasticsearch_analyzer(self):
+        analyzer_filters = ['classic', 'lowercase', 'stop']
+        if self.synonym_file and self.synonym_file in settings.ES_SYNONYM_OPTIONS:
+            analyzer_filters.append(token_filter(
+                '{0}_synonym_filter'.format(self.synonym_file),
+                'synonym',
+                synonyms_path=settings.ES_SYNONYM_OPTIONS[self.synonym_file]['file']
+            ))
+
+        if self.type in ['text', 'large_text']:
+            return analyzer(
+                '{0}_analyzer'.format(self.name).lower(),
+                tokenizer='classic',
+                filter=analyzer_filters,
+            )
+
+        elif self.type == 'html':
+            return analyzer(
+                '{0}_analyzer'.format(self.name).lower(),
+                tokenizer='classic',
+                filter=analyzer_filters,
+                char_filter=['html_strip']
+            )
+
+        return None
+
     def to_dict(self):
         return {
             'name': self.name,
@@ -105,6 +132,7 @@ class Field(mongoengine.EmbeddedDocument):
             'type': self.type,
             'choices': [choice for choice in self.choices],
             'cross_reference_type': self.cross_reference_type,
+            'synonym_file': self.synonym_file,
             'indexed_with': [index for index in self.indexed_with],
             'unique_with': [unq for unq in self.unique_with],
             'stats': deepcopy(self.stats),
@@ -1484,6 +1512,7 @@ class Corpus(mongoengine.Document):
             'proxy_field': "",
             'inherited': False,
             'cross_reference_type': '',
+            'synonym_file': None
         }
 
         default_invalid_field_names = [
@@ -1544,6 +1573,7 @@ class Corpus(mongoengine.Document):
                     new_field.type = field['type']
                     new_field.cross_reference_type = field['cross_reference_type']
                     new_field.inherited = field['inherited']
+                    new_field.synonym_file = field['synonym_file']
 
                     if new_field.type == 'embedded':
                         new_field.in_lists = False
@@ -1561,6 +1591,9 @@ class Corpus(mongoengine.Document):
             self.content_types[ct_name].plural_name = schema['plural_name']
             self.content_types[ct_name].show_in_nav = schema['show_in_nav']
             self.content_types[ct_name].proxy_field = schema['proxy_field']
+
+            if 'synonym_file' in schema:
+                self.content_types[ct_name].synonym_file = schema['synonym_file']
 
             label_template = self.content_types[ct_name].templates['Label'].template
             for template_name in schema['templates']:
@@ -1597,6 +1630,7 @@ class Corpus(mongoengine.Document):
                         new_field.multiple = schema['fields'][x]['multiple']
                         new_field.type = schema['fields'][x]['type']
                         new_field.cross_reference_type = schema['fields'][x]['cross_reference_type']
+                        new_field.synonym_file = schema['fields'][x]['synonym_file']
 
                         self.content_types[ct_name].fields.append(new_field)
                         if new_field.in_lists:
@@ -1618,6 +1652,7 @@ class Corpus(mongoengine.Document):
                             self.content_types[ct_name].fields[field_index].multiple = schema['fields'][x]['multiple']
                             self.content_types[ct_name].fields[field_index].type = schema['fields'][x]['type']
                             self.content_types[ct_name].fields[field_index].cross_reference_type = schema['fields'][x]['cross_reference_type']
+                            self.content_types[ct_name].fields[field_index].synonym_file = schema['fields'][x]['synonym_file']
 
             if not valid:
                 self.reload()
@@ -1786,44 +1821,53 @@ class Corpus(mongoengine.Document):
             if index.exists():
                 index.delete()
 
-            corpora_analyzer = analyzer(
-                'corpora_analyzer',
+            label_analyzer = analyzer(
+                'corpora_label_analyzer',
                 tokenizer='classic',
                 filter=['stop', 'lowercase', 'classic']
             )
 
             mapping = Mapping()
-            mapping.field('label', 'text', analyzer=corpora_analyzer, fields={'raw': Keyword()})
+            mapping.field('label', 'text', analyzer=label_analyzer, fields={'raw': Keyword()})
             mapping.field('uri', 'keyword')
 
             for field in ct.fields:
                 if field.type != 'embedded' and field.in_lists:
                     field_type = field_type_map[field.type]
-                    nested_text_type = {
-                        'type': 'text',
-                        'analyzer': corpora_analyzer,
-                        'fields': {
-                            'raw': {
-                                'type': 'keyword'
-                            }
-                        }
-                    }
 
                     if field.type == 'cross_reference' and field.cross_reference_type in self.content_types:
                         xref_ct = self.content_types[field.cross_reference_type]
                         xref_mapping_props = {
                             'id': 'keyword',
-                            'label': nested_text_type,
+                            'label': {
+                                'type': 'text',
+                                'analyzer': label_analyzer,
+                                'fields': {
+                                    'raw': {
+                                        'type': 'keyword'
+                                    }
+                                }
+                            },
                             'uri': 'keyword'
                         }
 
                         for xref_field in xref_ct.fields:
                             if xref_field.in_lists and not xref_field.type == 'cross_reference':
                                 xref_field_type = field_type_map[xref_field.type]
-                                if xref_field.type == 'text':
-                                    xref_field_type = nested_text_type
-                                elif xref_field.type == 'large_text':
-                                    xref_field_type = {'type': 'text', 'analyzer': corpora_analyzer}
+
+                                if xref_field.type in ['text', 'large_text', 'html']:
+
+                                    xref_field_type = {
+                                        'type': 'text',
+                                        'analyzer': xref_field.get_elasticsearch_analyzer(),
+                                    }
+
+                                    if xref_field.type == 'text':
+                                        xref_field_type['fields'] = {
+                                            'raw': {
+                                                'type': 'keyword'
+                                            }
+                                        }
 
                                 xref_mapping_props[xref_field.name] = xref_field_type
 
@@ -1831,11 +1875,11 @@ class Corpus(mongoengine.Document):
 
                     elif field_type == 'text':
                         subfields = {'raw': {'type': 'keyword'}}
-                        mapping.field(field.name, field_type, analyzer=corpora_analyzer, fields=subfields)
+                        mapping.field(field.name, field_type, analyzer=field.get_elasticsearch_analyzer(), fields=subfields)
 
                     # large text fields assumed too large to provide a "raw" subfield for sorting
-                    elif field_type == 'large_text':
-                        mapping.field(field.name, 'text', analyzer=corpora_analyzer)
+                    elif field_type in ['large_text', 'html']:
+                        mapping.field(field.name, 'text', analyzer=field.get_elasticsearch_analyzer())
                     else:
                         mapping.field(field.name, field_type)
 
