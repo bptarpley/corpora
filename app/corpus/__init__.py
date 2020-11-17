@@ -96,11 +96,12 @@ class Field(mongoengine.EmbeddedDocument):
                 return mongoengine.StringField()
 
     def get_elasticsearch_analyzer(self):
-        analyzer_filters = ['classic', 'lowercase', 'stop']
+        analyzer_filters = ['lowercase', 'classic', 'stop']
         if self.synonym_file and self.synonym_file in settings.ES_SYNONYM_OPTIONS:
-            analyzer_filters.append(token_filter(
+            analyzer_filters.insert(1, token_filter(
                 '{0}_synonym_filter'.format(self.synonym_file),
                 'synonym',
+                lenient=True,
                 synonyms_path=settings.ES_SYNONYM_OPTIONS[self.synonym_file]['file']
             ))
 
