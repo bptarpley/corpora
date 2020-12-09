@@ -364,7 +364,7 @@ def design(request, corpus_id, play_prefix):
         lines = get_session_lines(corpus, nvs_session)
 
         # TODO: ensure preferences don't get inadvertently cached or ignored due to templating
-        if not ['is_filtered'] and not os.path.exists(cached_template_path):
+        if not nvs_session['is_filtered'] and not os.path.exists(cached_template_path):
             playviewer_template = None
             with open(playviewer_template_path, 'r') as playviewer_template_in:
                 playviewer_template = playviewer_template_in.read()
