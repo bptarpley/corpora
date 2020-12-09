@@ -34,3 +34,10 @@ def remove_str(obj, value):
     if isinstance(obj, str):
         return obj.replace(value, '')
     return obj
+
+
+@register.filter(name='to_int')
+def to_int(obj):
+    if hasattr(obj, 'isdigit') and obj.isdigit():
+        return int(obj)
+    return 0

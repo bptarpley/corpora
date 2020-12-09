@@ -130,6 +130,7 @@ def import_data(job_id):
     basetext_siglum = job.get_param_value('basetext_siglum')
     delete_existing = job.get_param_value('delete_existing') == 'Yes'
 
+    job.set_status('running')
     try:
 
         for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
@@ -224,12 +225,23 @@ def import_data(job_id):
 
                 if play:
                     parse_front_file(corpus, play, include_file_paths['front'])
+
+                    job.set_status('running', percent_complete=17)
                     parse_playtext_file(corpus, play, include_file_paths['playtext'], basetext_siglum)
+
+                    job.set_status('running', percent_complete=34)
                     parse_textualnotes_file(corpus, play, include_file_paths['textualnotes'])
+
+                    job.set_status('running', percent_complete=51)
                     parse_bibliography(corpus, play, include_file_paths['bibliography'])
+
+                    job.set_status('running', percent_complete=68)
                     parse_commentary(corpus, play, include_file_paths['commentary'])
+
+                    job.set_status('running', percent_complete=85)
                     render_lines_html(corpus, play)
 
+        job.complete(status='complete')
         es_logger.setLevel(es_log_level)
     except:
         print(traceback.format_exc())
@@ -508,27 +520,7 @@ def handle_playtext_tag(corpus, play, tag, line_info):
         # lb
         elif tag.name == 'lb' and _contains(tag.attrs, ['xml:id', 'n']):
             if line_info['line_xml_id']:
-                line = corpus.get_content('PlayLine')
-                line.play = play.id
-                line.xml_id = line_info['line_xml_id']
-                line.line_label = line_info['line_label']
-                line.line_number = line_info['line_number']
-                line.act = line_info['act']
-                line.scene = line_info['scene']
-                line.witness_locations.append(line_info['witness_location_id'])
-                line.text = line_info['text'].strip()
-                line.witness_meter = "0" * line_info['witness_count']
-                line.save()
-
-                if line_info['current_speech']:
-                    line_info['current_speech'].lines.append(line)
-
-                    if line_info['current_speech_ended']:
-                        line_info['current_speech'].text = stitch_lines(line_info['current_speech'].lines)
-                        line_info['current_speech'].lines = [line.id for line in line_info['current_speech'].lines]
-                        line_info['current_speech'].save()
-                        line_info['current_speech'] = None
-                        line_info['current_speech_ended'] = False
+                make_playtext_line(corpus, play, line_info)
 
             line_info['line_number'] += 1
             line_info['line_xml_id'] = tag['xml:id']
@@ -541,6 +533,10 @@ def handle_playtext_tag(corpus, play, tag, line_info):
 
             for child in tag.children:
                 handle_playtext_tag(corpus, play, child, line_info)
+
+            if line_info['line_xml_id']:
+                make_playtext_line(corpus, play, line_info)
+                line_info['line_xml_id'] = None
 
         # all other tags handled by PlayTag convention
         else:
@@ -663,6 +659,30 @@ def handle_playtext_tag(corpus, play, tag, line_info):
     else:
         new_words = str(tag)
         line_info['text'] += new_words.replace('\n', '')
+
+
+def make_playtext_line(corpus, play, line_info):
+    line = corpus.get_content('PlayLine')
+    line.play = play.id
+    line.xml_id = line_info['line_xml_id']
+    line.line_label = line_info['line_label']
+    line.line_number = line_info['line_number']
+    line.act = line_info['act']
+    line.scene = line_info['scene']
+    line.witness_locations.append(line_info['witness_location_id'])
+    line.text = line_info['text'].strip()
+    line.witness_meter = "0" * line_info['witness_count']
+    line.save()
+
+    if line_info['current_speech']:
+        line_info['current_speech'].lines.append(line)
+
+        if line_info['current_speech_ended']:
+            line_info['current_speech'].text = stitch_lines(line_info['current_speech'].lines, embed_line_markers=True)
+            line_info['current_speech'].lines = [line.id for line in line_info['current_speech'].lines]
+            line_info['current_speech'].save()
+            line_info['current_speech'] = None
+            line_info['current_speech_ended'] = False
 
 
 def make_text_location(line_number, char_index):
@@ -1674,18 +1694,22 @@ def get_line_ids(line_id_map, xml_id_start, xml_id_end=None):
     return line_ids
 
 
-def stitch_lines(lines):
+def stitch_lines(lines, embed_line_markers=False):
     stitched = ""
+    marker = ""
 
     for line in lines:
+        if embed_line_markers:
+            marker = "<{0} />".format(line.xml_id)
+
         if not stitched:
-            stitched += line.text
+            stitched += marker + line.text
         elif stitched.endswith('\xad'):
-            stitched = stitched[:-1] + line.text
+            stitched = stitched[:-1] + marker + line.text
         elif stitched.endswith('-'):
-            stitched += line.text
+            stitched += marker + line.text
         else:
-            stitched += ' ' + line.text
+            stitched += ' ' + marker + line.text
 
     return stitched
 
@@ -1713,10 +1737,8 @@ def extract_text_replacements(file):
 
 
 def _str(val):
-    if val and hasattr(val, 'string'):
+    if val and hasattr(val, 'string') and val.string:
         val = str(val.string)
-        #for text, replacement in text_replacements.items():
-        #    val = val.replace(text, replacement)
         return val
     return ''
 

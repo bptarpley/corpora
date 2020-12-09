@@ -6,6 +6,7 @@ import traceback
 import importlib
 import zlib
 import shutil
+import logging
 from math import ceil
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -296,10 +297,13 @@ class Job(object):
         self.timeout = result['timeout']
         self.tries = result['tries']
         self.error = result['error']
+        if 'percent_complete' in result:
+            self.percent_complete = result['percent_complete']
+        else:
+            self.percent_complete = 0
         self.configuration = json.loads(result['configuration'])
 
         # check process completion
-        self.percent_complete = 0
         results = run_neo(
             '''
                 MATCH (j:Job { uri: $job_uri }) -[rel:hasProcess]-> (p:Process)
@@ -341,6 +345,7 @@ class Job(object):
                     SET j.timeout = $job_timeout
                     SET j.tries = $job_tries
                     SET j.error = $job_error
+                    SET j.percent_complete = $percent_complete
                     SET j.configuration = $job_configuration
                     MERGE (c) -[:hasJob]-> (j)
                 '''.format(self.content_type),
@@ -360,6 +365,7 @@ class Job(object):
                     'job_timeout': self.timeout,
                     'job_tries': self.tries,
                     'job_error': self.error,
+                    'percent_complete': self.percent_complete,
                     'job_configuration': json.dumps(self.configuration)
                 }
             )
@@ -382,6 +388,7 @@ class Job(object):
                     SET j.timeout = $job_timeout
                     SET j.tries = $job_tries
                     SET j.error = $job_error
+                    SET j.percent_complete = $percent_complete
                     SET j.configuration = $job_configuration
                     MERGE (c) -[:hasJob]-> (j) <-[:hasJob]- (d)
                 '''.format(self.content_type),
@@ -402,6 +409,7 @@ class Job(object):
                     'job_timeout': self.timeout,
                     'job_tries': self.tries,
                     'job_error': self.error,
+                    'percent_complete': self.percent_complete,
                     'job_configuration': json.dumps(self.configuration)
                 }
             )
@@ -431,20 +439,24 @@ class Job(object):
             return self.configuration['parameters'][parameter]['value']
         return None
 
-    def set_status(self, status):
+    def set_status(self, status, percent_complete=None):
         self.status = status
         self.status_time = datetime.now()
+        if percent_complete:
+            self.percent_complete = percent_complete
 
         run_neo(
             '''
                 MATCH (j:Job { uri: $job_uri })
                 SET j.status = $job_status
                 SET j.status_time = $job_status_time
+                SET j.percent_complete = $percent_complete
             ''',
             {
                 'job_uri': "/job/{0}".format(self.id),
                 'job_status': self.status,
-                'job_status_time': int(self.status_time.timestamp())
+                'job_status_time': int(self.status_time.timestamp()),
+                'percent_complete': self.percent_complete
             }
         )
 
@@ -1134,14 +1146,21 @@ class Corpus(mongoengine.Document):
             page_size=50,
             general_query="",
             fields_query={},
+            fields_term={},
+            fields_phrase={},
             fields_wildcard={},
             fields_filter={},
             fields_range={},
+            fields_highlight={},
             fields_sort=[],
             only=[],
             excludes=[],
             operator="and",
-            aggregations={}
+            highlight_num_fragments=5,
+            highlight_fragment_size=100,
+            aggregations={},
+            spool_records=False,
+            spooled_records=None
     ):
         results = {
             'meta': {
@@ -1176,80 +1195,128 @@ class Corpus(mongoengine.Document):
                 else:
                     should.append(SimpleQueryString(query=general_query))
 
-            if fields_query:
-                for search_field in fields_query.keys():
-                    field_values = [value_part for value_part in fields_query[search_field].split('__') if value_part]
-                    field_type = self.content_types[content_type].get_field(search_field).type
+            for search_field in fields_query.keys():
+                field_values = [value_part for value_part in fields_query[search_field].split('__') if value_part]
+                field_type = self.content_types[content_type].get_field(search_field).type
 
-                    if not field_values:
-                        if '.' in search_field:
-                            field_parts = search_field.split('.')
-                            must.append(Q(
-                                "nested",
-                                path=field_parts[0],
-                                query=~Q(
-                                    'exists',
-                                    field=search_field
-                                )
-                            ))
-                        else:
-                            must.append(~Q('exists', field=search_field))
-
-                    for field_value in field_values:
-                        q = None
-
-                        search_criteria = {
-                            search_field: {'query': field_value}
-                        }
-
-                        if field_type in ['text', 'large_text', 'html']:
-                            search_criteria[search_field]['operator'] = 'and'
-                            search_criteria[search_field]['fuzziness'] = 'AUTO'
-
-                        if '.' in search_field:
-                            field_parts = search_field.split('.')
-                            q = Q(
-                                "nested",
-                                path=field_parts[0],
-                                query=Q('match', **search_criteria)
+                if not field_values:
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        must.append(Q(
+                            "nested",
+                            path=field_parts[0],
+                            query=~Q(
+                                'exists',
+                                field=search_field
                             )
+                        ))
+                    else:
+                        must.append(~Q('exists', field=search_field))
+
+                for field_value in field_values:
+                    q = None
+
+                    search_criteria = {
+                        search_field: {'query': field_value}
+                    }
+
+                    if field_type in ['text', 'large_text', 'html']:
+                        search_criteria[search_field]['operator'] = 'and'
+                        search_criteria[search_field]['fuzziness'] = 'AUTO'
+
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        q = Q(
+                            "nested",
+                            path=field_parts[0],
+                            query=Q('match', **search_criteria)
+                        )
+                    else:
+                        q = Q('match', **search_criteria)
+
+                    if q:
+                        if operator == 'and':
+                            must.append(q)
                         else:
-                            q = Q('match', **search_criteria)
+                            should.append(q)
 
-                        if q:
-                            if operator == 'and':
-                                must.append(q)
-                            else:
-                                should.append(q)
+            for search_field in fields_phrase.keys():
+                field_values = [value_part for value_part in fields_phrase[search_field].split('__') if value_part]
 
-            if fields_wildcard:
-                for search_field in fields_wildcard.keys():
-                    field_values = [value_part for value_part in fields_wildcard[search_field].split('__') if value_part]
+                for field_value in field_values:
+                    q = None
 
-                    for field_value in field_values:
-                        if '*' not in field_value:
-                            field_value += '*'
-
-                        q = None
-
-                        if '.' in search_field:
-                            field_parts = search_field.split('.')
-                            q = Q(
-                                "nested",
-                                path=field_parts[0],
-                                query=Q(
-                                    'wildcard',
-                                    **{search_field: field_value}
-                                )
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        q = Q(
+                            "nested",
+                            path=field_parts[0],
+                            query=Q(
+                                'match_phrase',
+                                **{search_field: field_value}
                             )
-                        else:
-                            q = Q('wildcard', **{search_field: field_value})
+                        )
+                    else:
+                        q = Q('match_phrase', **{search_field: field_value})
 
-                        if q:
-                            if operator == 'and':
-                                must.append(q)
-                            else:
-                                should.append(q)
+                    if q:
+                        if operator == 'and':
+                            must.append(q)
+                        else:
+                            should.append(q)
+
+            for search_field in fields_term.keys():
+                field_values = [value_part for value_part in fields_term[search_field].split('__') if value_part]
+
+                for field_value in field_values:
+                    q = None
+
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        q = Q(
+                            "nested",
+                            path=field_parts[0],
+                            query=Q(
+                                'term',
+                                **{search_field: field_value}
+                            )
+                        )
+                    else:
+                        q = Q('term', **{search_field: field_value})
+
+                    if q:
+                        if operator == 'and':
+                            must.append(q)
+                        else:
+                            should.append(q)
+
+            for search_field in fields_wildcard.keys():
+                field_values = [value_part for value_part in fields_wildcard[search_field].split('__') if value_part]
+
+                for field_value in field_values:
+                    if '*' not in field_value:
+                        field_value += '*'
+
+                    q = None
+
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        q = Q(
+                            "nested",
+                            path=field_parts[0],
+                            query=Q(
+                                'wildcard',
+                                **{search_field: field_value}
+                            )
+                        )
+                    else:
+                        q = Q('wildcard', **{search_field: field_value})
+
+                    if q:
+                        if operator == 'and':
+                            must.append(q)
+                        else:
+                            should.append(q)
 
             if fields_filter:
                 for search_field in fields_filter.keys():
@@ -1354,30 +1421,48 @@ class Corpus(mongoengine.Document):
 
                     search_cmd = search_cmd.sort(*adjusted_fields_sort)
 
+                if fields_highlight:
+                    search_cmd = search_cmd.highlight(*fields_highlight, fragment_size=highlight_fragment_size, number_of_fragments=highlight_num_fragments)
+
                 search_cmd = search_cmd[start_index:end_index]
-                #print(json.dumps(search_cmd.to_dict(), indent=4))
-                search_results = search_cmd.execute().to_dict()
-                #print(json.dumps(search_results, indent=4))
-                results['meta']['total'] = search_results['hits']['total']['value']
-                results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
-                results['meta']['has_next_page'] = results['meta']['page'] < results['meta']['num_pages']
 
-                for hit in search_results['hits']['hits']:
-                    record = deepcopy(hit['_source'])
-                    record['id'] = hit['_id']
-                    record['_search_score'] = hit['_score']
-                    results['records'].append(record)
+                # execute search
+                try:
+                    #print(json.dumps(search_cmd.to_dict(), indent=4))
+                    #es_logger = logging.getLogger('elasticsearch')
+                    #es_logger.setLevel(logging.DEBUG)
+                    search_results = search_cmd.execute().to_dict()
+                    #print(json.dumps(search_results, indent=4))
+                    results['meta']['total'] = search_results['hits']['total']['value']
+                    if results['meta']['page_size'] > 0:
+                        results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
+                        results['meta']['has_next_page'] = results['meta']['page'] < results['meta']['num_pages']
+                    else:
+                        results['meta']['num_pages'] = 0
+                        results['meta']['has_next_page'] = False
 
-                if 'aggregations' in search_results:
-                    for agg_name in search_results['aggregations'].keys():
-                        results['meta']['aggregations'][agg_name] = {}
+                    for hit in search_results['hits']['hits']:
+                        record = deepcopy(hit['_source'])
+                        record['id'] = hit['_id']
+                        record['_search_score'] = hit['_score']
+                        if fields_highlight:
+                            record['_search_highlights'] = hit['highlight']
+                        results['records'].append(record)
 
-                        if agg_type_map[agg_name] == 'nested':
-                            for agg_result in search_results['aggregations'][agg_name]['names']['buckets']:
-                                results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
-                        else:
-                            for agg_result in search_results['aggregations'][agg_name]['buckets']:
-                                results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
+                    if 'aggregations' in search_results:
+                        for agg_name in search_results['aggregations'].keys():
+                            results['meta']['aggregations'][agg_name] = {}
+
+                            if agg_type_map[agg_name] == 'nested':
+                                for agg_result in search_results['aggregations'][agg_name]['names']['buckets']:
+                                    results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
+                            else:
+                                for agg_result in search_results['aggregations'][agg_name]['buckets']:
+                                    results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
+
+                except:
+                    print('Error executing elasticsearch query in corpus.search_content:')
+                    print(traceback.format_exc())
 
         return results
 
@@ -2204,7 +2289,7 @@ class Content(mongoengine.Document):
                             }
 
                             for xref_field in self._corpus.content_types[field.cross_reference_type].fields:
-                                if xref_field.in_lists:
+                                if xref_field.in_lists and xref_field.type != "cross_reference":
                                     field_value[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
 
                         index_obj[field.name] = field_value

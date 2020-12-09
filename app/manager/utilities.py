@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from math import ceil
 from bson.objectid import ObjectId
 from google.cloud import vision
+from elasticsearch_dsl import A
 import traceback
 import shutil
 import json
@@ -104,41 +105,85 @@ def _get_context(req):
     default_search = {
         'general_query': '',
         'fields_query': {},
+        'fields_term': {},
+        'fields_phrase': {},
         'fields_filter': {},
         'fields_range': {},
         'fields_wildcard': {},
+        'fields_highlight': [],
         'fields_sort': [],
+        'aggregations': {},
         'page': 1,
         'page_size': 50,
         'only': [],
-        'operator': "and"
+        'operator': "and",
+        'highlight_num_fragments': 5,
+        'highlight_fragment_size': 100
     }
 
     for param in req.GET.keys():
         value = req.GET[param]
         search_field_name = param[2:]
 
-        if not context['search'] and param in ['q', 'page', 'page-size', 'only', 'operator'] or param.startswith('q_') or param.startswith('s_') or param.startswith('f_') or param.startswith('r_') or param.startswith('w_'):
+        if not context['search'] and param in ['q', 'page', 'page-size', 'only', 'operator', 'highlight_fields', 'highlight_num_fragments', 'highlight_fragment_size'] or param[:2] in ['q_', 't_', 'p_', 's_', 'f_', 'r_', 'w_', 'a_']:
             context['search'] = default_search
         
         if param == 'msg':
             context['messages'].append(value)
-        if param == 'only':
+        elif param == 'only':
             context['only'] = value.split(',')
             if context['search']:
                 context['search']['only'] = context['only']
+        elif param == 'highlight_fields':
+            context['search']['fields_highlight'] = value.split(',')
+        elif param == 'highlight_num_fragments' and value.isdigit():
+            context['search']['highlight_num_fragments'] = int(value)
+        elif param == 'highlight_fragment_size' and value.isdigit():
+            context['search']['highlight_fragment_size'] = int(value)
         elif param == 'q':
             context['search']['general_query'] = value
         elif param.startswith('q_'):
             context['search']['fields_query'][search_field_name] = value
+        elif param.startswith('t_'):
+            context['search']['fields_term'][search_field_name] = value
+        elif param.startswith('p_'):
+            context['search']['fields_phrase'][search_field_name] = value
         elif param.startswith('s_'):
-            context['search']['fields_sort'].append({search_field_name: {"order": value, "missing": "_first"}})
+            if value.lower() == 'asc':
+                context['search']['fields_sort'].append({search_field_name: {"order": 'ASC', "missing": "_first"}})
+            else:
+                context['search']['fields_sort'].append({search_field_name: {"order": value}})
         elif param.startswith('f_'):
             context['search']['fields_filter'][search_field_name] = value
         elif param.startswith('r_'):
             context['search']['fields_range'][search_field_name] = value
         elif param.startswith('w_'):
             context['search']['fields_wildcard'][search_field_name] = value
+        elif param.startswith('a_'):
+            if param.startswith('a_terms_'):
+                agg_name = param.replace('a_terms_', '')
+                field_val = None
+                script_val = None
+
+                if ',' in value:
+                    agg_fields = value.split(',')
+                    script_agg_fields = ["doc['{0}'].value".format(f) for f in agg_fields if f]
+                    script_val = "return {0}".format(" + '|||' + ".join(script_agg_fields))
+                else:
+                    field_val = value
+
+                if '.' in value:
+                    nested_path = value.split('.')[0]
+                    agg = A('nested', path=nested_path)
+                    if field_val:
+                        agg.bucket('names', 'terms', size=10000, field=field_val)
+                    elif script_val:
+                        agg.bucket('names', 'terms', size=10000, script={'source': script_val})
+                    context['search']['aggregations'][agg_name] = agg
+                elif field_val:
+                    context['search']['aggregations'][agg_name] = A('terms', size=10000, field=field_val)
+                elif script_val:
+                    context['search']['aggregations'][agg_name] = A('terms', size=10000, script={'source': script_val})
         elif param == 'operator':
             context['search']['operator'] = value
         elif param == 'page':

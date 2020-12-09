@@ -38,7 +38,7 @@
     <div class="container-fluid">
         {% for comm in commentaries %}
             <div class="row">
-                <div id="commentary-note-{{ comm.id }}" class="col-sm-12 comm-heading" onClick="parent.document.getElementsByClassName('commentary-lemma-{{ comm.id }}')[0].scrollIntoView();">
+                <div id="commentary-note-{{ comm.id }}" class="col-sm-12 comm-heading" onClick="parent.document.getElementById('{{ comm.lines.0.xml_id }}-row').scrollIntoView();">
                     <a name="commentary-note-{{ comm.id }}"></a>
                     {{ comm.line_label }}: {{ comm.subject_matter|safe }}
                 </div>
