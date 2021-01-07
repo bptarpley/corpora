@@ -50,5 +50,12 @@
             </div>
         {% endfor %}
     </div>
+    {% if focal_commentary_id %}
+    <script type="application/javascript">
+        document.addEventListener("DOMContentLoaded", function() {
+            document.getElementById('{{ focal_commentary_id }}').scrollIntoView();
+        });
+    </script>
+    {% endif %}
 </body>
 </html>

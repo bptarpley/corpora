@@ -159,6 +159,15 @@ def import_data(job_id):
 
         if os.path.exists(driver_file.path):
 
+            cached_playviewer_path = "{0}/plugins/nvs/templates/{1}_playviewer_cached.html".format(settings.BASE_DIR, play_prefix)
+            cached_commentary_path = "{0}/plugins/nvs/templates/{1}_commentary_cached.html".format(settings.BASE_DIR, play_prefix)
+
+            if os.path.exists(cached_playviewer_path):
+                os.remove(cached_playviewer_path)
+
+            if os.path.exists(cached_commentary_path):
+                os.remove(cached_commentary_path)
+
             with open(driver_file.path, 'r') as tei_in:
                 tei = BeautifulSoup(tei_in, "xml")
 

@@ -1159,8 +1159,7 @@ class Corpus(mongoengine.Document):
             highlight_num_fragments=5,
             highlight_fragment_size=100,
             aggregations={},
-            spool_records=False,
-            spooled_records=None
+            es_debug=False
     ):
         results = {
             'meta': {
@@ -1339,30 +1338,40 @@ class Corpus(mongoengine.Document):
                 for search_field in fields_range.keys():
                     field_values = [value_part for value_part in fields_range[search_field].split('__') if value_part]
                     field_type = self.content_types[content_type].get_field(search_field).type
+                    field_converter = None
 
-                    if field_type in ['number', 'decimal']:
-                        if len(field_values) == 2 and field_values[0].isdigit() and field_values[1].isdigit():
+                    if field_type in ['number', 'decimal', 'date']:
+                        # default field conversion for number value
+                        field_converter = lambda x: int(x)
+
+                        if field_type == 'decimal':
+                            field_converter = lambda x: float(x)
+                        elif field_type == 'date':
+                            field_converter = lambda x: int(parse_date_string(x).timestamp())
+
+                        if len(field_values) == 2:
                             filter.append(Q(
                                 "range",
                                 **{search_field: {
-                                    'gte': int(field_values[0]),
-                                    'lte': int(field_values[1])
+                                    'gte': field_converter(field_values[0]),
+                                    'lte': field_converter(field_values[1])
                                 }}
                             ))
-                        elif len(field_values) == 1 and fields_range[search_field].endswith('__') and field_values[0].isdigit():
+                        elif len(field_values) == 1 and fields_range[search_field].endswith('__'):
                             filter.append(Q(
                                 "range",
                                 **{search_field: {
-                                    'gte': int(field_values[0]),
+                                    'gte': field_converter(field_values[0]),
                                 }}
                             ))
-                        elif len(field_values) == 1 and fields_range[search_field].startswith('__') and field_values[0].isdigit():
+                        elif len(field_values) == 1 and fields_range[search_field].startswith('__'):
                             filter.append(Q(
                                 "range",
                                 **{search_field: {
-                                    'lte': int(field_values[0]),
+                                    'lte': field_converter(field_values[0]),
                                 }}
                             ))
+
 
             if should or must or filter:
 
@@ -1428,11 +1437,20 @@ class Corpus(mongoengine.Document):
 
                 # execute search
                 try:
-                    #print(json.dumps(search_cmd.to_dict(), indent=4))
-                    #es_logger = logging.getLogger('elasticsearch')
-                    #es_logger.setLevel(logging.DEBUG)
+                    es_logger = None
+                    es_log_level = None
+                    if es_debug:
+                        print(json.dumps(search_cmd.to_dict(), indent=4))
+                        es_logger = logging.getLogger('elasticsearch')
+                        es_log_level = es_logger.getEffectiveLevel()
+                        es_logger.setLevel(logging.DEBUG)
+
                     search_results = search_cmd.execute().to_dict()
-                    #print(json.dumps(search_results, indent=4))
+
+                    if es_debug:
+                        print(json.dumps(search_results, indent=4))
+                        es_logger.setLevel(es_log_level)
+                        
                     results['meta']['total'] = search_results['hits']['total']['value']
                     if results['meta']['page_size'] > 0:
                         results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])

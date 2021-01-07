@@ -118,14 +118,15 @@ def _get_context(req):
         'only': [],
         'operator': "and",
         'highlight_num_fragments': 5,
-        'highlight_fragment_size': 100
+        'highlight_fragment_size': 100,
+        'es_debug': False
     }
 
     for param in req.GET.keys():
         value = req.GET[param]
         search_field_name = param[2:]
 
-        if not context['search'] and param in ['q', 'page', 'page-size', 'only', 'operator', 'highlight_fields', 'highlight_num_fragments', 'highlight_fragment_size'] or param[:2] in ['q_', 't_', 'p_', 's_', 'f_', 'r_', 'w_', 'a_']:
+        if not context['search'] and param in ['q', 'page', 'page-size', 'only', 'operator', 'highlight_fields', 'highlight_num_fragments', 'highlight_fragment_size', 'es_debug'] or param[:2] in ['q_', 't_', 'p_', 's_', 'f_', 'r_', 'w_', 'a_']:
             context['search'] = default_search
         
         if param == 'msg':
@@ -190,6 +191,8 @@ def _get_context(req):
             context['search']['page'] = int(value)
         elif param == 'page-size':
             context['search']['page_size'] = int(value)
+        elif param == 'es_debug':
+            context['search']['es_debug'] = True
 
     if context['search'] and (not context['search']['general_query'] and not context['search']['fields_query'] and not context['search']['fields_filter'] and not context['search']['fields_wildcard'] and not context['search']['fields_range']):
         context['search']['general_query'] = "*"

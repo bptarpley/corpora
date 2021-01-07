@@ -357,43 +357,18 @@ def design(request, corpus_id, play_prefix):
 
         set_nvs_session(request, nvs_session, play_prefix)
 
-    cached_template_path = "{0}/plugins/nvs/templates/{1}_playviewer_cached.html".format(settings.BASE_DIR, play_prefix)
-    playviewer_template_path = "{0}/plugins/nvs/templates/playviewer.html".format(settings.BASE_DIR)
+    lines = get_session_lines(corpus, nvs_session)
 
-    if nvs_session['is_filtered'] or not os.path.exists(cached_template_path):
-        lines = get_session_lines(corpus, nvs_session)
-
-        # TODO: ensure preferences don't get inadvertently cached or ignored due to templating
-        if not nvs_session['is_filtered'] and not os.path.exists(cached_template_path):
-            playviewer_template = None
-            with open(playviewer_template_path, 'r') as playviewer_template_in:
-                playviewer_template = playviewer_template_in.read()
-
-            django_template = Template(playviewer_template)
-            context = Context({
-                'corpus_id': corpus_id,
-                'lines': lines,
-                'play': play,
-                'nvs_session': nvs_session
-            })
-            rendered_playviewer_template = django_template.render(context)
-            with open(cached_template_path, 'w') as playviewer_template_out:
-                playviewer_template_out.write(rendered_playviewer_template)
-
-            return render(request, '{0}_playviewer_cached.html'.format(play_prefix), {})
-
-        return render(
-            request,
-            'playviewer.html',
-            {
-                'corpus_id': corpus_id,
-                'lines': lines,
-                'play': play,
-                'nvs_session': nvs_session
-            }
-        )
-    else:
-        return render(request, '{0}_playviewer_cached.html'.format(play_prefix), {})
+    return render(
+        request,
+        'playviewer.html',
+        {
+            'corpus_id': corpus_id,
+            'lines': lines,
+            'play': play,
+            'nvs_session': nvs_session
+        }
+    )
 
 
 def get_session_lines(corpus, session, only_ids=False):
@@ -425,39 +400,21 @@ def commentaries(request, corpus_id, play_prefix):
     nvs_session = get_nvs_session(request, play_prefix)
     commentary_filter = {'play': play.id}
 
-    cached_template_path = "{0}/plugins/nvs/templates/{1}_commentary_cached.html".format(settings.BASE_DIR, play_prefix)
-    commentary_template_path = "{0}/plugins/nvs/templates/commentaries.html".format(settings.BASE_DIR)
+    if nvs_session['is_filtered']:
+        line_ids = [line.id for line in get_session_lines(corpus, nvs_session, only_ids=True)]
+        commentary_filter['lines__in'] = line_ids
 
-    if nvs_session['is_filtered'] or not os.path.exists(cached_template_path):
-        if nvs_session['is_filtered']:
-            line_ids = [line.id for line in get_session_lines(corpus, nvs_session, only_ids=True)]
-            commentary_filter['lines__in'] = line_ids
+    commentaries = corpus.get_content('Commentary', commentary_filter).order_by('id')
 
-        commentaries = corpus.get_content('Commentary', commentary_filter).order_by('id')
 
-        if not nvs_session['is_filtered'] and not os.path.exists(cached_template_path):
-            commentary_template = None
-            with open(commentary_template_path, 'r') as commentary_template_in:
-                commentary_template = commentary_template_in.read()
-
-            django_template = Template(commentary_template)
-            context = Context({'corpus_id': corpus_id, 'commentaries': commentaries})
-            rendered_commentary_template = django_template.render(context)
-            with open(cached_template_path, 'w') as commentary_template_out:
-                commentary_template_out.write(rendered_commentary_template)
-
-            return render(request, '{0}_commentary_cached.html'.format(play_prefix), {})
-
-        return render(
-            request,
-            'commentaries.html',
-            {
-                'corpus_id': corpus_id,
-                'commentaries': commentaries
-            }
-        )
-    else:
-        return render(request, '{0}_commentary_cached.html'.format(play_prefix), {})
+    return render(
+        request,
+        'commentaries.html',
+        {
+            'corpus_id': corpus_id,
+            'commentaries': commentaries
+        }
+    )
 
 
 def play_minimap(request, corpus_id, play_prefix):
