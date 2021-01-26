@@ -143,6 +143,13 @@
                     </div>
                 `;
             },
+            boolean: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value ? 'Yes' : 'No'}
+                    </div>
+                `;
+            },
             date: function(field, value) {
                 return `
                     <div class="col-10 d-flex align-left field-value ${field.type}-value">

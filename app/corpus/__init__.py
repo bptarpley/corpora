@@ -22,7 +22,7 @@ from elasticsearch_dsl.connections import get_connection
 from django.template import Template, Context
 
 
-FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'date', 'file', 'link', 'cross_reference', 'embedded')
+FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'file', 'link', 'cross_reference', 'embedded')
 MIME_TYPES = ('text/html', 'text/xml', 'application/json')
 
 
@@ -83,6 +83,11 @@ class Field(mongoengine.EmbeddedDocument):
                 return mongoengine.FloatField(unique=True, sparse=True)
             else:
                 return mongoengine.FloatField()
+        elif self.type == 'boolean':
+            if self.unique and not self.unique_with:
+                return mongoengine.BooleanField(unique=True, sparse=True)
+            else:
+                return mongoengine.BooleanField()
         elif self.type == 'date':
             if self.unique and not self.unique_with:
                 return mongoengine.DateField(unique=True, sparse=True)
@@ -163,6 +168,17 @@ class Task(mongoengine.Document):
                 'task_name': self.name
             }
         )
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'name': self.name,
+            'version': self.version,
+            'jobsite_type': self.jobsite_type,
+            'content_type': self.content_type,
+            'track_provenance': self.track_provenance,
+            'configuration': self.configuration
+        }
 
     @classmethod
     def _post_delete(self, sender, document, **kwargs):
@@ -609,23 +625,39 @@ class Job(object):
         return j
 
     @staticmethod
-    def get_jobs(corpus_id=None, content_type=None, content_id=None):
+    def get_jobs(corpus_id=None, content_type=None, content_id=None, count_only=False, limit=None, skip=0):
         jobs = []
         results = None
+
+        return_statement = "RETURN j"
+        if count_only:
+            return_statement = "RETURN count(j) as job_count"
+        elif limit:
+            return_statement += " SKIP {0} LIMIT {1}".format(skip, limit)
 
         if not corpus_id and not content_type and not content_id:
             results = run_neo(
                 '''
                     MATCH (j:Job)
-                    RETURN j
-                ''', {}
+                    {0}
+                '''.format(return_statement), {}
             )
         elif corpus_id and not content_type:
             results = run_neo(
                 '''
-                    MATCH (c:Corpus { uri: $corpus_uri }) -[rel:hasJob]-> (j:Job)
-                    RETURN j
-                ''',
+                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[rel:hasJob]-> (j:Job)
+                    {0}
+                '''.format(return_statement),
+                {
+                    'corpus_uri': "/corpus/{0}".format(corpus_id)
+                }
+            )
+        elif corpus_id and content_type and not content_id:
+            results = run_neo(
+                '''
+                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:Job) <-[:hasJob]- (d:{0})
+                    {1}
+                '''.format(content_type, return_statement),
                 {
                     'corpus_uri': "/corpus/{0}".format(corpus_id)
                 }
@@ -634,8 +666,8 @@ class Job(object):
             results = run_neo(
                 '''
                     MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:Job) <-[:hasJob]- (d:{0} {{ uri: $content_uri }})
-                    return j
-                '''.format(content_type),
+                    {1}
+                '''.format(content_type, return_statement),
                 {
                     'corpus_uri': "/corpus/{0}".format(corpus_id),
                     'content_uri': "/corpus/{0}/{1}/{2}".format(corpus_id, content_type, content_id)
@@ -643,6 +675,9 @@ class Job(object):
             )
 
         if results:
+            if count_only:
+                return results[0]['job_count']
+
             for result in results:
                 j = Job()
                 j._load_from_result(result['j'])
@@ -812,6 +847,8 @@ class ContentType(mongoengine.EmbeddedDocument):
     show_in_nav = mongoengine.BooleanField(default=True)
     proxy_field = mongoengine.StringField()
     templates = mongoengine.MapField(mongoengine.EmbeddedDocumentField(ContentTemplate))
+    view_widget_url = mongoengine.StringField()
+    edit_widget_url = mongoengine.StringField()
     inherited_from_module = mongoengine.StringField()
     inherited_from_class = mongoengine.StringField()
     base_mongo_indexes = mongoengine.StringField()
@@ -898,7 +935,9 @@ class ContentType(mongoengine.EmbeddedDocument):
             'proxy_field': self.proxy_field,
             'templates': {},
             'inherited': True if self.inherited_from_module else False,
-            'invalid_field_names': deepcopy(self.invalid_field_names)
+            'invalid_field_names': deepcopy(self.invalid_field_names),
+            'view_widget_url': self.view_widget_url,
+            'edit_widget_url': self.edit_widget_url
         }
 
         for template_name in self.templates:
@@ -1196,7 +1235,14 @@ class Corpus(mongoengine.Document):
 
             for search_field in fields_query.keys():
                 field_values = [value_part for value_part in fields_query[search_field].split('__') if value_part]
-                field_type = self.content_types[content_type].get_field(search_field).type
+                field_type = None
+
+                if '.' in search_field:
+                    field_parts = search_field.split('.')
+                    xref_ct = self.content_types[content_type].get_field(field_parts[0]).cross_reference_type
+                    field_type = self.content_types[xref_ct].get_field(field_parts[1]).type
+                else:
+                    field_type = self.content_types[content_type].get_field(search_field).type
 
                 if not field_values:
                     if '.' in search_field:
@@ -1450,7 +1496,7 @@ class Corpus(mongoengine.Document):
                     if es_debug:
                         print(json.dumps(search_results, indent=4))
                         es_logger.setLevel(es_log_level)
-                        
+
                     results['meta']['total'] = search_results['hits']['total']['value']
                     if results['meta']['page_size'] > 0:
                         results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
@@ -1641,6 +1687,12 @@ class Corpus(mongoengine.Document):
             new_content_type.plural_name = schema['plural_name']
             new_content_type.show_in_nav = schema['show_in_nav']
             new_content_type.proxy_field = schema['proxy_field']
+
+            if 'view_widgel_url' in schema:
+                new_content_type.view_widget_url = schema['view_widget_url']
+            if 'edit_widget_url' in schema:
+                new_content_type.edit_widget_url = schema['edit_widget_url']
+
             new_content_type.invalid_field_names = invalid_field_names
 
             if 'templates' in schema:
@@ -1695,6 +1747,11 @@ class Corpus(mongoengine.Document):
             self.content_types[ct_name].plural_name = schema['plural_name']
             self.content_types[ct_name].show_in_nav = schema['show_in_nav']
             self.content_types[ct_name].proxy_field = schema['proxy_field']
+
+            if 'view_widgel_url' in schema:
+                self.content_types[ct_name].view_widget_url = schema['view_widget_url']
+            if 'edit_widget_url' in schema:
+                self.content_types[ct_name].edit_widget_url = schema['edit_widget_url']
 
             if 'synonym_file' in schema:
                 self.content_types[ct_name].synonym_file = schema['synonym_file']
@@ -1912,6 +1969,7 @@ class Corpus(mongoengine.Document):
                 'html': 'text',
                 'number': 'integer',
                 'decimal': 'float',
+                'boolean': 'boolean',
                 'date': 'date',
                 'file': 'text',
                 'image': 'text',

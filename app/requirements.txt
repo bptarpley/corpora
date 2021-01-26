@@ -16,10 +16,12 @@ nltk==3.4.5
 matplotlib==3.1.1
 beautifulsoup4
 django-cors-headers==3.2.0
-djangorestframework
+djangorestframework==3.11.1
 pymysql
 neo4j
 elasticsearch-dsl>=7.0.0,<8.0.0
 lxml
 python-dateutil
 rdflib
+ipykernel
+viapy

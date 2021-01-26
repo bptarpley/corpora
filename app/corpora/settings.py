@@ -205,6 +205,13 @@ REST_FRAMEWORK = {
 HUEY = PriorityRedisHuey('corpora', host='redis')
 NUM_HUEY_WORKERS = os.environ.get('CRP_HUEY_WORKERS')
 
+# iPython Notebook Config
+NOTEBOOK_ARGUMENTS = [
+    '--ip', '0.0.0.0',
+    '--port', '9999',
+    '--no-browser',
+]
+
 # Password validation
 # https://docs.djangoproject.com/en/2.1/ref/settings/#auth-password-validators
 

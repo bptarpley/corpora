@@ -112,6 +112,19 @@ class Corpora {
         );
     }
 
+    get_jobs(corpus_id=null, content_type=null, content_id=null, params={}, callback) {
+        let url = '/api/jobs/';
+        if (corpus_id) { url += `corpus/${corpus_id}/`; }
+        if (corpus_id && content_type) { url += `${content_type}/`; }
+        if (corpus_id && content_type && content_id) { url += `${content_id}`; }
+        this.make_request(
+            url,
+            "GET",
+            params,
+            callback
+        );
+    }
+
     get_corpus_jobs(corpus_id, callback) {
         this.make_request(
             `/api/corpus/${corpus_id}/jobs/`,

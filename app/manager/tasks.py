@@ -20,11 +20,43 @@ from PyPDF2 import PdfFileReader
 from PyPDF2.pdf import ContentStream
 from PyPDF2.generic import TextStringObject, u_, b_
 
-from manager.utilities import _contains
+from manager.utilities import _contains, build_search_params_from_dict
 from django.utils.text import slugify
 from zipfile import ZipFile
 
 REGISTRY = {
+    "Bulk Launch Jobs": {
+        "version": "0.0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "content_type": {
+                    "value": "",
+                    "type": "content_type",
+                    "label": "Content Type",
+                },
+                "task_id": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Task ID"
+                },
+                "query": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Content Search Query JSON"
+                },
+                "job_params": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Bulk Job Params JSON"
+                },
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['bulk_launch_jobs']
+    },
     "Adjust Content": {
         "version": "0.2",
         "jobsite_type": "HUEY",
@@ -208,6 +240,49 @@ def run_job(job_id):
                 task_function(job_id)
             except:
                 job.complete(status='error', error_msg="Error launching task: {0}".format(traceback.format_exc()))
+
+
+@db_task(priority=3)
+def bulk_launch_jobs(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    if job:
+        corpus = job.corpus
+        content_type = job.get_param_value('content_type')
+        task_id = job.get_param_value('task_id')
+        search_query = json.loads(job.get_param_value('query'))
+        search_params = build_search_params_from_dict(search_query)
+        job_params = json.loads(job.get_param_value('job_params'))
+
+        search_params['page_size'] = 100
+        search_params['only'] = ['id']
+        page = 1
+        num_pages = 1
+
+        while page <= num_pages:
+            search_params['page'] = page
+            results = corpus.search_content(content_type, **search_params)
+            if results:
+                job_ids = []
+                if results['meta']['num_pages'] < num_pages:
+                    num_pages = results['meta']['num_pages']
+
+                for record in results['records']:
+                    job_ids.append(
+                        corpus.queue_local_job(
+                            content_type=content_type,
+                            content_id=record['id'],
+                            task_id=task_id,
+                            scholar_id=job.scholar_id,
+                            parameters=job_params
+                        )
+                    )
+
+                for j_id in job_ids:
+                    run_job(j_id)
+            page += 1
+
+    job.complete('complete')
 
 
 @db_periodic_task(crontab(minute='*'), priority=4)

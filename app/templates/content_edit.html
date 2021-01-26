@@ -96,9 +96,20 @@
                     </h4>
                 </div>
                 <div class="card-body">
+                    {% if edit_widget_url %}
+                        <div class="row">
+                            <div class="col-sm-12 col-md-6">
+                    {% endif %}
                     <form id="content-form" method="post">
                         {% csrf_token %}
                     </form>
+                    {% if edit_widget_url %}
+                            </div>
+                            <div class="col-sm-12 col-md-6">
+                                <iframe src="{{ edit_widget_url }}" height="100%" width="100%" frameBorder="0"></iframe>
+                            </div>
+                        </div>
+                    {% endif %}
                 </div>
                 <div class="card-footer">
                     <button type="button" class="btn btn-primary" id="content-save-button">Save</button>
@@ -188,6 +199,16 @@
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2">
                         <input type="number" step="0.01" class="form-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value}">
                         ${multi_remover(field, id_suffix)}
+                    </div>
+                `;
+            },
+            boolean: function(field, value, id_suffix) {
+                let is_true = false;
+                if (['t', 'T', 'true', 'True', 1, true].includes(value)) { is_true = true; }
+                return `
+                    <div id="${field.name}-value${id_suffix}-div" class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" ${is_true ? 'checked': ''}>
+                        <label class="form-check-label" for="${field.name}-value${id_suffix}">${field.label}</label>
                     </div>
                 `;
             },
@@ -299,19 +320,26 @@
                 field_indexes[field.name] = x;
 
                 if (field.type !== 'embedded') {
+
+
                     if (field.multiple) {
+                        let label = `<label for="${field.name}-values-div">${field.label}</label>`;
+                        if (field.type === 'boolean') { label = ''; }
                         content_form.append(`
-                            <label for="${field.name}-values-div">${field.label}</label>
+                            ${label}
                             <div class="ml-2 mb-2">
+                                ${label}
                                 <div id="${field.name}-values-div">
                                 </div>
                                 <button type="button" class="btn btn-sm btn-secondary add_multi_field_button" id="${field.name}-add-button">Add</button>
                             </div>
                         `);
                     } else {
+                        let label = `<label for="${field.name}-value">${field.label}</label>`;
+                        if (field.type === 'boolean') { label = ''; }
                         content_form.append(`
                             <div id="${field.name}-value-div" class="form-group">
-                                <label for="${field.name}-value">${field.label}</label>
+                                ${label}
                             </div>
                         `);
                     }

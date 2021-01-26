@@ -1,4 +1,5 @@
 import re
+import subprocess
 import mimetypes
 from ipaddress import ip_address
 from django.shortcuts import render, redirect, HttpResponse
@@ -6,6 +7,7 @@ from django.http import Http404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from html import unescape
 from time import sleep
 from corpus import *
@@ -14,6 +16,7 @@ from .utilities import(
     _get_context,
     _clean,
     _contains,
+    build_search_params_from_dict,
     get_scholar_corpus,
     parse_uri,
     get_jobsites,
@@ -215,6 +218,95 @@ def corpus(request, corpus_id):
                                     action_field_name
                                 ))
 
+            # HANDLE NOTEBOOK LAUNCH
+            elif 'launch-notebook' in request.POST:
+                if corpus.path:
+                    notebook_path = "{0}/corpus_notebook.ipynb".format(corpus.path)
+                    jupyter_token = "{0}{1}".format(corpus_id, response['scholar'].id)
+                    notebook_url = "/notebook/notebooks/corpus_notebook.ipynb?token={0}".format(jupyter_token)
+
+                    if not os.path.exists(notebook_path):
+                        notebook_contents = {
+                            "cells": [
+                                {
+                                    "cell_type": "code",
+                                    "execution_count": None,
+                                    "metadata": {
+                                        "scrolled": True
+                                    },
+                                    "outputs": [],
+                                    "source": [
+                                        "import os, sys\n",
+                                        "sys.path.insert(0, '/apps/corpora')\n",
+                                        "os.environ.setdefault('DJANGO_SETTINGS_MODULE', \"settings.py\")\n",
+                                        "import django\n",
+                                        "django.setup()\n",
+                                        "from corpus import *\n",
+                                        "my_corpus = get_corpus('{0}')\n".format(corpus_id),
+                                        "\n",
+                                        "# ~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~\n",
+                                        "# ~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~\n",
+                                        "# \n",
+                                        "# WELCOME to Corpora's experimental iPython notebook shell!\n",
+                                        "# \n",
+                                        "# This cell must be executed in order to use Corpora's built-in\n",
+                                        "# \"corpus\" module, which allows you to interact programmatically\n",
+                                        "# with the content in your corpus.\n",
+                                        "# \n",
+                                        "# For your convenience, a variable named 'my_corpus' will be\n",
+                                        "# instantiated by this cell, allowing you to dive right in :)\n",
+                                        "# \n",
+                                        "# NOTE: With great power comes great responsibility. While Corpora\n",
+                                        "# itself runs under a non-privileged user, direct access to the \n",
+                                        "# corpus module via Python shell currently grants you write access\n",
+                                        "# to every corpus in Corpora. As such, access to this notebook\n",
+                                        "# functionality should only given to the most trusted users!\n",
+                                        "# \n",
+                                        "# ~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~\n",
+                                        "# ~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~\n",
+                                    ]
+                                }
+                            ],
+                            "metadata": {
+                                "kernelspec": {
+                                    "display_name": "Corpora",
+                                    "language": "python",
+                                    "name": "corpora"
+                                },
+                                "language_info": {
+                                    "codemirror_mode": {
+                                        "name": "ipython",
+                                        "version": 3
+                                    },
+                                    "file_extension": ".py",
+                                    "mimetype": "text/x-python",
+                                    "name": "python",
+                                    "nbconvert_exporter": "python",
+                                    "pygments_lexer": "ipython3",
+                                    "version": "3.7.5"
+                                }
+                            },
+                            "nbformat": 4,
+                            "nbformat_minor": 2
+                        }
+
+                        with open(notebook_path, 'w') as notebook_out:
+                            json.dump(notebook_contents, notebook_out, indent=2)
+
+                    pid = subprocess.Popen([
+                        'jupyter', 'notebook',
+                        notebook_path,
+                        '--ip', '0.0.0.0',
+                        '--port', '9999',
+                        '--no-browser',
+                        '--NotebookApp.base_url="/notebook/"',
+                        '--NotebookApp.token="{0}"'.format(jupyter_token),
+                        '--NotebookApp.notebook_dir="/corpora/{0}"'.format(corpus_id),
+                        '--NotebookApp.allow_origin="*"'
+                    ])
+
+                    response['messages'].append("Notebook server successfully launched! Access your notebook <a href='{0}'>here</a>.".format(notebook_url))
+
             # HANDLE CORPUS DELETION
             elif 'corpus-deletion-name' in request.POST:
                 if corpus.name == request.POST['corpus-deletion-name']:
@@ -242,6 +334,8 @@ def corpus(request, corpus_id):
             'corpus_id': corpus_id,
             'role': role,
             'response': response,
+            'available_jobsites': [str(js.id) for js in response['scholar']['available_jobsites']],
+            'available_tasks': [str(t.id) for t in response['scholar']['available_tasks']],
         }
     )
 
@@ -250,8 +344,15 @@ def corpus(request, corpus_id):
 def edit_content(request, corpus_id, content_type, content_id=None):
     context = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+    edit_widget_url = None
 
     if (context['scholar'].is_admin or role == 'Editor') and corpus and content_type in corpus.content_types:
+        if corpus.content_types[content_type].edit_widget_url:
+            edit_widget_url = corpus.content_types[content_type].edit_widget_url.format(
+                corpus_id=corpus_id,
+                content_type=content_type,
+                content_id=content_id
+            )
 
         if request.method == 'POST':
             temp_file_fields = []
@@ -265,6 +366,13 @@ def edit_content(request, corpus_id, content_type, content_id=None):
 
             content = corpus.get_content(content_type, content_id)
 
+            # set all boolean fields to False by default--boolean field inputs are checkboxes, and unchecked checkboxes don't
+            # show up as POST params. True values for checked boolean fields will get overwritten further below.
+            for ct_field_name in ct_fields.keys():
+                if ct_fields[ct_field_name].type == 'boolean':
+                    setattr(content, ct_field_name, False)
+
+            # iterate over the POST params, assuming each one corresponds with a field value
             for field_param, field_value in request.POST.items():
                 param_parts = field_param.split('-')
                 field_name = param_parts[0]
@@ -308,12 +416,18 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                     elif ct_fields[field_name].type == 'decimal':
                         field_value = float(field_value)
 
+                    # set value for boolean fields
+                    elif ct_fields[field_name].type == 'boolean':
+                        field_value = True
+
                     # set value for date fields
                     elif ct_fields[field_name].type == 'date' and not field_value:
                         field_value = None
                     elif ct_fields[field_name].type == 'date':
                         field_value = parse_date_string(field_value)
 
+                    # having parsed the value correctly depending on data type, now actually set the field value for
+                    # our content
                     if ct_fields[field_name].multiple and len(param_parts) == 3:
                         multi_field_values[field_name].append(field_value)
                     else:
@@ -346,6 +460,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                 'corpus_id': corpus_id,
                 'response': context,
                 'content_type': content_type,
+                'edit_widget_url': edit_widget_url,
                 'content_id': content_id,
             }
         )
@@ -464,6 +579,118 @@ def merge_content(request, corpus_id, content_type):
 
 
 @login_required
+def job_widget(request, corpus_id=None, content_type=None, content_id=None):
+    context = _get_context(request)
+    role = None
+    if context['scholar'].is_admin:
+        role = 'Admin'
+    elif corpus_id:
+        corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+
+    if role in ['Admin', 'Editor']:
+        if request.method == 'POST' and 'kill-job-id' in request.POST:
+            kill_job_id = _clean(request.POST, 'kill-job-id')
+            job = Job(kill_job_id)
+            job.kill()
+
+        return render(
+            request,
+            'JobsWidget.html',
+            {
+                'popup': True,
+                'role': role,
+                'corpus_id': corpus_id,
+                'content_type': content_type,
+                'content_id': content_id
+            }
+        )
+    else:
+        raise Http404("You are not authorized to view this page.")
+
+
+@login_required
+def bulk_job_manager(request, corpus_id, content_type):
+    context = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+    job_ids = []
+    num_jobs = 0
+
+    if (context['scholar'].is_admin or role == 'Editor') and request.method == 'POST':
+        if _contains(request.POST, ['task-id', 'content-query']):
+            task = Task.objects(id=_clean(request.POST, 'task-id'))[0]
+            if not task.configuration:
+                query = json.loads(request.POST['content-query'])
+                search_params = build_search_params_from_dict(query)
+                search_params['page_size'] = 1
+                search_params['page'] = 1
+                search_params['only'] = ['id']
+                results = corpus.search_content(content_type, **search_params)
+                num_jobs = results['meta']['total']
+                bulk_job_id = corpus.queue_local_job(
+                    task_name='Bulk Launch Jobs',
+                    scholar_id=context['scholar'].id,
+                    parameters={
+                        'content_type': content_type,
+                        'task_id': str(task.id),
+                        'query': request.POST['content-query'],
+                        'job_params': '{}'
+                    }
+                )
+                run_job(bulk_job_id)
+
+                context['messages'].append('Successfully enqueued {0} jobs.'.format(num_jobs))
+
+                return render(
+                    request,
+                    'bulk_job_manager.html',
+                    {
+                        'corpus_id': corpus_id,
+                        'corpus_name': corpus.name,
+                        'response': context,
+                        'content_type': content_type,
+                        'content_type_plural': corpus.content_types[content_type].plural_name,
+                        'num_jobs': num_jobs
+                    }
+                )
+
+        elif _contains(request.POST, ['task-id', 'content-ids']):
+            task = Task.objects(id=_clean(request.POST, 'task-id'))[0]
+            if not task.configuration:
+                content_ids = request.POST.get('content-ids', '')
+                content_ids = [content_id for content_id in content_ids.split(',') if content_id]
+
+                for content_id in content_ids:
+                    job_ids.append(corpus.queue_local_job(
+                        content_type=content_type,
+                        content_id=content_id,
+                        task_id=task.id,
+                        scholar_id=context['scholar'].id
+                    ))
+
+                for job_id in job_ids:
+                    run_job(job_id)
+
+                num_jobs = len(job_ids)
+
+                context['messages'].append('Successfully enqueued {0} jobs.'.format(num_jobs))
+
+                return render(
+                    request,
+                    'bulk_job_manager.html',
+                    {
+                        'corpus_id': corpus_id,
+                        'corpus_name': corpus.name,
+                        'response': context,
+                        'content_type': content_type,
+                        'content_type_plural': corpus.content_types[content_type].plural_name,
+                        'num_jobs': num_jobs
+                    }
+                )
+
+    raise Http404("You are not authorized to view this page.")
+
+
+@login_required
 def scholars(request):
     response = _get_context(request)
 
@@ -505,6 +732,24 @@ def scholars(request):
 
                             target_scholar.save()
                             response['messages'].append("Permissions for {0} successfully changed!".format(target_scholar.username))
+
+            elif 'job-perms' in request.POST:
+                target_scholar = Scholar.objects(id=request.POST['job-perms'])[0]
+                target_scholar.available_jobsites = []
+                target_scholar.available_tasks = []
+
+                for post_param in request.POST.keys():
+                    if post_param.startswith('jobsite-'):
+                        jobsite_id = post_param.replace('jobsite-', '')
+                        jobsite = JobSite.objects(id=jobsite_id)[0]
+                        target_scholar.available_jobsites.append(jobsite)
+                    elif post_param.startswith('task-'):
+                        task_id = post_param.replace('task-', '')
+                        task = Task.objects(id=task_id)[0]
+                        target_scholar.available_tasks.append(task)
+
+                target_scholar.save()
+                response['messages'].append("Permissions for {0} successfully changed!".format(target_scholar.username))
 
             elif 'change-pwd' in request.POST:
                 password = request.POST['password']
@@ -773,7 +1018,9 @@ def api_scholar(request, scholar_id=None):
                 'lname': scholar.lname,
                 'email': scholar.email,
                 'is_admin': scholar.is_admin,
-                'available_corpora': {}
+                'available_corpora': {},
+                'available_jobsites': [str(js.id) for js in scholar.available_jobsites],
+                'available_tasks': [str(task.id) for task in scholar.available_tasks]
             }
             if scholar.available_corpora:
                 corpora = Corpus.objects(id__in=list(scholar.available_corpora.keys())).only('id', 'name')
@@ -998,6 +1245,75 @@ def api_tasks(request, content_type=None):
 
     return HttpResponse(
         tasks.to_json(),
+        content_type='application/json'
+    )
+
+
+@api_view(['GET'])
+def api_jobs(request, corpus_id=None, content_type=None, content_id=None):
+    context = _get_context(request)
+    payload = {
+        'meta': {
+            'total': 0,
+            'page': int(_clean(request.GET, 'page', '1')),
+            'page_size': int(_clean(request.GET, 'page-size', '50')),
+            'num_pages': 0,
+            'has_next_page': False
+        },
+        'records': []
+    }
+    limit = payload['meta']['page_size']
+    skip = payload['meta']['page_size'] * (payload['meta']['page'] - 1)
+    results = []
+    detailed = 'detailed' in request.GET
+    cached_jobsites = {}
+    cached_tasks = {}
+
+    if not corpus_id and context['scholar'].is_admin:
+        payload['meta']['total'] = Job.get_jobs(count_only=True)
+        results = Job.get_jobs(
+            limit=limit,
+            skip=skip
+        )
+
+    elif corpus_id:
+        corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+        if corpus:
+            payload['meta']['total'] = Job.get_jobs(
+                corpus_id=corpus_id,
+                content_type=content_type,
+                content_id=content_id,
+                count_only=True)
+            results = Job.get_jobs(
+                corpus_id=corpus_id,
+                content_type=content_type,
+                content_id=content_id,
+                limit=limit,
+                skip=skip
+            )
+
+    if payload['meta']['page'] * payload['meta']['page_size'] < payload['meta']['total']:
+        payload['meta']['has_next_page'] = True
+
+    for job in results:
+        job_dict = job.to_dict()
+        if detailed:
+            if job.jobsite_id not in cached_jobsites:
+                cached_jobsites[job.jobsite_id] = job.jobsite
+
+            job_dict['jobsite_name'] = cached_jobsites[job.jobsite_id].name
+            job_dict['jobsite_type'] = cached_jobsites[job.jobsite_id].type
+
+            if job.task_id not in cached_tasks:
+                cached_tasks[job.task_id] = job.task
+
+            job_dict['task_name'] = cached_tasks[job.task_id].name
+            job_dict['task_version'] = cached_tasks[job.task_id].version
+
+        payload['records'].append(job_dict)
+
+    return HttpResponse(
+        json.dumps(payload),
         content_type='application/json'
     )
 

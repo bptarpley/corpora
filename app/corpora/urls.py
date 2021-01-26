@@ -26,6 +26,7 @@ urlpatterns += [
     path('corpus/<str:corpus_id>/<str:content_type>/', manager_views.edit_content),
     path('corpus/<str:corpus_id>/<str:content_type>/explore/', manager_views.explore_content),
     path('corpus/<str:corpus_id>/<str:content_type>/merge/', manager_views.merge_content),
+    path('corpus/<str:corpus_id>/<str:content_type>/bulk-job-manager/', manager_views.bulk_job_manager),
     path('corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/', manager_views.view_content),
     path('corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/edit/', manager_views.edit_content),
 
@@ -33,9 +34,18 @@ urlpatterns += [
     path('image/uri/<str:image_uri>/', manager_views.get_image),
     path('image/uri/<str:image_uri>/<str:region>/<str:size>/<str:rotation>/<str:quality>.<str:format>', manager_views.get_image),
 
+    path('jobs/', manager_views.job_widget),
+    path('jobs/corpus/<str:corpus_id>/', manager_views.job_widget),
+    path('jobs/corpus/<str:corpus_id>/<str:content_type>/', manager_views.job_widget),
+    path('jobs/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/', manager_views.job_widget),
+
     path('api/jobsites/', manager_views.api_jobsites),
     path('api/tasks/', manager_views.api_tasks),
     path('api/tasks/<str:content_type>/', manager_views.api_tasks),
+    path('api/jobs/', manager_views.api_jobs),
+    path('api/jobs/corpus/<str:corpus_id>/', manager_views.api_jobs),
+    path('api/jobs/corpus/<str:corpus_id>/<str:content_type>/', manager_views.api_jobs),
+    path('api/jobs/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/', manager_views.api_jobs),
 
     path('api/scholar/', manager_views.api_scholar),
     path('api/scholar/<str:scholar_id>/', manager_views.api_scholar),

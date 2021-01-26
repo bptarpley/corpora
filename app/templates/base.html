@@ -52,7 +52,7 @@
                 {% if response.messages %}
                     {% for message in response.messages %}
                         <div class="col alert alert-info" role="alert">
-                            {{ message }}
+                            {{ message|safe }}
                         </div>
                     {% endfor %}
                 {% endif %}
@@ -60,7 +60,7 @@
                 {% if response.errors %}
                     {% for error in response.errors %}
                         <div class="col alert alert-danger" role="alert">
-                            {{ error }}
+                            {{ error|safe }}
                         </div>
                     {% endfor %}
                 {% endif %}

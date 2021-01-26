@@ -200,6 +200,7 @@
                             <option value="html">HTML</option>
                             <option value="number">Number</option>
                             <option value="decimal">Decimal</option>
+                            <option value="boolean">Boolean</option>
                             <option value="date">Date</option>
                             <option value="link">Link</option>
                             <option value="file">File Upload</option>
@@ -397,19 +398,20 @@
                     <div class="card-header">
                         <div class="d-flex w-100 justify-content-between align-items-center">
                             <h4>Running Jobs</h4>
+                            <span>
                             {% if response.scholar.is_admin or role == 'Editor' %}
                                 <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
-                            {% else %}
-                                <span>&nbsp;</span>
+                                <button id="launch-notebook-button" class="btn btn-primary rounded ml-1" type="button">Launch Notebook</button>
+                                <form id="launch-notebook-form" method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="launch-notebook" value="y" />
+                                </form>
                             {% endif %}
+                            </span>
                         </div>
                     </div>
                     <div class="card-body">
-                        <div id="running-jobs-div">
-                            <div id="no-running-jobs-div" class="alert alert-info">
-                                There are currently no jobs running for this corpus.
-                            </div>
-                        </div>
+                        <iframe src="/jobs/corpus/{{ corpus_id }}/" width="100%" height="100%" frameBorder="0"></iframe>
                     </div>
                 </div>
 
@@ -514,13 +516,13 @@
     <script type="application/javascript">
         let corpus_id = "{{ corpus_id }}";
         let role = "{{ role }}";
+        let available_jobsites = {{ available_jobsites|safe }};
+        let available_tasks = {{ available_tasks|safe }};
         let corpus = null;
         let template_formats = null;
         let jobsites = [];
         let local_jobsite_id = null;
         let tasks = [];
-        let check_jobs_timer = null;
-        let check_jobs_interval = 10;
         let ct_search = {};
         let selected_content = {};
         let import_editor;
@@ -563,6 +565,7 @@
             choice: 'Choice',
             number: 'Number',
             decimal: 'Decimal',
+            boolean: 'Boolean',
             date: 'Date',
             file: 'File',
             link: 'Link',
@@ -946,26 +949,30 @@
                 breadcrumb.css('position', 'fixed');
 
                 // SETUP JOBS
-                corpora.get_jobsites(function(jobsites_data) {
+                corpora.get_jobsites(function (jobsites_data) {
                     jobsites = jobsites_data;
 
                     if (role === 'Editor' || role === 'Admin') {
                         let jobsite_selector = $('#jobsite-selector');
 
                         for (let x = 0; x < jobsites.length; x++) {
-                            jobsite_selector.append(`
-                                <option value="${_id(jobsites[x])}" class="${jobsites[x]["type"]}">
-                                    ${jobsites[x]["name"]}
-                                </option>
-                            `);
-                            if (jobsites[x].name === 'Local') {
-                                local_jobsite_id = _id(jobsites[x]);
+                            if (role === 'Admin' || available_jobsites.includes(_id(jobsites[x]))) {
+                                jobsite_selector.append(`
+                                    <option value="${_id(jobsites[x])}" class="${jobsites[x]["type"]}">
+                                        ${jobsites[x]["name"]}
+                                    </option>
+                                `);
+                                if (jobsites[x].name === 'Local') {
+                                    local_jobsite_id = _id(jobsites[x]);
+                                }
                             }
                         }
                     }
 
-                    corpora.get_tasks('Corpus', function(tasks_data) {
-                        tasks = tasks_data.filter(function(value, index, arr) { return value.track_provenance; });
+                    corpora.get_tasks('Corpus', function (tasks_data) {
+                        tasks = tasks_data.filter(function (value, index, arr) {
+                            return value.track_provenance;
+                        });
 
                         if (role === 'Editor' || role === 'Admin') {
                             load_tasks(local_jobsite_id);
@@ -980,9 +987,11 @@
                             $('#job-submit-button').click(function () {
                                 $('#job-form').submit();
                             });
-                        }
 
-                        check_jobs();
+                            $('#launch-notebook-button').click(function () {
+                                $('#launch-notebook-form').submit();
+                            })
+                        }
                     });
                 });
 
@@ -1007,7 +1016,14 @@
                                 <div class="d-flex w-100 justify-content-between align-items-center text-nowrap p-2 ml-2">
                                     <h4>${ct.plural_name}</h4>
                                     <div class="input-group ml-2 mr-2">
-                                        <input type="text" class="form-control form-control" id="ct-${ct.name}-search-box" placeholder="Search" />
+                                        <div class="input-group-prepend">
+                                            <button id="ct-${ct.name}-search-type-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Text Search</button>
+                                            <div id="ct-${ct.name}-search-type-menu" class="dropdown-menu">
+                                                <span class="p-2">Select a specific field from the dropdown to the right in order to choose a different search type.</span>
+                                            </div>
+                                            <input type="hidden" id="ct-${ct.name}-search-type-value" value="default" />
+                                        </div>
+                                        <input type="text" class="form-control" id="ct-${ct.name}-search-box" placeholder="Search" />
                                         <div class="input-group-append">
                                             <button id="ct-${ct.name}-search-setting-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">All Fields</button>
                                             <div id="ct-${ct.name}-search-settings-menu" class="dropdown-menu">
@@ -1126,10 +1142,38 @@
                     }
                 }
             }
+
+            // event for selecting a specific field to search
             $(`.ct-${ct.name}-search-setting`).click(function (event) {
                 event.preventDefault();
                 let field = event.target.id.replace(`ct-${ct.name}-search-setting-`, '');
                 let label = $(this).text();
+                let search_type_menu = $(`#ct-${ct.name}-search-type-menu`);
+
+                if (field === 'default') {
+                    search_type_menu.html(`
+                        <span class="p-2">Select a specific field from the dropdown to the right in order to choose a different search type.</span>
+                    `);
+                } else {
+                    search_type_menu.html(`
+                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-default" href="#">Text Search</a>
+                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-exact" href="#">Exact Search</a>
+                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-term" href="#">Term Search</a>
+                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-phrase" href="#">Phrase Search</a>
+                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-wildcard" href="#">Wildcard Search</a>
+                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-range" href="#">Range Search</a>
+                    `);
+                }
+
+                // event for selecting a search type
+                $(`.ct-${ct.name}-search-type`).click(function (event) {
+                    event.preventDefault();
+                    let search_type = event.target.id.replace(`ct-${ct.name}-search-type-`, '');
+                    let label = $(this).text();
+
+                    $(`#ct-${ct.name}-search-type-selection`).text(label);
+                    $(`#ct-${ct.name}-search-type-value`).val(search_type);
+                });
 
                 $(`#ct-${ct.name}-search-setting-selection`).text(label);
                 $(`#ct-${ct.name}-search-setting-value`).val(field);
@@ -1153,11 +1197,21 @@
                 if (key === 13) {
                     let query = $(`#ct-${ct.name}-search-box`).val();
                     let field = $(`#ct-${ct.name}-search-setting-value`).val();
+                    let search_type = $(`#ct-${ct.name}-search-type-value`).val();
+                    let search_type_map = {
+                        default: 'q',
+                        exact: 'f',
+                        term: 't',
+                        phrase: 'p',
+                        wildcard: 'w',
+                        range: 'r',
+                    };
 
                     if (field === 'default') {
                         ct_search[ct.name].q = query;
                     } else {
-                        ct_search[ct.name]['q_' + field] = query;
+                        let param_prefix = search_type_map[search_type];
+                        ct_search[ct.name][`${param_prefix}_${field}`] = query;
                     }
 
                     $(`#ct-${ct.name}-search-clear-button`).removeClass('d-none');
@@ -1169,7 +1223,7 @@
                 $(`#ct-${ct.name}-search-box`).val('');
                 for (let param in ct_search[ct.name]) {
                     if (ct_search[ct.name].hasOwnProperty(param)) {
-                        if (param.startsWith("q")) {
+                        if (param === 'q' || ['q_', 'f_', 't_', 'p_', 'w_', 'r_'].includes(param.slice(0, 2))) {
                             delete ct_search[ct.name][param];
                         }
                     }
@@ -1193,6 +1247,16 @@
                 } else if (action === 'merge') {
                     multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/merge/`);
                     multi_form.submit();
+                } else {
+                    multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/bulk-job-manager/`);
+                    multi_form.append(`
+                        <input type='hidden' name='task-id' value='${action}'/>
+                    `);
+                    if (selected_content[ct.name].all) {
+                        multi_form.append(`<input id='multiselect-content-query' type='hidden' name='content-query'>`);
+                        $('#multiselect-content-query').val(JSON.stringify(ct_search[ct_name]));
+                    }
+                    multi_form.submit();
                 }
             });
 
@@ -1204,12 +1268,25 @@
 
             // perform initial query of content based on search settings
             corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
+
+            // populate content targeted tasks
+            corpora.get_tasks(ct.name, function(tasks_data) {
+                if (tasks_data.length > 0) {
+                    let task_selection_html = '<optgroup label="Launch Job">';
+                    tasks_data.map(task => {
+                        if (role === 'Admin' || available_tasks.includes(_id(task))) {
+                            task_selection_html += `<option value="${_id(task)}">${task.name}</option>`;
+                        }
+                    });
+                    task_selection_html += '</optgroup>';
+                    $(`#ct-${ct.name}-selection-action-selector`).append(task_selection_html);
+                }
+            });
         }
 
         // callback function for loading a page of content returned by corpora.list_content
         function load_content(content) {
             let ct = corpus.content_types[content.meta.content_type];
-            $('#save-content-type-schema-button').attr('disabled', false);
 
             // instantiate some variables to keep track of elements
             let ct_table_body = $(`#ct-${ct.name}-table-body`); // <-- the table body for listing results
@@ -1232,11 +1309,20 @@
             // add existing search criteria to the div
             let has_filtering_criteria = false;
             for (let search_setting in ct_search[ct.name]) {
-                if (ct_search[ct.name].hasOwnProperty(search_setting) && (search_setting === 'q' || search_setting.startsWith('q_') || search_setting.startsWith('s_'))) {
-                    let setting_type = 'Searching';
+                if (ct_search[ct.name].hasOwnProperty(search_setting) && (search_setting === 'q' || ['q_', 'f_', 't_', 'p_', 'w_', 'r_', 's_'].includes(search_setting.slice(0, 2)))) {
+                    let setting_type_map = {
+                        q: 'Text searching',
+                        f: 'Exact searching',
+                        t: 'Term searching',
+                        p: 'Phrase searching',
+                        w: 'Wildcard searching',
+                        r: 'Range searching',
+                        s: 'Sorting'
+                    };
+                    let setting_type = setting_type_map[search_setting.slice(0, 1)];
                     let field = "";
                     let field_name = "";
-                    let search_value = `"${ct_search[ct.name][search_setting]}"`;
+                    let search_value = `${ct_search[ct.name][search_setting]}`;
 
                     if (search_setting !== 'q') {
                         field = search_setting.substring(2);
@@ -1261,19 +1347,13 @@
                                 }
                             }
                         }
-
-                        if (search_setting.startsWith('s_')) {
-                            setting_type = 'Sorting';
-                            search_value = "";
-
-                        }
                     }
 
                     if (setting_type === 'Searching') { has_filtering_criteria = true; }
 
                     current_search_div.append(`
                         <span class="badge badge-primary p-2 mr-2" style="font-size: 12px;">
-                            ${setting_type} ${field_name} ${search_value}
+                            ${setting_type} ${field_name} "${search_value}"
                             <a class="text-white" href="javascript: ct_remove_search_param('${ct.name}', '${search_setting}');"><i class="far fa-times-circle"></i></a>
                         </span>
                     `);
@@ -2019,7 +2099,6 @@
             let parameters = task['configuration']['parameters'];
             for (let parameter in parameters) {
                 if (parameters[parameter].hasOwnProperty('type')) {
-                    console.log('handling parameter ' + parameter);
                     let parameter_html = '';
                     let note_html = '';
                     if (parameters[parameter].hasOwnProperty('note')) {
@@ -2125,113 +2204,6 @@
                     }
                 }
             }
-        }
-
-        function check_jobs() {
-            corpora.get_corpus_jobs(corpus_id, function(jobs) {
-                let has_running = false;
-                let has_completed = false;
-                let stale_jobs = [];
-                let stale_window = 1000 * 60 * 60 * 24;
-
-                $('.running-job').each(function(index, item) {
-                    stale_jobs.push($(item).attr('id').replace('running-job-', '').replace('-div', ''));
-                });
-
-                for (let x = 0; x < jobs.length; x++) {
-                    if (jobs[x].status == 'running' || jobs[x].status == 'preparing') {
-                        let task_name = "";
-                        for (let task_index = 0; task_index < tasks.length; task_index++) {
-                            if (_id(tasks[task_index]) === jobs[x].task_id) {
-                                task_name = tasks[task_index].name;
-                                break;
-                            }
-                        }
-
-                        if (!has_running) {
-                            $('#running-jobs-div').html('');
-                            has_running = true;
-                        }
-
-                        let job_id = jobs[x].id;
-                        let progress_value = jobs[x].percent_complete;
-                        if (jobs[x].status == 'preparing') {
-                            progress_value = 0;
-                        }
-                        let label = `${progress_value}%`;
-                        if (progress_value < 4) {
-                            label = "";
-                        }
-
-                        if ($(`#running-job-${job_id}-div`).length) {
-                            $(`#running-job-${job_id}-progress-bar`).css("width", progress_value);
-                            $(`#running-job-${job_id}-progress-bar`).attr("aria-valuenow", progress_value);
-                            $(`#running-job-${job_id}-progress-bar`).html(progress_value);
-                        } else {
-                            let kill_job_form = '';
-                            let job_status_time = jobs[x].status_time * 1000;
-
-                            if ((Date.now() - job_status_time) > stale_window && (role === 'Admin' || role === 'Editor')) {
-                                kill_job_form = `
-                                    <form method="post">
-                                        <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
-                                        <input type="hidden" name="kill-job-id" value="${job_id}">
-                                        <button type="submit" role="button" class="btn btn-danger">Kill</button>
-                                    </form>
-                                `;
-                            }
-
-                            let job_html = `
-                                <div id="running-job-${job_id}-div" class="alert alert-info running-job">
-                                    <div class="row">
-                                        <div class="col-sm-10">
-                                            Task: <b>${task_name}</b>
-                                        </div>
-                                        <div class="col-sm-2">
-                                            ${kill_job_form}
-                                        </div>
-                                    </div>
-                                    <div class="row"><div class="col-sm-12">
-                                        <div class="progress">
-                                            <div id="running-job-${job_id}-progress-bar"
-                                                 class="progress-bar progress-bar-striped bg-success progress-bar-animated"
-                                                 role="progressbar"
-                                                 aria-valuenow="${progress_value}"
-                                                 aria-valuemin="0"
-                                                 aria-valuemax="100"
-                                                 style="width: ${progress_value}%">
-                                                ${label}
-                                            </div>
-                                        </div>
-                                    </div></div>
-                                </div>
-                            `;
-
-                            $('#running-jobs-div').append(job_html);
-                            stale_jobs = stale_jobs.filter(function (value, index, arr) {
-                                return value != job_id;
-                            });
-                        }
-                    }
-                }
-
-                for (let x = 0; x < stale_jobs.length; x++) {
-                    $(`#running-job-${stale_jobs[x]}-div`).remove();
-                    $('#job-finished-modal').modal();
-                }
-
-                if (!has_running && !$('#no-running-jobs-div').length) {
-                    $('#running-jobs-div').append(`
-                        <div id="no-running-jobs-div" class="alert alert-info">
-                            There are currently no jobs running for this corpus.
-                        </div>
-                    `);
-                }
-            });
-
-            check_jobs_timer = setTimeout(function() {
-                check_jobs();
-            }, check_jobs_interval * 1000);
         }
     </script>
 {% endblock %}

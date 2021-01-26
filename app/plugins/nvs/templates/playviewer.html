@@ -584,7 +584,8 @@
                                      data-witness_indicators="{{ line.witness_meter }}"
                                 >
                                     <div id="{{ line.xml_id }}-witness-col" class="col-sm-4 m-0 p-0 witness-meter">
-                                        <canvas id="{{ line.xml_id }}-witness-meter" height="36px"></canvas>
+                                        <!--<canvas id="{{ line.xml_id }}-witness-meter" height="36px"></canvas>-->
+                                        <img id="{{ line.xml_id }}-witness-meter" height="36" width="100%" src="{% static 'img/blank-meter.png'%}" />
                                     </div>
                                     <div id="{{ line.xml_id }}-number-col" class="col-sm-1 m-0 p-0 play-label">
                                         {% if line.witness_meter|to_int > 0 %}
@@ -622,10 +623,9 @@
                             <div style="height: 100%; width: calc(25% - 5px); position: fixed;">
                                 <iframe id="commentary-frame" width="100%" height="100%" frameborder="0" src="/corpus/{{ corpus_id }}/commentary-viewer/{{ play.prefix }}/"></iframe>
                             </div>
-
+                            -->
 
                             <iframe id="commentary-frame" width="100%" height="100%" frameborder="0" src="/corpus/{{ corpus_id }}/commentary-viewer/{{ play.prefix }}/"></iframe>
-                            -->
 
                         </div>
                     </div>
@@ -922,7 +922,7 @@
                                     <div class="col-sm-4 p-0 m-0">
                                         <div class="row no-gutters">
                                             <div id="variant-${variant.id}" class="col-sm-12 p-0 m-0 witness-meter">
-                                                <canvas id="${line.xml_id}-${variant.id}-witness-meter"></canvas>
+                                                <img id="${line.xml_id}-${variant.id}-witness-meter" height="36" width="100%" src="{% static 'img/blank-meter.png'%}" />
                                             </div>
                                         </div>
                                         <div class="row no-gutters">
@@ -1104,6 +1104,8 @@
     }
 
     function draw_witness_meter(witness_meter, canvas_element, width, height, inactive_color="#9A9A99") {
+        canvas_element.src = `/nvs/witness-meter/${witness_meter}/${Math.floor(height)}/${Math.floor(width)}/${inactive_color.replace('#', '')}/`;
+        /*
         let color_map = {
             '0': inactive_color,
             '1': '#f7bb78',
@@ -1136,6 +1138,7 @@
             );
 
         }
+        */
     }
 
     function romanize (num) {

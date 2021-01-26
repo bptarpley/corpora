@@ -1,3 +1,6 @@
+import mongoengine
+from corpus import Content
+
 REGISTRY = [
     {
         "name": "ArcFederation",
@@ -171,6 +174,21 @@ REGISTRY = [
                 "stats": {},
                 "inherited": False
             },
+            {
+                "name": "external_uri_verified",
+                "label": "External URI Verified?",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "boolean",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
         ],
         "show_in_nav": True,
         "proxy_field": "",
@@ -280,7 +298,22 @@ REGISTRY = [
                 ],
                 "stats": {},
                 "inherited": False
-            }
+            },
+            {
+                "name": "uri_attribution_attempted",
+                "label": "URI Attribution Attempted?",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "boolean",
+                "choices": [],
+                "cross_reference_type": "",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
         ],
         "show_in_nav": True,
         "proxy_field": "",
@@ -1105,5 +1138,102 @@ REGISTRY = [
             "label",
             "uri",
         ]
+    },
+    {
+        "name": "UriAscription",
+        "plural_name": "URI Ascriptions",
+        "show_in_nav": True,
+        "proxy_field": "",
+        "inherited": True,
+        "inherited_from_module": "plugins.arc.content",
+        "inherited_from_class": "URIAscription",
+        "has_file_field": False,
+        "fields": [
+            {
+                "name": "corpora_uri",
+                "label": "Corpora URI",
+                "type": "keyword",
+                "unique": True,
+                "inherited": True
+            },
+            {
+                "name": "ascriptions",
+                "label": "Ascriptions",
+                "type": "embedded",
+                "multiple": True,
+                "inherited": True,
+                "in_lists": False
+            }
+        ],
+        "invalid_field_names": [
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri",
+        ],
+        "templates": {
+            "Label": {
+                "template": "{{ UriAscription.corpora_uri }}",
+                "mime_type": "text/html"
+            }
+        },
     }
 ]
+
+class Ascription(mongoengine.EmbeddedDocument):
+    uri = mongoengine.StringField()
+    label = mongoengine.StringField()
+    name_probability = mongoengine.FloatField()
+    date_probability = mongoengine.FloatField()
+    title_score = mongoengine.FloatField()
+    total_score = mongoengine.FloatField()
+
+    def to_dict(self):
+        return {
+            'uri': self.uri,
+            'label': self.label,
+            'name_probability': self.name_probability,
+            'date_probability': self.date_probability,
+            'title_score': self.title_score,
+            'total_score': self.total_score
+        }
+
+
+class URIAscription(Content):
+    corpora_uri = mongoengine.StringField(unique=True)
+    ascriptions = mongoengine.ListField(mongoengine.EmbeddedDocumentField(Ascription))
+
+    @property
+    def best_uri(self):
+        best = None
+        highest_score = 0
+
+        for asc in self.ascriptions:
+            if asc.total_score > highest_score:
+                best = asc.uri
+                highest_score = asc.total_score
+
+        return best
+
+    @property
+    def best_score(self):
+        highest_score = 0
+
+        for asc in self.ascriptions:
+            if asc.total_score > highest_score:
+                highest_score = asc.total_score
+
+        return highest_score
+
+    def to_dict(self, ref_only=False):
+        return {
+            'corpora_uri': self.corpora_uri,
+            'ascriptions': [asc.to_dict() for asc in self.ascriptions]
+        }
+
+    meta = {
+        'abstract': True
+    }

@@ -1,13 +1,17 @@
 import os
 import redis
-from huey.contrib.djhuey import db_task
 import rdflib
-from datetime import datetime
-from .content import REGISTRY as ARC_CONTENT_TYPE_SCHEMA
-from corpus import *
 import time
 import logging
 import traceback
+from huey.contrib.djhuey import db_task
+from datetime import datetime
+from time import sleep
+from .content import REGISTRY as ARC_CONTENT_TYPE_SCHEMA
+from .content import Ascription
+from corpus import *
+from viapy.api import ViafAPI
+
 
 REGISTRY = {
     "Index ARC Archive(s)": {
@@ -41,6 +45,15 @@ REGISTRY = {
         "module": 'plugins.arc.tasks',
         "functions": ['index_archives']
     },
+    "Automated URI Attribution": {
+        "version": "0.0",
+        "jobsite_type": "HUEY",
+        "track_provenance": True,
+        "content_type": "ArcAgent",
+        "configuration": {},
+        "module": 'plugins.arc.tasks',
+        "functions": ['guess_agent_uri']
+    }
 }
 
 archives_dir = '/import/arc_rdf'
@@ -703,3 +716,179 @@ def get_reference(corpus, value, ref_type, cache, make_new=True):
         '''.format(ref_type, value))
 
     return ref
+
+@db_task(priority=2)
+def guess_agent_uri(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    corpus = job.corpus
+    agent_id = job.content_id
+
+    agent = corpus.get_content('ArcAgent', agent_id)
+
+    # if entity's external uri has been verified, don't attempt
+    if not agent.entity.external_uri_verified:
+        artifacts = corpus.get_content('ArcArtifact', {'agents': agent.id})
+
+        # retrieve an existing attribution
+        existing_attribution = None
+        try:
+            existing_attribution = corpus.get_content('UriAscription', {'corpora_uri': agent.entity.uri})[0]
+        except:
+            existing_attribution = None
+
+        vapi = ViafAPI()
+        persons = vapi.find_person(agent.entity.name)
+        sleep(3) # trying to limit rate of VIAF queries
+
+        if persons:
+            people_data = []
+
+            for person in persons:
+                person_probability = 0
+
+                # RETRIEVE NAMES
+                person_names = []
+                if 'mainHeadings' in person['recordData'] and 'data' in person['recordData']['mainHeadings']:
+                    for name_data in person['recordData']['mainHeadings']['data']:
+                        if type(name_data) == dict:
+                            person_names.append(name_data['text'])
+
+                # RETRIEVE AND PARSE BIRTH/DEATH DATES
+                person_birth_year = None
+                person_death_year = None
+
+                if 'birthDate' in person['recordData']:
+                    person_birth_date = parse_date_string(person['recordData']['birthDate'])
+                    if person_birth_date:
+                        person_birth_year = person_birth_date.year
+
+                if 'deathDate' in person['recordData']:
+                    if person['recordData']['deathDate'] != '0':
+                        person_death_date = parse_date_string(person['recordData']['deathDate'])
+                        if person_death_date:
+                            person_death_year = person_death_date.year
+
+                # RETRIEVE AUTHORED TITLES
+                person_titles = []
+                if 'titles' in person['recordData'] and person['recordData']['titles'] and 'work' in person['recordData']['titles']:
+                    if type(person['recordData']['titles']['work']) == dict:
+                        for work in person['recordData']['titles']['work']:
+                            if work and type(work) == dict and 'title' in work:
+                                person_titles.append(work['title'])
+
+                # CALCULATE PROBABILITIES/BONUSES
+                name_probability = 0
+                date_probability = 0
+                title_bonus = 0
+
+                # NAME PROBABILITY
+                for name in person_names:
+                    name_probability += get_match_probability(agent.entity.name, name)
+
+                if name_probability > 0:
+                    name_probability = name_probability / len(person_names)
+
+                # DATE PROBABILITY
+                date_probability = 0
+                for artifact in artifacts:
+                    if person_birth_year and min(artifact.years) and in_publication_range(person_birth_year, person_death_year,
+                                                                                          min(artifact.years)):
+                        date_probability += 1
+
+                if date_probability > 0:
+                    date_probability = (date_probability / len(artifacts)) * 100
+
+                # TITLE BONUS
+                potential_title_matches = []
+                for artifact in artifacts:
+                    highest_match_probability = 0
+                    for person_title in person_titles:
+                        match_probability = get_match_probability(artifact.title, person_title)
+                        if match_probability > highest_match_probability:
+                            highest_match_probability = match_probability
+
+                    if highest_match_probability > 0:
+                        potential_title_matches.append(highest_match_probability)
+
+                if potential_title_matches:
+                    title_bonus = sum(potential_title_matches) / len(potential_title_matches)
+
+                person_label = "No label available."
+                if person_names:
+                    person_label = person_names[0]
+
+                people_data.append({
+                    'label': person_label,
+                    'uri': person.uri,
+                    'name_prob': name_probability,
+                    'date_prob': date_probability,
+                    'title_bonus': title_bonus,
+                    'probability': (name_probability + date_probability / 2) + title_bonus
+                })
+
+            attribution = corpus.get_content('UriAscription')
+            attribution.corpora_uri = agent.entity.uri
+            people_data = sorted(people_data, reverse=True, key=lambda person: person['probability'])
+            for person_data in people_data:
+                asc = Ascription()
+                asc.uri = person_data['uri']
+                asc.label = person_data['label']
+                asc.name_probability = person_data['name_prob']
+                asc.date_probability = person_data['date_prob']
+                asc.title_score = person_data['title_bonus']
+                asc.total_score = person_data['probability']
+
+                attribution.ascriptions.append(asc)
+
+            use_attribution = True
+
+            if existing_attribution:
+                if existing_attribution.best_score < attribution.best_score:
+                    existing_attribution.delete()
+                    sleep(2)
+                else:
+                    use_attribution = False
+
+            if use_attribution:
+                attribution.save()
+                agent.entity.external_uri = attribution.best_uri
+                agent.entity.save()
+
+    agent.uri_attribution_attempted = True
+    agent.save()
+    job.complete(status='complete')
+
+
+def get_match_probability(str1, str2):
+    probability = 0
+
+    strip_chars = ['.', ',', ':']
+    for strip_char in strip_chars:
+        str1 = str1.replace(strip_char, '')
+        str2 = str2.replace(strip_char, '')
+
+    str1_parts = str1.lower().split()
+    str2_parts = str2.lower().split()
+
+    for str1_part in str1_parts:
+        if str1_part in str2_parts:
+            probability += 1
+
+    if probability > 0 and len(str1_parts) > 0:
+        probability = (probability / len(str1_parts)) * 100
+
+    return probability
+
+
+def in_publication_range(birth, death, pub_date):
+    in_range = False
+
+    if pub_date > birth:
+        if death:
+            if pub_date <= death:
+                in_range = True
+        else:
+            in_range = True
+
+    return in_range

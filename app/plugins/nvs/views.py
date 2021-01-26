@@ -10,6 +10,7 @@ from manager.utilities import _get_context, get_scholar_corpus, _contains, _clea
 from importlib import reload
 from plugins.nvs import tasks
 from rest_framework.decorators import api_view
+from math import floor
 from PIL import Image, ImageDraw
 
 
@@ -415,6 +416,45 @@ def commentaries(request, corpus_id, play_prefix):
             'commentaries': commentaries
         }
     )
+
+
+def witness_meter(request, witness_flags, height, width, inactive_color_hex):
+    if height.isdigit() and width.isdigit():
+        height = int(height)
+        width = int(width)
+        color_map = {
+            '0': '#' + inactive_color_hex,
+            '1': '#f7bb78',
+            '2': '#faae63',
+            '3': '#f99b4e',
+            '4': '#ef8537',
+            '5': '#d87b48',
+            '6': '#de6d4b',
+            '7': '#bd5822',
+            '8': '#a84f1f',
+            '9': '#8f2d13',
+        }
+        indicator_width = width / len(witness_flags)
+        img = Image.new('RGBA', (width, height), (255, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+
+        for flag_index in range(0, len(witness_flags)):
+            indicator_color = color_map[witness_flags[flag_index]]
+            start_x = flag_index * indicator_width
+            start_y = 0
+            end_x = start_x + indicator_width - 2
+            end_y = height
+
+            draw.rectangle(
+                [(start_x, start_y), (end_x, end_y)],
+                fill=indicator_color,
+                outline=None,
+                width=0
+            )
+
+        response = HttpResponse(content_type="image/png")
+        img.save(response, 'PNG')
+        return response
 
 
 def play_minimap(request, corpus_id, play_prefix):

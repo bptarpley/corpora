@@ -1,7 +1,8 @@
 FROM python:3.7-slim-buster
 ENV PYTHONUNBUFFERED 1
 
-RUN apt-get update && apt-get install -y python3-pip git ghostscript libgs-dev imagemagick tesseract-ocr tesseract-ocr-eng
+RUN apt-get update && apt-get install -y python3-pip git jupyter-notebook ghostscript libgs-dev imagemagick tesseract-ocr tesseract-ocr-eng
+#RUN apt-get update && apt-get install -y python3-pip git ghostscript libgs-dev imagemagick tesseract-ocr tesseract-ocr-eng
 
 # Configure ImageMagick
 RUN sed -i "s^<policy domain=\"coder\" rights=\"none\" pattern=\"PDF\" />^<policy domain=\"coder\" rights=\"read|write\" pattern=\"PDF\" />^g" /etc/ImageMagick-6/policy.xml
@@ -17,6 +18,8 @@ RUN python3 -m nltk.downloader punkt stopwords wordnet averaged_perceptron_tagge
 
 WORKDIR /apps/corpora
 RUN python3 setup.py install
+
+RUN ipython kernel install --name='Corpora' --display-name='Corpora'
 
 RUN adduser corpora
 RUN chown -R corpora.corpora /apps
