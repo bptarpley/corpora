@@ -241,7 +241,7 @@
 
             #playtext-col {
                 overflow-y: scroll;
-                max-height: 100vh;
+                max-height: calc(100vh - 60px);
                 background-repeat: no-repeat;
             }
 
@@ -844,16 +844,6 @@
                 clearTimeout(redraw_timer);
                 redraw_timer = setTimeout(flush_visibility_queue, 800);
             });
-
-            Object.keys(lines).map(line_xml_id => {
-                let line = lines[line_xml_id];
-                draw_witness_meter(
-                    line.witness_indicators,
-                    line.witness_meter,
-                    line.witness_column.clientWidth,
-                    line.witness_column.clientHeight - 8
-                );
-            });
             flush_visibility_queue();
         } else {
             setTimeout(wait_for_load, 500);
@@ -872,6 +862,13 @@
                 line.row.classList.add('onscreen');
                 line.visible = true;
                 visible_lines.push(line_xml_id);
+
+                draw_witness_meter(
+                    line.witness_indicators,
+                    line.witness_meter,
+                    line.witness_column.clientWidth,
+                    line.witness_column.clientHeight - 8
+                );
             } else if(visible_found) {
                 break;
             }
