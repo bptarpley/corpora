@@ -605,8 +605,9 @@
                                         {{ line.line_label }}
                                     </div>
                                     <div id="{{ line.xml_id }}-text-col" class="col-sm-7 m-0 p-0 play-words offscreen">
-                                        <span class="line-text">{{ line.text }}</span>
-                                        <span class="line-html">{{ line.rendered_html|safe }}</span>
+                                        <!--<span class="line-text">{{ line.text }}</span>
+                                        <span class="line-html">HTML HERE</span>-->
+                                        {{ line.rendered_html|safe }}
                                     </div>
 
                                 </div>
@@ -666,6 +667,7 @@
     let corpus_id = "{{ corpus_id }}";
     let play_prefix = "{{ play.prefix }}";
     let play_id = "{{ play.id }}";
+    let style_sheet = null;
     let current_act_scene = "{{ nvs_session.filter.act_scene }}";
     let current_character = "{{ nvs_session.filter.character }}";
     let corpus;
@@ -689,6 +691,7 @@
     $(document).ready(function() {
         corpora = new Corpora({'csrf_token': "{{ csrf_token }}"});
         screen_size = determine_screen_size(window.innerWidth);
+        style_sheet = document.styleSheets[0];
         $(":root").css("--scrollbarURL", `url(/corpus/${corpus_id}/play-minimap/${play_prefix}/?width=60&height=${parseInt($("#playtext-col").height())})`);
 
         corpora.list_content(
@@ -760,8 +763,38 @@
             true
         );
 
-        setTimeout(wait_for_load, 500);
+        $('comspan').mouseover(function(ev) {
+            let selector = `comspan.${ev.target.className}`;
+            style_sheet.insertRule(`
+                ${selector} {
+                    border: solid 1px var(--nvs-primary-orange);
+                }
+            `);
+
+            setTimeout(delete_css_rule.bind(null, selector), 3000);
+        });
+
+        $('comspan').mouseleave(function(ev) {
+            let selector = `comspan.${ev.target.className}`;
+            delete_css_rule(selector);
+        });
+
+        setTimeout(wait_for_load, 1000);
     });
+
+    function delete_css_rule(selector) {
+        let rule_deletion_index = -1;
+        for (let rule_index = 0; rule_index < style_sheet.cssRules.length; rule_index++) {
+            if (style_sheet.cssRules[rule_index].selectorText === selector) {
+                rule_deletion_index = rule_index;
+                break;
+            }
+        }
+
+        if (rule_deletion_index > -1) {
+            style_sheet.deleteRule(rule_deletion_index);
+        }
+    }
 
     function configure_controls() {
         // HEADER: LINE# BOX
@@ -902,6 +935,13 @@
         // make note/variant elements
         lines[line_id].notes.map(note_id => {
             if(!notes[note_id].populated) {
+                notes[note_id].line_range = '';
+                if (notes[note_id].lines.length > 1) {
+                    let start_id = notes[note_id].lines[0].xml_id;
+                    let end_id = notes[note_id].lines[notes[note_id].lines.length - 1].xml_id;
+                    notes[note_id].line_range = `<span class='text-muted'>${lines[start_id].label}-${lines[end_id].label}: </span>`;
+                }
+
                 notes[note_id].variants.map(variant => {
                     let variant_words = variant.variant;
                     if (!variant_words) {
@@ -911,6 +951,7 @@
                             variant_words = `<span class="variant-note">${variant.description}</span>`;
                         }
                     }
+                    variant_words = notes[note_id].line_range + variant_words;
 
                     notes[note_id].lines.map(line => {
                         if (line.xml_id in lines) {
@@ -1160,6 +1201,7 @@
         lines['{{ line.xml_id }}'] = {
             act: {% if line.act %}{{ line.act }}{% else %}0{% endif %},
             scene: {% if line.scene %}{{ line.scene }}{% else %}0{% endif %},
+            label: '{{ line.line_label }}',
             notes: [],
             populated: false,
             visible: false,

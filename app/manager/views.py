@@ -87,6 +87,29 @@ def corpus(request, corpus_id):
                             False
                         ))
 
+            # HANDLE CONTENT DELETION
+            elif _contains(request.POST, ['deletion-confirmed', 'content-type', 'content-ids']):
+                deletion_ct = _clean(request.POST, 'content-type')
+                deletion_ids = _clean(request.POST, 'content-ids')
+                deletion_ids = [d_id for d_id in deletion_ids.split(',') if d_id]
+
+                if deletion_ct in corpus.content_types:
+                    deleted = []
+                    for deletion_id in deletion_ids:
+                        try:
+                            to_delete = corpus.get_content(deletion_ct, deletion_id)
+                            to_delete.delete()
+                            deleted.append(deletion_id)
+                        except:
+                            response['errors'].append("An error occurred when attempting to delete {0} with ID {1}!".format(deletion_ct, deletion_id))
+                            print(traceback.format_exc())
+
+                    if deleted:
+                        response['messages'].append("The following {0} were successfully deleted:<br><br>{1}".format(
+                            corpus.content_types[deletion_ct].plural_name,
+                            '<br>'.join(deleted)
+                        ))
+
             # HANDLE JOB SUBMISSION
             elif _contains(request.POST, ['jobsite', 'task']):
                 jobsite = JobSite.objects(id=_clean(request.POST, 'jobsite'))[0]
@@ -305,7 +328,7 @@ def corpus(request, corpus_id):
                         '--NotebookApp.allow_origin="*"'
                     ])
 
-                    response['messages'].append("Notebook server successfully launched! Access your notebook <a href='{0}'>here</a>.".format(notebook_url))
+                    response['messages'].append("Notebook server successfully launched! Access your notebook <a href='{0}' target='_blank'>here</a>.".format(notebook_url))
 
             # HANDLE CORPUS DELETION
             elif 'corpus-deletion-name' in request.POST:
@@ -473,9 +496,17 @@ def view_content(request, corpus_id, content_type, content_id):
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
     render_template = _clean(request.GET, 'render_template', None)
     popup = 'popup' in request.GET
+    view_widget_url = None
 
     if not corpus or content_type not in corpus.content_types:
         raise Http404("Corpus does not exist, or you are not authorized to view it.")
+
+    if corpus.content_types[content_type].view_widget_url:
+        view_widget_url = corpus.content_types[content_type].view_widget_url.format(
+            corpus_id=corpus_id,
+            content_type=content_type,
+            content_id=content_id
+        )
 
     if render_template and render_template in corpus.content_types[content_type].templates:
         content = corpus.get_content(content_type, content_id)
@@ -499,6 +530,7 @@ def view_content(request, corpus_id, content_type, content_id):
             'popup': popup,
             'content_type': content_type,
             'content_id': content_id,
+            'view_widget_url': view_widget_url
         }
     )
 
@@ -606,6 +638,31 @@ def job_widget(request, corpus_id=None, content_type=None, content_id=None):
         )
     else:
         raise Http404("You are not authorized to view this page.")
+
+
+def iiif_widget(request, corpus_id, content_type, content_id, content_field):
+    context = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+    image_url = None
+
+    if corpus:
+        try:
+            content = corpus.get_content(content_type, content_id, only=[content_field])
+            image_url = getattr(content, content_field, None)
+        except:
+            raise Http404("You are not authorized to view this page.")
+
+    return render(
+        request,
+        'IIIFWidget.html',
+        {
+            'corpus_id': corpus_id,
+            'popup': True,
+            'role': role,
+            'image_url': image_url,
+            'response': context,
+        }
+    )
 
 
 @login_required
@@ -905,7 +962,19 @@ def get_file(request, file_uri):
                 file_path = results[0]['file_path']
 
     if file_path:
-        mime_type, encoding = mimetypes.guess_type(file_path)
+        mime_type = None
+        explicit_mime_types = {
+            'hocr': 'application/xml'
+        }
+
+        lowered_extension = file_path.split('.')[-1].lower()
+        mime_type = explicit_mime_types.get(lowered_extension, None)
+
+        if not mime_type:
+            mime_type, encoding = mimetypes.guess_type(file_path)
+
+        print('Mime type: {0}'.format(mime_type))
+
         response = HttpResponse(content_type=mime_type)
         response['X-Accel-Redirect'] = "/files/{0}".format(file_path.replace('/corpora/', ''))
         return response

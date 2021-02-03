@@ -14,7 +14,7 @@ from django.conf import settings
 from django.utils.text import slugify
 from manager.utilities import _contains
 from zipfile import ZipFile
-from corpus import get_corpus, Job, File
+from corpus import get_corpus, Job, File, run_neo
 from .content import Page
 
 
@@ -493,35 +493,24 @@ def cache_page_file_collections(job_id):
     job = Job(job_id)
     job.set_status('running')
     page_file_collections = job.configuration['parameters']['page_file_collections']['value']
-    
-    with settings.NEO4J.session() as neo:
-        cypher = ""
-        params = {}
-        try:
-            for slug in page_file_collections.keys():
-                cypher = '''
-                    MATCH (d:Document { uri: $doc_uri })
-                    MERGE (d) -[:hasPageFileCollection]-> (pfc:PageFileCollection { uri: $pfc_uri })
-                    SET pfc.created = $pfc_created
-                    SET pfc.slug = $pfc_slug
-                    SET pfc.label = $pfc_label
-                    SET pfc.page_file_dict_json = $pfc_page_file_dict_json
-                '''
-                params = {
-                    'doc_uri': "/corpus/{0}/Document/{1}".format(job.corpus_id, job.content_id),
-                    'pfc_uri': "/corpus/{0}/Document/{1}/page-file-collection/{2}".format(job.corpus_id, job.content_id, slug),
-                    'pfc_created': int(datetime.now().timestamp()),
-                    'pfc_slug': slug,
-                    'pfc_label': page_file_collections[slug]['label'],
-                    'pfc_page_file_dict_json': json.dumps(page_file_collections[slug]['page_files'])
-                }
-                neo.run(cypher, **params)
-        except:
-            print("Error running Neo4J cypher!")
-            print("Cypher: {0}".format(cypher))
-            print("Params: {0}".format(json.dumps(params, indent=4)))
-            print(traceback.format_exc())
-        finally:
-            neo.close()
+
+    for slug in page_file_collections.keys():
+        cypher = '''
+            MATCH (d:Document { uri: $doc_uri })
+            MERGE (d) -[:hasPageFileCollection]-> (pfc:PageFileCollection { uri: $pfc_uri })
+            SET pfc.created = $pfc_created
+            SET pfc.slug = $pfc_slug
+            SET pfc.label = $pfc_label
+            SET pfc.page_file_dict_json = $pfc_page_file_dict_json
+        '''
+        params = {
+            'doc_uri': "/corpus/{0}/Document/{1}".format(job.corpus_id, job.content_id),
+            'pfc_uri': "/corpus/{0}/Document/{1}/page-file-collection/{2}".format(job.corpus_id, job.content_id, slug),
+            'pfc_created': int(datetime.now().timestamp()),
+            'pfc_slug': slug,
+            'pfc_label': page_file_collections[slug]['label'],
+            'pfc_page_file_dict_json': json.dumps(page_file_collections[slug]['page_files'])
+        }
+        run_neo(cypher, params)
 
     job.complete("complete")

@@ -201,6 +201,8 @@ REGISTRY = [
                 "type": "text",
             }
         ],
+        "edit_widget_url": "/corpus/{corpus_id}/{content_type}/{content_id}/image/iiif-image/",
+        "view_widget_url": "/corpus/{corpus_id}/{content_type}/{content_id}/image/iiif-image/",
         "show_in_nav": True,
         "proxy_field": "",
         "templates": {

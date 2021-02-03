@@ -25,6 +25,12 @@ def document(request, corpus_id, document_id):
             # HANDLE FILE UPLOADS
             if 'filepond' in request.FILES:
                 filename = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', request.FILES['filepond'].name)
+
+                if not document.path:
+                    document._ct.has_file_field = True
+                    document._make_path()
+                    document.save()
+
                 upload_path = "{0}/temporary_uploads".format(document.path)
                 file_path = "{0}/{1}".format(upload_path, filename)
 
@@ -95,6 +101,11 @@ def document(request, corpus_id, document_id):
             elif 'import-document-files' in request.POST:
                 import_files = json.loads(request.POST['import-document-files'])
 
+                if not document.path:
+                    document._ct.has_file_field = True
+                    document._make_path()
+                    document.save()
+
                 upload_path = document.path + '/files'
                 for import_file in import_files:
                     import_file_path = "{0}{1}".format(upload_path, import_file)
@@ -111,10 +122,10 @@ def document(request, corpus_id, document_id):
             # HANDLE JOB RETRIES
             elif _contains(request.POST, ['retry-job-id']):
                 retry_job_id = _clean(request.POST, 'retry-job-id')
-                for completed_task in document.completed_tasks:
+                for completed_task in document.provenance:
                     if completed_task.job_id == retry_job_id:
                         job = Job.setup_retry_for_completed_task(corpus_id, 'Document', document_id, completed_task)
-                        document.modify(pull__completed_tasks=completed_task)
+                        document.modify(pull__provenance=completed_task)
                         run_job(job.id)
 
             # HANDLE PAGESET CREATION
@@ -216,9 +227,7 @@ def edit_xml(request, corpus_id, document_id):
 
     if corpus and role in ['Editor', 'Admin']:
         if 'path' in request.GET:
-            path = _clean(request.GET, 'path')
-            if path.startswith('/corpora') and '../' not in path and path.lower().split('.')[-1] in ['xml', 'rdf', 'hocr']:
-                xml_file = "/get-file?path={0}".format(path)
+            xml_file = _clean(request.GET, 'path')
 
         elif 'use_tei_skeleton' in request.GET:
             xml_file = "/corpus/{0}/Document/{1}/tei-skeleton".format(corpus_id, document_id)

@@ -291,11 +291,7 @@
                                 <h4>Running Jobs</h4>
                             </div>
                             <div class="card-body">
-                                <div id="running-jobs-div">
-                                    <div id="no-running-jobs-div" class="alert alert-info">
-                                        There are currently no jobs running for this document.
-                                    </div>
-                                </div>
+                                <iframe src="/jobs/corpus/{{ corpus_id }}/Document/{{ document_id }}/" width="100%" height="100%" frameBorder="0"></iframe>
                             </div>
                         </div>
                     </div>
@@ -454,8 +450,6 @@
         var import_files = [];
 
         var import_pages_files = [];
-        var check_jobs_timer;
-        var check_jobs_interval = 10;
         var jobsites = [];
         var local_jobsite_id = null;
         var tasks = [];
@@ -806,8 +800,8 @@
                                         if (label.includes('HOCR') || label.includes('GCV TextAnnotation')) {
                                             actions = `<a href="${document_uri}/draw-page-regions/${ref_no}/?ocrfile=${file.path}" target="_blank" class="btn btn-primary ml-1">Fix OCR Regions</a>`;
                                         }
-                                        if ((label.includes('HOCR') || label.includes('XML')) && (role === 'Editor' || role === 'Admin')) {
-                                            actions += `<a href="${document_uri}/edit-xml/?path=${file.path}" class="btn btn-primary ml-1">Edit XML</a>`;
+                                        if ((label.includes('XML')) && (role === 'Editor' || role === 'Admin')) {
+                                            actions += `<a href="${document_uri}/edit-xml/?path=${corpora.file_url(file.uri)}" class="btn btn-primary ml-1">Edit XML</a>`;
                                         }
 
                                         doc_pfc_tbody.append(`
@@ -985,8 +979,6 @@
                     }
                 });
             }
-
-            check_jobs();
         });
 
         function get_page(collection, ref_no) {
@@ -1195,81 +1187,6 @@
                 }
             });
             return name;
-        }
-
-        function check_jobs() {
-            corpora.get_content_jobs(corpus_id, 'Document', document_id, function(jobs) {
-                let has_running = false;
-                let has_completed = false;
-                let stale_jobs = [];
-                $('.running-job').each(function(index, item) {
-                    stale_jobs.push($(item).attr('id').replace('running-job-', '').replace('-div', ''));
-                });
-
-                for (let x = 0; x < jobs.length; x++) {
-                    if (jobs[x].status == 'running' || jobs[x].status == 'preparing') {
-                        if (!has_running) {
-                            $('#running-jobs-div').html('');
-                            has_running = true;
-                        }
-
-                        let job_id = jobs[x].id;
-                        let progress_value = jobs[x].percent_complete;
-                        if (jobs[x].status == 'preparing') {
-                            progress_value = 0;
-                        }
-                        let label = `${progress_value}%`;
-                        if (progress_value < 4) {
-                            label = "";
-                        }
-
-                        if ($(`#running-job-${job_id}-div`).length) {
-                            $(`#running-job-${job_id}-progress-bar`).css("width", progress_value);
-                            $(`#running-job-${job_id}-progress-bar`).attr("aria-valuenow", progress_value);
-                            $(`#running-job-${job_id}-progress-bar`).html(progress_value);
-                        } else {
-                            let job_html = `
-                                <div id="running-job-${job_id}-div" class="alert alert-info running-job">
-                                    Task: <b>${get_task_name(jobs[x].task_id)}</b>
-                                    <div class="progress">
-                                        <div id="running-job-${job_id}-progress-bar"
-                                             class="progress-bar progress-bar-striped bg-success progress-bar-animated"
-                                             role="progressbar"
-                                             aria-valuenow="${progress_value}"
-                                             aria-valuemin="0"
-                                             aria-valuemax="100"
-                                             style="width: ${progress_value}%">
-                                            ${label}
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-
-                            $('#running-jobs-div').append(job_html);
-                            stale_jobs = stale_jobs.filter(function (value, index, arr) {
-                                return value != job_id;
-                            });
-                        }
-                    }
-                }
-
-                for (let x = 0; x < stale_jobs.length; x++) {
-                    $(`#running-job-${stale_jobs[x]}-div`).remove();
-                    $('#job-finished-modal').modal();
-                }
-
-                if (!has_running && !$('#no-running-jobs-div').length) {
-                    $('#running-jobs-div').append(`
-                        <div id="no-running-jobs-div" class="alert alert-info">
-                            There are currently no jobs running for this document.
-                        </div>
-                    `);
-                }
-            });
-
-            check_jobs_timer = setTimeout(function() {
-                check_jobs();
-            }, check_jobs_interval * 1000);
         }
 
         // FILE UPLOAD FUNCTIONALITY

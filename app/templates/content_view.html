@@ -41,9 +41,20 @@
                     </ul>
                     <div class="tab-content h-100 {% if popup %}p-0 m-0{% else %}p-3{% endif %}">
                         <div class="tab-pane fade show active" id="metadata" role="tabpanel" aria-labelledby="metadata-tab">
+                            {% if view_widget_url %}
+                                <div class="row">
+                                    <div class="col-sm-12 col-md-6">
+                            {% endif %}
                             <div class="content-type-card" id="content-div">
                                 <!-- content metadata -->
                             </div>
+                            {% if view_widget_url %}
+                                    </div>
+                                    <div class="col-sm-12 col-md-6">
+                                        <iframe src="{{ view_widget_url }}" height="100%" width="100%" frameBorder="0"></iframe>
+                                    </div>
+                                </div>
+                            {% endif %}
                         </div>
                         {% if not popup %}
                         <div class="tab-pane fade" id="explore" role="tabpanel" aria-labelledby="explore-tab" style="height: 825px;">

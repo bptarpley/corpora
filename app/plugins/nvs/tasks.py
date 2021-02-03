@@ -1048,14 +1048,18 @@ def make_witness_meter(indicators, marker="1"):
 def perform_variant_transform(corpus, note, variant):
     result = ""
     original_text = ""
+    embed_pipes = False
+
+    #if variant.transform and '|' in variant.transform:
+    #    embed_pipes = True
 
     if type(note.lines[0]) is ObjectId:
         lines = corpus.get_content('PlayLine', {'id__in': note.lines}, only=['text'])
         lines = lines.order_by('line_number')
-        original_text = stitch_lines(lines)
+        original_text = stitch_lines(lines, embed_pipes=embed_pipes)
 
     elif hasattr(note.lines[0], 'text'):
-        original_text = stitch_lines(note.lines)
+        original_text = stitch_lines(note.lines, embed_pipes=embed_pipes)
 
     if original_text:
         ellipsis = ' . . . '
@@ -1066,6 +1070,7 @@ def perform_variant_transform(corpus, note, variant):
         if variant.lemma and variant.transform and variant.transform_type:
             lemma = strip_tags(variant.lemma).replace(double_under_carrot, '').replace(under_carrot, '')
             transform = strip_tags(variant.transform).replace('| ', '').replace(double_under_carrot, '').replace(under_carrot, '')
+            #transform = strip_tags(variant.transform).replace(double_under_carrot, '').replace(under_carrot, '')
 
             if variant.transform_type == "replace":
 
@@ -1220,6 +1225,7 @@ def perform_variant_transform(corpus, note, variant):
 
     if not result:
         return None
+
     return result
 
 
@@ -1703,13 +1709,15 @@ def get_line_ids(line_id_map, xml_id_start, xml_id_end=None):
     return line_ids
 
 
-def stitch_lines(lines, embed_line_markers=False):
+def stitch_lines(lines, embed_line_markers=False, embed_pipes=False):
     stitched = ""
     marker = ""
 
     for line in lines:
         if embed_line_markers:
             marker = "<{0} />".format(line.xml_id)
+        elif embed_pipes:
+            marker = " | "
 
         if not stitched:
             stitched += marker + line.text

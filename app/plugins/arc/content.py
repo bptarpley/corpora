@@ -190,6 +190,7 @@ REGISTRY = [
                 "inherited": False
             },
         ],
+        "edit_widget_url": "/corpus/{corpus_id}/{content_type}/{content_id}/UriAscription/",
         "show_in_nav": True,
         "proxy_field": "",
         "templates": {
