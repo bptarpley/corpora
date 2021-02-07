@@ -594,7 +594,7 @@
         $('#content-selection-modal-filter-box').keypress(function (e) {
             let key = e.which;
             if (key === 13) {
-                let query = $('#content-selection-modal-filter-box');
+                let query = $('#content-selection-modal-filter-box').val();
                 content_selection_vars.q = query;
                 select_content(content_selection_type, content_selection_input_id);
             }
