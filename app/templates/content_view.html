@@ -51,7 +51,7 @@
                             {% if view_widget_url %}
                                     </div>
                                     <div class="col-sm-12 col-md-6">
-                                        <iframe src="{{ view_widget_url }}" height="100%" width="100%" frameBorder="0"></iframe>
+                                        <iframe src="" height="100%" width="100%" frameBorder="0"></iframe>
                                     </div>
                                 </div>
                             {% endif %}
@@ -209,6 +209,10 @@
                 corpora.get_content(corpus_id, content_type_name, content_id, function(content_data) {
                     content = content_data;
                     inject_content();
+
+                    {% if view_widget_url %}
+                    $('#view-widget-iframe').attr('src', '{{ view_widget_url }}');
+                    {% endif %}
 
                     if (!popup) {
 

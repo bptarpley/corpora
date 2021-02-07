@@ -106,7 +106,7 @@
                     {% if edit_widget_url %}
                             </div>
                             <div class="col-sm-12 col-md-6">
-                                <iframe src="{{ edit_widget_url }}" height="100%" width="100%" frameBorder="0"></iframe>
+                                <iframe id="edit-widget-iframe" src="" height="100%" width="100%" frameBorder="0"></iframe>
                             </div>
                         </div>
                     {% endif %}
@@ -287,6 +287,10 @@
                 corpus = corpus_data;
                 add_breadcrumb(corpus.name, `/corpus/${corpus_id}/`);
                 build_content_form();
+
+                {% if edit_widget_url %}
+                $('#edit-widget-iframe').attr('src', '{{ edit_widget_url }}');
+                {% endif %}
             });
 
             // SETUP FILE SEARCH BOX
@@ -547,6 +551,13 @@
                 let input_id = button_id.replace('-select-button', '');
                 let xref_type = $(`#${input_id}-xref-type`).val();
 
+                content_selection_vars = {
+                    q: '*',
+                    only: 'label',
+                    s_label: 'asc',
+                    page_size: 10,
+                    page: 1
+                };
                 select_content(xref_type, input_id);
             });
 
@@ -578,6 +589,16 @@
                 }
             });
         }
+
+        // content selection filter box
+        $('#content-selection-modal-filter-box').keypress(function (e) {
+            let key = e.which;
+            if (key === 13) {
+                let query = $('#content-selection-modal-filter-box');
+                content_selection_vars.q = query;
+                select_content(content_selection_type, content_selection_input_id);
+            }
+        });
 
         // previous select content page click event
         $('#content-selection-modal-prev-page-button').click(function() {

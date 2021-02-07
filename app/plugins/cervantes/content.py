@@ -222,6 +222,7 @@ class DQLocation(Content):
     section = mongoengine.StringField()
     description = mongoengine.StringField()
 
+    '''
     def _make_uri(self):
         new_uri = "/corpus/{0}/DQLocation/DonQuixote".format(self.corpus_id)
 
@@ -248,6 +249,7 @@ class DQLocation(Content):
             self.uri = new_uri
             return True
         return False
+    '''
 
     meta = {
         'abstract': True
