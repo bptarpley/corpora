@@ -537,7 +537,7 @@
                     let left = (screen.width / 2);
                     let top = (screen.height / 2);
                     let options = `top=${top},left=${left}`;
-                    let creation_url = `/corpus/${corpus_id}/${content_type}/?popup=y`;
+                    let creation_url = `/corpus/${corpus_id}/${content_selection_type}/?popup=y`;
                     return window.open(creation_url, 'Create New{% if popup %}:{% endif %}', options);
                 });
 
