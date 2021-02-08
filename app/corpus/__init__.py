@@ -22,7 +22,7 @@ from elasticsearch_dsl.connections import get_connection
 from django.template import Template, Context
 
 
-FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'file', 'link', 'cross_reference', 'embedded')
+FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'file', 'link', 'iiif-image', 'cross_reference', 'embedded')
 MIME_TYPES = ('text/html', 'text/xml', 'application/json')
 
 
@@ -1972,8 +1972,9 @@ class Corpus(mongoengine.Document):
                 'boolean': 'boolean',
                 'date': 'date',
                 'file': 'text',
-                'image': 'text',
-                'link': 'text',
+                'image': 'keyword',
+                'iiif-image': 'keyword',
+                'link': 'keyword',
                 'cross_reference': None,
                 'document': 'text',
             }

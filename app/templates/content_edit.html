@@ -246,6 +246,14 @@
                     </div>
                 `;
             },
+            'iiif-image': function(field, value, id_suffix) {
+                return `
+                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2">
+                        <input type="text" class="form-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value}">
+                        ${multi_remover(field, id_suffix)}
+                    </div>
+                `;
+            },
             cross_reference: function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="btn-toolbar mb-2" role="toolbar">

@@ -183,6 +183,13 @@
                     <div class="col-10">&nbsp;</div>
                 `;
             },
+            'iiif-image': function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-center field-value ${field.type}-value">
+                        <img src='${value}/full/,100/0/default.png' />
+                    </div>
+                `;
+            },
             cross_reference: function(field, value) {
                 return `
                     <div class="col-10 d-flex align-left field-value ${field.type}-value">

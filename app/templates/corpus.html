@@ -203,6 +203,7 @@
                             <option value="boolean">Boolean</option>
                             <option value="date">Date</option>
                             <option value="link">Link</option>
+                            <option value="iiif-image">IIIF Image URL</option>
                             <option value="file">File Upload</option>
                             <option value="cross_reference">Cross Reference</option>
                         </select>
@@ -590,6 +591,7 @@
             date: 'Date',
             file: 'File',
             link: 'Link',
+            'iiif-image': 'IIIF Image URL',
             cross_reference: 'Cross Reference',
             embedded: 'Embedded'
         };
@@ -1513,6 +1515,8 @@
                                 }
                                 else if (field.type === 'date') {
                                     value = corpora.date_string(value);
+                                } else if (field.type === 'iiif-image') {
+                                    value = `<img src='${value}/full/,100/0/default.png' />`
                                 }
                             }
 
