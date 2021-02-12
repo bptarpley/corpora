@@ -1240,9 +1240,20 @@ class Corpus(mongoengine.Document):
                 if '.' in search_field:
                     field_parts = search_field.split('.')
                     xref_ct = self.content_types[content_type].get_field(field_parts[0]).cross_reference_type
-                    field_type = self.content_types[xref_ct].get_field(field_parts[1]).type
+
+                    if field_parts[1] == 'label':
+                        field_type = 'text'
+                    elif field_parts[1] in ['uri', 'id']:
+                        field_type = 'keyword'
+                    else:
+                        field_type = self.content_types[xref_ct].get_field(field_parts[1]).type
                 else:
-                    field_type = self.content_types[content_type].get_field(search_field).type
+                    if search_field == 'label':
+                        field_type = 'text'
+                    elif search_field in ['uri', 'id']:
+                        field_type = 'keyword'
+                    else:
+                        field_type = self.content_types[content_type].get_field(search_field).type
 
                 if not field_values:
                     if '.' in search_field:
