@@ -339,6 +339,22 @@
                 </div>
             </div>
 
+            <!-- ASSOCIATED CONTENT -->
+            <div class="col-12">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h4>Associated Content</h4>
+                        </div>
+                    </div>
+                    <div class="card-body" id="associated-content-div">
+                        <div class="alert alert-info">
+                            There is no content associated with this document.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     {% if document.pages %}
         <div class="row">
@@ -905,6 +921,36 @@
 
                             hide_loading_overlay();
                         });
+
+                        // ASSOCIATED CONTENT
+                        let associated_cts = {};
+                        for (let content_type in corpus.content_types) {
+                            let ct = corpus.content_types[content_type];
+                            ct.fields.map(field => {
+                                if (field.type === 'cross_reference' && field.cross_reference_type === 'Document') {
+                                    associated_cts[ct.name] = field.name;
+                                }
+                            });
+                        }
+
+                        if (associated_cts) {
+                            $('#associated-content-div').html('');
+                            for (let ct_name in associated_cts) {
+                                let associated_search = {
+                                    page: 1,
+                                    'page-size': 5,
+                                };
+                                associated_search[`f_${associated_cts[ct_name]}.id`] = document_id;
+
+                                let ct_table = new ContentTable({
+                                    container_id: 'associated-content-div',
+                                    corpora: corpora,
+                                    corpus: corpus,
+                                    content_type: ct_name,
+                                    search: associated_search
+                                });
+                            }
+                        }
                     });
                 });
             });
