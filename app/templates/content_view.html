@@ -37,6 +37,9 @@
                         <li class="nav-item" role="presentation">
                             <a class="nav-link disabled" id="explore-tab" data-toggle="tab" href="#explore" role="tab" aria-controls="explore" aria-selected="false">Explore</a>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" id="associated-tab" data-toggle="tab" href="#associated" role="tab" aria-controls="associated" aria-selected="false">Associated Content</a>
+                        </li>
                         {% endif %}
                     </ul>
                     <div class="tab-content h-100 {% if popup %}p-0 m-0{% else %}p-3{% endif %}">
@@ -60,6 +63,9 @@
                         <div class="tab-pane fade" id="explore" role="tabpanel" aria-labelledby="explore-tab" style="height: 825px;">
                             <div id="explore-legend" class="d-inline-flex align-items-start"></div>
                             <div id="explore-div" style="height: 800px;"></div>
+                        </div>
+                        <div class="tab-pane fade" id="associated" role="tabpanel" aria-labelledby="associated-tab">
+                            <div id="associated-div"></div>
                         </div>
                         {% endif %}
                     </div>
@@ -108,7 +114,7 @@
             '#E9E3B4',
         ];
         let group_color_cursor = 0;
-
+        let last_table = null;
 
 
         var field_templates = {
@@ -210,7 +216,6 @@
             });
 
             corpora.get_corpus(corpus_id, function(corpus_data) {
-
                 content_type = corpus_data.content_types[content_type_name];
                 build_content_div();
                 corpora.get_content(corpus_id, content_type_name, content_id, function(content_data) {
@@ -225,6 +230,35 @@
 
                         add_breadcrumb(corpus_data.name, `/corpus/${corpus_id}/`);
                         add_breadcrumb(content.label, `${content_uri}/`);
+
+                        // LOAD ASSOCIATED CONTENT TABLES
+                        let associated_cts = {};
+                        for (let ct_name in corpus_data.content_types) {
+                            let ct = corpus_data.content_types[ct_name];
+                            ct.fields.map(field => {
+                                if (field.type === 'cross_reference' && field.cross_reference_type === content_type_name) {
+                                    associated_cts[ct_name] = field.name;
+                                }
+                            });
+                        }
+
+                        console.log(associated_cts);
+
+                        for (let ct_name in associated_cts) {
+                            let associated_search = {
+                                page: 1,
+                                'page-size': 5,
+                            };
+                            associated_search[`f_${associated_cts[ct_name]}.id`] = content_id;
+                            last_table = new ContentTable({
+                                container_id: 'associated-div',
+                                corpora: corpora,
+                                corpus: corpus_data,
+                                content_type: ct_name,
+                                search: associated_search
+                            });
+                        }
+
                         corpora.get_network_json(corpus_id, content_type_name, content_id, {per_type_limit: per_group_limit}, function(net_json) {
                             nodes = new vis.DataSet(net_json.nodes);
                             edges = new vis.DataSet(net_json.edges);
