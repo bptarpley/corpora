@@ -1146,6 +1146,7 @@
                     $('#confirmation-field-name').val('');
                     $('#confirmation-action').val('reindex');
                     $('#confirmation-confirm-button').attr('disabled', false);
+                    $('#confirmation-modal-label').html('Confirm Re-indexing');
 
                     let message = `You are attempting to re-index the <b>${ct_name}</b> content type.
                     Depending on how much content belongs to this type, this may take a long time, and
@@ -1165,6 +1166,8 @@
                             $('#confirmation-field-name').val('');
                             $('#confirmation-action').val('delete');
                             $('#confirmation-confirm-button').attr('disabled', false);
+                            $('#confirmation-modal-label').html('Confirm Deletion');
+
 
                             let message = `You are attempting to delete the <b>${ct_name}</b> content type.
                             Upon doing so, <b>all content of this type will be irreversibly deleted</b>. Some templates may also need to be

@@ -39,7 +39,8 @@ def query(request, corpus_id):
         aggs['decades'] = A('histogram', field='years', interval=10)
 
         if context['search']:
-            content = corpus.search_content(content_type='ArcArtifact', excludes=['full_text_contents'], aggregations=aggs, **context['search'])
+            context['search']['aggregations'] = aggs
+            content = corpus.search_content(content_type='ArcArtifact', excludes=['full_text_contents'], **context['search'])
         else:
             content = corpus.search_content(content_type='ArcArtifact', excludes=['full_text_contents'], aggregations=aggs, general_query="*")
 

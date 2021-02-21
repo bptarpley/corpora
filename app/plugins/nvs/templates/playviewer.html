@@ -383,6 +383,19 @@
                 cursor: pointer;
             }
 
+            .comm-heading {
+                background-color: #c4dffc;
+                font-family: 'Libre Baskerville', serif;
+                cursor: pointer;
+                color: #525e69;
+            }
+
+            .comm-block {
+                color: #0e0e0e;
+                font-family: 'FormulaSerial';
+                margin-bottom: 20px;
+            }
+
             #search-widget {
                 position: fixed;
                 bottom: 0;
@@ -395,6 +408,26 @@
         <title>Winter's Tale</title>
     </head>
     <body>
+        <!-- Navigation Modal -->
+        <div class="modal fade" id="nav-modal" tabindex="-1" role="dialog" aria-labelledby="nav-modal-label" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="nav-modal-label"></h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div id="nav-modal-body" class="modal-body">
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="main-container" class="container-fluid h-100">
 
             <!-- MAIN HEADER -->
@@ -688,6 +721,23 @@
     };
     let nvs_search = null;
 
+    let nav_map = {
+        'bibl': {
+            'content_type': 'Document',
+            'xml_id_field': 'siglum',
+            'content_field': 'bibliographic_entry',
+            'title': "Bibliographic Entry",
+            'title_plural': "Bibliographic Entries"
+        },
+        'note_cn': {
+            'content_type': 'Commentary',
+            'xml_id_field': 'xml_id',
+            'content_field': 'contents',
+            'title': "Commentary Note",
+            'title_plural': "Commentary Notes"
+        }
+    };
+
     $(document).ready(function() {
         corpora = new Corpora({'csrf_token': "{{ csrf_token }}"});
         screen_size = determine_screen_size(window.innerWidth);
@@ -778,6 +828,12 @@
             let selector = `comspan.${ev.target.className}`;
             delete_css_rule(selector);
         });
+
+        let nav_type = get_param('nav_type');
+        let nav_xml_id = get_param('nav_xml_id');
+        if (nav_type && nav_xml_id) {
+            show_nav_content(nav_type, nav_xml_id);
+        }
 
         setTimeout(wait_for_load, 1000);
     });
@@ -1179,6 +1235,10 @@
         */
     }
 
+    function get_param(param) {
+        return (window.location.search.match(new RegExp('[?&]' + param + '=([^&]+)')) || [, null])[1];
+    }
+
     function romanize (num) {
         if (isNaN(num))
             return NaN;
@@ -1191,6 +1251,80 @@
         while (i--)
             roman = (key[+digits.pop() + (i * 10)] || "") + roman;
         return Array(+digits.join("") + 1).join("M") + roman;
+    }
+
+    function navigate_to(nav_type, xml_id) {
+        let url = `${location.protocol}//${location.host}${location.pathname}?nav_type=${nav_type}&nav_xml_id=${xml_id}`;
+        window.open(url);
+        //show_nav_content(nav_type, xml_id);
+    }
+
+    function show_nav_content(nav_type, xml_id) {
+        if (nav_type === 'lb') {
+            if (xml_id in lines) {
+                $(`#${xml_id}-row`)[0].scrollIntoView({behavior: 'smooth'});
+            }
+        } else {
+            let xml_ids = xml_id.split(' ');
+            let search_params = {
+                page: 1,
+                'page-size': xml_ids.length,
+                only: 'id',
+                operator: xml_ids.length > 1 ? 'or' : 'and'
+            };
+
+            let content_type = nav_map[nav_type]['content_type'];
+            let search_field = nav_map[nav_type]['xml_id_field'];
+            search_params[`t_${search_field}`] = xml_ids.join('__');
+            corpora.list_content(corpus_id, content_type, search_params, function (search_data) {
+                if (search_data.hasOwnProperty('records') && search_data.records.length === xml_ids.length) {
+                    let ids = search_data.records.map(record => record.id);
+                    populate_nav_contents(nav_type, ids);
+                }
+            });
+        }
+    }
+
+    function populate_nav_contents(nav_type, ids, contents=[]) {
+        if (ids.length > 0) {
+            let content_type = nav_map[nav_type]['content_type'];
+
+            corpora.get_content(corpus_id, content_type, ids[0], function(content_data) {
+                contents.push(content_data);
+                ids.shift();
+
+                if (ids.length > 0) {
+                    populate_nav_contents(nav_type, ids, contents);
+                } else {
+                    let nav_title = nav_map[nav_type]['title'];
+                    if (contents.length > 1) { nav_title = nav_map[nav_type]['title_plural']; }
+
+                    let nav_content = '';
+                    contents.map(content => {
+                        if (nav_content !== '') { nav_content += '<br><br>'; }
+
+                        if (nav_type === 'note_cn') {
+                            nav_content += `
+                                <div class="comm-heading">
+                                    ${content.line_label}: ${content.subject_matter}
+                                </div>
+                                <span class="text-muted">Links will open in a new tab.</span><br><br>
+                            `;
+                        }
+
+                        nav_content += content[nav_map[nav_type]['content_field']];
+                    });
+
+                    display_nav_modal(nav_title, nav_content);
+                }
+            });
+        }
+    }
+
+    function display_nav_modal(title, content) {
+        $('#nav-modal-label').html(title);
+        $('#nav-modal-body').html(content);
+        $('#nav-modal').modal();
     }
 
     // This function is a crude but hopefully effective method, performance-wise,

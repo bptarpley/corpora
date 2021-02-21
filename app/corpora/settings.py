@@ -35,6 +35,8 @@ DEFAULT_USER_PASSWORD = os.environ.get('CRP_DEFAULT_USER_PASSWORD', 'corpora')
 DEFAULT_USER_FNAME = os.environ.get('CRP_DEFAULT_USER_FNAME', 'Corpora')
 DEFAULT_USER_LNAME = os.environ.get('CRP_DEFAULT_USER_LNAME', 'McCorpus')
 DEFAULT_USER_EMAIL = os.environ.get('CRP_DEFAULT_USER_EMAIL', 'corpora@{0}'.format(os.environ['CRP_HOST']))
+REDIS_HOST = os.environ.get('CRP_REDIS_HOST', 'redis')
+REDIS_CACHE_EXPIRY_SECONDS = os.environ.get('CRP_REDIS_CACHE_EXPIRY_SECONDS', 1800)
 
 if '.' not in DEFAULT_USER_EMAIL:
     DEFAULT_USER_EMAIL += '.com'
@@ -61,6 +63,7 @@ INSTALLED_APPS = [
     'plugins.nvs',
     'plugins.cervantes',
     'plugins.arc',
+    'plugins.femcon',
     'rest_framework',
     'rest_framework.authtoken',
 ]

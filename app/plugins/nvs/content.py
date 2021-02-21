@@ -1496,5 +1496,143 @@ REGISTRY = [
             "label",
             "uri"
         ]
+    },
+{
+        "name": "ParaText",
+        "plural_name": "Paratexts",
+        "fields": [
+            {
+                "name": "xml_id",
+                "label": "XML ID",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "section",
+                "label": "Section",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "title",
+                "label": "Title",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "content",
+                "label": "Content",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "large_text",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": "early_modern",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "child_xml_ids",
+                "label": "Child XML IDs",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "order",
+                "label": "Order",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "number",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "parent",
+                "label": "Parent",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "ParaText",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            }
+        ],
+        "show_in_nav": True,
+        "proxy_field": "",
+        "templates": {
+            "Label": {
+                "template": "{{ ParaText.title }} (from {{ ParaText.section }})",
+                "mime_type": "text/html"
+            }
+        },
+        "inherited": False,
+        "invalid_field_names": [
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri"
+        ],
+        "view_widget_url": None,
+        "edit_widget_url": None
     }
 ]

@@ -337,6 +337,7 @@ def parse_front_file(corpus, play, front_file_path):
 
     try:
         witness_collections = []
+        unhandled = []
 
         for witness_list in plan_of_work.find_all('listWit'):
             nvs_doc_type = witness_list['xml:id'].replace("listwit_", "")
@@ -352,6 +353,7 @@ def parse_front_file(corpus, play, front_file_path):
                     siglum_label = "<span style='font-variant: small-caps;'>{0}</span>".format(siglum_label)
 
                 if witness_tag.bibl:
+                    '''
                     witness = corpus.get_content('Document')
                     witness.siglum = siglum
                     witness.siglum_label = siglum_label
@@ -370,13 +372,23 @@ def parse_front_file(corpus, play, front_file_path):
                         witness.work = _str(witness_tag.bibl.title)
                     else:
                         witness.title = _str(witness_tag.bibl.title)
+                    '''
 
-                    witness.pub_date = _str(witness_tag.date)
-                    witness.pub_date = re.sub(r"\D", "", witness.pub_date)
-                    witness.pub_date = witness.pub_date[:4]
-                    witness.save()
+                    pub_date = _str(witness_tag.date)
+                    pub_date = re.sub(r"\D", "", pub_date)
+                    pub_date = pub_date[:4]
 
-                    if witness.nvs_doc_type == 'witness':
+                    witness = handle_bibl_tag(
+                        corpus,
+                        witness_tag.bibl,
+                        nvs_doc_type,
+                        unhandled,
+                        xml_id=siglum,
+                        date=pub_date,
+                        siglum_label=siglum_label
+                    )
+
+                    if witness and witness.nvs_doc_type == 'witness':
                         play.primary_witnesses.append(witness.id)
 
                 elif 'corresp' in witness_tag.attrs:
@@ -401,6 +413,16 @@ def parse_front_file(corpus, play, front_file_path):
                 witness_collection.referenced_documents.append(reffed_doc.id)
 
             witness_collection.save()
+
+        for bibl_list in plan_of_work.find_all('listBibl'):
+            nvs_doc_type = bibl_list['xml:id'].replace("bibl_", "")
+
+            for bibl in bibl_list.find_all('bibl'):
+                handle_bibl_tag(corpus, bibl, nvs_doc_type, unhandled)
+
+        unhandled = list(set(unhandled))
+        print("Unhandled bibliography tags for frontmatter:")
+        print(json.dumps(unhandled, indent=4))
 
         # Create Witness Collection for first folio
         # witness_collection = corpus.get_content('DocumentCollection')
@@ -1248,35 +1270,47 @@ def parse_bibliography(corpus, play, bibliography_file_path):
     unhandled = []
     bibls = tei.find_all('bibl')
     for bibl in bibls:
-        if 'xml:id' in bibl.attrs:
-            doc = corpus.get_content('Document')
+        handle_bibl_tag(corpus, bibl, 'bibliography', unhandled)
+
+    unhandled = list(set(unhandled))
+    print(json.dumps(unhandled, indent=4))
+
+
+def handle_bibl_tag(corpus, bibl, nvs_doc_type, unhandled, xml_id=None, date='', siglum_label=''):
+    doc = None
+
+    if xml_id or 'xml:id' in bibl.attrs:
+        doc = corpus.get_content('Document')
+        if xml_id:
+            doc.siglum = xml_id
+        else:
             doc.siglum = bibl['xml:id']
 
-            doc_data = {
-                'author': '',
-                'bibliographic_entry': '',
-                'title': '',
-                'pub_date': '',
-                'editor': '',
-                'publisher': '',
-                'place': '',
-                'unhandled': []
-            }
+        doc_data = {
+            'siglum_label': siglum_label,
+            'author': '',
+            'bibliographic_entry': '',
+            'title': '',
+            'pub_date': date,
+            'editor': '',
+            'publisher': '',
+            'place': '',
+            'unhandled': []
+        }
 
-            extract_bibl_components(bibl, doc_data)
+        extract_bibl_components(bibl, doc_data)
 
-            for key in doc_data.keys():
-                if hasattr(doc, key) and doc_data[key]:
-                    setattr(doc, key, doc_data[key])
+        for key in doc_data.keys():
+            if hasattr(doc, key) and doc_data[key]:
+                setattr(doc, key, doc_data[key])
 
-            if doc_data['unhandled']:
-                unhandled.extend(doc_data['unhandled'])
-                unhandled = list(set(unhandled))
+        if doc_data['unhandled']:
+            unhandled.extend(doc_data['unhandled'])
 
-            doc.nvs_doc_type = 'bibliography'
-            doc.save()
+        doc.nvs_doc_type = nvs_doc_type
+        doc.save()
 
-    print(json.dumps(unhandled, indent=4))
+    return doc
 
 
 def extract_bibl_components(tag, doc_data, inside_note=False):
@@ -1676,6 +1710,32 @@ def mark_commentary_lemma(corpus, play, note):
             print("LEMMA NOT FOUND for note {0} w/ lemma [{1}]".format(note.id, lemma))
             print("TEXT: {0}".format(all_words))
             print("-----------------------------------------------\n")
+
+
+def parse_appendix(corpus, play, appendix_file_path):
+    try:
+        '''
+        for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
+            if nvs_content_type['name'] in ['Commentary']:
+                corpus.delete_content_type(nvs_content_type['name'])
+                corpus.save_content_type(nvs_content_type)
+        '''
+
+        # open commentary xml, read raw text into tei_text,
+        # and perform special text replacements before feeding
+        # into BeautifulSoup
+        with open(appendix_file_path, 'r') as tei_in:
+            tei_text = tei_in.read()
+            text_replacements = extract_text_replacements(tei_in)
+
+            for text, replacement in text_replacements.items():
+                tei_text = tei_text.replace(text, replacement)
+
+            tei = BeautifulSoup(tei_text, "xml")
+
+        tei.find('div', type='level1')
+    except:
+        pass
 
 
 def get_line_ids(line_id_map, xml_id_start, xml_id_end=None):

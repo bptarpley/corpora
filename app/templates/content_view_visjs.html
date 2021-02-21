@@ -17,6 +17,66 @@
 
 {% endblock %}
 
+{% block modals %}
+    {% if not popup %}
+        <!-- Explore CT Modal -->
+        <div class="modal fade" id="explore-ct-modal" tabindex="-1" role="dialog" aria-labelledby="explore-ct-modal-label" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 class="modal-title" id="explore-ct-modal-label"><span class="modal-proxy-ct"></span> Options</h4>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <h5>Collapse Relationship</h5>
+                        <div id="explore-ct-modal-collapse-div" class="p-2">
+                            <div class="row">
+                                <div class="col mb-2">
+                                    Collapsing a relationship allows you to see the relationships between two different
+                                    Content Types that normally are a step removed from each other. So, let's say a
+                                    Content Type called "Novel" refers to a Content Type
+                                    called "Chapter," and "Chapter" in turn refers to "Character." By
+                                    clicking on "Chapter" in the legend (displaying this window), choosing "Novel" from the dropdown on the left,
+                                    choosing "Character" from the dropdown on the right, and then clicking on the "Collapse"
+                                    button, the visualization will hide all "Chapter" nodes and simply show all indirect
+                                    relationships between "Novel" and "Character."
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <select class="form-control" id="from_ct_selector"></select>
+                                </div>
+                                <div class="col text-center">
+                                    <i class="fas fa-arrow-left"></i> <span class="modal-proxy-ct"></span> <i class="fas fa-arrow-right"></i>
+                                </div>
+                                <div class="col">
+                                    <select class="form-control" id="to_ct_selector"></select>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col mt-2 text-center">
+                                    <button type="button" class="btn btn-primary" id="collapse-add-button">Collapse</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="explore-ct-modal-already-collapsed-div" class="p-2 d-none">
+                            This Content Type is in a collapsed relationship. To uncollapse, click
+                            "uncollapse" next to Content Type in the visualization legend.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="explore-ct-sprawl-button">Sprawl Every <span class="modal-proxy-ct"></span></button>
+                        <button type="button" class="btn btn-primary" id="explore-ct-hide-button">Hide Every <span class="modal-proxy-ct"></span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}
+
 {% block main %}
     <div class="row {% if popup %}p-0 m-0{% else %}mt-4{% endif %}">
         <div class="col-12 {% if popup %}p-0 m-0{% endif %}">
@@ -95,9 +155,8 @@
         let content_id = '{% if content_id %}{{ content_id }}{% endif %}';
         let content_uri = `${corpus_uri}/${content_type_name}/${content_id}`;
         let content_type = null;
-        let content = null;
         let popup = {% if popup %}true{% else %}false{% endif %};
-        let network = null;
+        let canvas, content, network, nodes, edges, stabilization_timer = null;
         let stabilization_seconds = 20;
         let panes_displayed = {};
         let per_group_limit = 20;
@@ -208,10 +267,12 @@
         };
 
         $(document).ready(function() {
+            canvas = $('#explore-div');
+
             $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
                 if (e.target.id === 'explore-tab') {
-                    //network.fit();
-                    //nodes.update([{ id: content.uri, label: content.label, title: null, fixed: true }]);
+                    network.fit();
+                    nodes.update([{ id: content.uri, label: content.label, title: null, fixed: true }]);
                 }
             });
 
@@ -257,16 +318,44 @@
                             });
                         }
 
+                        // SETUP EXPLORE CT MODAL COLLAPSE SELECTORS AND EVENTS
+                        let from_ct_selector = $('#from_ct_selector');
+                        let to_ct_selector = $('#to_ct_selector');
+                        for (let ct_name in corpus_data.content_types) {
+                            let option = `<option value='${ct_name}'>${ct_name}</option>`;
+                            from_ct_selector.append(option);
+                            to_ct_selector.append(option);
+                        }
+
+                        $('#collapse-add-button').click(function() {
+                            collapsed_relationships.push({
+                                from_ct: $('#from_ct_selector').val(),
+                                proxy_ct: $('.modal-proxy-ct').html(),
+                                to_ct: $('#to_ct_selector').val()
+                            });
+                            build_explore_visualization();
+                            $('#explore-ct-modal').modal('hide');
+                        });
+
+                        $('#explore-ct-hide-button').click(function() {
+                            let hide_ct = $('.modal-proxy-ct').html();
+                            hidden_cts.push(hide_ct);
+                            build_explore_visualization();
+                            $('#explore-ct-modal').modal('hide');
+                        });
+
+                        $('#explore-ct-sprawl-button').click(function() {
+                            let sprawl_ct = $('.modal-proxy-ct').html();
+                            nodes.map(n => {
+                                if (n.id.includes(`/${sprawl_ct}/`)) {
+                                    sprawl_node(n.id);
+                                }
+                            });
+                            $('#explore-ct-modal').modal('hide');
+                        });
+
                         // INITIAL EXPLORE VIZ LOAD
-                        network = ContentGraph(
-                            corpora,
-                            "explore-div",
-                            "explore-legend",
-                            {
-                                'seeds': [content],
-                                'per_type_limit': 20
-                            }
-                        );
+                        build_explore_visualization();
                     }
                 });
             });

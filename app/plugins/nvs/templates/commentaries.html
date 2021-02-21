@@ -50,12 +50,17 @@
             </div>
         {% endfor %}
     </div>
-    {% if focal_commentary_id %}
+
     <script type="application/javascript">
+        {% if focal_commentary_id %}
         document.addEventListener("DOMContentLoaded", function() {
             document.getElementById('{{ focal_commentary_id }}').scrollIntoView();
         });
+        {% endif %}
+
+        function navigate_to(nav_type, xml_id) {
+            parent.show_nav_content(nav_type, xml_id);
+        }
     </script>
-    {% endif %}
 </body>
 </html>

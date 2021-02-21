@@ -522,7 +522,7 @@ def view_content(request, corpus_id, content_type, content_id):
 
     return render(
         request,
-        'content_view.html',
+        'content_view_visjs.html',
         {
             'response': context,
             'corpus_id': corpus_id,
@@ -1168,6 +1168,43 @@ def api_network_json(request, corpus_id, content_type, content_id):
         'nodes': [],
         'edges': []
     }
+    collapses = []
+    excluded_cts = []
+
+    if 'collapses' in request.GET:
+        collapse_params = request.GET['collapses'].split(',')
+        for collapse_param in collapse_params:
+            collapse_parts = collapse_param.split('-')
+            from_ct = collapse_parts[0]
+            proxy_ct = collapse_parts[1]
+            to_ct = collapse_parts[2]
+
+            excluded_cts.append(proxy_ct)
+
+            if from_ct == content_type:
+                collapses.append({
+                    'from_ct': from_ct,
+                    'proxy_ct': proxy_ct,
+                    'to_ct': to_ct
+                })
+            elif to_ct == content_type:
+                collapses.append({
+                    'from_ct': to_ct,
+                    'proxy_ct': proxy_ct,
+                    'to_ct': from_ct
+                })
+
+    if 'hidden' in request.GET:
+        excluded_cts += request.GET['hidden'].split(',')
+
+    excluded_cts = list(set(excluded_cts))
+
+    exclusion_clause = ""
+    for excluded_ct in excluded_cts:
+        exclusion_clause += '''
+            AND NOT a:{0}
+            AND NOT c:{0}
+        '''.format(excluded_ct)
 
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
 
@@ -1181,11 +1218,12 @@ def api_network_json(request, corpus_id, content_type, content_id):
         distinct_relationships = run_neo(
             '''
                 MATCH (a:{0}) -[b]- (c)
-                WHERE a.uri = '{1}'
+                WHERE a.uri = '{1}' {2}
                 RETURN distinct type(b)
             '''.format(
                     content_type,
-                    content_uri
+                    content_uri,
+                    exclusion_clause
                  )
             , {}
         )
@@ -1200,17 +1238,61 @@ def api_network_json(request, corpus_id, content_type, content_id):
                     SKIP {3}
                     LIMIT {4}
                 '''.format(
-                        content_type,
-                        relationship,
-                        content_uri,
-                        per_type_skip,
-                        per_type_limit
-                    )
+                    content_type,
+                    relationship,
+                    content_uri,
+                    per_type_skip,
+                    per_type_limit
+                )
             )
 
             node_uris = [n['id'] for n in network_json['nodes']]
             network_json['nodes'] += [n for n in rel_net_json['nodes'] if n['id'] not in node_uris]
             network_json['edges'] += rel_net_json['edges']
+
+        node_uris = [n['id'] for n in network_json['nodes']]
+        for collapse in collapses:
+            proxied_content = run_neo('''
+                MATCH path = (a:{0}) -- (b:{1}) -- (c:{2})
+                WHERE a.uri = '{3}'
+                RETURN distinct c, count(path) as freq
+                SKIP {4}
+                LIMIT {5}
+            '''.format(
+                collapse['from_ct'],
+                collapse['proxy_ct'],
+                collapse['to_ct'],
+                content_uri,
+                per_type_skip,
+                per_type_limit
+            ), {})
+
+            last_length = 10
+            for result in proxied_content:
+                uri = result.get('c').get('uri')
+                freq = result.get('freq')
+                if uri not in node_uris:
+                    network_json['nodes'].append({
+                        'group': collapse['to_ct'],
+                        'id': uri,
+                        'title': result.get('c').get('label')
+                    })
+                    node_uris.append(uri)
+                    network_json['edges'].append(
+                        {
+                            'from': content_uri,
+                            'id': content_uri + '-' + uri,
+                            'title': 'has{0}via{1}'.format(collapse['to_ct'], collapse['proxy_ct']),
+                            'to': uri,
+                            'freq': freq
+                        }
+                    )
+                    if last_length == 10:
+                        last_length = 90
+                    else:
+                        last_length = 10
+
+
 
     return HttpResponse(
         json.dumps(network_json),

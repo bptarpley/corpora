@@ -7,6 +7,7 @@ import importlib
 import zlib
 import shutil
 import logging
+import redis
 from math import ceil
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -1074,9 +1075,8 @@ class Corpus(mongoengine.Document):
         self.modify(**{'set__files__{0}'.format(file.key): file})
         file._do_linking(content_type='Corpus', content_uri=self.uri)
 
-    def get_content(self, content_type, content_id_or_query={}, only=[], all=False):
+    def get_content(self, content_type, content_id_or_query={}, only=[], all=False, single_result=False):
         content = None
-        single_result = False
 
         if content_type in self.content_types:
             content_obj = self.content_types[content_type].get_mongoengine_class(self)
@@ -1093,13 +1093,39 @@ class Corpus(mongoengine.Document):
                     if single_result:
                         content = content[0]
                 except:
-                    print("Error retrieving content:")
-                    print(traceback.format_exc())
                     return None
             else:
                 content = content_obj()
                 content.corpus_id = str(self.id)
                 content.content_type = content_type
+
+        return content
+
+    def get_or_create_content(self, content_type, fields={}, use_cache=False):
+        content = None
+        cache_key = None
+
+        if use_cache:
+            cache_key = "/corpus/{0}/cached-{1}:{2}".format(
+                self.id,
+                content_type,
+                json.dumps(fields)
+            )
+            content_id = self.redis_cache.get(cache_key)
+            if content_id:
+                content = self.get_content(content_type, content_id)
+
+        if not content:
+            content = self.get_content(content_type, fields, single_result=True)
+            if content and cache_key:
+                self.redis_cache.set(cache_key, str(content.id), ex=settings.REDIS_CACHE_EXPIRY_SECONDS)
+            elif not content:
+                content = self.get_content(content_type)
+                content.from_dict(fields)
+                content.save()
+
+                if cache_key:
+                    self.redis_cache.set(cache_key, str(content.id), ex=settings.REDIS_CACHE_EXPIRY_SECONDS)
 
         return content
 
@@ -2098,6 +2124,12 @@ class Corpus(mongoengine.Document):
         os.makedirs("{0}/files".format(corpus_path), exist_ok=True)
         return corpus_path
 
+    @property
+    def redis_cache(self):
+        if not hasattr(self, '_redis_cache'):
+            setattr(self, '_redis_cache', redis.Redis(host=settings.REDIS_HOST, decode_responses=True))
+        return self._redis_cache
+
     @classmethod
     def _post_save(cls, sender, document, **kwargs):
 
@@ -2504,6 +2536,12 @@ class Content(mongoengine.Document):
                 content_dict[field.name] = field.get_dict_value(getattr(self, field.name), self.uri)
 
         return content_dict
+
+    def from_dict(self, field_values):
+        for field in field_values.keys():
+            if field == 'id':
+                field_values[field] = ObjectId(field_values[field])
+            setattr(self, field, field_values[field])
 
     meta = {
         'abstract': True
