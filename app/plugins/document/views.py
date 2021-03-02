@@ -7,6 +7,7 @@ from corpus import *
 from .content import Document, PageSet, reset_page_extraction
 from manager.utilities import _get_context, get_scholar_corpus, _contains, _clean
 from manager.tasks import run_job
+from manager.views import view_content
 from natsort import natsorted
 from rest_framework.decorators import api_view
 from google.cloud import vision
@@ -15,6 +16,9 @@ from bs4 import BeautifulSoup
 
 @login_required
 def document(request, corpus_id, document_id):
+    if 'popup' in request.GET:
+        return view_content(request, corpus_id, 'Document', document_id)
+
     response = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
 

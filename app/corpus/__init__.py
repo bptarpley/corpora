@@ -2734,7 +2734,7 @@ def get_network_json(cypher):
                 net_json['nodes'].append({
                     'id': uri,
                     'group': node_type,
-                    'title': label
+                    'label': label
                 })
 
                 node_id_to_uri_map[node.id] = uri

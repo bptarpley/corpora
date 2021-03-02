@@ -29,7 +29,7 @@
                     </h4>
                 </div>
                 <div class="card-body h-100 {% if popup %}p-0 m-0{% endif %}">
-                    <ul class="nav nav-tabs" role="tablist">
+                    <ul id="content-nav-tabs" class="nav nav-tabs" role="tablist">
                         <li class="nav-item" role="presentation">
                             <a class="nav-link active" id="metadata-tab" data-toggle="tab" href="#metadata" role="tab" aria-controls="metadata" aria-selected="true">Metadata</a>
                         </li>
@@ -98,26 +98,7 @@
         let content = null;
         let popup = {% if popup %}true{% else %}false{% endif %};
         let network = null;
-        let stabilization_seconds = 20;
-        let panes_displayed = {};
-        let per_group_limit = 20;
-        let groups = {};
-        let group_colors = [
-            '#EF3E36',
-            '#091540',
-            '#17BEBB',
-            '#BFC0C0',
-            '#2191FB',
-            '#297045',
-            '#9448BC',
-            '#FFB627',
-            '#CCC9E7',
-            '#E9E3B4',
-        ];
-        let group_color_cursor = 0;
         let last_table = null;
-        let collapsed_relationships = [];
-        let hidden_cts = [];
 
         var field_templates = {
             text: function(field, value) {
@@ -210,8 +191,7 @@
         $(document).ready(function() {
             $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
                 if (e.target.id === 'explore-tab') {
-                    //network.fit();
-                    //nodes.update([{ id: content.uri, label: content.label, title: null, fixed: true }]);
+                    network.network.fit();
                 }
             });
 
@@ -258,380 +238,25 @@
                         }
 
                         // INITIAL EXPLORE VIZ LOAD
-                        network = ContentGraph(
+                        let explore_container_width = $('#content-nav-tabs').innerWidth();
+                        $('#explore-div').css("width", `${explore_container_width}px`);
+                        network = new ContentGraph(
                             corpora,
+                            corpus_data,
                             "explore-div",
                             "explore-legend",
                             {
-                                'seeds': [content],
-                                'per_type_limit': 20
+                                'seeds': [content.uri],
+                                'per_type_limit': 20,
+                                'width': explore_container_width,
+                                'height': 800
                             }
                         );
+                        $('#explore-tab').removeClass('disabled');
                     }
                 });
             });
         });
-
-        function build_explore_visualization() {
-            $('#explore-div').html();
-
-            let net_json_params = {
-                per_type_limit: per_group_limit
-            };
-
-            let collapse_param = collapsed_relationships.map(rel => `${rel.from_ct}-${rel.proxy_ct}-${rel.to_ct}`).join(',');
-            if (collapse_param) { net_json_params['collapses'] = collapse_param; }
-
-            let hidden_param = hidden_cts.join(',');
-            if (hidden_param) { net_json_params['hidden'] = hidden_param; }
-
-            corpora.get_network_json(corpus_id, content_type_name, content_id, net_json_params, function(net_json) {
-                nodes = new vis.DataSet(net_json.nodes);
-                edges = new vis.DataSet(net_json.edges);
-                normalize_collapse_lengths();
-                determine_group_colors();
-
-                // set shape for root node
-                nodes.update([{
-                    id: content_uri,
-                    size: 20,
-                    skip: per_group_limit,
-                }]);
-
-                let explore_div = $('#explore-div')[0];
-                network = new vis.Network(
-                    explore_div,
-                    {
-                        nodes: nodes,
-                        edges: edges
-                    },
-                    {
-                        nodes: {
-                            shape: 'dot',
-                            size: 10
-                        },
-                        groups: groups,
-                        interaction: {
-                            zoomSpeed: 0.4,
-                            hover: true,
-                            tooltipDelay: 100
-                        },
-                        physics: {
-                            solver: 'repulsion',
-                            forceAtlas2Based: {
-                                springConstant: .04,
-                                gravitationalConstant: -10,
-                                damping: 0.9,
-                                avoidOverlap: 1
-                            },
-                            stabilization: {
-                                enabled: false,
-                                fit: false
-                            },
-                        },
-                    }
-                );
-                extrude_node(corpus_uri);
-                $('#explore-tab').removeClass('disabled');
-
-                network.on("dragStart", function(params){
-                    params.nodes.map(id => {
-                        let n = nodes.get(id);
-                        n.fixed = false;
-                        affix_node_label(n);
-                        nodes.update(n);
-                    });
-                });
-
-                network.on("dragEnd", function(params){
-                    params.nodes.map(id => {
-                        nodes.update([{ id: id, fixed: true }]);
-                    });
-                });
-
-                network.on("click", function(params) {
-                    remove_unpinned_panes();
-
-                    if (params.nodes.length > 0) {
-                        let clicked_uri = params.nodes[0];
-                        let clicked_node = nodes.get(clicked_uri);
-                        let pane_id = `${clicked_uri.replaceAll('/', '-')}-pane`;
-                        let canvas_offset = canvas.offset();
-                        let pane_x = params.pointer.DOM.x + canvas_offset.left;
-                        let pane_y = params.pointer.DOM.y + canvas_offset.top;
-
-                        affix_node_label(clicked_node);
-                        nodes.update(clicked_node);
-
-                        if ($(`#${pane_id}`).length > 0) {
-                            console.log('already there!');
-                        } else {
-                            $('#main-container').append(`
-                                <div id="${pane_id}"
-                                    class="content-pane"
-                                    style="background-color: rgba(255, 255, 255, .8);
-                                        width: 200px;
-                                        height: 225px;
-                                        position: absolute;
-                                        top: ${pane_y}px;
-                                        left: ${pane_x}px;">
-
-                                    <div style="height: 25px;">
-                                        <span id="${pane_id}-pin" title="Pin" onClick="pin_node('${clicked_uri}');" class="popup-button fas fa-thumbtack"></span>
-                                        <span title="Sprawl" onClick="sprawl_node('${clicked_uri}');" class="popup-button fas fa-expand-arrows-alt"></span>
-                                        <span title="Remove" onClick="extrude_node('${clicked_uri}', true);" class="popup-button far fa-trash-alt"></span>
-                                    </div>
-                                    <iframe src="${clicked_uri}/?popup=y" frameBorder="0" width="200px" height="200px" />
-                                </div>
-                            `);
-                            panes_displayed[clicked_uri] = {pinned: false};
-                            make_draggable(document.getElementById(pane_id));
-                        }
-                    }
-                });
-
-                network.on("stabilized", function(params) {
-                    clearTimeout(stabilization_timer);
-                });
-            });
-        }
-
-        function affix_node_label(node) {
-            if (node.title) {
-                node.label = node.title;
-                node.title = null;
-            }
-        }
-
-        function extrude_node(uri, remove_isolated=false) {
-            edge_ids = network.getConnectedEdges(uri);
-            edge_ids.map(edge_id => edges.remove(edge_id));
-            nodes.remove(uri);
-
-            if (remove_isolated) {
-                let isolated_nodes = new vis.DataView(nodes, {
-                    filter: function (node) {
-                        let connEdges = edges.get({
-                            filter: function (edge) {
-                                return (
-                                    (edge.to == node.id) || (edge.from == node.id));
-                            }
-                        });
-                        return connEdges.length == 0;
-                    }
-                });
-
-                isolated_nodes.map(i => extrude_node(i.id, false));
-            }
-        }
-
-        function pin_node(uri) {
-            if (!panes_displayed[uri].pinned) {
-                panes_displayed[uri].pinned = true;
-                let pin_id = `${uri.replaceAll('/', '-')}-pane-pin`;
-                $(`#${pin_id}`).css('color', '#EF3E36');
-            } else {
-                panes_displayed[uri].pinned = false;
-                remove_unpinned_panes();
-            }
-        }
-
-        function sprawl_node(uri, sprawl_children=false) {
-            let node_ct = uri.split('/').slice(-2)[0];
-            let node_id = uri.split('/').slice(-1)[0];
-            let skip = 0;
-
-            let node = nodes.get(uri);
-            if (node && node.hasOwnProperty('skip')) {
-                skip = node.skip;
-            }
-
-            let net_json_params = {
-                per_type_skip: skip,
-                per_type_limit: per_group_limit
-            };
-
-            let collapse_param = collapsed_relationships.map(rel => `${rel.from_ct}-${rel.proxy_ct}-${rel.to_ct}`).join(',');
-            if (collapse_param) { net_json_params['collapses'] = collapse_param; }
-
-            let hidden_param = hidden_cts.join(',');
-            if (hidden_param) { net_json_params['hidden'] = hidden_param; }
-
-            corpora.get_network_json(corpus_id, node_ct, node_id, net_json_params, function(net_json) {
-                let children = [];
-
-                net_json.nodes.map(n => {
-                    if (n.id !== corpus_uri && !nodes.get(n.id)) {
-                        if (n.id === uri) { n.skip = per_group_limit; }
-                        nodes.add(n);
-                        children.push(n.id);
-                    }
-                });
-
-                net_json.edges.map(e => {
-                    if (e.from !== corpus_uri && e.to !== corpus_uri && !edges.get(e.id)) {
-                        edges.add(e);
-                    }
-                });
-                normalize_collapse_lengths();
-                determine_group_colors();
-                network.setOptions({groups: groups});
-
-                if (sprawl_children) {
-                    children.map(child_uri => sprawl_node(child_uri));
-                }
-
-                clearTimeout(stabilization_timer);
-                //stabilization_timer = setTimeout(stop_jitter, stabilization_seconds * 1000);
-            });
-
-            if (node) {
-                node.skip = skip += per_group_limit;
-                nodes.update(node);
-            }
-        }
-
-        function normalize_collapse_lengths() {
-            let min_length = 10;
-            let max_length = 600;
-
-            collapsed_relationships.map(col_rel => {
-                let title_a = `has${col_rel.to_ct}via${col_rel.proxy_ct}`;
-                let title_b = `has${col_rel.from_ct}via${col_rel.proxy_ct}`;
-
-                let redundant_edges = edges.get({
-                    filter: function(edge) {
-                        return edge.title === title_b;
-                    }
-                });
-                redundant_edges.map(r => {
-                    let id_parts = r.id.split('-');
-                    let inverse_id = `${id_parts[1]}-${id_parts[0]}`;
-                    let inverse_edge = edges.get(inverse_id);
-                    if (inverse_edge === null) {
-                        edges.add({
-                            id: inverse_id,
-                            from: id_parts[1],
-                            to: id_parts[0],
-                            title: title_a,
-                            freq: r.freq
-                        });
-                    }
-                    edges.remove(r.id);
-                });
-
-                let col_edges = edges.get({
-                    filter: function(edge) {
-                        return edge.title === title_a;
-                    }
-                });
-
-                let min_freq = 9999999999999999999999;
-                let max_freq = 1;
-                col_edges.map(e => {
-                    if (e.freq < min_freq) { min_freq = e.freq; }
-                    if (e.freq > max_freq) { max_freq = e.freq; }
-                });
-
-                let updated_edges = [];
-                col_edges.map(e => {
-                    let mx = (e.freq - min_freq) / (max_freq - min_freq);
-                    let preshiftNorm = mx * (max_length - min_length);
-                    updated_edges.push({
-                        id: e.id,
-                        length: parseInt((max_length + min_length) - (preshiftNorm + min_length))
-                    });
-                });
-                edges.update(updated_edges);
-            });
-        }
-
-        function determine_group_colors() {
-            let group_names = nodes.map(n => n.group);
-            group_names = [...new Set(group_names)];
-            group_names.map(group_name => {
-                if (group_name !== 'Corpus' && !Object.keys(groups).includes(group_name)) {
-                    groups[group_name] = {
-                        color: group_colors[group_color_cursor]
-                    };
-                    group_color_cursor++;
-                    if (group_color_cursor >= group_colors.length) group_color_cursor = 0;
-                }
-            });
-
-            let legend = $('#explore-legend');
-            legend.html('');
-            for (let group_name in groups) {
-                let action_links = "";
-
-                collapsed_relationships.map(col_rel => {
-                    if (group_name === col_rel['proxy_ct']) {
-                        action_links += `<a href="#" class="uncollapse-link mr-2" data-collapse="${col_rel.proxy_ct}">uncollapse</a>`;
-                    }
-                });
-
-                hidden_cts.map(hidden => {
-                    if (group_name === hidden) {
-                        action_links += `<a href="#" class="unhide-link mr-2" data-hidden="${hidden}">unhide</a>`;
-                    }
-                });
-
-                legend.append(`
-                    <span class="badge mr-1 p-1 ct-legend-badge" style="background-color: ${groups[group_name].color}; color: #FFFFFF; cursor: pointer;">${group_name}</span>${action_links}
-                `);
-            }
-            legend.append("<span class='ml-2'><i class='fas fa-arrow-left'></i> click one of these for options</span>");
-
-            $('.ct-legend-badge').click(function() {
-                let explore_ct = $(this).html();
-                $('#explore-ct-modal-label').html(`${explore_ct} Options`);
-                $('.modal-proxy-ct').html(explore_ct);
-
-                let collapsible = true;
-                let hideable = !hidden_cts.includes(explore_ct);
-
-                collapsed_relationships.map(col_rel => {
-                    if (col_rel.proxy_ct === explore_ct) {
-                        collapsible = false;
-                    }
-                });
-
-                if (collapsible) {
-                    $('#explore-ct-modal-already-collapsed-div').addClass('d-none');
-                    $('#explore-ct-modal-collapse-div').removeClass('d-none');
-                } else {
-                    $('#explore-ct-modal-already-collapsed-div').removeClass('d-none');
-                    $('#explore-ct-modal-collapse-div').addClass('d-none');
-                }
-
-                if (hideable) {
-                    $('#explore-ct-hide-button').attr('disabled', false);
-                } else {
-                    $('#explore-ct-hide-button').attr('disabled', true);
-                }
-
-                $('#explore-ct-modal').modal();
-            });
-
-            $('.uncollapse-link').click(function(e) {
-                e.preventDefault();
-                let col_proxy = $(this).data('collapse');
-                for (let cl_index = 0; cl_index < collapsed_relationships.length; cl_index++) {
-                    if (collapsed_relationships[cl_index].proxy_ct === col_proxy) {
-                        collapsed_relationships.splice(cl_index, 1);
-                        break;
-                    }
-                }
-                build_explore_visualization();
-            });
-
-            $('.unhide-link').click(function(e) {
-                e.preventDefault();
-                let hid_index = hidden_cts.indexOf($(this).data('hidden'));
-                hidden_cts.splice(hid_index, 1);
-                build_explore_visualization();
-            });
-        }
 
         function build_content_div() {
             let content_div = $("#content-div");
@@ -677,61 +302,6 @@
             }
 
             hide_loading_overlay();
-        }
-
-        function remove_unpinned_panes() {
-            for (let pane_uri in panes_displayed) {
-                if (!panes_displayed[pane_uri].pinned) {
-                    let pane_id = `${pane_uri.replaceAll('/', '-')}-pane`;
-                    $(`#${pane_id}`).remove();
-                    delete panes_displayed[pane_uri];
-                }
-            }
-        }
-
-        function stop_jitter() {
-            nodes.map(n => {n.fixed = true; nodes.update(n);});
-        }
-
-        function make_draggable(elmnt) {
-            var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-            if (document.getElementById(elmnt.id + "header")) {
-                // if present, the header is where you move the DIV from:
-                document.getElementById(elmnt.id + "header").onmousedown = dragMouseDown;
-            } else {
-                // otherwise, move the DIV from anywhere inside the DIV:
-                elmnt.onmousedown = dragMouseDown;
-            }
-
-            function dragMouseDown(e) {
-                e = e || window.event;
-                e.preventDefault();
-                // get the mouse cursor position at startup:
-                pos3 = e.clientX;
-                pos4 = e.clientY;
-                document.onmouseup = closeDragElement;
-                // call a function whenever the cursor moves:
-                document.onmousemove = elementDrag;
-            }
-
-            function elementDrag(e) {
-                e = e || window.event;
-                e.preventDefault();
-                // calculate the new cursor position:
-                pos1 = pos3 - e.clientX;
-                pos2 = pos4 - e.clientY;
-                pos3 = e.clientX;
-                pos4 = e.clientY;
-                // set the element's new position:
-                elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
-                elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
-            }
-
-            function closeDragElement() {
-                // stop moving when mouse button is released:
-                document.onmouseup = null;
-                document.onmousemove = null;
-            }
         }
     </script>
 {% endblock %}

@@ -120,6 +120,41 @@
         </div>
     </div>
 
+    <!-- Job Modal -->
+    <div class="modal fade" id="job-modal" tabindex="-1" role="dialog" aria-labelledby="job-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="job-form" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="job-modal-label">Run Job</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="job-jobsite-selector">Jobsite</label>
+                            <select id="job-jobsite-selector" class="form-control" name="jobsite">
+                            </select>
+                        </div>
+                        <div id="job-task-selector-div" class="form-group">
+                            <label for="job-task-selector">Task</label>
+                            <select id="job-task-selector" class="form-control" name="task">
+                            </select>
+                        </div>
+                        <div id="job-task-parameters-div">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="job-submit-button" onclick="run_job();" disabled>Run Job</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- OCR Modal -->
     <div class="modal fade" id="ocr-modal" tabindex="-1" role="dialog" aria-labelledby="ocr-modal-label" aria-hidden="true">
         <div class="modal-dialog" role="document">
@@ -288,7 +323,14 @@
                     <div class="col-12">
                         <div class="card mb-3">
                             <div class="card-header">
-                                <h4>Running Jobs</h4>
+                                <div class="d-flex w-100 justify-content-between align-items-center">
+                                    <h4>Running Jobs</h4>
+                                    <span>
+                                        {% if response.scholar.is_admin or role == 'Editor' %}
+                                            <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
+                                        {% endif %}
+                                    </span>
+                                </div>
                             </div>
                             <div class="card-body">
                                 <iframe src="/jobs/corpus/{{ corpus_id }}/Document/{{ document_id }}/" width="100%" height="100%" frameBorder="0"></iframe>
@@ -879,6 +921,26 @@
                                 });
 
                                 // -----------------
+                                // SETUP JOB MODAL
+                                // -----------------
+                                $("#run-job-button").click(function() {
+                                    load_jobsites("job", "job");
+                                    $("#job-modal").modal();
+                                });
+
+                                $("#job-jobsite-selector").on("change", function() {
+                                    load_tasks($('#job-jobsite-selector :selected').attr('class'), 'job', 'job');
+                                });
+
+                                $("#job-task-selector").on("change", function() {
+                                    load_task_parameters($('#job-task-selector').val(), 'job');
+                                });
+
+                                $("#job-submit-button").click(function() {
+                                    $("#job-form").submit();
+                                });
+
+                                // -----------------
                                 // SETUP OCR MODAL
                                 // -----------------
                                 $("#perform-ocr-button").click(function() {
@@ -1146,7 +1208,7 @@
                     let tasks_populated = 0;
 
                     for (let x = 0; x < tasks.length; x++) {
-                        if (tasks[x]["jobsite_type"] == jobsite_type && tasks[x]["name"].includes(task_filter)) {
+                        if (tasks[x]["jobsite_type"] == jobsite_type && (tasks[x]["name"].includes(task_filter) || task_filter === 'job')) {
                             $(`#${modal}-task-selector`).append(`
                                 <option value="${tasks[x]["_id"]["$oid"]}">
                                     ${tasks[x]["name"]}
@@ -1170,16 +1232,13 @@
         }
 
         function load_task_parameters(task_id, modal) {
-            console.log('load parameters fired');
             $(`#${modal}-task-parameters-div`).html('');
 
             for (let x = 0; x < tasks.length; x++) {
                 if (tasks[x]["_id"]["$oid"] == task_id) {
-                    console.log('found task');
                     let parameters = tasks[x]['configuration']['parameters'];
                     for (let parameter in parameters) {
                         if (parameters[parameter].hasOwnProperty('type')) {
-                            console.log('handling parameter ' + parameter);
                             let parameter_html = '';
                             let note_html = '';
                             if (parameters[parameter].hasOwnProperty('note')) {
@@ -1213,6 +1272,29 @@
                                         <select id="${modal}-collection-selector" class="form-control" name="${parameter}">
                                             ${select_options}
                                         </select>
+                                        ${note_html}
+                                    </div>
+                                `;
+                            } else if (parameters[parameter]['type'] == 'document_file') {
+                                let select_options = '';
+                                Object.keys(doc.files).forEach(file_key => {
+                                    select_options += `<option value="${file_key}">${doc.files[file_key].basename}</option>`;
+                                });
+
+                                parameter_html = `
+                                    <div class="form-group">
+                                        <label for="${parameter}-file-selector">${parameters[parameter]['label']}</label>
+                                        <select id="${parameter}-file-selector" class="form-control" name="${parameter}">
+                                            ${select_options}
+                                        </select>
+                                        ${note_html}
+                                    </div>
+                                `;
+                            } else if (parameters[parameter]['type'] === 'text') {
+                                parameter_html = `
+                                    <div class="form-group">
+                                        <label for="${parameter}-text-box">${parameters[parameter]['label']}</label>
+                                        <input type="text" class="form-control" id="${parameter}-text-box" name="${parameter}" />
                                         ${note_html}
                                     </div>
                                 `;

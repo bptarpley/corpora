@@ -203,6 +203,18 @@ def corpus(request, corpus_id):
                             response['messages'].append(
                                 "Content type {0} re-indexing successfully commenced.".format(action_content_type))
 
+                        # re-label content type
+                        elif action == 'relabel':
+                            run_job(corpus.queue_local_job(task_name="Adjust Content", parameters={
+                                'content_type': action_content_type,
+                                'reindex': True,
+                                'relabel': True,
+                                'relink': True
+                            }))
+
+                            response['messages'].append(
+                                "Content type {0} re-labeling successfully commenced.".format(action_content_type))
+
                     # field actions
                     else:
                         if action == 'delete':
@@ -522,7 +534,7 @@ def view_content(request, corpus_id, content_type, content_id):
 
     return render(
         request,
-        'content_view_visjs.html',
+        'content_view.html',
         {
             'response': context,
             'corpus_id': corpus_id,
@@ -539,11 +551,22 @@ def explore_content(request, corpus_id, content_type):
     context = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
     content_ids = _clean(request.POST, 'content-ids', '')
+    content_uris = _clean(request.POST, 'content-uris', '')
+    popup = 'popup' in request.GET
+    has_content = content_ids or content_uris
 
-    if not corpus or content_type not in corpus.content_types or not content_ids:
+    if not corpus or content_type not in corpus.content_types or not has_content:
         raise Http404("Corpus does not exist, or you are not authorized to view it.")
     else:
-        content_ids = content_ids.split(',')
+        if content_ids:
+            content_ids = content_ids.split(',')
+        else:
+            content_ids = []
+
+        if content_uris:
+            content_uris = content_uris.split(',')
+        else:
+            content_uris = []
 
     return render(
         request,
@@ -554,6 +577,8 @@ def explore_content(request, corpus_id, content_type):
             'role': role,
             'content_type': content_type,
             'content_ids': content_ids,
+            'content_uris': content_uris,
+            'popup': popup
         }
     )
 
@@ -1275,7 +1300,7 @@ def api_network_json(request, corpus_id, content_type, content_id):
                     network_json['nodes'].append({
                         'group': collapse['to_ct'],
                         'id': uri,
-                        'title': result.get('c').get('label')
+                        'label': result.get('c').get('label')
                     })
                     node_uris.append(uri)
                     network_json['edges'].append(

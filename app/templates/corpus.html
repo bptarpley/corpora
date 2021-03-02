@@ -1055,6 +1055,7 @@
                         <span class="float-right">
                             <button id="${ct_div_prefix}-edit-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Edit"><span class="fas fa-edit"></span></button>
                             <button id="${ct_div_prefix}-reindex-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Re-Index"><span class="fas fa-sync"></span></button>
+                            <button id="${ct_div_prefix}-relabel-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Re-Label"><span class="fas fa-tag"></span></button>
                             ${delete_or_lock_button}
                         </span>
                         <div id="${ct_div_prefix}" class="alert alert-info collapse p-3 mt-2" aria-labelledby="${ct_div_prefix}-container" data-parent="#tm-ct-group">
@@ -1152,6 +1153,22 @@
                     Depending on how much content belongs to this type, this may take a long time, and
                     while re-indexing is taking place, the content will be temporarily unavailable in
                     lists. Do you wish to proceed?`;
+
+                    $('#confirmation-modal-message').html(message);
+                    $('#confirmation-modal').modal();
+                });
+
+                // REINDEX CONTENT TYPE BUTTON
+                $(`#${ct_div_prefix}-relabel-button`).click(function() {
+                    $('#confirmation-ct-name').val(ct_name);
+                    $('#confirmation-field-index').val('');
+                    $('#confirmation-field-name').val('');
+                    $('#confirmation-action').val('relabel');
+                    $('#confirmation-confirm-button').attr('disabled', false);
+                    $('#confirmation-modal-label').html('Confirm Re-Labeling');
+
+                    let message = `You are attempting to re-label content belonging to the <b>${ct_name}</b> content type.
+                    Depending on how much content belongs to this type, this may take a long time. Do you wish to proceed?`;
 
                     $('#confirmation-modal-message').html(message);
                     $('#confirmation-modal').modal();
