@@ -1041,6 +1041,10 @@ class File(mongoengine.EmbeddedDocument):
     def generate_key(cls, path):
         return zlib.compress(path.encode('utf-8')).hex()
 
+    def get_url(self, parent_uri):
+        uri = "{0}/file/{1}".format(parent_uri, self.key)
+        return "/file/uri/{0}/".format(uri.replace('/', '|'))
+
     def to_dict(self, parent_uri):
         return {
             'uri': "{0}/file/{1}".format(parent_uri, self.key),

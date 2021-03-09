@@ -247,6 +247,9 @@ def import_data(job_id):
                     job.set_status('running', percent_complete=68)
                     parse_commentary(corpus, play, include_file_paths['commentary'])
 
+                    job.set_status('running', percent_complete=75)
+                    parse_appendix(corpus, play, include_file_paths['appendix'])
+
                     job.set_status('running', percent_complete=85)
                     render_lines_html(corpus, play)
 
@@ -1459,8 +1462,6 @@ def parse_commentary(corpus, play, commentary_file_path):
                     print("error marking lemma for note {0}".format(note.id))
                     print(traceback.format_exc())
 
-
-                # TODO: link up items in data['references']
             else:
                 parse_report.append("commentary note {0} missing label or lem".format(note.xml_id))
 
@@ -1489,16 +1490,16 @@ def handle_commentary_tag(tag, data={}):
             data['subject_matter'] = "".join([handle_commentary_tag(child, data) for child in tag.children])
 
         elif tag.name == 'ref' and _contains(tag.attrs, ['targType', 'target']):
-            if 'references' not in data:
-                data['references'] = []
+            targ_type = tag['targType']
+            xml_id = tag['target'].replace('#', '').strip()
 
-            data['references'].append((tag['targType'], tag['target'].replace('#', '')))
+            if targ_type == 'lb' and 'targetEnd' in tag.attrs:
+                xml_id += ' ' + tag['targetEnd'].replace("#", '').strip()
 
             html += '''<a href="javascript: navigate_to('{0}', '{1}');">'''.format(
-                tag['targType'],
-                tag['target'].replace('#', '')
+                targ_type,
+                xml_id
             )
-
             html += "".join([handle_commentary_tag(child, data) for child in tag.children])
             html += "</a>"
 
@@ -1553,15 +1554,9 @@ def handle_commentary_tag(tag, data={}):
             html += "".join([handle_commentary_tag(child, data) for child in tag.children])
 
         elif tag.name == 'ptr' and _contains(tag.attrs, ['targType', 'target']):
-            if 'references' not in data:
-                data['references'] = []
-
             target = tag['target'].replace('#', '')
             if 'targetEnd' in tag.attrs:
-                data['references'].append((tag['targType'], target + '-' + tag['targetEnd'].replace('#', '')))
                 target += " " + tag['targetEnd']
-            else:
-                data['references'].append((tag['targType'], target))
 
             html += '''<a href="javascript: navigate_to('{0}', '{1}');">here</a>'''.format(
                 tag['targType'],
@@ -1569,14 +1564,9 @@ def handle_commentary_tag(tag, data={}):
             )
 
         elif tag.name == 'siglum':
-            if 'references' not in data:
-                data['references'] = []
-
             siglum_label = "".join([handle_commentary_tag(child, data) for child in tag.children])
             if 'rend' in tag.attrs and tag['rend'] == 'smcaps':
                 siglum_label = '''<span style="font-variant: small-caps;">{0}</span>'''.format(siglum_label)
-
-            data['references'].append(('siglum', siglum_label))
 
             html += '''<a href="javascript: navigate_to('{0}', '{1}');">'''.format(
                 'siglum',
@@ -1716,12 +1706,12 @@ def parse_appendix(corpus, play, appendix_file_path):
     try:
         '''
         for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
-            if nvs_content_type['name'] in ['Commentary']:
+            if nvs_content_type['name'] in ['ParaText']:
                 corpus.delete_content_type(nvs_content_type['name'])
                 corpus.save_content_type(nvs_content_type)
         '''
 
-        # open commentary xml, read raw text into tei_text,
+        # open xml, read raw text into tei_text,
         # and perform special text replacements before feeding
         # into BeautifulSoup
         with open(appendix_file_path, 'r') as tei_in:
@@ -1733,9 +1723,284 @@ def parse_appendix(corpus, play, appendix_file_path):
 
             tei = BeautifulSoup(tei_text, "xml")
 
-        tei.find('div', type='level1')
+        unhandled = []
+        unhandled += create_appendix_divs(corpus, play, tei, None, 1)
+        unhandled = list(set(unhandled))
+        print("Unhandled Appendix Tags:")
+        print(json.dumps(unhandled, indent=4))
+
     except:
-        pass
+        print("Error parsing appendix:")
+        print(traceback.format_exc())
+
+
+def create_appendix_divs(corpus, play, container, parent, level):
+    level_attr = "level" + str(level)
+    divs = container.findAll('div', type=level_attr)
+    level_counter = 0
+    unhandled = []
+    for div in divs:
+        level_counter += 1
+        pt = corpus.get_content('ParaText')
+        pt.xml_id = div['xml:id']
+        pt.section = "Appendix"
+        pt.order = level_counter
+        pt.level = level
+        pt.html_content = ""
+        if parent:
+            pt.parent = parent.id
+        pt.play = play.id
+
+        pt_data = {
+            'current_note': None,
+            'unhandled': [],
+            'corpus': corpus,
+        }
+
+        for child in div.children:
+            pt.html_content += handle_paratext_tag(child, pt, pt_data)
+
+        unhandled += list(set(pt_data['unhandled']))
+
+        pt.save()
+
+        unhandled += list(set(create_appendix_divs(corpus, play, div, pt, level + 1)))
+
+    return unhandled
+
+
+def handle_paratext_tag(tag, pt, pt_data):
+    html = ""
+
+    simple_conversions = {
+        'p': 'p',
+        'hi': 'span',
+        'title': 'i',
+        'quote': 'i',
+        'table': 'table',
+        'row': 'tr',
+        'cell': 'td',
+        'list': 'ul',
+        'item': 'li',
+        'front': 'div',
+        'floatingText': 'div',
+        'titlePage': 'span',
+        'docTitle': 'span',
+        'figDesc': 'p',
+        'docImprint': 'p',
+        'byline': 'p',
+        'docAuthor': 'span',
+        'lb': 'br',
+        'div': 'div',
+        'signed': 'div',
+        'lg': 'i:mt-2',
+        'l': 'div',
+        'milestone': 'div:float-right',
+        'sp': 'div:mx-auto',
+        'speaker': 'span',
+        'trailer': 'div:mt-2',
+        'label': 'b',
+        'figure': 'div',
+        'salute': 'span'
+    }
+
+    silent = [
+        'app', 'appPart', 'lem', 'wit', 'rdgDesc',
+        'rdg', 'name', 'rs', 'epigraph',
+        'body', 'foreign', 'cit', 'stage',
+        'bibl', 'docDate'
+    ]
+
+    if tag.name:
+        attributes = ""
+        if 'xml:id' in tag.attrs:
+            pt.child_xml_ids.append(tag['xml:id'])
+            attributes += " id='{0}'".format(tag['xml:id'])
+        if 'rend' in tag.attrs:
+            attributes += " style='{0}'".format(get_rend_style(tag['rend']))
+
+        if tag.name == 'head':
+            if not pt.title:
+                pt_title = ""
+                for child in tag.children:
+                    pt_title += handle_paratext_tag(child, pt, pt_data)
+                pt.title = pt_title
+
+            else:
+                html += "<h2{0}>".format(attributes)
+                for child in tag.children:
+                    html += handle_paratext_tag(child, pt, pt_data)
+                html += "</h2>"
+
+        elif tag.name == 'titlePart':
+            html_tag = 'h'
+            if 'type' in tag.attrs:
+                if tag['type'] == 'main':
+                    html_tag += '2'
+                elif tag['type'] == 'sub':
+                    html_tag += '3'
+                elif tag['type'] == 'desc':
+                    html_tag += '4'
+            else:
+                html_tag += '2'
+
+            html += "<{0}{1}>".format(html_tag, attributes)
+            for child in tag.children:
+                html += handle_paratext_tag(child, pt, pt_data)
+            html += "</{0}>".format(html_tag)
+
+        elif tag.name == 'siglum':
+            siglum_label = "".join([handle_paratext_tag(child, pt, pt_data) for child in tag.children])
+            if 'rend' in tag.attrs and tag['rend'] == 'smcaps':
+                siglum_label = '''<span style="font-variant: small-caps;">{0}</span>'''.format(siglum_label)
+
+            html += '''<a href="javascript: navigate_to('{0}', '{1}');">'''.format(
+                'siglum',
+                strip_tags(siglum_label)
+            )
+            html += siglum_label
+            html += "</a>"
+
+        elif tag.name == 'ptr' and _contains(tag.attrs, ['targType', 'target']):
+            target = tag['target'].replace('#', '')
+            if 'targetEnd' in tag.attrs:
+                target += " " + tag['targetEnd']
+            html += '''<a href="javascript: navigate_to('{0}', '{1}');">here</a>'''.format(
+                tag['targType'],
+                target
+            )
+
+        elif tag.name == 'ref' and _contains(tag.attrs, ['targType', 'target']):
+            targ_type = tag['targType']
+            xml_id = tag['target'].replace('#', '').strip()
+
+            if targ_type == 'lb' and 'targetEnd' in tag.attrs:
+                xml_id += ' ' + tag['targetEnd'].replace("#", '').strip()
+
+            html += '''<a href="javascript: navigate_to('{0}', '{1}');">'''.format(
+                targ_type,
+                xml_id
+            )
+            html += "".join([handle_paratext_tag(child, pt, pt_data) for child in tag.children])
+            html += "</a>"
+
+        elif tag.name == 'note':
+            curr_note = {
+                'xml_id': '',
+                'target_tln': ''
+            }
+
+            if 'target' in tag.attrs:
+                curr_note['target_tln'] = tag['target'].replace('#', '')
+
+            pt_data['current_note'] = curr_note
+
+            html += "<div{0} class='pt_textual_note'>".format(attributes)
+            for child in tag.children:
+                html += handle_paratext_tag(child, pt, pt_data)
+            html += "</div>"
+            pt_data['current_note'] = None
+
+        elif tag.name == "label" and pt_data['current_note']:
+            html += '''<a href="javascript: navigate_to('lb', '{0}');">'''.format(
+                pt_data['current_note']['target_tln']
+            )
+            for child in tag.children:
+                html += handle_paratext_tag(child, pt, pt_data)
+            html += "</a>"
+
+        elif tag.name == "quote" and 'rend' in tag and tag['rend'] == 'block':
+            html += "<blockquote{0}>".format(attributes)
+            for child in tag.children:
+                html += handle_paratext_tag(child, pt, pt_data)
+            html += "</blockquote>"
+
+        elif tag.name == "anchor" and 'xml:id' in tag.attrs:
+            html += "<a name='{0}'></a>".format(tag['xml:id'])
+
+        elif tag.name == "closer":
+            html += '''
+                <div class="row">
+                    <div{0} class="col-sm-6 offset-sm-6">
+            '''.format(attributes)
+            for child in tag.children:
+                html += handle_paratext_tag(child, pt, pt_data)
+            html += "</div></div>"
+
+        elif tag.name == "space" and 'extent' in tag.attrs:
+            unit = tag['extent'].replace("indent(", '').replace(")", '')
+            html += '<span style="margin-left: {0};">'.format(unit)
+            for child in tag.children:
+                html += handle_paratext_tag(child, pt, pt_data)
+            html += '</span>'
+
+        elif tag.name == "graphic" and 'url' in tag.attrs:
+            img_path = tag['url']
+            img_url = ''
+            for file_key, file in pt_data['corpus'].files.items():
+                if file.path.endswith(img_path):
+                    img_url = file.get_url(pt_data['corpus'].uri)
+
+            if img_url:
+                html += "<img{0} src='{1}' />".format(
+                    attributes,
+                    img_url
+                )
+
+        # tags to ignore (but keep content inside)
+        elif tag.name in silent:
+            for child in tag.children:
+                html += handle_paratext_tag(child, pt, pt_data)
+
+        # tags with simple conversions (tei tag w/ html equivalent)
+        elif tag.name in simple_conversions:
+            html_tag = simple_conversions[tag.name]
+            if ':' in html_tag:
+                html_tag = html_tag.split(':')[0]
+                attributes += " class='{0}'".format(
+                    simple_conversions[tag.name].split(':')[1]
+                )
+
+            html += "<{0}{1}>".format(
+                html_tag,
+                attributes
+            )
+            for child in tag.children:
+                html += handle_paratext_tag(child, pt, pt_data)
+            html += "</{0}>".format(simple_conversions[tag.name])
+
+        # ignore any <div type="levelX"> tags...
+        elif tag.name == "div" and 'type' in tag.attrs and tag['type'].startswith("level"):
+            pass
+
+        else:
+            pt_data['unhandled'].append(tag.name)
+
+    else:
+        html = html_lib.escape(str(tag))
+
+    return html
+
+
+def get_rend_style(rend):
+    style = ''
+
+    if 'allcaps' in rend:
+        style += 'text-transform: uppercase; '
+    if 'smcaps' in rend or 'lscaps' in rend:
+        style += 'font-variant: small-caps; '
+    if 'align(left)' in rend:
+        style += 'text-align: left; '
+    if 'align(center)' in rend:
+        style += 'text-align: center; '
+    if 'align(right)' in rend:
+        style += 'text-align: right; '
+    if 'italic' in rend:
+        style += 'font-style: italic; '
+    if 'superscript' in rend:
+        style += 'vertical-align: super; font-size: smaller; '
+
+    return style
 
 
 def get_line_ids(line_id_map, xml_id_start, xml_id_end=None):

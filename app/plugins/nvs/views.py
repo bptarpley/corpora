@@ -418,6 +418,20 @@ def commentaries(request, corpus_id, play_prefix):
     )
 
 
+def paratext(request, corpus_id, paratext_id):
+    corpus = get_corpus(corpus_id)
+    paratext = corpus.get_content('ParaText', paratext_id)
+
+    return render(
+        request,
+        'paratext.html',
+        {
+            'corpus_id': corpus_id,
+            'paratext': paratext
+        }
+    )
+
+
 def witness_meter(request, witness_flags, height, width, inactive_color_hex):
     if height.isdigit() and width.isdigit():
         height = int(height)
