@@ -418,16 +418,33 @@ def commentaries(request, corpus_id, play_prefix):
     )
 
 
-def paratext(request, corpus_id, paratext_id):
+def paratext(request, corpus_id, play_prefix, section):
     corpus = get_corpus(corpus_id)
-    paratext = corpus.get_content('ParaText', paratext_id)
+    play = corpus.get_content('Play', {'prefix': play_prefix}, single_result=True)
+    section_toc = "<ul>"
+    section_html = ""
+
+    top_paratexts = corpus.get_content('ParaText', {
+        'play': play.id,
+        'section': section,
+        'level': 1
+    }).order_by('order')
+
+    for pt in top_paratexts:
+        section_toc += pt.toc_html
+        section_html += pt.full_html
+
+    section_toc += "</ul>"
 
     return render(
         request,
         'paratext.html',
         {
             'corpus_id': corpus_id,
-            'paratext': paratext
+            'play': play,
+            'section': section,
+            'toc': section_toc,
+            'html': section_html
         }
     )
 

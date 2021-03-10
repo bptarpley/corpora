@@ -1,3 +1,6 @@
+from corpus import Content
+
+
 REGISTRY = [
     {
         "name": "Play",
@@ -1653,7 +1656,9 @@ REGISTRY = [
                 "mime_type": "text/html"
             }
         },
-        "inherited": False,
+        "inherited": True,
+        "inherited_from_module": "plugins.nvs.content",
+        "inherited_from_class": "ParaText",
         "invalid_field_names": [
             "corpus_id",
             "content_type",
@@ -1661,9 +1666,60 @@ REGISTRY = [
             "provenance",
             "path",
             "label",
-            "uri"
+            "uri",
+            "children"
         ],
         "view_widget_url": None,
         "edit_widget_url": None
     }
 ]
+
+
+class ParaText(Content):
+
+    @property
+    def children(self):
+        if not hasattr(self, '_children'):
+            setattr(self, '_children', self._corpus.get_content('ParaText', {
+                'parent': self.id,
+                'level': self.level + 1
+            }).order_by('order'))
+        return self._children
+
+    meta = {
+        'abstract': True
+    }
+
+    @property
+    def toc_html(self):
+        if not hasattr(self, '_toc_html'):
+            title = self.title
+            if self.level == 1:
+                title = title.upper()
+
+            html = '''
+                <li><a href="#paratext-{0}">{1}</li>
+            '''.format(self.id, title)
+
+            if self.children:
+                html += "<ul>"
+                for child in self.children:
+                    html += child.toc_html
+                html += "</ul>"
+
+            setattr(self, '_toc_html', html)
+        return self._toc_html
+
+    @property
+    def full_html(self):
+        if not hasattr(self, '_full_html'):
+            html = '<a name="paratext-{0}"></a>'.format(self.id)
+            html += '<h2>{0}</h2>'.format(self.title)
+            html += self.html_content
+            for child in self.children:
+                html += child.full_html
+
+            setattr(self, '_full_html', html)
+        return self._full_html
+
+

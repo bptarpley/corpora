@@ -1942,7 +1942,7 @@ def handle_paratext_tag(tag, pt, pt_data):
                     img_url = file.get_url(pt_data['corpus'].uri)
 
             if img_url:
-                html += "<img{0} src='{1}' />".format(
+                html += "<img{0} src='{1}' width='90%' class='d-block mx-auto' />".format(
                     attributes,
                     img_url
                 )
@@ -1967,7 +1967,7 @@ def handle_paratext_tag(tag, pt, pt_data):
             )
             for child in tag.children:
                 html += handle_paratext_tag(child, pt, pt_data)
-            html += "</{0}>".format(simple_conversions[tag.name])
+            html += "</{0}>".format(html_tag)
 
         # ignore any <div type="levelX"> tags...
         elif tag.name == "div" and 'type' in tag.attrs and tag['type'].startswith("level"):

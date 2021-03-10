@@ -250,11 +250,6 @@
                 background-repeat: no-repeat;
             }
 
-            #nav-modal-body {
-                overflow-y: scroll;
-                max-height: calc(80vh);
-            }
-
             #playtext-col::-webkit-scrollbar {
                 width: 60px;
             }
@@ -424,6 +419,8 @@
 
             #nav-modal-body {
                 font-family: 'FormulaSerial';
+                overflow-y: scroll;
+                max-height: calc(80vh);
             }
         </style>
 
@@ -759,6 +756,14 @@
             'content_field': 'bibliographic_entry',
             'title': "Bibliographic Entry",
             'title_plural': "Bibliographic Entries",
+            'scroll_anchor': false
+        },
+        'siglum': {
+            'content_type': 'Document',
+            'xml_id_field': 'siglum',
+            'content_field': 'bibliographic_entry',
+            'title': "Collated Edition",
+            'title_plural': "Collated Editions",
             'scroll_anchor': false
         },
         'note_cn': {
@@ -1338,7 +1343,7 @@
             if (start_id in lines) {
                 let lines_label = 'Line';
                 let line_row = $(lines[start_id].row);
-                let lines_html = `${line_row.data('text')}<br/>`;
+                let lines_html = `<div class="play-words">${line_row.data('text')}<br/>`;
 
                 if (end_id) {
                     lines_label += `s ${line_row.data('line_label')}-`;
@@ -1355,15 +1360,17 @@
                     }
                 } else lines_label += ' ' + line_row.data('line_label');
 
-                lines_html = `
-                    <a href="javascript: $('#nav-modal').modal('hide'); $('#${start_id}-row')[0].scrollIntoView({behavior: 'smooth'});">
-                        Show line(s) in context
-                    </a><br/><br/>${lines_html}
+                lines_label += `
+                        <i class="fas fa-external-link-square-alt ml-2"
+                            style="cursor: pointer;"
+                            onClick="javascript: $('#nav-modal').modal('hide'); $('#${start_id}-row')[0].scrollIntoView({behavior: 'smooth'});"
+                        ></i>
                 `;
+                lines_html += "</div>";
                 display_nav_modal(lines_label, lines_html);
             }
         } else {
-            if (nav_type === 'siglum'){ nav_type = 'bibl'; xml_id = `s_${xml_id.toLowerCase()}`; }
+            if (nav_type === 'siglum'){ xml_id = `s_${xml_id.toLowerCase()}`; }
             else if (!nav_map.hasOwnProperty(nav_type)) nav_type = 'anchor';
 
             let xml_ids = xml_id.split(' ');
@@ -1409,6 +1416,13 @@
                                 <div class="comm-heading">
                                     ${content.line_label}: ${content.subject_matter}
                                 </div>
+                            `;
+                        } else if (nav_type === 'anchor') {
+                            nav_title = `${content.section} | ${content.title}`;
+                            nav_title += `
+                                <a href="/corpus/${corpus_id}/paratext-viewer/${play_prefix}/${content.section}/#paratext-${content.id}" target="_blank">
+                                    <i class="fas fa-external-link-square-alt ml-2"></i>
+                                </a>
                             `;
                         }
 
