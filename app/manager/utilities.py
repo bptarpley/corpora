@@ -147,6 +147,7 @@ def build_search_params_from_dict(params):
         'fields_filter': {},
         'fields_range': {},
         'fields_wildcard': {},
+        'fields_exist': [],
         'fields_highlight': [],
         'fields_sort': [],
         'aggregations': {},
@@ -173,7 +174,7 @@ def build_search_params_from_dict(params):
             'highlight_num_fragments',
             'highlight_fragment_size',
             'es_debug'
-        ] or param[:2] in ['q_', 't_', 'p_', 's_', 'f_', 'r_', 'w_', 'a_']:
+        ] or param[:2] in ['q_', 't_', 'p_', 's_', 'f_', 'r_', 'w_', 'e_', 'a_']:
             search = default_search
 
         if param == 'highlight_fields':
@@ -201,6 +202,8 @@ def build_search_params_from_dict(params):
             search['fields_range'][search_field_name] = value
         elif param.startswith('w_'):
             search['fields_wildcard'][search_field_name] = value
+        elif param.startswith('e_'):
+            search['fields_exist'].append(search_field_name)
         elif param.startswith('a_'):
             if param.startswith('a_terms_'):
                 agg_name = param.replace('a_terms_', '')

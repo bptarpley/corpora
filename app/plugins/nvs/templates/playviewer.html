@@ -244,7 +244,7 @@
                 width: 100%;
             }
 
-            #playtext-col {
+            #playtext-col, #commentary-col {
                 overflow-y: scroll;
                 max-height: calc(100vh - 60px);
                 background-repeat: no-repeat;
@@ -295,14 +295,6 @@
                 display: -webkit-box!important;
                 display: -ms-flexbox!important;
                 display: flex!important;
-            }
-
-            .offscreen > .play-words > .line-html, .offscreen + .variant-drawer, .offscreen canvas {
-                display: none;
-            }
-
-            .onscreen > .play-words > .line-text {
-                display: none;
             }
 
             span.castgroup {
@@ -658,8 +650,6 @@
                                         {{ line.line_label }}
                                     </div>
                                     <div id="{{ line.xml_id }}-text-col" class="col-sm-7 m-0 p-0 play-words offscreen">
-                                        <!--<span class="line-text">{{ line.text }}</span>
-                                        <span class="line-html">HTML HERE</span>-->
                                         {{ line.rendered_html|safe }}
                                     </div>
 
@@ -672,15 +662,8 @@
                         </div>
 
                         <!-- COMMENTARY -->
-                        <div class="col-sm-3">
-                            <!--
-                            <div style="height: 100%; width: calc(25% - 5px); position: fixed;">
-                                <iframe id="commentary-frame" width="100%" height="100%" frameborder="0" src="/corpus/{{ corpus_id }}/commentary-viewer/{{ play.prefix }}/"></iframe>
-                            </div>
-                            -->
-
-                            <iframe id="commentary-frame" width="100%" height="100%" frameborder="0" src="/corpus/{{ corpus_id }}/commentary-viewer/{{ play.prefix }}/"></iframe>
-
+                        <div id="commentary-col" class="col-sm-3">
+                            <div id="commentary-frame"></div>
                         </div>
                     </div>
 
@@ -698,13 +681,37 @@
             <div class="row">
                 <div class="col-sm-6 offset-sm-3">
                     <div class="d-flex flex-row justify-content-between align-items-center bg-nvs-lightest-gray" style="pointer-events: auto;">
-                        <span>
-                            Line Results
-                            <a id="search-line-prev" onClick="display_search_result('line', 'prev');"><i class="fas fa-chevron-left"></i></a>
-                            <span id="search-line-current">0</span> out of
-                            <span id="search-line-total">0</span>
-                            <a id="search-line-next" onClick="display_search_result('line', 'next');"><i class="fas fa-chevron-right"></i></a>
-                        </span>
+                        <ul id="search-widget-tabs" class="nav nav-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <a class="nav-link active" id="search-widget-lines-tab" data-toggle="tab" href="#search-widget-lines" role="tab" aria-controls="search-widget-lines" aria-selected="true">Lines (<span class="search-line-total">0</span>)</a>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <a class="nav-link" id="search-widget-variants-tab" data-toggle="tab" href="#search-widget-variants" role="tab" aria-controls="explore" aria-selected="false">Variants (<span class="search-variant-total">0</span>)</a>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <a class="nav-link" id="search-widget-commentary-tab" data-toggle="tab" href="#search-widget-commentary" role="tab" aria-controls="search-widget-commentary" aria-selected="false">Commentary (<span class="search-commentary-total">0</span>)</a>
+                            </li>
+                        </ul>
+                        <div class="tab-content">
+                            <div class="tab-pane fade show active" id="search-widget-lines" role="tabpanel" aria-labelledby="search-widget-lines-tab">
+                                <a id="search-line-prev" onClick="display_search_result('line', 'prev');"><i class="fas fa-chevron-left"></i></a>
+                                <span id="search-line-current">0</span> out of
+                                <span class="search-line-total">0</span>
+                                <a id="search-line-next" onClick="display_search_result('line', 'next');"><i class="fas fa-chevron-right"></i></a>
+                            </div>
+                            <div class="tab-pane fade" id="search-widget-variants" role="tabpanel" aria-labelledby="search-widget-variants-tab">
+                                <a id="search-variant-prev" onClick="display_search_result('variant', 'prev');"><i class="fas fa-chevron-left"></i></a>
+                                <span id="search-variant-current">0</span> out of
+                                <span class="search-variant-total">0</span>
+                                <a id="search-variant-next" onClick="display_search_result('variant', 'next');"><i class="fas fa-chevron-right"></i></a>
+                            </div>
+                            <div class="tab-pane fade" id="search-widget-commentary" role="tabpanel" aria-labelledby="search-widget-commentary-tab">
+                                <a id="search-commentary-prev" onClick="display_search_result('commentary', 'prev');"><i class="fas fa-chevron-left"></i></a>
+                                <span id="search-commentary-current">0</span> out of
+                                <span class="search-commentary-total">0</span>
+                                <a id="search-commentary-next" onClick="display_search_result('commentary', 'next');"><i class="fas fa-chevron-right"></i></a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -727,18 +734,32 @@
     let screen_size = 'large';
     let meter_height = () => Math.round(window.innerHeight / (100 / 3)) + 'px';
 
-    let witnesses, characters = null;
-    let lines = {}, notes = {}, act_scenes = {};
+    let witnesses = {{ witnesses|safe }};
+    let witness_centuries = {{ witness_centuries|safe }};
+    let witness_count = {{ witness_count }};
+    let notes = {{ notes|safe }};
+    let line_note_map = {{ line_note_map|safe }};
+    let act_scenes = {{ act_scenes|safe }};
+    let characters = null;
+    let lines = {};
+    let line_observer = null;
+    let commentary_observer = null;
+    let last_visible_line = -1;
+    let last_commentary_line = 0;
+    let remaining_commentaries = true;
+    let commentaries = {};
 
     let witnesses_loaded = false, notes_loaded = false, characters_loaded = false;
-    let redraw_timer = null;
 
+    let comm_timer = null;
+
+    /*
     let note_search = {
         s_line_number: 'asc',
         s_xml_id: 'asc',
         page: 1,
         'page-size': 1000
-    };
+    };*/
     let nvs_search = null;
 
     let nav_map = {
@@ -791,17 +812,7 @@
         screen_size = determine_screen_size(window.innerWidth);
         style_sheet = document.styleSheets[0];
         $(":root").css("--scrollbarURL", `url(/corpus/${corpus_id}/play-minimap/${play_prefix}/?width=60&height=${parseInt($("#playtext-col").height())})`);
-
-        corpora.list_content(
-            corpus_id,
-            'Document',
-            {q_nvs_doc_type: 'witness', s_pub_date: 'asc', 'page-size': 1000},
-            function(witness_data) {
-                witnesses = witness_data.records;
-                witnesses_loaded = true;
-                draw_witness_header_and_background();
-            }
-        );
+        draw_witness_header_and_background();
 
         // GET CHARACTER NAMES; POSSIBLY FILTERED BY ACT/SCENE
         let speech_params = {
@@ -836,30 +847,10 @@
             }
         );
 
-        ingest_lines();
+        setup_lines();
         configure_controls();
 
-        corpora.list_content(
-            corpus_id,
-            'TextualNote',
-            Object.assign({only: 'xml_id,variants,lines.xml_id'}, note_search),
-            function(note_data) {
-                note_data.records.map(note => {
-                    notes[note.xml_id] = note;
-                    notes[note.xml_id].populated = false;
-                    note.lines.map(tn_line => {
-                        if (lines.hasOwnProperty(tn_line.xml_id)) {
-                            lines[tn_line.xml_id].notes.push(note.xml_id);
-                        } else {
-                            console.log(`Error: Unaccounted for TextualNote(${note.xml_id}) Line(${tn_line.xml_id})`);
-                        }
-
-                    });
-                });
-                notes_loaded = true;
-            },
-            true
-        );
+        notes_loaded = true;
 
         $('comspan').mouseover(function(ev) {
             let selector = `comspan.${ev.target.className}`;
@@ -883,7 +874,8 @@
             show_nav_content(nav_type, nav_xml_id);
         }
 
-        setTimeout(wait_for_load, 1000);
+        //setTimeout(wait_for_load, 1000);
+
     });
 
     function delete_css_rule(selector) {
@@ -949,19 +941,48 @@
 
         // COMMENTARY HIGHLIHT CLICK
         $('comspan').click(function(e) {
-            let comm_frame = $('#commentary-frame');
             let comm_id = this.className.replace('commentary-lemma-', '');
-            comm_frame.contents().find(`#commentary-note-${comm_id}`)[0].scrollIntoView({behavior: 'smooth'});
+            comm_id = `commentary-note-${comm_id}`;
+            setTimeout(delayed_scroll.bind(null, comm_id, false), 300);
             e.stopPropagation();
         });
 
         // VARIANT TOGGLER CLICK
         $('.variant-toggler').click(function() {
             let line_xml_id = this.id.replace('-variant-toggler', '');
-            console.log(line_xml_id);
             if (!lines[line_xml_id].populated) {
                 show_notes(line_xml_id);
             }
+            $('.variant-siglum').off('mouseenter').on('mouseenter', function() {
+                let link = $(this);
+                let siglum = `s_${link.html().toLowerCase()}`;
+                if (siglum in witnesses) {
+                    let parent_div = link.parent();
+                    let line_id = parent_div.data('line-id');
+                    let variant_id = parent_div.data('variant-id');
+                    let wit_meter = $(`#${line_id}-${variant_id}-witness-meter`);
+                    let wit_indicators = wit_meter.data('witness_indicators');
+                    witnesses[siglum].slots.map(slot => {
+                        wit_indicators = wit_indicators.substr(0, slot) + 'x' + wit_indicators.substr(slot + 1);
+                    });
+                    let url_parts = wit_meter.attr('src').split('/');
+                    url_parts[3] = wit_indicators;
+                    wit_meter.attr('src', url_parts.join('/'));
+                }
+            });
+        });
+
+        // SETUP CHARACTERS
+        let act_scene_selector = $('#hdr-act-scene-selector');
+        Object.keys(act_scenes).map(act_scene_label => {
+            let selected = '';
+            if (act_scenes[act_scene_label] === current_act_scene) {
+                selected = ' selected'
+            }
+
+            act_scene_selector.append(`
+                <option value="${act_scenes[act_scene_label]}"${selected}>${act_scene_label}</option>
+            `);
         });
     }
 
@@ -973,60 +994,6 @@
         if (width < 768) { return 'small'; }
         else if (width < 992) { return 'medium'; }
         return 'large';
-    }
-
-    function wait_for_load() {
-        if (witnesses_loaded && characters_loaded && notes_loaded) {
-            $('#playtext-col').scroll(function() {
-                clearTimeout(redraw_timer);
-                redraw_timer = setTimeout(flush_visibility_queue, 800);
-            });
-            flush_visibility_queue();
-        } else {
-            setTimeout(wait_for_load, 500);
-        }
-    }
-
-    function flush_visibility_queue() {
-        let visible_found = false;
-        let visible_lines = [];
-
-        for (let line_xml_id in lines) {
-            let line = lines[line_xml_id];
-            if(is_visible(line.row)) {
-                visible_found = true;
-                line.row.classList.remove('offscreen');
-                line.row.classList.add('onscreen');
-                line.visible = true;
-                visible_lines.push(line_xml_id);
-
-                draw_witness_meter(
-                    line.witness_indicators,
-                    line.witness_meter,
-                    line.witness_column.clientWidth,
-                    line.witness_column.clientHeight - 8
-                );
-            } else if(visible_found) {
-                break;
-            }
-        }
-
-        for (let line_xml_id in lines) {
-            let line = lines[line_xml_id];
-            if (line.visible && !visible_lines.includes(line_xml_id)) {
-                line.row.classList.remove('onscreen');
-                line.row.classList.add('offscreen');
-                line.visible = false;
-            }
-        }
-    }
-
-    function is_visible(el) {
-        let rect = el.getBoundingClientRect();
-        return (
-            rect.bottom >= 0 &&
-            rect.top <= (window.innerHeight || document.documentElement.clientHeight) + 500
-        );
     }
 
     function show_notes(line_id) {
@@ -1064,11 +1031,11 @@
                                     <div class="col-sm-4 p-0 m-0">
                                         <div class="row no-gutters">
                                             <div id="variant-${variant.id}" class="col-sm-12 p-0 m-0 witness-meter">
-                                                <img id="${line.xml_id}-${variant.id}-witness-meter" height="36" width="100%" src="{% static 'img/blank-meter.png'%}" />
+                                                <img id="${line.xml_id}-${variant.id}-witness-meter" height="36" width="100%" src="{% static 'img/blank-meter.png'%}" data-witness_indicators="${variant.witness_meter}" />
                                             </div>
                                         </div>
                                         <div class="row no-gutters">
-                                            <div class="col-sm-12 witness-formula">
+                                            <div class="col-sm-12 witness-formula" data-line-id="${line.xml_id}" data-variant-id="${variant.id}">
                                                 ${variant.witness_formula}
                                             </div>
                                         </div>
@@ -1108,73 +1075,144 @@
         lines[line_id].populated = true;
     }
 
-    function hide_notes(line_id) {
-        let line_row = $(`#${line_id}-row`);
-        let line_text_col = $(`#${line_id}-text-col`);
-        let line_variant_toggler = $(`#${line_id}-variant-toggler`);
-        let line_variant_div = $(`#${line_id}-variant-div`);
-        let line_witness_meter = $(`#${line_id}-witness-meter`);
-
-        line_variant_div.addClass('hidden');
-        line_witness_meter.addClass('hidden');
-        line_text_col.html(line_row.data('text'));
-    }
-
     function process_search_results(results) {
         console.log(results);
         $(":root").css("--scrollbarURL", `url(/corpus/${corpus_id}/play-minimap/${play_prefix}/?width=60&height=${parseInt($("#playtext-col").height())}&no-cache=${Math.floor(Date.now() / 1000)})`);
-        if (nvs_search && nvs_search.hasOwnProperty('line_results')) {
-            nvs_search.line_results.map(result => {
-                let html_span = $(`#${result.xml_id}-text-col > .line-html`);
-                result.matches.map(match => html_span.unmark(match));
-            });
+        if (nvs_search) {
+            if(nvs_search.hasOwnProperty('line_results')) {
+                nvs_search.line_results.map(result => {
+                    let html_span = $(`#${result.xml_id}-text-col`);
+                    result.matches.map(match => html_span.unmark(match));
+                });
+            }
+            if(nvs_search.hasOwnProperty('variant_results')) {
+                nvs_search.variant_results.map(result => {
+                    let html_span = $(`#${result.xml_id}-variant-div`);
+                    result.matches.map(match => html_span.unmark(match));
+                });
+            }
         }
 
         nvs_search = {
             character_results: results.characters,
             line_results: results.lines,
-            current_line_result: 0
+            variant_results: results.variants,
+            current_line_result: 0,
+            current_variant_result: 0
         };
 
-        $('#search-line-total').html(nvs_search.line_results.length);
+        $('.search-line-total').html(nvs_search.line_results.length);
+        $('.search-variant-total').html(nvs_search.variant_results.length);
         $('#search-widget').removeClass('d-none');
 
         nvs_search.line_results.map(result => {
-            let html_span = $(`#${result.xml_id}-text-col > .line-html`);
+            let html_span = $(`#${result.xml_id}-text-col`);
             result.matches.map(match => html_span.mark(match));
         });
-        
-        display_search_result('line', 'next');
+
+        nvs_search.variant_results.map(result => {
+            show_notes(result.xml_id);
+            $(`#${result.xml_id}-variant-div`).collapse('show');
+            let html_span = $(`#${result.xml_id}-variant-div .variant-words`);
+            result.matches.map(match => html_span.mark(match));
+        });
+
+        if (nvs_search.line_results.length) display_search_result('line', 'next');
+        else if (nvs_search.variant_results.length) display_search_result('variant', 'next');
+        else display_nav_modal('No results.', 'No results for your search term were found.');
     }
 
     function display_search_result(type, which) {
-        if (type === 'line') {
-            if (which === 'next') {
-                nvs_search.current_line_result += 1;
-            } else {
-                nvs_search.current_line_result -= 1;
-            }
+        if (which === 'next') {
+            nvs_search[`current_${type}_result`] += 1;
+        } else {
+            nvs_search[`current_${type}_result`] -= 1;
+        }
 
-            let result = nvs_search.line_results[nvs_search.current_line_result - 1];
-            document.getElementById(`${result.xml_id}-text-col`).scrollIntoView({behavior: 'smooth'});
+        let result = nvs_search[`${type}_results`][nvs_search[`current_${type}_result`] - 1];
+        let id_suffix = '-text-col';
+        if (type === 'variant') id_suffix = '-variant-div';
+        document.getElementById(`${result.xml_id}${id_suffix}`).scrollIntoView({behavior: 'smooth'});
 
-            $('#search-line-current').html(nvs_search.current_line_result);
-            if (nvs_search.current_line_result === 1) {
-                $('#search-line-prev').addClass('d-none');
-            } else {
-                $('#search-line-prev').removeClass('d-none');
-            }
+        $(`#search-${type}-current`).html(nvs_search[`current_${type}_result`]);
+        if (nvs_search[`current_${type}_result`] === 1) {
+            $(`#search-${type}-prev`).addClass('d-none');
+        } else {
+            $(`#search-${type}-prev`).removeClass('d-none');
+        }
 
-            if (nvs_search.current_line_result === nvs_search.line_results.length) {
-                $('#search-line-next').addClass('d-none');
-            } else {
-                $('#search-line-next').removeClass('d-none');
-            }
+        if (nvs_search[`current_${type}_result`] === nvs_search[`${type}_results`].length) {
+            $(`#search-${type}-next`).addClass('d-none');
+        } else {
+            $(`#search-${type}-next`).removeClass('d-none');
         }
     }
 
+    function load_commentary() {
+        if (commentary_observer === null) {
+            commentary_observer = new IntersectionObserver(function(entries) {
+                if (entries[0].isIntersecting) {
+                    $(entries[0].target).remove();
+                    if (remaining_commentaries) {
+                        console.log('loading more commentary...');
+                        last_visible_line += 20;
+                        load_commentary();
+                    }
+                }
+            }, { threshold: [0] });
+        }
+
+        let comm_frame = $('#commentary-frame');
+        let comm_search = {};
+        comm_search['r_lines.line_number'] = `${last_commentary_line}__${last_visible_line + 20}`;
+        comm_search['s_id'] = 'asc';
+        comm_search['page-size'] = 500;
+
+        corpora.list_content(
+            corpus_id,
+            'Commentary',
+            comm_search,
+            function(comm_data) {
+                if (comm_data.records.length) {
+                    comm_data.records.map(comm => {
+                        if (!commentaries.hasOwnProperty(comm.id)) {
+                            comm_frame.append(`
+                                <div class="row">
+                                    <div id="commentary-note-${comm.id}" class="col-sm-12 comm-heading" onClick="document.getElementById('${comm.lines[0].xml_id}-row').scrollIntoView();">
+                                        <a name="commentary-note-${comm.id}"></a>
+                                        ${comm.line_label}: ${comm.subject_matter}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div id="commentary-content-${comm.id}" class="col-sm-12 comm-block">
+                                        ${comm.contents}
+                                    </div>
+                                </div>
+                            `);
+                            commentaries[comm.id] = true;
+                        }
+                    });
+                    let comm_spinner = $('#commentary-spinner');
+                    if (comm_spinner.length) comm_spinner.remove();
+                    comm_frame.append(`
+                        <div id="commentary-spinner" class="row">
+                            <div class="col-sm-12">
+                                <i class="fas fa-spinner"></i>
+                            </div>
+                        </div>
+                    `);
+                    commentary_observer.observe($('#commentary-spinner')[0]);
+                } else {
+                    remaining_commentaries = false;
+                }
+            },
+            true
+        );
+        last_commentary_line = last_visible_line + 20;
+    }
+
     function draw_witness_header_and_background() {
-        let witness_centuries = {};
+        /*let witness_centuries = {};
         witnesses.map(wit => {
             let century = wit.pub_date[0] + wit.pub_date[1] + "00";
             if (!witness_centuries.hasOwnProperty(century)) {
@@ -1182,11 +1220,11 @@
             } else {
                 witness_centuries[century] += 1;
             }
-        });
+        });*/
 
         let wit_header = $('#witness-header');
         let width = wit_header.width();
-        let witness_width = width / witnesses.length;
+        let witness_width = width / witness_count;
         let header_height = wit_header.height();
 
         let header_canvas = $('#witness-header-canvas');
@@ -1247,40 +1285,6 @@
 
     function draw_witness_meter(witness_meter, canvas_element, width, height, inactive_color="#9A9A99") {
         canvas_element.src = `/nvs/witness-meter/${witness_meter}/${Math.floor(height)}/${Math.floor(width)}/${inactive_color.replace('#', '')}/`;
-        /*
-        let color_map = {
-            '0': inactive_color,
-            '1': '#f7bb78',
-            '2': '#faae63',
-            '3': '#f99b4e',
-            '4': '#ef8537',
-            '5': '#d87b48',
-            '6': '#de6d4b',
-            '7': '#bd5822',
-            '8': '#a84f1f',
-            '9': '#8f2d13',
-        };
-
-        canvas_element.setAttribute('width', width);
-        canvas_element.setAttribute('height', height);
-        let wm_context = canvas_element.getContext('2d');
-        // line below turns on transparency
-        // wm_context.globalAlpha = 0.7;
-        let witness_width = width / witnesses.length;
-
-        for (let meter_index = 0; meter_index < witness_meter.length; meter_index++) {
-            wm_context.beginPath();
-            wm_context.fillStyle = color_map[witness_meter[meter_index]];
-
-            wm_context.fillRect(
-                meter_index * witness_width,
-                0,
-                witness_width - 1,
-                height
-            );
-
-        }
-        */
     }
 
     function get_param(param) {
@@ -1330,7 +1334,7 @@
             nav_history_cursor = nav_history.length - 1;
         }
 
-        xml_id = xml_id.replaceAll('#', '');
+        xml_id = xml_id.replace(/#/g, '');
         if (nav_type === 'lb') {
             let start_id = xml_id;
             let end_id = null;
@@ -1370,25 +1374,33 @@
                 display_nav_modal(lines_label, lines_html);
             }
         } else {
-            if (nav_type === 'siglum'){ xml_id = `s_${xml_id.toLowerCase()}`; }
-            else if (!nav_map.hasOwnProperty(nav_type)) nav_type = 'anchor';
-
-            let xml_ids = xml_id.split(' ');
-            let search_params = {
-                page: 1,
-                'page-size': xml_ids.length,
-                only: 'id',
-                operator: xml_ids.length > 1 ? 'or' : 'and'
-            };
-            let content_type = nav_map[nav_type]['content_type'];
-            let search_field = nav_map[nav_type]['xml_id_field'];
-            search_params[`t_${search_field}`] = xml_ids.join('__');
-            corpora.list_content(corpus_id, content_type, search_params, function (search_data) {
-                if (search_data.hasOwnProperty('records') && search_data.records.length === xml_ids.length) {
-                    let ids = search_data.records.map(record => record.id);
-                    populate_nav_contents(nav_type, ids, [], xml_ids[0]);
+            if (nav_type === 'siglum'){
+                xml_id = `s_${xml_id.toLowerCase()}`;
+                if (xml_id in witnesses) {
+                    let title = 'Collated Edition';
+                    if (witnesses[xml_id].bibliographic_entry.includes('<br /><br />')) title += 's';
+                    display_nav_modal(title, witnesses[xml_id].bibliographic_entry);
                 }
-            });
+            } else {
+                if (!nav_map.hasOwnProperty(nav_type)) nav_type = 'anchor';
+
+                let xml_ids = xml_id.split(' ');
+                let search_params = {
+                    page: 1,
+                    'page-size': xml_ids.length,
+                    only: 'id',
+                    operator: xml_ids.length > 1 ? 'or' : 'and'
+                };
+                let content_type = nav_map[nav_type]['content_type'];
+                let search_field = nav_map[nav_type]['xml_id_field'];
+                search_params[`t_${search_field}`] = xml_ids.join('__');
+                corpora.list_content(corpus_id, content_type, search_params, function (search_data) {
+                    if (search_data.hasOwnProperty('records') && search_data.records.length === xml_ids.length) {
+                        let ids = search_data.records.map(record => record.id);
+                        populate_nav_contents(nav_type, ids, [], xml_ids[0]);
+                    }
+                });
+            }
         }
     }
 
@@ -1431,11 +1443,8 @@
 
                     display_nav_modal(nav_title, nav_content);
                     if (nav_map[nav_type].scroll_anchor) {
-                        console.log(first_xml_id);
                         setTimeout(delayed_scroll.bind(null, first_xml_id), 2000)
-                    }/* else {
-                        setTimeout(delayed_scroll.bind(null, 'nav-content-start'), 2000)
-                    }*/
+                    }
                 }
             });
         }
@@ -1453,60 +1462,62 @@
         $('#nav-modal').modal();
     }
 
-    function delayed_scroll(anchor) {
+    function delayed_scroll(anchor, smooth=true) {
+        let scroll_opts = {behavior: 'smooth'};
+        if (!smooth) scroll_opts = null;
+
         if ($(`#${anchor}`).length) {
-            $(`#${anchor}`)[0].scrollIntoView({behavior: 'smooth'});
+            $(`#${anchor}`)[0].scrollIntoView(scroll_opts);
         }
-        else $(`a[name=${anchor}]`)[0].scrollIntoView({behavior: 'smooth'});
+        else $(`a[name=${anchor}]`)[0].scrollIntoView(scroll_opts);
     }
 
-    // This function is a crude but hopefully effective method, performance-wise,
-    // to populate lines data by allowing the Python backend to do the
-    // heavy lifting.
-    function ingest_lines() {
-        {% for line in lines %}
-        lines['{{ line.xml_id }}'] = {
-            act: {% if line.act %}{{ line.act }}{% else %}0{% endif %},
-            scene: {% if line.scene %}{{ line.scene }}{% else %}0{% endif %},
-            label: '{{ line.line_label }}',
-            notes: [],
-            populated: false,
-            visible: false,
-            row: document.getElementById('{{ line.xml_id }}-row'),
-            witness_indicators: '{{ line.witness_meter }}',
-            witness_column: document.getElementById('{{ line.xml_id }}-witness-col'),
-            witness_meter: document.getElementById('{{ line.xml_id }}-witness-meter'),
-        };
-        {% endfor %}
-
-        Object.keys(lines).map(xml_id => {
-            let act = lines[xml_id].act;
-            let scene = lines[xml_id].scene;
-
-            if (act > 0 && scene > 0) {
-                let act_label = `${romanize(act)}`;
-                if (!act_scenes.hasOwnProperty(act_label)) {
-                    act_scenes[act_label] = `${act}`;
-                }
-
-                let label = `${romanize(act)}, ${scene}`;
-                if (!act_scenes.hasOwnProperty(label)) {
-                    act_scenes[label] = `${act}.${scene}`;
+    function setup_lines() {
+        var line_observer = new IntersectionObserver(function(entries) {
+            if (entries[entries.length - 1].isIntersecting) {
+                let line_id = entries[entries.length - 1].target.id.replace('-row', '');
+                let line_no = parseInt(lines[line_id].number);
+                if (line_no > last_visible_line) {
+                    clearTimeout(comm_timer);
+                    last_visible_line = line_no;
+                    comm_timer = setTimeout(load_commentary, 1000);
                 }
             }
+        }, { threshold: [0] });
+
+        $('.play-row').each(function() {
+            let row = $(this);
+            let xml_id = row.data('xml_id');
+            lines[xml_id] = {
+                row: row,
+                populated: false,
+                notes: [],
+                label: row.data('line_label'),
+                number: row.data('line_number'),
+                witness_indicators: row.data('witness_indicators'),
+                witness_column: document.getElementById(`${xml_id}-witness-col`),
+                witness_meter: document.getElementById(`${xml_id}-witness-meter`),
+            };
+
+            draw_witness_meter(
+                lines[xml_id].witness_indicators,
+                lines[xml_id].witness_meter,
+                lines[xml_id].witness_column.clientWidth,
+                lines[xml_id].witness_column.clientHeight - 8
+            );
+
+            line_observer.observe(this);
         });
 
-        let act_scene_selector = $('#hdr-act-scene-selector');
-        Object.keys(act_scenes).map(act_scene_label => {
-            let selected = '';
-            if (act_scenes[act_scene_label] === current_act_scene) {
-                selected = ' selected'
-            }
-
-            act_scene_selector.append(`
-                <option value="${act_scenes[act_scene_label]}"${selected}>${act_scene_label}</option>
-            `);
+        Object.keys(notes).map(note_id => {
+            let note = notes[note_id];
+            note.lines.map(line => {
+                if (lines.hasOwnProperty(line.xml_id)) lines[line.xml_id].notes.push(note_id);
+            });
         });
+
+        last_visible_line = 0;
+        load_commentary();
     }
 
     </script>

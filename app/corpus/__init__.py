@@ -1220,7 +1220,8 @@ class Corpus(mongoengine.Document):
             fields_wildcard={},
             fields_filter={},
             fields_range={},
-            fields_highlight={},
+            fields_highlight=[],
+            fields_exist={},
             fields_sort=[],
             only=[],
             excludes=[],
@@ -1404,6 +1405,28 @@ class Corpus(mongoengine.Document):
                         else:
                             should.append(q)
 
+            for search_field in fields_exist:
+                q = None
+
+                if '.' in search_field:
+                    field_parts = search_field.split('.')
+                    q = Q(
+                        "nested",
+                        path=field_parts[0],
+                        query=Q(
+                            'exists',
+                            field=search_field
+                        )
+                    )
+                else:
+                    q = Q('exists', field=search_field)
+
+                if q:
+                    if operator == 'and':
+                        must.append(q)
+                    else:
+                        should.append(q)
+
             if fields_filter:
                 for search_field in fields_filter.keys():
                     field_values = [value_part for value_part in fields_filter[search_field].split('__') if value_part]
@@ -1424,8 +1447,27 @@ class Corpus(mongoengine.Document):
             if fields_range:
                 for search_field in fields_range.keys():
                     field_values = [value_part for value_part in fields_range[search_field].split('__') if value_part]
-                    field_type = self.content_types[content_type].get_field(search_field).type
                     field_converter = None
+                    field_type = None
+                    range_query = None
+
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        xref_ct = self.content_types[content_type].get_field(field_parts[0]).cross_reference_type
+
+                        if field_parts[1] == 'label':
+                            field_type = 'text'
+                        elif field_parts[1] in ['uri', 'id']:
+                            field_type = 'keyword'
+                        else:
+                            field_type = self.content_types[xref_ct].get_field(field_parts[1]).type
+                    else:
+                        if search_field == 'label':
+                            field_type = 'text'
+                        elif search_field in ['uri', 'id']:
+                            field_type = 'keyword'
+                        else:
+                            field_type = self.content_types[content_type].get_field(search_field).type
 
                     if field_type in ['number', 'decimal', 'date']:
                         # default field conversion for number value
@@ -1437,28 +1479,39 @@ class Corpus(mongoengine.Document):
                             field_converter = lambda x: int(parse_date_string(x).timestamp())
 
                         if len(field_values) == 2:
-                            filter.append(Q(
+                            range_query = Q(
                                 "range",
                                 **{search_field: {
                                     'gte': field_converter(field_values[0]),
                                     'lte': field_converter(field_values[1])
                                 }}
-                            ))
+                            )
                         elif len(field_values) == 1 and fields_range[search_field].endswith('__'):
-                            filter.append(Q(
+                            range_query = Q(
                                 "range",
                                 **{search_field: {
                                     'gte': field_converter(field_values[0]),
                                 }}
-                            ))
+                            )
                         elif len(field_values) == 1 and fields_range[search_field].startswith('__'):
-                            filter.append(Q(
+                            range_query = Q(
                                 "range",
                                 **{search_field: {
                                     'lte': field_converter(field_values[0]),
                                 }}
-                            ))
+                            )
 
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        filter.append(
+                            Q(
+                                'nested',
+                                path=field_parts[0],
+                                query=range_query
+                            )
+                        )
+                    else:
+                        filter.append(range_query)
 
             if should or must or filter:
 

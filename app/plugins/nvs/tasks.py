@@ -109,7 +109,7 @@ nvs_document_fields = [
         "name": "bibliographic_entry",
         "label": "Bibliographic Entry",
         "type": "text",
-        "in_lists": False
+        "in_lists": True
     },
     {
         "name": "nvs_doc_type",
@@ -827,11 +827,15 @@ def parse_textualnotes_file(corpus, play, textualnotes_file_path):
                 exclusion_started = False
                 excluding_sigla = []
 
-                textual_variant.witness_formula = strip_tags(str(variant.wit))
+                #textual_variant.witness_formula = strip_tags(str(variant.wit))
+                textual_variant.witness_formula = ""
 
                 for child in variant.wit.children:
                     if child.name == 'siglum':
                         siglum_label = strip_tags(tei_to_html(child))
+                        textual_variant.witness_formula += '''
+                            <a href="javascript: navigate_to('siglum', '{0}');" class="variant-siglum">{0}</a>
+                        '''.format(siglum_label)
                         if siglum_label not in all_sigla and siglum_label not in missing_sigla:
                             print(siglum_label)
                             missing_sigla.append(siglum_label)
@@ -845,6 +849,7 @@ def parse_textualnotes_file(corpus, play, textualnotes_file_path):
                             excluding_sigla.append(siglum_label)
 
                     else:
+                        textual_variant.witness_formula += str(child.string)
                         formula = str(child.string).strip()
 
                         # handle '+' ranges

@@ -6,12 +6,13 @@ from django.contrib.auth.decorators import login_required
 from django.utils.text import slugify
 from corpus import *
 from mongoengine.queryset.visitor import Q
-from manager.utilities import _get_context, get_scholar_corpus, _contains, _clean, parse_uri
+from manager.utilities import _get_context, get_scholar_corpus, _contains, _clean, parse_uri, build_search_params_from_dict
 from importlib import reload
 from plugins.nvs import tasks
 from rest_framework.decorators import api_view
 from math import floor
 from PIL import Image, ImageDraw
+from elasticsearch_dsl import A
 
 
 @login_required
@@ -322,6 +323,8 @@ def design(request, corpus_id, play_prefix):
     character = request.GET.get('character', nvs_session['filter']['character'])
 
     lines = []
+    witnesses = {}
+    witness_centuries = {}
 
     session_changed = False
 
@@ -360,13 +363,95 @@ def design(request, corpus_id, play_prefix):
 
     lines = get_session_lines(corpus, nvs_session)
 
+    notes = {}
+    line_note_map = {}
+    note_results = corpus.search_content(
+        'TextualNote',
+        page_size=10000,
+        fields_filter={
+            'play.id': str(play.id)
+        },
+        fields_sort=[{'lines.line_number': {'order': 'asc'}}],
+        only=['xml_id', 'variants', 'lines.xml_id']
+    )
+    if note_results and 'records':
+        for note in note_results['records']:
+            notes[note['xml_id']] = note
+            for line in note['lines']:
+                if line['xml_id'] not in line_note_map:
+                    line_note_map[line['xml_id']] = [note['xml_id']]
+                else:
+                    line_note_map[line['xml_id']].append(note['xml_id'])
+
+    act_scenes = {}
+    as_search = {
+        'page-size': 0,
+        'e_act': 'y',
+        'e_scene': 'y',
+        'a_terms_act_scenes': 'act,scene',
+    }
+    as_search_params = build_search_params_from_dict(as_search)
+    as_results = corpus.search_content('PlayLine', **as_search_params)
+    if as_results:
+        act_scene_keys = sorted(as_results['meta']['aggregations']['act_scenes'].keys())
+        for act_scene in act_scene_keys:
+            as_parts = act_scene.split('|||')
+            act = as_parts[0]
+            scene = as_parts[1]
+            act_label = to_roman(int(act))
+            act_scene_label = "{0}.{1}".format(act_label, scene)
+            if act_label not in act_scenes:
+                act_scenes[act_label] = act
+            act_scenes[act_scene_label] = "{0}.{1}".format(act, scene)
+
+    witness_docs = corpus.get_content('Document', {'nvs_doc_type': 'witness'}).order_by('pub_date')
+    wit_counter = 0
+    for wit_doc in witness_docs:
+        witnesses[wit_doc.siglum] = {
+            'slots': [wit_counter],
+            'document_id': str(wit_doc.id),
+            'bibliographic_entry': wit_doc.bibliographic_entry
+        }
+
+        century = wit_doc.pub_date[:2] + "00"
+        if century in witness_centuries:
+            witness_centuries[century] += 1
+        else:
+            witness_centuries[century] = 1
+
+        wit_counter += 1
+
+    document_collections = corpus.get_content('DocumentCollection', all=True)
+    for collection in document_collections:
+        slots = []
+        bib_entry = ""
+
+        for reffed_doc in collection.referenced_documents:
+            if reffed_doc.siglum in witnesses:
+                slots += witnesses[reffed_doc.siglum]['slots']
+                if bib_entry:
+                    bib_entry += "<br /><br />"
+                bib_entry += reffed_doc.bibliographic_entry
+
+        witnesses[collection.siglum] = {
+            'slots': slots,
+            'bibliographic_entry': bib_entry
+        }
+
+
     return render(
         request,
         'playviewer.html',
         {
             'corpus_id': corpus_id,
             'lines': lines,
+            'act_scenes': act_scenes,
+            'notes': json.dumps(notes),
+            'line_note_map': line_note_map,
             'play': play,
+            'witnesses': witnesses,
+            'witness_centuries': witness_centuries,
+            'witness_count': wit_counter,
             'nvs_session': nvs_session
         }
     )
@@ -464,6 +549,7 @@ def witness_meter(request, witness_flags, height, width, inactive_color_hex):
             '7': '#bd5822',
             '8': '#a84f1f',
             '9': '#8f2d13',
+            'x': '#c4dffc'
         }
         indicator_width = width / len(witness_flags)
         img = Image.new('RGBA', (width, height), (255, 0, 0, 0))
@@ -598,17 +684,17 @@ def api_search(request, corpus_id, play_prefix):
 
     results = {
         'characters': {},
-        'lines': []
+        'lines': [],
+        'variants': [],
+        'commentaries': []
     }
 
     if quick_search:
-        qs_query = {
+        # SEARCH PLAY LINES VIA Speech CT
+        speech_query = {
             'content_type': 'Speech',
             'page': 1,
             'page_size': 1000,
-            'fields_term': {
-                'text': quick_search
-            },
             'fields_filter': {
                 'play.id': str(play.id)
             },
@@ -617,42 +703,12 @@ def api_search(request, corpus_id, play_prefix):
             'highlight_num_fragments': 0
         }
 
-        qs_results = corpus.search_content(**qs_query)
-
-        if not qs_results['records']:
-            print('no term found. trying phrase...')
-            del qs_query['fields_term']
-            qs_query['fields_phrase'] = {
-                'text': quick_search
-            }
-            qs_results = corpus.search_content(**qs_query)
-
-        if not qs_results['records']:
-            print('no phrase found. trying query...')
-            del qs_query['fields_phrase']
-            qs_query['fields_query'] = {
-                'text': quick_search
-            }
-            qs_results = corpus.search_content(**qs_query)
-
-        if not qs_results['records']:
-            print('no query found. trying adjusted search...')
-            adjusted_search = quick_search
-            for stopword in "a an and are as at be but by for if in into is it no not of on or such that the their then there these they this to was will with".split():
-                adjusted_search = adjusted_search.replace(stopword, '')
-
-            qs_query['fields_query']['text'] = ' '.join(adjusted_search.split())
-            qs_results = corpus.search_content(**qs_query)
-
-        if not qs_results['records']:
-            print('no query found. trying general query')
-            del qs_query['fields_query']
-            qs_query['general_query'] = quick_search
+        qs_results = progressive_search(corpus, speech_query, ['text'], quick_search)
 
         num_pages = qs_results['meta']['num_pages']
-        while qs_query['page'] < num_pages:
-            qs_query['page'] += 1
-            qs_results['records'] += corpus.search_content(**qs_query)['records']
+        while speech_query['page'] < num_pages:
+            speech_query['page'] += 1
+            qs_results['records'] += corpus.search_content(**speech_query)['records']
 
         for record in qs_results['records']:
             for speaker in record['speaking']:
@@ -678,6 +734,41 @@ def api_search(request, corpus_id, play_prefix):
                             'matches': matches
                         })
 
+        # SEARCH VARIANTS VIA TextualNote CT
+        variant_query = {
+            'content_type': 'TextualNote',
+            'page': 1,
+            'page_size': 1000,
+            'fields_filter': {
+                'play.id': str(play.id)
+            },
+            'only': ['lines.xml_id', 'variants.id'],
+            'fields_highlight': ['variants.variant', 'variants.description'],
+            'highlight_num_fragments': 0
+        }
+        variant_results = progressive_search(corpus, variant_query, ['variants.variant', 'variants.description'], quick_search)
+        variant_lines = {}
+        for record in variant_results['records']:
+            variant_line_id = record['lines'][0]['xml_id']
+            if variant_line_id not in variant_lines:
+                result = {
+                    'xml_id': variant_line_id,
+                    'matches': []
+                }
+                if 'variants.variant' in record['_search_highlights']:
+                    for highlight in record['_search_highlights']['variants.variant']:
+                        matches = re.findall(r'<em>([^<]*)</em>', highlight)
+                        if matches:
+                            result['matches'] += matches
+                if 'variants.description' in record['_search_highlights']:
+                    for highlight in record['_search_highlights']['variants.description']:
+                        matches = re.findall(r'<em>([^<]*)</em>', highlight)
+                        if matches:
+                            result['matches'] += matches
+
+                results['variants'].append(result)
+                variant_lines[variant_line_id] = True
+
         nvs_session['search']['quick_search'] = quick_search
         nvs_session['search']['results'] = results
         set_nvs_session(request, nvs_session, play_prefix)
@@ -686,6 +777,44 @@ def api_search(request, corpus_id, play_prefix):
         json.dumps(results),
         content_type='application/json'
     )
+
+
+def progressive_search(corpus, search_params, fields, query):
+    if len(fields) > 1:
+        search_params['operator'] = "or"
+
+    fields_dict = {}
+    for field in fields:
+        fields_dict[field] = query
+
+    search_params['fields_term'] = fields_dict
+    results = corpus.search_content(**search_params)
+
+    if not results['records']:
+        del search_params['fields_term']
+        search_params['fields_phrase'] = fields_dict
+        results = corpus.search_content(**search_params)
+
+    if not results['records']:
+        del search_params['fields_phrase']
+        search_params['fields_query'] = fields_dict
+        results = corpus.search_content(**search_params)
+
+    if not results['records']:
+        adjusted_query = query
+        for stopword in "a an and are as at be but by for if in into is it no not of on or such that the their then there these they this to was will with".split():
+            adjusted_query = adjusted_query.replace(stopword, '')
+        adjusted_query = ' '.join(adjusted_query.split())
+        for field in fields:
+            search_params['fields_query'][field] = adjusted_query
+        results = corpus.search_content(**search_params)
+
+    if not results['records']:
+        del search_params['fields_query']
+        search_params['general_query'] = query
+        results = corpus.search_content(**search_params)
+
+    return results
 
 
 def set_nvs_session(request, session, play_prefix):
@@ -729,3 +858,21 @@ def api_nvs_session(request, play_prefix):
         get_nvs_session(request, play_prefix, deserialize=False),
         content_type='application/json'
     )
+
+
+def to_roman(number):
+    roman = ""
+    num = [1, 4, 5, 9, 10, 40, 50, 90,
+           100, 400, 500, 900, 1000]
+    sym = ["I", "IV", "V", "IX", "X", "XL",
+           "L", "XC", "C", "CD", "D", "CM", "M"]
+    i = 12
+    while number:
+        div = number // num[i]
+        number %= num[i]
+
+        while div:
+            roman += sym[i]
+            div -= 1
+        i -= 1
+    return roman

@@ -189,6 +189,38 @@ REGISTRY = [
                 "stats": {},
                 "inherited": False
             },
+            {
+                "name": "external_uri_needs_attention",
+                "label": "External URI Needs Attention",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "boolean",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "external_uri_notes",
+                "label": "External URI Notes",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "html",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            }
         ],
         "edit_widget_url": "/corpus/{corpus_id}/{content_type}/{content_id}/UriAscription/",
         "show_in_nav": True,
