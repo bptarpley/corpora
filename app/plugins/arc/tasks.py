@@ -792,8 +792,7 @@ def guess_agent_uri(job_id):
                 # DATE PROBABILITY
                 date_probability = 0
                 for artifact in artifacts:
-                    if person_birth_year and min(artifact.years) and in_publication_range(person_birth_year, person_death_year,
-                                                                                          min(artifact.years)):
+                    if artifact.years and person_birth_year and min(artifact.years) and in_publication_range(person_birth_year, person_death_year, min(artifact.years)):
                         date_probability += 1
 
                 if date_probability > 0:
