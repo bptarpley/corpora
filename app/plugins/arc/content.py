@@ -220,6 +220,22 @@ REGISTRY = [
                 "unique_with": [],
                 "stats": {},
                 "inherited": False
+            },
+            {
+                "name": "alternate_names",
+                "label": "Alternate Names",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
             }
         ],
         "edit_widget_url": "/corpus/{corpus_id}/{content_type}/{content_id}/UriAscription/",

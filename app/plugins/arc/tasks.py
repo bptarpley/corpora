@@ -15,7 +15,7 @@ from viapy.api import ViafAPI
 
 REGISTRY = {
     "Index ARC Archive(s)": {
-        "version": "0.1",
+        "version": "0.2",
         "jobsite_type": "HUEY",
         "track_provenance": True,
         "content_type": "Corpus",
@@ -33,12 +33,12 @@ REGISTRY = {
                     "label": "Number of Archives to Index",
                     "note": "If no handle specified, provide number of unindexed archives to index."
                 },
-                "delete_existing": {
+                "new_only": {
                     "value": "No",
                     "type": "choice",
                     "choices": ["No", "Yes"],
-                    "label": "Delete existing content?",
-                    "note": "Selecting 'Yes' will first delete all relevant content before importing!"
+                    "label": "Only index new archives?",
+                    "note": "Selecting 'Yes' will skip indexing for existing archives."
                 }
             },
         },
@@ -107,23 +107,25 @@ def index_archives(job_id):
     corpus = job.corpus
     archive_handle = job.configuration['parameters']['archive_handle']['value'].strip()
     num_archives_to_index = job.configuration['parameters']['archives_to_index']['value'].strip()
-    delete_existing = job.configuration['parameters']['delete_existing']['value'].strip() == 'Yes'
+    new_only = job.configuration['parameters']['new_only']['value'].strip() == 'Yes'
     archives = []
 
+    '''
     for arc_content_type in ARC_CONTENT_TYPE_SCHEMA:
         if delete_existing and arc_content_type['name'] in corpus.content_types:
             corpus.delete_content_type(arc_content_type['name'])
             corpus.save_content_type(arc_content_type)
         elif arc_content_type['name'] not in corpus.content_types:
             corpus.save_content_type(arc_content_type)
+    '''
 
     es_logger = logging.getLogger('elasticsearch')
     es_log_level = es_logger.getEffectiveLevel()
     es_logger.setLevel(logging.WARNING)
 
     if archive_handle:
-        archive = get_or_create_archive(corpus, archive_handle)
-        if archive:
+        archive, new = get_or_create_archive(corpus, archive_handle)
+        if archive and ((new and new_only) or not new_only):
             archives.append(archive)
     elif num_archives_to_index:
         print("Indexing {0} archives...".format(num_archives_to_index))
@@ -133,8 +135,8 @@ def index_archives(job_id):
             if num_archives_to_index > 0:
                 if os.path.exists(archive_dir + '/.git'):
                     archive_handle = os.path.basename(archive_dir).replace('arc_rdf_', '')
-                    archive = get_or_create_archive(corpus, archive_handle)
-                    if archive:
+                    archive, new = get_or_create_archive(corpus, archive_handle)
+                    if archive and ((new and new_only) or not new_only):
                         do_indexing = True
 
                         if archive.last_indexed:
@@ -150,6 +152,8 @@ def index_archives(job_id):
                 break
 
     if archives:
+        process_merged_agents(corpus)
+
         for archive in archives:
             huey_task = index_archive(job_id, str(archive.id))
             job.add_process(huey_task.id)
@@ -164,6 +168,7 @@ def index_archives(job_id):
 
 def get_or_create_archive(corpus, handle):
     archive = None
+    new = False
     try:
         archive = corpus.get_content('ArcArchive', {'handle': handle})[0]
     except:
@@ -175,11 +180,34 @@ def get_or_create_archive(corpus, handle):
             archive.handle = handle
             archive.save()
             print("Created archive for {0} ({1})".format(archive.handle, archive.id))
+            new = True
         except:
             print("Error creating archive:")
             print(traceback.format_exc())
 
-    return archive
+    return archive, new
+
+
+def process_merged_agents(corpus):
+    merge_report_dir = "{0}/files/merge_reports".format(corpus.path)
+    if os.path.exists(merge_report_dir):
+        merge_files = os.listdir(merge_report_dir)
+        for merge_file in merge_files:
+            if merge_file.startswith('ArcAgent') and '_merged_into_' in merge_file and merge_file.endswith('.json'):
+                merge_file_parts = merge_file.split('_')
+                target_id = merge_file_parts[4].replace('.json', '')
+                merge_file = "{0}/{1}".format(merge_report_dir, merge_file)
+                merged_content = None
+                with open(merge_file, 'r') as merged_in:
+                    merged_content = json.load(merged_in)
+                if merged_content and 'entity' in merged_content and 'name' in merged_content['entity']:
+                    alt_name = merged_content['entity']['name']
+                    target_agent = corpus.get_content('ArcAgent', target_id, single_result=True)
+                    if target_agent:
+                        if alt_name not in target_agent.entity.alternate_names:
+                            target_agent.entity.alternate_names.append(alt_name)
+                            target_agent.entity.save()
+                os.rename(merge_file, merge_file + '.processed')
 
 
 @db_task(priority=1, context=True)
@@ -660,15 +688,21 @@ def get_reference(corpus, value, ref_type, cache, make_new=True):
             if cached_ref:
                 return cached_ref
             else:
+                ref = None
+
                 if ref_type in single_key_reference_fields:
                     query = {}
                     for field_name in single_key_reference_fields[ref_type].keys():
                         query[field_name] = single_key_reference_fields[ref_type][field_name].format(value)
 
-                    ref_obj = None
-                    try:
-                        ref_obj = corpus.get_content(ref_type, query)[0]
-                    except:
+                    ref_obj = corpus.get_content(ref_type, query, single_result=True)
+                    if not ref_obj:
+                        if ref_type == 'ArcEntity':
+                            alt_ent = corpus.search_content('ArcEntity', page_size=1, fields_filter={'alternate_names': value}, only=['id'])
+                            if alt_ent and 'records' in alt_ent and len(alt_ent['records']) == 1:
+                                ref = alt_ent['records'][0]['id']
+                                make_new = False
+
                         if make_new:
                             ref_obj = corpus.get_content(ref_type)
                             for field_name in single_key_reference_fields[ref_type].keys():
@@ -681,7 +715,7 @@ def get_reference(corpus, value, ref_type, cache, make_new=True):
                     if ref_obj:
                         ref = str(ref_obj.id)
 
-                elif ref_type == 'ArcAgent': # need to speak entitites instead of people
+                elif ref_type == 'ArcAgent': # need to speak entities instead of people
                     vals = value.split('_|_')
                     if len(vals) == 2:
                         pers_val = get_reference(corpus, vals[0], 'ArcEntity', cache)

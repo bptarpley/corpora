@@ -1221,7 +1221,7 @@ class Corpus(mongoengine.Document):
             fields_filter={},
             fields_range={},
             fields_highlight=[],
-            fields_exist={},
+            fields_exist=[],
             fields_sort=[],
             only=[],
             excludes=[],
@@ -1229,7 +1229,8 @@ class Corpus(mongoengine.Document):
             highlight_num_fragments=5,
             highlight_fragment_size=100,
             aggregations={},
-            es_debug=False
+            es_debug=False,
+            es_debug_query=False
     ):
         results = {
             'meta': {
@@ -1442,6 +1443,8 @@ class Corpus(mongoengine.Document):
                                 )
                             ))
                         else:
+                            if search_field == 'id':
+                                search_field = '_id'
                             filter.append(Q('term', **{search_field: field_value}))
 
             if fields_range:
@@ -1579,7 +1582,7 @@ class Corpus(mongoengine.Document):
                 try:
                     es_logger = None
                     es_log_level = None
-                    if es_debug:
+                    if es_debug or es_debug_query:
                         print(json.dumps(search_cmd.to_dict(), indent=4))
                         es_logger = logging.getLogger('elasticsearch')
                         es_log_level = es_logger.getEffectiveLevel()
@@ -1605,6 +1608,7 @@ class Corpus(mongoengine.Document):
                         record['_search_score'] = hit['_score']
                         if fields_highlight:
                             record['_search_highlights'] = hit['highlight']
+
                         results['records'].append(record)
 
                     if 'aggregations' in search_results:
@@ -2488,18 +2492,15 @@ class Content(mongoengine.Document):
             print(traceback.format_exc())
 
     def _do_linking(self):
-        # here we're making sure the node exists and has a relationship with the corpus
+        # here we're making sure the node exists
         run_neo(
             '''
-                MATCH (c:Corpus {{ uri: $corpus_uri }})
                 MERGE (d:{content_type} {{ uri: $content_uri }})
                 SET d.id = $content_id
                 SET d.corpus_id = $corpus_id
                 SET d.label = $content_label
-                MERGE (c) -[rel:has{content_type}]-> (d)
             '''.format(content_type=self.content_type),
             {
-                'corpus_uri': "/corpus/{0}".format(self.corpus_id),
                 'corpus_id': str(self.corpus_id),
                 'content_uri': self.uri,
                 'content_id': str(self.id),

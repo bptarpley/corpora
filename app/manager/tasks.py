@@ -519,6 +519,17 @@ def merge_content(job_id):
 
                         if merge_content and no_problems_merging and delete_merged:
                             report.write("Attempting to delete merged {0} with ID {1}...\n".format(content_type, merge_content.id))
+                            merge_content_dict = corpus.search_content(content_type, page_size=1, fields_filter={'id': str(merge_content.id)})
+                            if len(merge_content_dict['records']) == 1:
+                                merge_content_dict = merge_content_dict['records'][0]
+                                merge_content_archive_path = "{0}/{1}_{2}_merged_into_{3}.json".format(
+                                    merge_report_dir,
+                                    content_type,
+                                    merge_content.id,
+                                    target_content.id
+                                )
+                                with open(merge_content_archive_path, 'w') as archive_out:
+                                    json.dump(merge_content_dict, archive_out, indent=4)
 
                             if cascade_deletion:
                                 report.write("Attempting to cascade delete any singularly connected content...\n".format(content_type, merge_content.id))
