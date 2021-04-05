@@ -69,6 +69,8 @@ class Command(BaseCommand):
                     requirePasswordChange=False
                 )
 
+                # BELOW COMMENTED OUT FOR Neo4J Community
+                '''
                 # grant admin account admin privs
                 neo.run(
                     "CALL dbms.security.addRoleToUser",
@@ -90,6 +92,7 @@ class Command(BaseCommand):
                     roleName="reader",
                     username=os.environ['CRP_NEO4J_RO_USER']
                 )
+                '''
 
             initial_neo.close()
 

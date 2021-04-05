@@ -313,7 +313,9 @@ def adjust_line_tags(line_tags, html):
             line_tags['close'].insert(0, "</" + tag + ">")
 
 
-def design(request, corpus_id, play_prefix):
+def design(request, corpus_id=None, play_prefix=None):
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
     corpus = get_corpus(corpus_id)
     play = corpus.get_content('Play', {'prefix': play_prefix})[0]
     nvs_session = get_nvs_session(request, play_prefix, reset='reset' in request.GET)
@@ -744,7 +746,7 @@ def api_search(request, corpus_id, play_prefix):
             },
             'only': ['lines.xml_id', 'variants.id'],
             'fields_highlight': ['variants.variant', 'variants.description'],
-            'highlight_num_fragments': 0
+            'highlight_num_fragments': 0,
         }
         variant_results = progressive_search(corpus, variant_query, ['variants.variant', 'variants.description'], quick_search)
         variant_lines = {}

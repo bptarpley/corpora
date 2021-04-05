@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 
 import os
+import json
 from mongoengine import connect
 from huey import PriorityRedisHuey
 from neo4j import GraphDatabase
@@ -29,12 +30,22 @@ SECRET_KEY = '=4@4^2y04f^c6^q9b7y*3r2n7+hsf+!3ou^m+bzlgk0#h&w=$1'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [os.environ['CRP_HOST']]
+if 'CRP_HOST' in os.environ:
+    ALLOWED_HOSTS = [os.environ['CRP_HOST']]
+elif 'CRP_HOSTS' in os.environ:
+    ALLOWED_HOSTS = [h for h in os.environ['CRP_HOSTS'].split(',') if h]
+
+if os.path.exists('./CORPORA_SITES.json'):
+    with open('./CORPORA_SITES.json', 'r') as sites_in:
+        CORPORA_SITES = json.load(sites_in)
+else:
+    CORPORA_SITES = {}
+
 DEFAULT_USER_USERNAME = os.environ.get('CRP_DEFAULT_USER_USERNAME', 'corpora')
 DEFAULT_USER_PASSWORD = os.environ.get('CRP_DEFAULT_USER_PASSWORD', 'corpora')
 DEFAULT_USER_FNAME = os.environ.get('CRP_DEFAULT_USER_FNAME', 'Corpora')
 DEFAULT_USER_LNAME = os.environ.get('CRP_DEFAULT_USER_LNAME', 'McCorpus')
-DEFAULT_USER_EMAIL = os.environ.get('CRP_DEFAULT_USER_EMAIL', 'corpora@{0}'.format(os.environ['CRP_HOST']))
+DEFAULT_USER_EMAIL = os.environ.get('CRP_DEFAULT_USER_EMAIL', 'corpora@{0}'.format(ALLOWED_HOSTS[0]))
 REDIS_HOST = os.environ.get('CRP_REDIS_HOST', 'redis')
 REDIS_CACHE_EXPIRY_SECONDS = os.environ.get('CRP_REDIS_CACHE_EXPIRY_SECONDS', 1800)
 
@@ -69,6 +80,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'manager.middleware.SiteMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
