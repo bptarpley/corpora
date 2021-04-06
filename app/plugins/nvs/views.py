@@ -25,7 +25,8 @@ def splash(request):
 
 def playviewer(request, corpus_id=None, play_prefix=None):
     site_request = False
-    corpora_host = settings.ALLOWED_HOSTS[0]
+    corpora_url = 'https://' if settings.USE_SSL else 'http://'
+    corpora_url += settings.ALLOWED_HOSTS[0]
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
         site_request = True
@@ -160,7 +161,7 @@ def playviewer(request, corpus_id=None, play_prefix=None):
         'playviewer.html',
         {
             'site_request': site_request,
-            'corpora_host': corpora_host,
+            'corpora_url': corpora_url,
             'corpus_id': corpus_id,
             'lines': lines,
             'act_scenes': act_scenes,
@@ -222,7 +223,8 @@ def commentaries(request, corpus_id, play_prefix):
 
 
 def paratext(request, corpus_id=None, play_prefix=None, section=None):
-    corpora_url = "{0}://{1}".format(request.scheme, settings.ALLOWED_HOSTS[0])
+    corpora_url = 'https://' if settings.USE_SSL else 'http://'
+    corpora_url += settings.ALLOWED_HOSTS[0]
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
 

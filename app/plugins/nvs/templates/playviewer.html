@@ -809,7 +809,7 @@
     let nav_history_cursor = 0;
 
     $(document).ready(function() {
-        corpora = new Corpora({'csrf_token': "{{ csrf_token }}"{% if site_request %}, 'host': '{{ request.scheme }}://{{ corpora_host }}'{% endif %}});
+        corpora = new Corpora({'csrf_token': "{{ csrf_token }}"{% if site_request %}, 'host': '{{ corpora_url }}'{% endif %}});
         screen_size = determine_screen_size(window.innerWidth);
         style_sheet = document.styleSheets[0];
         $(":root").css("--scrollbarURL", `url(${minimap_url}?width=60&height=${parseInt($("#playtext-col").height())})`);

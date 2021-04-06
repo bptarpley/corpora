@@ -862,9 +862,9 @@ def scholar(request):
     response = _get_context(request)
     register = False
 
-    if settings.USE_SSL and not response['url'].startswith('https'):
-        secure_url = response['url'].replace('http://', 'https://')
-        return redirect(secure_url)
+    #if settings.USE_SSL and not response['url'].startswith('https'):
+    #    secure_url = response['url'].replace('http://', 'https://')
+    #    return redirect(secure_url)
 
     if not response['scholar'] and 'register' in request.GET:
         register = True
