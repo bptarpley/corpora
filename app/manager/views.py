@@ -18,6 +18,7 @@ from .utilities import(
     _contains,
     build_search_params_from_dict,
     get_scholar_corpus,
+    get_open_access_corpora,
     parse_uri,
     get_jobsites,
     get_tasks,
@@ -964,7 +965,6 @@ def scholar(request):
     )
 
 
-@login_required
 def get_file(request, file_uri):
     context = _get_context(request)
     file_uri = file_uri.replace('|', '/')
@@ -972,7 +972,11 @@ def get_file(request, file_uri):
     file_path = None
 
     if 'corpus' in uri_dict:
-        if context['scholar'].is_admin or uri_dict['corpus'] in context['scholar'].available_corpora.keys():
+        if (
+                context['scholar'] and (
+                context['scholar'].is_admin
+                or uri_dict['corpus'] in context['scholar'].available_corpora.keys())
+        ) or uri_dict['corpus'] in get_open_access_corpora():
             results = run_neo(
                 '''
                     MATCH (f:File { uri: $file_uri })

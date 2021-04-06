@@ -1,0 +1,32 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <style>
+        html, body, #main {
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+
+</head>
+<body>
+    <div id="main" class="container">
+        <div class="row h-100 align-items-center">
+            <div class="col-sm-12 col-md-6 offset-md-3">
+                <div class="card p-4">
+                    <img src="{% static 'img/nvs-logo-full.png' %}" class="card-img-top fluid" alt="New Variorum Shakespeare Logo" />
+                    <div class="card-body">
+                        <p class="card-text">Coming soon!</p><p>In the meantime, check out <a href="https://news.mla.hcommons.org/2019/11/07/new-variorum-edition-of-shakespeare-going-digital-at-texas-am/">this post from the MLA</a> and <a href="https://liberalarts.tamu.edu/blog/2019/11/19/digital-future-for-new-variorum-edition-of-shakespeare/">this post from Texas A&amp;M University</a>.</p>
+                        <p>To quote the MLA, "Started in 1860 and accepted as the only reference editions of their kind, NVS editions offer not only complete text of Shakespeare’s plays but also centuries of scholarly opinion and interpretation, dating, sources, emendations to stage history, and influential interpretations of particular words. Through the resources of the Center of Digital Humanities Research at TAMU, new editions will continue to be produced and editions previously published in print will be available online." </p>
+                        <p>For more information, contact Katayoun Torabi at <a href="mailto:torabik@tamu.edu">torabik@tamu.edu</a>.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

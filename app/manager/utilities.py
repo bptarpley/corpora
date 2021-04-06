@@ -266,12 +266,12 @@ def clear_cached_session_scholar(user_id):
                 session.save()
 
 
-def get_open_access_corpora():
+def get_open_access_corpora(use_cache=True):
     oa_corpora = []
 
     cache = redis.Redis(host='redis', decode_responses=True)
     oa_corpora_list = cache.get('/open_access_corpora')
-    if not oa_corpora_list:
+    if not oa_corpora_list or not use_cache:
         corpora = Corpus.objects(open_access=True)
         oa_corpora_list = ",".join([str(corpus.id) for corpus in corpora])
         cache.set('/open_access_corpora', oa_corpora_list)

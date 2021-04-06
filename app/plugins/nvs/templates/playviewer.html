@@ -28,7 +28,11 @@
             || MAIN CSS VARIABLES
             || -------------------------- */
             :root {
+                {% if site_request %}
+                --scrollbarURL: url("/minimap/{{ play.prefix }}/?width=60&height=1000");
+                {% else %}
                 --scrollbarURL: url("/corpus/{{ corpus_id }}/play-minimap/{{ play.prefix }}/?width=60&height=1000");
+                {% endif %}
                 --nvs-form-control-height: 35px;
                 --nvs-play-row-min-height: 40px;
                 --nvs-form-control-font-size: 12px;
@@ -321,7 +325,7 @@
                 margin-left: 10px;
             }
 
-            .witness-meter {
+            .witness-meter, .variant-witness-meter {
                 -webkit-box-align: center!important;
                 -ms-flex-align: center!important;
                 align-items: center!important;
@@ -727,6 +731,13 @@
     let corpus_id = "{{ corpus_id }}";
     let play_prefix = "{{ play.prefix }}";
     let play_id = "{{ play.id }}";
+
+    let playviewer_url = {% if site_request %}`/play/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-viewer/${play_prefix}/`{% endif %};
+    let search_endpoint = {% if site_request %}`/search/${play_prefix}/`{% else %}`/api/corpus/${corpus_id}/nvs-search/${play_prefix}/`{% endif %};
+    let witness_meter_prefix = {% if site_request %}`/witnessmeter/`{% else %}`/nvs/witness-meter/`{% endif %};
+    let paratext_prefix = {% if site_request %}`/paratext/${play_prefix}/`{% else %}`/corpus/${corpus_id}/paratext-viewer/${play_prefix}/`{% endif %};
+    let minimap_url = {% if site_request %}`/minimap/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-minimap/${play_prefix}/`{% endif %};
+
     let style_sheet = null;
     let current_act_scene = "{{ nvs_session.filter.act_scene }}";
     let current_character = "{{ nvs_session.filter.character }}";
@@ -748,18 +759,8 @@
     let last_commentary_line = 0;
     let remaining_commentaries = true;
     let commentaries = {};
-
     let witnesses_loaded = false, notes_loaded = false, characters_loaded = false;
-
     let comm_timer = null;
-
-    /*
-    let note_search = {
-        s_line_number: 'asc',
-        s_xml_id: 'asc',
-        page: 1,
-        'page-size': 1000
-    };*/
     let nvs_search = null;
 
     let nav_map = {
@@ -808,10 +809,10 @@
     let nav_history_cursor = 0;
 
     $(document).ready(function() {
-        corpora = new Corpora({'csrf_token': "{{ csrf_token }}"});
+        corpora = new Corpora({'csrf_token': "{{ csrf_token }}"{% if site_request %}, 'host': '{{ request.scheme }}://{{ corpora_host }}'{% endif %}});
         screen_size = determine_screen_size(window.innerWidth);
         style_sheet = document.styleSheets[0];
-        $(":root").css("--scrollbarURL", `url(/corpus/${corpus_id}/play-minimap/${play_prefix}/?width=60&height=${parseInt($("#playtext-col").height())})`);
+        $(":root").css("--scrollbarURL", `url(${minimap_url}?width=60&height=${parseInt($("#playtext-col").height())})`);
         draw_witness_header_and_background();
 
         // GET CHARACTER NAMES; POSSIBLY FILTERED BY ACT/SCENE
@@ -851,6 +852,12 @@
         configure_controls();
 
         notes_loaded = true;
+
+        $('.witness-meter').click(function(){
+            let line_id = this.id.replace('-witness-col', '');
+            let witness_indicators = $(`#${line_id}-row`).data('witness_indicators');
+            display_variant_editions(witness_indicators);
+        });
 
         $('comspan').mouseover(function(ev) {
             let selector = `comspan.${ev.target.className}`;
@@ -911,7 +918,7 @@
                 qs_box.empty();
                 qs_box.html(query);
                 corpora.make_request(
-                    `/api/corpus/${corpus_id}/nvs-search/${play_prefix}/`,
+                    search_endpoint,
                     'POST',
                     {
                         quick_search: query
@@ -925,13 +932,13 @@
         // HEADER: ACT, SCENE BOX
         $('#hdr-act-scene-selector').change(function() {
             let selection = $('#hdr-act-scene-selector').val();
-            window.location = `/corpus/${corpus_id}/play-viewer/${play_prefix}/?act-scene=${selection}`;
+            window.location = `${playviewer_url}?act-scene=${selection}`;
         });
 
         // HEADER: CHARACTER BOX
         $('#hdr-character-selector').change(function() {
             let selection = $('#hdr-character-selector').val();
-            window.location = `/corpus/${corpus_id}/play-viewer/${play_prefix}/?character=${selection}`;
+            window.location = `${playviewer_url}?character=${selection}`;
         });
 
         // HEADER: RESET BUTTON
@@ -966,9 +973,14 @@
                         wit_indicators = wit_indicators.substr(0, slot) + 'x' + wit_indicators.substr(slot + 1);
                     });
                     let url_parts = wit_meter.attr('src').split('/');
-                    url_parts[3] = wit_indicators;
+                    url_parts[url_parts.length - 5] = wit_indicators;
                     wit_meter.attr('src', url_parts.join('/'));
                 }
+            });
+
+            $('.variant-witness-meter').off('click').on('click', function() {
+                let witness_indicators = $(this).find('img').data('witness_indicators');
+                display_variant_editions(witness_indicators);
             });
         });
 
@@ -1030,7 +1042,7 @@
                                 <div class="row no-gutters variant-row">
                                     <div class="col-sm-4 p-0 m-0">
                                         <div class="row no-gutters">
-                                            <div id="variant-${variant.id}" class="col-sm-12 p-0 m-0 witness-meter">
+                                            <div id="variant-${variant.id}" class="col-sm-12 p-0 m-0 variant-witness-meter">
                                                 <img id="${line.xml_id}-${variant.id}-witness-meter" height="36" width="100%" src="{% static 'img/blank-meter.png'%}" data-witness_indicators="${variant.witness_meter}" />
                                             </div>
                                         </div>
@@ -1075,9 +1087,32 @@
         lines[line_id].populated = true;
     }
 
+    function display_variant_editions(witness_indicators) {
+        let wit_sigla = Object.keys(witnesses);
+        let sigla = [];
+        for (let slot = 0; slot < witness_indicators.length; slot++) {
+            let indicator = witness_indicators.charAt(slot);
+            if (indicator !== '0') {
+                for (let sig_index = 0; sig_index < wit_sigla.length; sig_index++) {
+                    if (witnesses[wit_sigla[sig_index]].slots.includes(slot) && !sigla.includes(wit_sigla[sig_index])) {
+                        sigla.push(wit_sigla[sig_index]);
+                        break;
+                    }
+                }
+            }
+        }
+
+        let title = "Collated Editions for Variant";
+        let content = "";
+        sigla.map(siglum => {
+            content += `<p><b>${siglum.replace('s_', '').toUpperCase()}</b> ${witnesses[siglum].bibliographic_entry}</p>`;
+        });
+        display_nav_modal(title, content);
+    }
+
     function process_search_results(results) {
         console.log(results);
-        $(":root").css("--scrollbarURL", `url(/corpus/${corpus_id}/play-minimap/${play_prefix}/?width=60&height=${parseInt($("#playtext-col").height())}&no-cache=${Math.floor(Date.now() / 1000)})`);
+        $(":root").css("--scrollbarURL", `url(${minimap_url}?width=60&height=${parseInt($("#playtext-col").height())}&no-cache=${Math.floor(Date.now() / 1000)})`);
         if (nvs_search) {
             if(nvs_search.hasOwnProperty('line_results')) {
                 nvs_search.line_results.map(result => {
@@ -1212,16 +1247,6 @@
     }
 
     function draw_witness_header_and_background() {
-        /*let witness_centuries = {};
-        witnesses.map(wit => {
-            let century = wit.pub_date[0] + wit.pub_date[1] + "00";
-            if (!witness_centuries.hasOwnProperty(century)) {
-                witness_centuries[century] = 1;
-            } else {
-                witness_centuries[century] += 1;
-            }
-        });*/
-
         let wit_header = $('#witness-header');
         let width = wit_header.width();
         let witness_width = width / witness_count;
@@ -1284,7 +1309,7 @@
     }
 
     function draw_witness_meter(witness_meter, canvas_element, width, height, inactive_color="#9A9A99") {
-        canvas_element.src = `/nvs/witness-meter/${witness_meter}/${Math.floor(height)}/${Math.floor(width)}/${inactive_color.replace('#', '')}/`;
+        canvas_element.src = `${witness_meter_prefix}${witness_meter}/${Math.floor(height)}/${Math.floor(width)}/${inactive_color.replace('#', '')}/`;
     }
 
     function get_param(param) {
@@ -1432,7 +1457,7 @@
                         } else if (nav_type === 'anchor') {
                             nav_title = `${content.section} | ${content.title}`;
                             nav_title += `
-                                <a href="/corpus/${corpus_id}/paratext-viewer/${play_prefix}/${content.section}/#paratext-${content.id}" target="_blank">
+                                <a href="${paratext_prefix}${content.section}/#paratext-${content.id}" target="_blank">
                                     <i class="fas fa-external-link-square-alt ml-2"></i>
                                 </a>
                             `;
