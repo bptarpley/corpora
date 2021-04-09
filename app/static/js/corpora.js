@@ -1140,7 +1140,7 @@ class ContentGraph {
             if (params.nodes.length > 0) {
                 let clicked_uri = params.nodes[0];
                 let clicked_node = sender.nodes.get(clicked_uri);
-                let pane_id = `${clicked_uri.replaceAll('/', '-')}-pane`;
+                let pane_id = `${clicked_uri.replace(/\//g, '-')}-pane`;
                 let canvas_offset = sender.vis_div.offset();
                 let pane_x = params.pointer.DOM.x + canvas_offset.left;
                 let pane_y = params.pointer.DOM.y + canvas_offset.top;
@@ -1544,7 +1544,7 @@ class ContentGraph {
     pin_node(uri) {
         if (!this.panes_displayed[uri].pinned) {
             this.panes_displayed[uri].pinned = true;
-            let pin_id = `${uri.replaceAll('/', '-')}-pane-pin`;
+            let pin_id = `${uri.replace(/\//g, '-')}-pane-pin`;
             $(`#${pin_id}`).css('color', '#EF3E36');
         } else {
             this.panes_displayed[uri].pinned = false;
@@ -1608,7 +1608,7 @@ class ContentGraph {
     remove_unpinned_panes() {
         for (let pane_uri in this.panes_displayed) {
             if (!this.panes_displayed[pane_uri].pinned) {
-                let pane_id = `${pane_uri.replaceAll('/', '-')}-pane`;
+                let pane_id = `${pane_uri.replace(/\//g, '-')}-pane`;
                 $(`#${pane_id}`).remove();
                 delete this.panes_displayed[pane_uri];
             }
