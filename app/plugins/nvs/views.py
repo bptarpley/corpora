@@ -402,7 +402,9 @@ def api_lines(request, corpus_id, starting_line_no, ending_line_no):
     )
 
 
-def api_search(request, corpus_id, play_prefix):
+def api_search(request, corpus_id=None, play_prefix=None):
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
     corpus = get_corpus(corpus_id)
     play = corpus.get_content('Play', {'prefix': play_prefix})[0]
     nvs_session = get_nvs_session(request, play_prefix)
