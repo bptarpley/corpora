@@ -40,6 +40,10 @@ class Corpora {
             success: callback
         };
 
+        if (path.startsWith('http')) {
+            req.url = path;
+        }
+
         if (spool) {
             let corpora_instance = this;
             req.success = function(data) {
