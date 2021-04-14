@@ -1145,11 +1145,8 @@ class ContentGraph {
                 let pane_x = params.pointer.DOM.x + canvas_offset.left;
                 let pane_y = params.pointer.DOM.y + canvas_offset.top;
 
-                //affix_node_label(clicked_node);
-                //this.nodes.update(clicked_node);
-
                 if (!$(`#${pane_id}`).length) {
-                    $('#main-container').append(`
+                    $('body').append(`
                         <div id="${pane_id}"
                             class="content-pane"
                             style="background-color: rgba(255, 255, 255, .8);
@@ -1157,13 +1154,16 @@ class ContentGraph {
                                 height: 225px;
                                 position: absolute;
                                 top: ${pane_y}px;
-                                left: ${pane_x}px;">
+                                left: ${pane_x}px;
+                                pointer-events: auto;"
+                            data-uri="${clicked_uri}">
     
                             <div style="height: 25px;">
                                 <span id="${pane_id}-select" title="Select" data-uri="${clicked_uri}" class="popup-button far fa-check-square" ${sender.selected_uris.includes(clicked_uri) ? "style='color: #EF3E36;'" : ''}></span>
                                 <span id="${pane_id}-pin" title="Pin" data-uri="${clicked_uri}" class="popup-button fas fa-thumbtack"></span>
                                 <span id="${pane_id}-sprawl" title="Sprawl" data-uri="${clicked_uri}" class="popup-button fas fa-expand-arrows-alt"></span>
                                 <span id="${pane_id}-extrude" title="Hide" data-uri="${clicked_uri}" class="popup-button far fa-eye-slash"></span>
+                                <a href="${clicked_uri}/" target="_blank"><span title="Open" class="popup-button float-right fas fa-external-link-square-alt"></span></a>
                             </div>
                             <iframe src="${clicked_uri}/?popup=y" frameBorder="0" width="200px" height="200px" />
                         </div>
