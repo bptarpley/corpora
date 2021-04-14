@@ -733,7 +733,7 @@
     let play_id = "{{ play.id }}";
 
     let playviewer_url = {% if site_request %}`/play/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-viewer/${play_prefix}/`{% endif %};
-    let search_endpoint = `/api/corpus/${corpus_id}/nvs-search/${play_prefix}/`;
+    let search_endpoint = {% if site_request %}`${window.location.protocol}//${window.location.host}/search/${play_prefix}/`{% else %}`/api/corpus/${corpus_id}/nvs-search/${play_prefix}/`{% endif %};
     let witness_meter_prefix = {% if site_request %}`/witnessmeter/`{% else %}`/nvs/witness-meter/`{% endif %};
     let paratext_prefix = {% if site_request %}`/paratext/${play_prefix}/`{% else %}`/corpus/${corpus_id}/paratext-viewer/${play_prefix}/`{% endif %};
     let minimap_url = {% if site_request %}`/minimap/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-minimap/${play_prefix}/`{% endif %};
