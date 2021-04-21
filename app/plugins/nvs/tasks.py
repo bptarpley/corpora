@@ -132,26 +132,8 @@ def import_data(job_id):
 
     job.set_status('running')
     try:
-
-        for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
-            if delete_existing and nvs_content_type['name'] in corpus.content_types:
-                corpus.delete_content_type(nvs_content_type['name'])
-
-            corpus.save_content_type(nvs_content_type)
-
-        if 'Document' in corpus.content_types and delete_existing:
-            corpus.delete_content_type('Document')
-
-        nvs_doc_schema = None
-        for schema in DOCUMENT_REGISTRY:
-            if schema['name'] == "Document":
-                nvs_doc_schema = deepcopy(schema)
-                break
-
-        if nvs_doc_schema:
-            nvs_doc_schema['fields'] += nvs_document_fields
-            nvs_doc_schema['templates']['Label']['template'] = "{{ Document.siglum_label|safe }}"
-            corpus.save_content_type(nvs_doc_schema)
+        if delete_existing:
+            delete_play_data(corpus, play_prefix)
 
         es_logger = logging.getLogger('elasticsearch')
         es_log_level = es_logger.getEffectiveLevel()
@@ -259,6 +241,53 @@ def import_data(job_id):
         print(traceback.format_exc())
 
 
+def reset_nvs_content_types(corpus):
+    for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
+        if nvs_content_type['name'] in corpus.content_types:
+            corpus.delete_content_type(nvs_content_type['name'])
+
+        corpus.save_content_type(nvs_content_type)
+
+    if 'Document' in corpus.content_types:
+        corpus.delete_content_type('Document')
+
+    nvs_doc_schema = None
+    for schema in DOCUMENT_REGISTRY:
+        if schema['name'] == "Document":
+            nvs_doc_schema = deepcopy(schema)
+            break
+
+    if nvs_doc_schema:
+        nvs_doc_schema['fields'] += nvs_document_fields
+        nvs_doc_schema['templates']['Label']['template'] = "{{ Document.siglum_label|safe }}"
+        corpus.save_content_type(nvs_doc_schema)
+
+
+def delete_play_data(corpus, play_prefix):
+    play = corpus.get_content('Play', {'prefix': play_prefix}, single_result=True)
+    if play:
+        nvs_content_types = [
+            'WitnessLocation',
+            'PlayTag',
+            'ParaText',
+            'Character',
+            'Commentary',
+            'TextualVariant',
+            'TextualNote',
+            'Speech',
+            'PlayLine'
+        ]
+
+        for nvs_ct in nvs_content_types:
+            contents = corpus.get_content(nvs_ct, {'play': play.id})
+            for content in contents:
+                content.delete()
+            print('{0}(s) deleted.'.format(nvs_ct))
+
+        play.delete()
+
+
+
 def parse_front_file(corpus, play, front_file_path):
     with open(front_file_path, 'r') as tei_in:
         tei_text = tei_in.read()
@@ -269,75 +298,57 @@ def parse_front_file(corpus, play, front_file_path):
 
         tei = BeautifulSoup(tei_text, "xml")
 
-    front = tei.container.front
-
-    # extract series_title page and byline
-    st_block = corpus.get_content('ContentBlock')
-    st_block.play = play.id
-    st_block.handle = "series_title"
-    st_block.html = ""
-
-    series_title_page = front.find('titlePage', type='series')
-    series_title = series_title_page.docTitle.find('titlePart', type='series')
-    st_block.html += "<h2>{0}</h2>\n".format(_str(series_title))
-
-    series_desc = series_title_page.docTitle.find('titlePart', type='desc')
-    st_block.html += tei_to_html(series_desc)
-    st_block.save()
-
-    series_byline = series_title_page.byline
-    byline_block = corpus.get_content('ContentBlock')
-    byline_block.play = play.id
-    byline_block.handle = "series_byline"
-    byline_block.html = tei_to_html(series_byline)
-    byline_block.save()
-
-    # extract main_title page and byline
-    main_block = corpus.get_content('ContentBlock')
-    main_block.play = play.id
-    main_block.handle = "main_title"
-    main_block.html = ""
-
-    main_title_page = front.find('titlePage', type='main')
-    main_block.html += "<h2>{0}</h2>".format(_str(main_title_page.find('titlePart', type='series')))
-    main_block.html += "<h1>{0}</h1>".format(_str(main_title_page.find('titlePart', type='volume')))
-    main_block.save()
-
-    main_byline = corpus.get_content('ContentBlock')
-    main_byline.play = play.id
-    main_byline.handle = "main_byline"
-    main_byline.html = tei_to_html(main_title_page.byline)
-    main_byline.save()
-
-    # extract imprint and copyright
-    imprint = corpus.get_content('ContentBlock')
-    imprint.play = play.id
-    imprint.handle = "main_imprint"
-    imprint.html = tei_to_html(main_title_page.docImprint.publisher)
-    imprint.save()
-
-    copyright_div = front.find('div', type='copyright')
-    copyright = corpus.get_content('ContentBlock')
-    copyright.play = play.id
-    copyright.handle = "main_copyright"
-    copyright.html = tei_to_html(copyright_div)
-    copyright.save()
-
-    # TODO: Parse TOC intelligently
+    # list for tracking unhandled tags:
+    unhandled = []
 
     # extract preface
-    preface_div = corpus.get_content('ContentBlock')
-    preface_div.play = play.id
-    preface_div.handle = "preface"
-    preface_div.html = tei_to_html(front.find('div', type='preface'))
-    preface_div.save()
+    preface = tei.find('div', type='preface')
+    pt = corpus.get_content('ParaText')
+    pt.play = play.id
+    pt.xml_id = preface['xml:id']
+    pt.section = "Front Matter"
+    pt.order = 0
+    pt.level = 1
+    pt.html_content = ""
 
-    # TODO: Consider what to do about Plan of Work, which includes
-    # witness list and band of terror explication
+    pt_data = {
+        'current_note': None,
+        'unhandled': [],
+        'corpus': corpus
+    }
+
+    for child in preface.children:
+        pt.html_content += handle_paratext_tag(child, pt, pt_data)
+
+    unhandled += list(set(pt_data['unhandled']))
+    pt.save()
+
+    # extract plan of work
+    plan_of_work = tei.find('div', type='potw')
+    pt = corpus.get_content('ParaText')
+    pt.play = play.id
+    pt.xml_id = plan_of_work['xml:id']
+    pt.section = "Front Matter"
+    pt.order = 1
+    pt.level = 1
+    pt.html_content = ""
+
+    pt_data = {
+        'current_note': None,
+        'unhandled': [],
+        'corpus': corpus
+    }
+
+    for child in plan_of_work.children:
+        pt.html_content += handle_paratext_tag(child, pt, pt_data)
+
+    unhandled += list(set(pt_data['unhandled']))
+    pt.save()
+
+    print("Unhandled Front Matter tags:")
+    print(json.dumps(unhandled, indent=4))
 
     # extract witness and reference documents
-    plan_of_work = front.find('div', type='potw')
-
     try:
         witness_collections = []
         unhandled = []
@@ -548,6 +559,7 @@ def handle_playtext_tag(corpus, play, tag, line_info):
             witness_location = corpus.get_content('WitnessLocation')
             witness_location.witness = line_info['basetext_id']
             witness_location.starting_page = tag['n']
+            witness_location.play = play.id
             witness_location.save()
             line_info['witness_location_id'] = witness_location.id
 
@@ -560,6 +572,14 @@ def handle_playtext_tag(corpus, play, tag, line_info):
             line_info['line_xml_id'] = tag['xml:id']
             line_info['line_label'] = tag['n']
             line_info['text'] = ''
+
+        # nvsSeg (for virtual lineation)
+        elif tag.name == 'nvsSeg' and _contains(tag.attrs, ['type', 'xml:id']) and tag['type'] == 'linePart':
+            new_tln = tag['xml:id']
+            if new_tln[-1] in ['i', 'f']:
+                new_tln = new_tln[:-1]
+            line_info['line_xml_id'] = new_tln
+            # NOT FINISHED...
 
         # div for act/scene
         elif tag.name == 'div' and _contains(tag.attrs, ['type', 'n']):
@@ -703,7 +723,8 @@ def make_playtext_line(corpus, play, line_info):
     line.line_number = line_info['line_number']
     line.act = line_info['act']
     line.scene = line_info['scene']
-    line.witness_locations.append(line_info['witness_location_id'])
+    if line_info['witness_location_id']:
+        line.witness_locations.append(line_info['witness_location_id'])
     line.text = line_info['text'].strip()
     line.witness_meter = "0" * line_info['witness_count']
     line.save()
@@ -1806,14 +1827,21 @@ def handle_paratext_tag(tag, pt, pt_data):
         'trailer': 'div:mt-2',
         'label': 'b',
         'figure': 'div',
-        'salute': 'span'
+        'salute': 'span',
+        'abbr': 'dt',
+        'expan': 'dd',
+        'listBibl': 'div:bibl-list',
+        'bibl': 'span:bibl',
+        'listWit': 'div:witness-list',
+        'witness': 'span:witness',
+        'edition': 'q'
     }
 
     silent = [
         'app', 'appPart', 'lem', 'wit', 'rdgDesc',
         'rdg', 'name', 'rs', 'epigraph',
         'body', 'foreign', 'cit', 'stage',
-        'bibl', 'docDate'
+        'docDate', 'date'
     ]
 
     if tag.name:
@@ -1853,6 +1881,9 @@ def handle_paratext_tag(tag, pt, pt_data):
             for child in tag.children:
                 html += handle_paratext_tag(child, pt, pt_data)
             html += "</{0}>".format(html_tag)
+
+        elif tag.name == 'witness' and _contains(tag.attrs, ['corresp', 'xml:id', 'display']) and tag.attrs['display'] == 'book(suppress)':
+            pass
 
         elif tag.name == 'siglum':
             siglum_label = "".join([handle_paratext_tag(child, pt, pt_data) for child in tag.children])

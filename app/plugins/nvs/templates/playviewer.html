@@ -687,23 +687,23 @@
                     <div class="d-flex flex-row justify-content-between align-items-center bg-nvs-lightest-gray" style="pointer-events: auto;">
                         <ul id="search-widget-tabs" class="nav nav-tabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <a class="nav-link active" id="search-widget-lines-tab" data-toggle="tab" href="#search-widget-lines" role="tab" aria-controls="search-widget-lines" aria-selected="true">Lines (<span class="search-line-total">0</span>)</a>
+                                <a class="nav-link active" id="search-widget-line-tab" data-toggle="tab" href="#search-widget-lines" role="tab" aria-controls="search-widget-lines" aria-selected="true">Lines (<span class="search-line-total">0</span>)</a>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <a class="nav-link" id="search-widget-variants-tab" data-toggle="tab" href="#search-widget-variants" role="tab" aria-controls="explore" aria-selected="false">Variants (<span class="search-variant-total">0</span>)</a>
+                                <a class="nav-link" id="search-widget-variant-tab" data-toggle="tab" href="#search-widget-variants" role="tab" aria-controls="explore" aria-selected="false">Variants (<span class="search-variant-total">0</span>)</a>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <a class="nav-link" id="search-widget-commentary-tab" data-toggle="tab" href="#search-widget-commentary" role="tab" aria-controls="search-widget-commentary" aria-selected="false">Commentary (<span class="search-commentary-total">0</span>)</a>
                             </li>
                         </ul>
                         <div class="tab-content">
-                            <div class="tab-pane fade show active" id="search-widget-lines" role="tabpanel" aria-labelledby="search-widget-lines-tab">
+                            <div class="tab-pane fade show active" id="search-widget-lines" role="tabpanel" aria-labelledby="search-widget-line-tab">
                                 <a id="search-line-prev" onClick="display_search_result('line', 'prev');"><i class="fas fa-chevron-left"></i></a>
                                 <span id="search-line-current">0</span> out of
                                 <span class="search-line-total">0</span>
                                 <a id="search-line-next" onClick="display_search_result('line', 'next');"><i class="fas fa-chevron-right"></i></a>
                             </div>
-                            <div class="tab-pane fade" id="search-widget-variants" role="tabpanel" aria-labelledby="search-widget-variants-tab">
+                            <div class="tab-pane fade" id="search-widget-variants" role="tabpanel" aria-labelledby="search-widget-variant-tab">
                                 <a id="search-variant-prev" onClick="display_search_result('variant', 'prev');"><i class="fas fa-chevron-left"></i></a>
                                 <span id="search-variant-current">0</span> out of
                                 <span class="search-variant-total">0</span>
@@ -759,7 +759,7 @@
     let last_commentary_line = 0;
     let remaining_commentaries = true;
     let commentaries = {};
-    let witnesses_loaded = false, notes_loaded = false, characters_loaded = false;
+    let commentary_loaded = false, characters_loaded = false;
     let comm_timer = null;
     let nvs_search = null;
 
@@ -850,8 +850,6 @@
 
         setup_lines();
         configure_controls();
-
-        notes_loaded = true;
 
         $('.witness-meter').click(function(){
             let line_id = this.id.replace('-witness-col', '');
@@ -996,6 +994,32 @@
                 <option value="${act_scenes[act_scene_label]}"${selected}>${act_scene_label}</option>
             `);
         });
+
+        // SEARCH TABS
+        $('#search-widget-line-tab').click(function() {
+            if (nvs_search && nvs_search.hasOwnProperty('current_line_result')) {
+                if (nvs_search.current_line_result === 0 || nvs_search.line_results.length === 1) {
+                    nvs_search.current_line_result = 0;
+                    display_search_result('line', 'next');
+                }
+            }
+        });
+        $('#search-widget-variant-tab').click(function() {
+            if (nvs_search && nvs_search.hasOwnProperty('current_variant_result')) {
+                if (nvs_search.current_variant_result === 0 || nvs_search.variant_results.length === 1) {
+                    nvs_search.current_variant_result = 0;
+                    display_search_result('variant', 'next');
+                }
+            }
+        });
+        $('#search-widget-commentary-tab').click(function() {
+            if (nvs_search && nvs_search.hasOwnProperty('current_commentary_result')) {
+                if (nvs_search.current_commentary_result === 0 || nvs_search.commentary_results.length === 1) {
+                    nvs_search.current_commentary_result = 0;
+                    display_search_result('commentary', 'next');
+                }
+            }
+        });
     }
 
     function get_nvs_var(variable_name) {
@@ -1111,63 +1135,92 @@
     }
 
     function process_search_results(results) {
-        console.log(results);
-        $(":root").css("--scrollbarURL", `url(${minimap_url}?width=60&height=${parseInt($("#playtext-col").height())}&no-cache=${Math.floor(Date.now() / 1000)})`);
-        if (nvs_search) {
-            if(nvs_search.hasOwnProperty('line_results')) {
-                nvs_search.line_results.map(result => {
-                    let html_span = $(`#${result.xml_id}-text-col`);
-                    result.matches.map(match => html_span.unmark(match));
-                });
-            }
-            if(nvs_search.hasOwnProperty('variant_results')) {
-                nvs_search.variant_results.map(result => {
-                    let html_span = $(`#${result.xml_id}-variant-div`);
-                    result.matches.map(match => html_span.unmark(match));
-                });
-            }
+        if (results.last_commentary_line > last_commentary_line) {
+            last_visible_line = results.last_commentary_line;
+            commentary_loaded = false;
+            load_commentary();
         }
 
-        nvs_search = {
-            character_results: results.characters,
-            line_results: results.lines,
-            variant_results: results.variants,
-            current_line_result: 0,
-            current_variant_result: 0
-        };
+        if (!commentary_loaded){
+            setTimeout(process_search_results.bind(null, results), 1000)
+        } else {
+            console.log(results);
+            $(":root").css("--scrollbarURL", `url(${minimap_url}?width=60&height=${parseInt($("#playtext-col").height())}&no-cache=${Math.floor(Date.now() / 1000)})`);
+            if (nvs_search) {
+                $('#reader-view').unmark();
+            }
 
-        $('.search-line-total').html(nvs_search.line_results.length);
-        $('.search-variant-total').html(nvs_search.variant_results.length);
-        $('#search-widget').removeClass('d-none');
+            nvs_search = {
+                character_results: results.characters,
+                line_results: results.lines,
+                variant_results: results.variants,
+                commentary_results: results.commentaries,
+                current_line_result: 0,
+                current_variant_result: 0,
+                current_commentary_result: 0
+            };
 
-        nvs_search.line_results.map(result => {
-            let html_span = $(`#${result.xml_id}-text-col`);
-            result.matches.map(match => html_span.mark(match));
-        });
+            $('.search-line-current').html('0');
+            $('.search-variant-current').html('0');
+            $('.search-commentary-current').html('0');
+            $('.search-line-total').html(nvs_search.line_results.length);
+            $('.search-variant-total').html(nvs_search.variant_results.length);
+            $('.search-commentary-total').html(nvs_search.commentary_results.length);
+            $('#search-line-prev').removeClass('d-none');
+            $('#search-line-next').removeClass('d-none');
+            $('#search-variant-prev').removeClass('d-none');
+            $('#search-variant-next').removeClass('d-none');
+            $('#search-commentary-prev').removeClass('d-none');
+            $('#search-commentary-next').removeClass('d-none');
+            $('#search-widget').removeClass('d-none');
 
-        nvs_search.variant_results.map(result => {
-            show_notes(result.xml_id);
-            $(`#${result.xml_id}-variant-div`).collapse('show');
-            let html_span = $(`#${result.xml_id}-variant-div .variant-words`);
-            result.matches.map(match => html_span.mark(match));
-        });
+            nvs_search.line_results.map(result => {
+                let html_span = $(`#${result.xml_id}-text-col`);
+                result.matches.map(match => html_span.mark(match));
+            });
 
-        if (nvs_search.line_results.length) display_search_result('line', 'next');
-        else if (nvs_search.variant_results.length) display_search_result('variant', 'next');
-        else display_nav_modal('No results.', 'No results for your search term were found.');
+            nvs_search.variant_results.map(result => {
+                show_notes(result.xml_id);
+                $(`#${result.xml_id}-variant-div`).collapse('show');
+                let html_span = $(`#${result.xml_id}-variant-div .variant-words`);
+                result.matches.map(match => html_span.mark(match));
+            });
+
+            nvs_search.commentary_results.map((result, result_num) => {
+                let comm_header = $(`#commentary-note-${result.comm_id}`);
+                let comm_content = $(`#commentary-content-${result.comm_id}`);
+                result.matches.map(match => {
+                    comm_header.mark(match, {className: `search-commentary-result-${result_num}`});
+                    comm_content.mark(match, {className: `search-commentary-result-${result_num}`});
+                });
+            });
+
+            if (nvs_search.line_results.length) display_search_result('line', 'next');
+            else if (nvs_search.variant_results.length) display_search_result('variant', 'next');
+            else if (nvs_search.commentary_results.length) display_search_result('commentary', 'next');
+            else display_nav_modal('No results.', 'No results for your search term were found.');
+        }
     }
 
     function display_search_result(type, which) {
+        $(`#search-widget-${type}-tab`).tab('show');
+
         if (which === 'next') {
             nvs_search[`current_${type}_result`] += 1;
         } else {
             nvs_search[`current_${type}_result`] -= 1;
         }
 
-        let result = nvs_search[`${type}_results`][nvs_search[`current_${type}_result`] - 1];
-        let id_suffix = '-text-col';
-        if (type === 'variant') id_suffix = '-variant-div';
-        document.getElementById(`${result.xml_id}${id_suffix}`).scrollIntoView({behavior: 'smooth'});
+        if (type === 'commentary') {
+            let comm_result_num = nvs_search.current_commentary_result - 1;
+            document.getElementsByClassName(`search-commentary-result-${comm_result_num}`)[0].scrollIntoView({behavior: 'smooth'});
+        }
+        else {
+            let result = nvs_search[`${type}_results`][nvs_search[`current_${type}_result`] - 1];
+            let id_suffix = '-text-col';
+            if (type === 'variant') id_suffix = '-variant-div';
+            document.getElementById(`${result.xml_id}${id_suffix}`).scrollIntoView({behavior: 'smooth'});
+        }
 
         $(`#search-${type}-current`).html(nvs_search[`current_${type}_result`]);
         if (nvs_search[`current_${type}_result`] === 1) {
@@ -1240,6 +1293,8 @@
                 } else {
                     remaining_commentaries = false;
                 }
+
+                commentary_loaded = true;
             },
             true
         );

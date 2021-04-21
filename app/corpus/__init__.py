@@ -1259,12 +1259,14 @@ class Corpus(mongoengine.Document):
             must = []
             filter = []
 
+            # GENERAL QUERY
             if general_query:
                 if operator == 'and':
                     must.append(SimpleQueryString(query=general_query))
                 else:
                     should.append(SimpleQueryString(query=general_query))
 
+            # FIELDS QUERY
             for search_field in fields_query.keys():
                 field_values = [value_part for value_part in fields_query[search_field].split('__') if value_part]
                 field_type = None
@@ -1521,6 +1523,8 @@ class Corpus(mongoengine.Document):
                 search_query = Q('bool', should=should, must=must, filter=filter)
 
                 extra = {'track_total_hits': True}
+                if fields_query:
+                    extra['min_score'] = 0.001
 
                 search_cmd = Search(using=get_connection(), index=index_name, extra=extra).query(search_query)
 
@@ -1607,9 +1611,11 @@ class Corpus(mongoengine.Document):
                         record['id'] = hit['_id']
                         record['_search_score'] = hit['_score']
                         if fields_highlight:
-                            record['_search_highlights'] = hit['highlight']
-
-                        results['records'].append(record)
+                            if 'highlight' in hit:
+                                record['_search_highlights'] = hit['highlight']
+                                results['records'].append(record)
+                        else:
+                            results['records'].append(record)
 
                     if 'aggregations' in search_results:
                         for agg_name in search_results['aggregations'].keys():

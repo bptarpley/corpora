@@ -415,7 +415,8 @@ def api_search(request, corpus_id=None, play_prefix=None):
         'characters': {},
         'lines': [],
         'variants': [],
-        'commentaries': []
+        'commentaries': [],
+        'last_commentary_line': 0
     }
 
     if quick_search:
@@ -431,13 +432,8 @@ def api_search(request, corpus_id=None, play_prefix=None):
             'fields_highlight': ['text'],
             'highlight_num_fragments': 0
         }
-
+        # print('SPEECHES')
         qs_results = progressive_search(corpus, speech_query, ['text'], quick_search)
-
-        num_pages = qs_results['meta']['num_pages']
-        while speech_query['page'] < num_pages:
-            speech_query['page'] += 1
-            qs_results['records'] += corpus.search_content(**speech_query)['records']
 
         for record in qs_results['records']:
             for speaker in record['speaking']:
@@ -475,6 +471,7 @@ def api_search(request, corpus_id=None, play_prefix=None):
             'fields_highlight': ['variants.variant', 'variants.description'],
             'highlight_num_fragments': 0,
         }
+        # print('VARIANTS')
         variant_results = progressive_search(corpus, variant_query, ['variants.variant', 'variants.description'], quick_search)
         variant_lines = {}
         for record in variant_results['records']:
@@ -498,6 +495,43 @@ def api_search(request, corpus_id=None, play_prefix=None):
                 results['variants'].append(result)
                 variant_lines[variant_line_id] = True
 
+        # Search Commentary
+        comm_query = {
+            'content_type': 'Commentary',
+            'page': 1,
+            'page_size': 1000,
+            'fields_filter': {
+                'play.id': str(play.id)
+            },
+            'only': ['id', 'lines.line_number'],
+            'fields_highlight': ['subject_matter', 'contents'],
+        }
+        # print('COMMENTARY')
+        comm_results = progressive_search(corpus, comm_query, ['subject_matter', 'contents'], quick_search)
+
+        for record in comm_results['records']:
+            if 'lines' in record:
+                for line in record['lines']:
+                    if line['line_number'] > results['last_commentary_line']:
+                        results['last_commentary_line'] = line['line_number']
+
+                result = {
+                    'comm_id': record['id'],
+                    'matches': []
+                }
+                if 'subject_matter' in record['_search_highlights']:
+                    for highlight in record['_search_highlights']['subject_matter']:
+                        matches = re.findall(r'<em>([^<]*)</em>', highlight)
+                        if matches:
+                            result['matches'] += matches
+                if 'contents' in record['_search_highlights']:
+                    for highlight in record['_search_highlights']['contents']:
+                        matches = re.findall(r'<em>([^<]*)</em>', highlight)
+                        if matches:
+                            result['matches'] += matches
+                result['matches'] = list(set(result['matches']))
+                results['commentaries'].append(result)
+
         nvs_session['search']['quick_search'] = quick_search
         nvs_session['search']['results'] = results
         set_nvs_session(request, nvs_session, play_prefix)
@@ -516,32 +550,40 @@ def progressive_search(corpus, search_params, fields, query):
     for field in fields:
         fields_dict[field] = query
 
+    print('trying term...')
     search_params['fields_term'] = fields_dict
     results = corpus.search_content(**search_params)
 
     if not results['records']:
+        print('trying phrase...')
         del search_params['fields_term']
         search_params['fields_phrase'] = fields_dict
         results = corpus.search_content(**search_params)
 
     if not results['records']:
+        print('trying fields...')
         del search_params['fields_phrase']
         search_params['fields_query'] = fields_dict
+        search_params['es_debug_query'] = True
         results = corpus.search_content(**search_params)
 
     if not results['records']:
-        adjusted_query = query
+        print('trying no stopwords...')
+        adjusted_query = query.lower().split()
         for stopword in "a an and are as at be but by for if in into is it no not of on or such that the their then there these they this to was will with".split():
-            adjusted_query = adjusted_query.replace(stopword, '')
-        adjusted_query = ' '.join(adjusted_query.split())
+            if stopword in adjusted_query:
+                adjusted_query.remove(stopword)
+        adjusted_query = ' '.join(adjusted_query)
         for field in fields:
             search_params['fields_query'][field] = adjusted_query
         results = corpus.search_content(**search_params)
-
+    '''
     if not results['records']:
+        print('trying general...')
         del search_params['fields_query']
         search_params['general_query'] = query
         results = corpus.search_content(**search_params)
+    '''
 
     return results
 
