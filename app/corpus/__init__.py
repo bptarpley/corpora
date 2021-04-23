@@ -1523,7 +1523,7 @@ class Corpus(mongoengine.Document):
                 search_query = Q('bool', should=should, must=must, filter=filter)
 
                 extra = {'track_total_hits': True}
-                if fields_query:
+                if fields_query and fields_highlight:
                     extra['min_score'] = 0.001
 
                 search_cmd = Search(using=get_connection(), index=index_name, extra=extra).query(search_query)
