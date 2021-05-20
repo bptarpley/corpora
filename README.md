@@ -12,7 +12,7 @@ This is a barebones readme that needs a lot of work :) Right now it just has qui
    * link (this contains the Neo4J database files)
    * search (this contains the ElasticSearch index files)
    * static (this contains the Django web application's static files)
-4. Clone this repository somewhere other than your corpora basedir: `git clone -b dev ssh://git@gitlab.dh.tamu.edu:10022/bptarpley/corpora.git`
+4. Clone this repository somewhere other than your corpora basedir: `git clone -b dev http://gitlab.dh.tamu.edu/bptarpley/corpora.git`
 5. Copy the file "docker-compose.yml.example" and save a copy as "docker-compose.yml" in the same directory
 6. Replace all instances of "/your/corpora/basedir" with the path to your basedir, i.e. /Users/username/corpora
 7. Fire it up! To do so, open a terminal window and change to the directory where you saved your "docker-compose.yml" file. Then, execute one of these commands:
