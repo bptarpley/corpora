@@ -45,7 +45,7 @@ def playviewer(request, corpus_id=None, play_prefix=None):
 
     session_changed = False
 
-    if 'play_id' not in nvs_session:
+    if 'play_id' not in nvs_session or nvs_session['play_id'] != str(play.id):
         nvs_session['play_id'] = str(play.id)
         session_changed = True
     if nvs_session['filter']['character'] != character:
@@ -105,38 +105,46 @@ def playviewer(request, corpus_id=None, play_prefix=None):
         'page-size': 0,
         'e_act': 'y',
         'e_scene': 'y',
+        'f_play.id': str(play.id),
         'a_terms_act_scenes': 'act,scene',
     }
     as_search_params = build_search_params_from_dict(as_search)
     as_results = corpus.search_content('PlayLine', **as_search_params)
     if as_results:
+        if 'Dramatis Personae|||0' in as_results['meta']['aggregations']['act_scenes']:
+            act_scenes['DP'] = "Dramatis Personae.0"
+
         act_scene_keys = sorted(as_results['meta']['aggregations']['act_scenes'].keys())
         for act_scene in act_scene_keys:
-            as_parts = act_scene.split('|||')
-            act = as_parts[0]
-            scene = as_parts[1]
-            act_label = to_roman(int(act))
-            act_scene_label = "{0}.{1}".format(act_label, scene)
-            if act_label not in act_scenes:
-                act_scenes[act_label] = act
-            act_scenes[act_scene_label] = "{0}.{1}".format(act, scene)
+            if act_scene not in ['Dramatis Personae|||0', 'Trailer|||0']:
+                as_parts = act_scene.split('|||')
+                act = as_parts[0]
+                scene = as_parts[1]
+                act_label = to_roman(int(act))
+                act_scene_label = "{0}.{1}".format(act_label, scene)
+                act_scenes[act_scene_label] = "{0}.{1}".format(act, scene)
+
+        if 'Trailer|||0' in as_results['meta']['aggregations']['act_scenes']:
+            act_scenes['TR'] = "Trailer.0"
 
     witness_docs = corpus.get_content('Document', {'nvs_doc_type': 'witness'}).order_by('pub_date')
+    play_wit_ids = [w.id for w in play.primary_witnesses]
     wit_counter = 0
     for wit_doc in witness_docs:
-        witnesses[wit_doc.siglum] = {
-            'slots': [wit_counter],
-            'document_id': str(wit_doc.id),
-            'bibliographic_entry': wit_doc.bibliographic_entry
-        }
+        if wit_doc.id in play_wit_ids:
+            witnesses[wit_doc.siglum] = {
+                'slots': [wit_counter],
+                'document_id': str(wit_doc.id),
+                'bibliographic_entry': wit_doc.bibliographic_entry
+            }
 
-        century = wit_doc.pub_date[:2] + "00"
-        if century in witness_centuries:
-            witness_centuries[century] += 1
-        else:
-            witness_centuries[century] = 1
+            century = wit_doc.pub_date[:2] + "00"
+            if century in witness_centuries:
+                witness_centuries[century] += 1
+            else:
+                witness_centuries[century] = 1
 
-        wit_counter += 1
+            wit_counter += 1
 
     document_collections = corpus.get_content('DocumentCollection', all=True)
     for collection in document_collections:
@@ -199,25 +207,19 @@ def get_session_lines(corpus, session, only_ids=False):
     return lines
 
 
-def commentaries(request, corpus_id, play_prefix):
+def bibliography(request, corpus_id, play_prefix):
     corpus = get_corpus(corpus_id)
     play = corpus.get_content('Play', {'prefix': play_prefix})[0]
-    nvs_session = get_nvs_session(request, play_prefix)
-    commentary_filter = {'play': play.id}
 
-    if nvs_session['is_filtered']:
-        line_ids = [line.id for line in get_session_lines(corpus, nvs_session, only_ids=True)]
-        commentary_filter['lines__in'] = line_ids
-
-    commentaries = corpus.get_content('Commentary', commentary_filter).order_by('id')
-
+    docs = corpus.get_content('Document', all=True).order_by('bibliographic_entry_text')
+    bibliographic_entries = [doc.bibliographic_entry for doc in docs]
 
     return render(
         request,
-        'commentaries.html',
+        'bibliography.html',
         {
             'corpus_id': corpus_id,
-            'commentaries': commentaries
+            'bibliography': bibliographic_entries
         }
     )
 
@@ -338,7 +340,7 @@ def play_minimap(request, corpus_id=None, play_prefix=None):
             min_img_width = int(min_img_height * ratio)
             character_width = int(min_img_width / max_line_length)
 
-            img = Image.new('RGB', (min_img_width, min_img_height), '#FFFFFF')
+            img = Image.new('RGB', (min_img_width, min_img_height), '#F2F2F2')
             draw = ImageDraw.Draw(img)
 
             x = 0
@@ -550,25 +552,24 @@ def progressive_search(corpus, search_params, fields, query):
     for field in fields:
         fields_dict[field] = query
 
-    print('trying term...')
+    #print('trying term...')
     search_params['fields_term'] = fields_dict
     results = corpus.search_content(**search_params)
 
     if not results['records']:
-        print('trying phrase...')
+        #print('trying phrase...')
         del search_params['fields_term']
         search_params['fields_phrase'] = fields_dict
         results = corpus.search_content(**search_params)
 
     if not results['records']:
-        print('trying fields...')
+        #print('trying fields...')
         del search_params['fields_phrase']
         search_params['fields_query'] = fields_dict
-        search_params['es_debug_query'] = True
         results = corpus.search_content(**search_params)
 
     if not results['records']:
-        print('trying no stopwords...')
+        #print('trying no stopwords...')
         adjusted_query = query.lower().split()
         for stopword in "a an and are as at be but by for if in into is it no not of on or such that the their then there these they this to was will with".split():
             if stopword in adjusted_query:

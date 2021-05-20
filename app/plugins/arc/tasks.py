@@ -275,6 +275,7 @@ def index_archive(job_id, archive_id, task=None):
 
                             a.url = art['url']
                             a.title = art['title']
+                            a.archive = archive.id
 
                             if 'language' in art:
                                 a.language = art['language']
@@ -286,10 +287,6 @@ def index_archive(job_id, archive_id, task=None):
 
                             if 'full_text' in art:
                                 a.full_text = 1 if art['full_text'] else 0
-
-                            archive_id = get_reference(corpus, art['archive'], 'ArcArchive', cache, make_new=False)
-                            if archive_id:
-                                a.archive = corpus.get_content_dbref('ArcArchive', archive_id)
 
                             for fed in art['federations']:
                                 federation_id = get_reference(corpus, fed, 'ArcFederation', cache)
@@ -615,11 +612,13 @@ def parse_rdf(rdf_file):
 
             # IMAGE URL
             elif prop == "http://www.collex.org/schema#image":
-                art['image_url'] = str(value)
+                if not str(value).startswith('file://'):
+                    art['image_url'] = str(value)
 
             # THUMBNAIL URL
             elif prop == "http://www.collex.org/schema#thumbnail":
-                art['thumbnail_url'] = str(value)
+                if not str(value).startswith('file://'):
+                    art['thumbnail_url'] = str(value)
 
             # HAS PART
             elif prop == "http://purl.org/dc/terms/hasPart":

@@ -25,6 +25,17 @@
             overflow: scroll;
             -ms-overflow-style: -ms-autohiding-scrollbar;
         }
+
+        #job-report-div {
+            max-height: calc(80vh);
+            overflow-y: scroll;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            white-space: -moz-pre-wrap;
+            white-space: -pre-wrap;
+            white-space: -o-pre-wrap;
+            word-wrap: break-word;
+        }
     </style>
 {% endblock %}
 
@@ -75,6 +86,41 @@
         </div>
     </div>
 
+    <!-- REPO MODAL -->
+    <div class="modal fade" id="new-repo-modal" tabindex="-1" role="dialog" aria-labelledby="new-repo-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add a Git Repository</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="new-repo-name-box">Name</label>
+                            <input id="new-repo-name-box" type="text" class="form-control" name="new-repo-name">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-repo-url-box">URL</label>
+                            <input id="new-repo-url-box" type="text" class="form-control" name="new-repo-url">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-repo-branch-box">Branch</label>
+                            <input id="new-repo-branch-box" type="text" class="form-control" name="new-repo-branch">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <input type="submit" class="btn btn-primary" id="new-repo-save-button" value="Save" />
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- JOB MODAL -->
     <div class="modal fade" id="job-modal" tabindex="-1" role="dialog" aria-labelledby="job-modal-label" aria-hidden="true">
         <div class="modal-dialog" role="document">
@@ -106,6 +152,26 @@
                         <button type="button" class="btn btn-primary" id="job-submit-button" disabled>Run</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Job Report Modal -->
+    <div class="modal fade" id="job-report-modal" tabindex="-1" role="dialog" aria-labelledby="job-report-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Job Report</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <pre id="job-report-div">Loading...</pre>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
@@ -412,6 +478,25 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- REPOS -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h4>Corpus Repos</h4>
+                            {% if response.scholar.is_admin or role == 'Editor' %}
+                                <button id="add-corpus-repo-button" class="btn btn-primary rounded" type="button">Add</button>
+                            {% else %}
+                                <span>&nbsp;</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body" id="corpus-repos-div">
+                        <div class="alert alert-info">
+                            There are currently no repos for this corpus.
+                        </div>
+                    </div>
+                </div>
             </div>
 
 
@@ -626,6 +711,7 @@
                 if (corpus.provenance.length > 0) { provenance_div.html(''); }
                 corpus.provenance.forEach( prov => {
                     let retry_form = '';
+                    let report_button = '';
                     if (role === 'Admin' || role === 'Editor') {
                         retry_form = `
                             <form method="post">
@@ -634,6 +720,12 @@
                                 <button type="submit" role="button" class="btn btn-danger">Retry</button>
                             </form>
                         `;
+
+                        if (prov.report_path) {
+                            report_button = `
+                                <button type="button" onClick="view_job_report('${prov.job_id}');" class="btn btn-primary mr-1">View Report</button>
+                            `;
+                        }
                     }
 
                     provenance_div.append(`
@@ -644,6 +736,7 @@
                                     Completed: ${corpora.time_string(prov.completed)}
                                 </div>
                                 <div class="col-sm-2">
+                                    ${report_button}
                                     ${retry_form}
                                 </div>
                             </div>
@@ -705,6 +798,32 @@
                                 </td>
                             </tr>
                         `);
+                    }
+                }
+
+                // load corpus repos
+                if (Object.keys(corpus.repos).length > 0) {
+                    let corpus_repos_div = $('#corpus-repos-div');
+                    corpus_repos_div.html('');
+                    for (let repo_name in corpus.repos) {
+                        let repo = corpus.repos[repo_name];
+                        if (repo.error) {
+                            corpus_repos_div.append(`
+                                <div class="alert alert-danger">
+                                    <b>${repo.name}</b><br/>
+                                    Error pulling from branch "${repo.remote_branch}"!
+                                </div>
+                            `);
+                        }
+                        else {
+                            corpus_repos_div.append(`
+                                <div class="alert alert-info">
+                                    <b>${repo.name}</b><br/>
+                                    Branch "${repo.remote_branch}"
+                                    last pulled ${corpora.time_string(repo.last_pull)}
+                                </div>
+                            `);
+                        }
                     }
                 }
 
@@ -1578,6 +1697,19 @@
             $('#import-corpus-files-form').submit();
         });
 
+        // REPO FUNCTIONALITY
+        $('#add-corpus-repo-button').click(function() {
+            $('#new-repo-name-box').val('');
+            $('#new-repo-url-box').val('');
+            $('#new-repo-branch-box').val('master');
+            $('#new-repo-modal').modal();
+        });
+
+        // PEP8 CLASS FORMAT REPO NAME
+        $('#new-repo-name-box').focusout(function () {
+            $('#new-repo-name-box').val(pep8_variable_format($('#new-repo-name-box').val()));
+        });
+
         // JOB FUNCTIONALITY
         function load_tasks(jobsite_id) {
             let task_selector = $('#task-selector');
@@ -1644,6 +1776,21 @@
                             <div class="form-group">
                                 <label for="${parameter}-file-selector">${parameters[parameter]['label']}</label>
                                 <select id="${parameter}-file-selector" class="form-control" name="${parameter}">
+                                    ${select_options}
+                                </select>
+                                ${note_html}
+                            </div>
+                        `;
+                    } else if (parameters[parameter]['type'] === 'corpus_repo') {
+                        let select_options = '';
+                        Object.keys(corpus.repos).forEach(repo_name => {
+                            select_options += `<option value="${repo_name}">${repo_name}</option>`;
+                        });
+
+                        parameter_html = `
+                            <div class="form-group">
+                                <label for="${parameter}-repo-selector">${parameters[parameter]['label']}</label>
+                                <select id="${parameter}-repo-selector" class="form-control" name="${parameter}">
                                     ${select_options}
                                 </select>
                                 ${note_html}
@@ -1733,6 +1880,25 @@
                     }
                 }
             }
+        }
+
+        function view_job_report(job_id) {
+            $('#job-report-modal').modal();
+            load_job_report(job_id);
+        }
+
+        function load_job_report(job_id) {
+            let no_cache_string = Math.random().toString(36).substring(7);
+            let report_url = `/corpus/${corpus_id}/get-file/?path=job_reports/${job_id}.txt&no-cache=${no_cache_string}`;
+            let report_div = $('#job-report-div');
+
+            report_div.load(report_url, function() {
+                report_div.scrollTop(report_div[0].scrollHeight);
+
+                if (!report_div.html().includes('CORPORA JOB COMPLETE')) {
+                    setTimeout(load_job_report.bind(null, job_id), 10000);
+                }
+            });
         }
     </script>
 {% endblock %}

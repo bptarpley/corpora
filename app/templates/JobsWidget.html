@@ -53,6 +53,7 @@
                             $(`#running-job-${job.id}-progress-bar`).html(progress_value);
                         } else {
                             let kill_job_form = '';
+                            let report_button = '';
                             if (role === 'Admin' || role === 'Editor') {
                                 kill_job_form = `
                                     <form method="post">
@@ -61,6 +62,12 @@
                                         <button type="submit" role="button" class="btn btn-danger">Kill</button>
                                     </form>
                                 `;
+
+                                if (job.report_path && window.parent.hasOwnProperty('view_job_report')) {
+                                    report_button = `
+                                        <button type="button" onClick="window.parent.view_job_report('${job.id}');" class="btn btn-primary mr-1">View Report</button>
+                                    `;
+                                }
                             }
 
                             let job_html = `
@@ -81,6 +88,7 @@
                                             </div>
                                         </div>
                                         <div class="col-sm-1 d-flex align-content-center align-items-center">
+                                            ${report_button}
                                             ${kill_job_form}
                                         </div>
                                     </div>

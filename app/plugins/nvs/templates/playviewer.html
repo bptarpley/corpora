@@ -29,9 +29,9 @@
             || -------------------------- */
             :root {
                 {% if site_request %}
-                --scrollbarURL: url("/minimap/{{ play.prefix }}/?width=60&height=1000");
+                --scrollbarURL: url("/minimap/{{ play.prefix }}/?width=40&height=1000");
                 {% else %}
-                --scrollbarURL: url("/corpus/{{ corpus_id }}/play-minimap/{{ play.prefix }}/?width=60&height=1000");
+                --scrollbarURL: url("/corpus/{{ corpus_id }}/play-minimap/{{ play.prefix }}/?width=40&height=1000");
                 {% endif %}
                 --nvs-form-control-height: 35px;
                 --nvs-play-row-min-height: 40px;
@@ -40,9 +40,14 @@
                 --nvs-lightest-gray: #F2F2F2;
                 --nvs-lighter-gray: #C4C4C4;
                 --nvs-mid-gray: #828282;
+                --nvs-yellow-gray: #3b371c;
                 --nvs-dark-blue: #085294;
+                --nvs-light-blue: #6c9ecc;
                 --nvs-primary-orange: #CC5F38;
                 --nvs-secondary-orange: #F1B06E;
+                --nvs-light-orange: #F9EFE4;
+                --nvs-dark-yellow: #f4e383;
+                --nvs-light-yellow: #f9f1d9;
                 --nvs-light-beige: #FBF5F1;
                 --nvs-dark-beige: #EBE4DD;
             }
@@ -64,13 +69,9 @@
             || HEADERS AND CONTROLS
             || -------------------------- */
 
-            .bg-nvs-lightest-gray {
-                background-color: var(--nvs-lightest-gray);
-            }
-
             .heading-section-label {
                 font-family: 'Roboto', sans-serif;
-                color: var(--nvs-dark-blue);
+                color: #FFFFFF;
                 font-size: 14px;
                 font-weight: bold;
             }
@@ -83,6 +84,7 @@
             }
 
             .view-col {
+                background-color: var(--nvs-background-color);
                 border-left: solid 5px var(--nvs-background-color);
                 border-right: solid 5px var(--nvs-background-color);
             }
@@ -243,19 +245,49 @@
             || PLAY READER VIEW
             || -------------------------- */
 
+            .header-block {
+                min-height: var(--nvs-play-row-min-height);
+            }
+
+            .bg-nvs-light-blue {
+                background-color: var(--nvs-light-blue);
+            }
+
+            .bg-nvs-light-orange {
+                background-color: var(--nvs-light-orange);
+            }
+
+            .bg-nvs-light-yellow {
+                background-color: var(--nvs-light-yellow);
+            }
+
+            .bg-nvs-lightest-gray {
+                background-color: var(--nvs-lightest-gray);
+            }
+
             #witness-header {
                 height: var(--nvs-form-control-height);
                 width: 100%;
             }
 
-            #playtext-col, #commentary-col {
+            #playtext-col, #act-scene-frame, #commentary-frame {
                 overflow-y: scroll;
                 max-height: calc(100vh - 60px);
                 background-repeat: no-repeat;
             }
 
+            #act-scene-frame {
+                background-color: var(--nvs-lightest-gray);
+            }
+
+            #commentary-frame {
+                background-color: var(--nvs-light-yellow);
+                padding: 10px;
+                padding-top: 0px;
+            }
+
             #playtext-col::-webkit-scrollbar {
-                width: 60px;
+                width: 40px;
             }
 
             #playtext-col::-webkit-scrollbar-track {
@@ -269,28 +301,24 @@
             }
 
             .play-row {
-                border-bottom: solid 4px #fbeee0;
+                border-bottom: solid 1px var(--nvs-light-blue);
                 min-height: var(--nvs-play-row-min-height);
             }
 
             .play-label {
-                background-color: var(--nvs-light-beige);
+                background-color: var(--nvs-background-color);
+                color: var(--nvs-mid-gray);
+                border: none;
+                border-left: solid 1px var(--nvs-light-blue);
                 font-family: 'Roboto', sans-serif;
                 font-size: 1.2vw;
-                border: none;
-                -webkit-box-align: center!important;
-                -ms-flex-align: center!important;
-                align-items: center!important;
-                display: -webkit-box!important;
-                display: -ms-flexbox!important;
-                display: flex!important;
             }
 
             .play-words, .play-words-seen {
                 padding-top: 10px;
                 padding-bottom: 5px;
                 font-family: 'Libre Baskerville', serif;
-                font-size: 1.3vw;
+                font-size: 1.1vw;
                 color: #070707;
                 background-color: var(--nvs-background-color);
                 -webkit-box-align: center!important;
@@ -303,10 +331,15 @@
 
             span.castgroup {
                 margin-left: 10px;
+                margin-right: 5px;
             }
 
             span.role {
                 font-weight: bold;
+            }
+
+            span.castgroup span.role {
+                margin-right: 5px;
             }
 
             span.roledesc {
@@ -340,9 +373,8 @@
             }
 
             .variant-row {
-                /*background-color: #efefef;*/
-                background-color: rgba(154, 154, 153, 0.1);
-                border-bottom: solid 4px #fbeee0;
+                background-color: var(--nvs-light-orange);
+                border-bottom: solid 1px var(--nvs-light-blue);
             }
 
             .witness-formula {
@@ -375,26 +407,40 @@
 
             span.difference {
                 color: #e9702b;
-                background-color: #d8d8d8;
+                background-color: #FFFFFF;
             }
 
             comspan {
-                background-color: rgba(144, 188, 226, .3);
-                border-bottom: solid 1px rgb(144, 188, 226);
+                background-color: rgba(249, 241, 217, .5);
+                border-bottom: solid 1px var(--nvs-dark-yellow);
                 cursor: pointer;
             }
 
             .comm-heading {
-                background-color: #c4dffc;
+                background-color: var(--nvs-dark-yellow);
                 font-family: 'Libre Baskerville', serif;
                 cursor: pointer;
-                color: #525e69;
+                color: var(--nvs-yellow-gray);
             }
 
             .comm-block {
-                color: #0e0e0e;
+                color: #000000;
                 font-family: 'FormulaSerial';
                 margin-bottom: 20px;
+            }
+
+            .actscene-indicator {
+                color: var(--nvs-mid-gray);
+            }
+
+            .actscene-indicator.active {
+                font-weight: bold;
+                color: var(--nvs-dark-blue);
+            }
+
+            .actscene-divider {
+                border-top: solid 1px var(--nvs-mid-gray);
+                width: 100%;
             }
 
             #search-widget {
@@ -418,9 +464,36 @@
                 overflow-y: scroll;
                 max-height: calc(80vh);
             }
+
+            .ref-modal {
+                font-family: 'FormulaSerial';
+                width: 300px;
+            }
+
+            .arrow-right {
+                background-color: #FFFFFF;
+                position: relative;
+                float: left;
+            }
+
+            .arrow-right:after {
+                content: " ";
+                position: absolute;
+                right: -15px;
+                top: 15px;
+                border-top: 15px solid transparent;
+                border-right: none;
+                border-left: 15px solid white;
+                border-bottom: 15px solid transparent;
+            }
+
+            .ref-modal-content {
+                max-height: calc(40vh);
+                overflow-y: scroll;
+            }
         </style>
 
-        <title>Winter's Tale</title>
+        <title>{{ play.title }}</title>
     </head>
     <body>
         <!-- Navigation Modal -->
@@ -463,7 +536,7 @@
                             <div class="heading-label">PLAY</div>
                             <div class="nvs-selection">
                                 <select id="play-selector" class="font-weight-bold">
-                                    <option value="wt">The Winter's Tale</option>
+                                    <option value="wt">{{ play.title }}</option>
                                 </select>
                             </div>
                             <div class="row">
@@ -574,58 +647,71 @@
             <!-- READER VIEW -->
             {% if nvs_session.preferences.show_reader_view %}
             <div id="reader-view" class="row flex-grow-1">
-                <div id="main-col" class="col-md-12 col-lg-12 mt-2 p-1 view-col bg-nvs-lightest-gray">
+                <div id="main-col" class="col-md-12 col-lg-12 mt-2 p-1 view-col">
 
                     <!-- header row -->
                     <div class="row">
-                        <div class="d-none d-sm-block col-sm-3">
-                            <div class="heading-section-label">READER VIEW</div>
-
-                            <!-- witness header -->
-                            <div id="witness-header">
-                                <canvas id="witness-header-canvas"></canvas>
+                        <div class="col-sm-8 pr-0">
+                            <div class="row header-block bg-nvs-light-blue">
+                                <div class="col-sm-4">
+                                    <div class="heading-section-label mt-auto">
+                                        TEXTUAL VARIANTS BY YEAR
+                                    </div>
+                                </div>
+                                <div class="col-sm-7">
+                                    <div class="heading-section-label mt-auto">
+                                        PLAY TEXT
+                                    </div>
+                                </div>
+                                <div class="col-sm-1">
+                                    &nbsp;
+                                </div>
+                            </div>
+                            <div class="row header-block">
+                                <div id="witness-header" class="col-sm-4 bg-nvs-light-orange">
+                                    <canvas id="witness-header-canvas"></canvas>
+                                </div>
+                                <div class="col-sm-7">
+                                    <span class="text-muted">SHOW VARS BY LINE | HIGHLIGHT</span>
+                                </div>
+                                <div class="col-sm-1" style="position: relative; left: -40px;">
+                                    <div class="heading-section-label mt-auto" style="color: var(--nvs-mid-gray);">
+                                        TLN
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                        <!-- variant controls -->
-                        <div class="col-sm-2 offset-sm-2 pl-sm-0 pr-sm-1">
-                            <div class="heading-label">VARIANTS</div>
-                            <div class="nvs-selection">
-                                <select id="play-selector">
-                                    <option value="all">SHOW PRIMARY</option>
-                                </select>
+                        <div class="col-sm-4">
+                            <div class="row header-block bg-nvs-light-blue">
+                                <div class="col-sm-1">
+                                    &nbsp;
+                                </div>
+                                <div class="col-sm-11">
+                                    <div class="heading-section-label mt-auto">
+                                        COMMENTARY NOTES BY LINE
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-
-                        <!-- commentary controls -->
-                        <div class="col-sm-3 px-sm-0">
-                            <div class="heading-label">COMMENTARY</div>
-                            <div class="nvs-selection">
-                                <select id="play-selector">
-                                    <option value="all">SHOW NOTES & HIGHLIGHTS</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- numbering controls -->
-                        <div class="col-sm-2 pl-sm-1 pr-sm-0">
-                            <div class="heading-label">NUMBERING</div>
-                            <div class="nvs-selection">
-                                <select id="play-selector">
-                                    <option value="all">TLN</option>
-                                </select>
+                            <div class="row header-block">
+                                <div class="col-sm-1 bg-nvs-lightest-gray">
+                                    AS
+                                </div>
+                                <div class="col-sm-11 bg-nvs-light-yellow">
+                                    &nbsp;
+                                </div>
                             </div>
                         </div>
                     </div>
 
-
                     <div class="row">
                         <!-- PLAYTEXT -->
-                        <div id="playtext-col" class="col-sm-9 pr-0">
+                        <div id="playtext-col" class="col-sm-8 pr-0">
                             {% for line in lines %}
                                 <div id="{{ line.xml_id }}-row"
                                      class="row no-gutters play-row offscreen"
                                      data-xml_id="{{ line.xml_id }}"
+                                     data-act="{{ line.act }}"
+                                     data-scene="{{ line.scene }}"
                                      data-line_number="{{ line.line_number }}"
                                      data-line_label="{{ line.line_label }}"
                                      data-text="{{ line.text }}"
@@ -633,10 +719,9 @@
                                      data-witness_indicators="{{ line.witness_meter }}"
                                 >
                                     <div id="{{ line.xml_id }}-witness-col" class="col-sm-4 m-0 p-0 witness-meter">
-                                        <!--<canvas id="{{ line.xml_id }}-witness-meter" height="36px"></canvas>-->
-                                        <img id="{{ line.xml_id }}-witness-meter" height="36" width="100%" src="{% static 'img/blank-meter.png'%}" />
+                                        <img id="{{ line.xml_id }}-witness-meter" height="30" width="100%" src="{% static 'img/blank-meter.png'%}" />
                                     </div>
-                                    <div id="{{ line.xml_id }}-number-col" class="col-sm-1 m-0 p-0 play-label">
+                                    <div id="{{ line.xml_id }}-text-col" class="col-sm-7 m-0 p-0 play-words offscreen">
                                         {% if line.witness_meter|to_int > 0 %}
                                             <a id="{{ line.xml_id }}-variant-toggler"
                                                    class="variant-toggler mx-1"
@@ -651,12 +736,11 @@
                                         {% else %}
                                             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                         {% endif %}
-                                        {{ line.line_label }}
-                                    </div>
-                                    <div id="{{ line.xml_id }}-text-col" class="col-sm-7 m-0 p-0 play-words offscreen">
                                         {{ line.rendered_html|safe }}
                                     </div>
-
+                                    <div id="{{ line.xml_id }}-number-col" class="col-sm-1 m-0 p-0 d-flex justify-content-center play-label">
+                                        {{ line.line_label }}
+                                    </div>
                                 </div>
                                 {% if line.witness_meter|to_int > 0 %}
                                     <div class="collapse" class="variant-drawer" id="{{ line.xml_id }}-variant-div"></div>
@@ -666,8 +750,25 @@
                         </div>
 
                         <!-- COMMENTARY -->
-                        <div id="commentary-col" class="col-sm-3">
-                            <div id="commentary-frame"></div>
+                        <div id="act-scene-commentary-col" class="col-sm-4">
+                            <div class="row">
+                                <div class="col-sm-1 p-0 m-0">
+                                    <div id="act-scene-frame" class="d-flex flex-column h-100 align-self-center p-0 m-0">
+                                        {% for label, actscene in act_scenes.items %}
+                                            <div class="actscene-indicator{% if forloop.first %} active{% endif %} my-auto mx-0 px-0 align-self-center" data-actscene="{{ actscene }}">
+                                                {{ label }}
+                                            </div>
+
+                                            {% if not forloop.last %}
+                                                <hr class="actscene-divider" />
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                <div class="col-sm-11 p-0 m-0">
+                                    <div id="commentary-frame"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -751,6 +852,7 @@
     let notes = {{ notes|safe }};
     let line_note_map = {{ line_note_map|safe }};
     let act_scenes = {{ act_scenes|safe }};
+
     let characters = null;
     let lines = {};
     let line_observer = null;
@@ -762,6 +864,7 @@
     let commentary_loaded = false, characters_loaded = false;
     let comm_timer = null;
     let nvs_search = null;
+    let ref_modal_counter = 0;
 
     let nav_map = {
         'lb': {
@@ -770,7 +873,8 @@
             'content_field': 'rendered_html',
             'title': 'Play Line',
             'title_plural': 'Play Lines',
-            'scroll_anchor': false
+            'scroll_anchor': false,
+            'filter_play': true,
         },
         'bibl': {
             'content_type': 'Document',
@@ -778,7 +882,8 @@
             'content_field': 'bibliographic_entry',
             'title': "Bibliographic Entry",
             'title_plural': "Bibliographic Entries",
-            'scroll_anchor': false
+            'scroll_anchor': false,
+            'filter_play': false,
         },
         'siglum': {
             'content_type': 'Document',
@@ -786,7 +891,8 @@
             'content_field': 'bibliographic_entry',
             'title': "Collated Edition",
             'title_plural': "Collated Editions",
-            'scroll_anchor': false
+            'scroll_anchor': false,
+            'filter_play': false,
         },
         'note_cn': {
             'content_type': 'Commentary',
@@ -794,7 +900,8 @@
             'content_field': 'contents',
             'title': "Commentary Note",
             'title_plural': "Commentary Notes",
-            'scroll_anchor': false
+            'scroll_anchor': false,
+            'filter_play': true,
         },
         'anchor': {
             'content_type': 'ParaText',
@@ -802,7 +909,8 @@
             'content_field': 'html_content',
             'title': "Appendix",
             'title_plural': "Appendix",
-            'scroll_anchor': true
+            'scroll_anchor': true,
+            'filter_play': true,
         }
     };
     let nav_history = [];
@@ -812,7 +920,7 @@
         corpora = new Corpora({'csrf_token': "{{ csrf_token }}"{% if site_request %}, 'host': '{{ corpora_url }}'{% endif %}});
         screen_size = determine_screen_size(window.innerWidth);
         style_sheet = document.styleSheets[0];
-        $(":root").css("--scrollbarURL", `url(${minimap_url}?width=60&height=${parseInt($("#playtext-col").height())})`);
+        $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())})`);
         draw_witness_header_and_background();
 
         // GET CHARACTER NAMES; POSSIBLY FILTERED BY ACT/SCENE
@@ -1020,6 +1128,17 @@
                 }
             }
         });
+
+        // ACT/SCENE INDICATORS
+        $('.actscene-indicator').click(function() {
+            let actscene = $(this).data('actscene').toString();
+            console.log(actscene);
+            let actscene_parts = actscene.split('.');
+            let act = actscene_parts[0];
+            let scene = actscene_parts[1];
+
+            $(`.play-row[data-act="${act}"][data-scene="${scene}"]:first`)[0].scrollIntoView({behavior: 'smooth'});
+        });
     }
 
     function get_nvs_var(variable_name) {
@@ -1067,7 +1186,7 @@
                                     <div class="col-sm-4 p-0 m-0">
                                         <div class="row no-gutters">
                                             <div id="variant-${variant.id}" class="col-sm-12 p-0 m-0 variant-witness-meter">
-                                                <img id="${line.xml_id}-${variant.id}-witness-meter" height="36" width="100%" src="{% static 'img/blank-meter.png'%}" data-witness_indicators="${variant.witness_meter}" />
+                                                <img id="${line.xml_id}-${variant.id}-witness-meter" height="20" width="100%" src="{% static 'img/blank-meter.png'%}" data-witness_indicators="${variant.witness_meter}" />
                                             </div>
                                         </div>
                                         <div class="row no-gutters">
@@ -1076,8 +1195,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-sm-1 p-0 m-0 variant-play-label">&nbsp;</div>
-                                    <div class="col-sm-7 p-0 m-0 variant-words">${variant_words}</div>
+                                    <div class="col-sm-8 p-0 m-0 variant-words">${variant_words}</div>
                                 </div>
                             `);
 
@@ -1131,7 +1249,7 @@
         sigla.map(siglum => {
             content += `<p><b>${siglum.replace('s_', '').toUpperCase()}</b> ${witnesses[siglum].bibliographic_entry}</p>`;
         });
-        display_nav_modal(title, content);
+        display_nav_modal(title, content, null);
     }
 
     function process_search_results(results) {
@@ -1145,7 +1263,7 @@
             setTimeout(process_search_results.bind(null, results), 1000)
         } else {
             console.log(results);
-            $(":root").css("--scrollbarURL", `url(${minimap_url}?width=60&height=${parseInt($("#playtext-col").height())}&no-cache=${Math.floor(Date.now() / 1000)})`);
+            $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())}&no-cache=${Math.floor(Date.now() / 1000)})`);
             if (nvs_search) {
                 $('#reader-view').unmark();
             }
@@ -1198,7 +1316,7 @@
             if (nvs_search.line_results.length) display_search_result('line', 'next');
             else if (nvs_search.variant_results.length) display_search_result('variant', 'next');
             else if (nvs_search.commentary_results.length) display_search_result('commentary', 'next');
-            else display_nav_modal('No results.', 'No results for your search term were found.');
+            else display_nav_modal('No results.', 'No results for your search term were found.', null);
         }
     }
 
@@ -1251,10 +1369,12 @@
         }
 
         let comm_frame = $('#commentary-frame');
-        let comm_search = {};
-        comm_search['r_lines.line_number'] = `${last_commentary_line}__${last_visible_line + 20}`;
-        comm_search['s_id'] = 'asc';
-        comm_search['page-size'] = 500;
+        let comm_search = {
+            'f_play.id': play_id,
+            'r_lines.line_number': `${last_commentary_line}__${last_visible_line + 20}`,
+            's_id': 'asc',
+            'page-size': 500
+        };
 
         corpora.list_content(
             corpus_id,
@@ -1268,7 +1388,7 @@
                                 <div class="row">
                                     <div id="commentary-note-${comm.id}" class="col-sm-12 comm-heading" onClick="document.getElementById('${comm.lines[0].xml_id}-row').scrollIntoView();">
                                         <a name="commentary-note-${comm.id}"></a>
-                                        ${comm.line_label}: ${comm.subject_matter}
+                                        n. ${comm.line_label}: ${comm.subject_matter}
                                     </div>
                                 </div>
                                 <div class="row">
@@ -1314,6 +1434,7 @@
         let light_beige = get_nvs_var('nvs-light-beige');
         let dark_beige = get_nvs_var('nvs-dark-beige');
         let font_color = get_nvs_var('nvs-mid-gray');
+        let light_orange = get_nvs_var('nvs-light-orange');
         let font_size = 12;
         header_context.font = `${font_size}px Roboto`;
         header_context.textAlign = "left";
@@ -1361,6 +1482,7 @@
 
         playtext_col.css('background-image', `url(${background_canvas.toDataURL()})`);
         playtext_col.css('background-position', `${header_canvas.offset().left + 6}px 0px`);
+        playtext_col.css('background-color', light_orange);
     }
 
     function draw_witness_meter(witness_meter, canvas_element, width, height, inactive_color="#9A9A99") {
@@ -1385,8 +1507,9 @@
         return Array(+digits.join("") + 1).join("M") + roman;
     }
 
-    function navigate_to(nav_type, xml_id) {
-        show_nav_content(nav_type, xml_id);
+    function navigate_to(nav_type, xml_id, link=null) {
+        if (link) { console.log(link); }
+        show_nav_content(nav_type, xml_id, false, link);
     }
 
     function view_nav_history(forward=false) {
@@ -1407,7 +1530,7 @@
         }
     }
 
-    function show_nav_content(nav_type, xml_id, historic=false) {
+    function show_nav_content(nav_type, xml_id, historic=false, link=null) {
         let history_key = `${nav_type}|${xml_id}`;
         if (!historic && !nav_history.includes(history_key)) {
             nav_history.push(history_key);
@@ -1451,7 +1574,7 @@
                         ></i>
                 `;
                 lines_html += "</div>";
-                display_nav_modal(lines_label, lines_html);
+                display_nav_modal(lines_label, lines_html, link);
             }
         } else {
             if (nav_type === 'siglum'){
@@ -1459,7 +1582,7 @@
                 if (xml_id in witnesses) {
                     let title = 'Collated Edition';
                     if (witnesses[xml_id].bibliographic_entry.includes('<br /><br />')) title += 's';
-                    display_nav_modal(title, witnesses[xml_id].bibliographic_entry);
+                    display_nav_modal(title, witnesses[xml_id].bibliographic_entry, link);
                 }
             } else {
                 if (!nav_map.hasOwnProperty(nav_type)) nav_type = 'anchor';
@@ -1471,20 +1594,25 @@
                     only: 'id',
                     operator: xml_ids.length > 1 ? 'or' : 'and'
                 };
+
+                if (nav_map[nav_type]['filter_play']) {
+                    search_params['f_play.id'] = play_id;
+                }
+
                 let content_type = nav_map[nav_type]['content_type'];
                 let search_field = nav_map[nav_type]['xml_id_field'];
                 search_params[`t_${search_field}`] = xml_ids.join('__');
                 corpora.list_content(corpus_id, content_type, search_params, function (search_data) {
                     if (search_data.hasOwnProperty('records') && search_data.records.length === xml_ids.length) {
                         let ids = search_data.records.map(record => record.id);
-                        populate_nav_contents(nav_type, ids, [], xml_ids[0]);
+                        populate_nav_contents(nav_type, ids, [], xml_ids[0], link);
                     }
                 });
             }
         }
     }
 
-    function populate_nav_contents(nav_type, ids, contents=[], first_xml_id=null) {
+    function populate_nav_contents(nav_type, ids, contents=[], first_xml_id=null, link=null) {
         if (ids.length > 0) {
             let content_type = nav_map[nav_type]['content_type'];
 
@@ -1521,46 +1649,138 @@
                         nav_content += content[nav_map[nav_type]['content_field']];
                     });
 
-                    display_nav_modal(nav_title, nav_content);
+                    let modal_id = display_nav_modal(nav_title, nav_content, link);
                     if (nav_map[nav_type].scroll_anchor) {
-                        setTimeout(delayed_scroll.bind(null, first_xml_id), 2000)
+                        setTimeout(delayed_scroll.bind(null, first_xml_id, true, modal_id), 2000)
                     }
                 }
             });
         }
     }
 
-    function display_nav_modal(title, content) {
+    function display_nav_modal(title, content, link) {
+        let modal_id = '';
         let title_html = '';
         if (nav_history_cursor - 1 >= 0) title_html += `<i class="fa fa-chevron-circle-left" aria-hidden="true" onClick="javascript: view_nav_history();" style="cursor: pointer;"></i>`;
         if (nav_history_cursor + 1 <= nav_history.length - 1) title_html += `<i class="fa fa-chevron-circle-right" aria-hidden="true" onClick="javascript: view_nav_history(true);" style="cursor: pointer;"></i>`;
         if (title_html === '') title_html += title;
         else title_html += `<span class="ml-2">${title}</span>`;
 
-        $('#nav-modal-label').html(title_html);
-        $('#nav-modal-body').html(content);
-        $('#nav-modal').modal();
+        if (link) {
+            modal_id = `ref-modal-${ref_modal_counter}`;
+            let link_rect = link.getBoundingClientRect();
+            $('body').append(`
+                <div
+                    id="${modal_id}"
+                    class="ref-modal"
+                    style="position: absolute; top: ${link_rect.top + window.pageYOffset - 20}px; left: ${link_rect.left - 310}px;"
+                >
+                    <div class="arrow-right">
+                        <div id="${modal_id}-header" class="ref-modal-header">
+                            ${title}
+                            <button id="${modal_id}-close-button" data-modal-id="${modal_id}" type="button" aria-label="Close">
+                                <span aria-hidden="true">×</span>
+                            </button>
+                        </div>
+                        <div class="ref-modal-content">${content}</div>
+                    </div>
+                </div>
+            `);
+            $(`#${modal_id}-close-button`).click(function() {
+                let close_modal_id = $(this).data('modal-id');
+                $(`#${close_modal_id}`).remove();
+            });
+            let ref_modal = $(`#${modal_id}`);
+            make_draggable(ref_modal[0]);
+            ref_modal_counter += 1;
+        }
+        else {
+            $('#nav-modal-label').html(title_html);
+            $('#nav-modal-body').html(content);
+            $('#nav-modal').modal();
+        }
+
+        return modal_id;
     }
 
-    function delayed_scroll(anchor, smooth=true) {
+    function make_draggable(elmnt) {
+        var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        if (document.getElementById(elmnt.id + "-header")) {
+            // if present, the header is where you move the DIV from:
+            document.getElementById(elmnt.id + "-header").onmousedown = dragMouseDown;
+        } else {
+            // otherwise, move the DIV from anywhere inside the DIV:
+            elmnt.onmousedown = dragMouseDown;
+        }
+
+        function dragMouseDown(e) {
+            e = e || window.event;
+            e.preventDefault();
+            // get the mouse cursor position at startup:
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            document.onmouseup = closeDragElement;
+            // call a function whenever the cursor moves:
+            document.onmousemove = elementDrag;
+        }
+
+        function elementDrag(e) {
+            e = e || window.event;
+            e.preventDefault();
+            // calculate the new cursor position:
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            // set the element's new position:
+            elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+            elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+        }
+
+        function closeDragElement() {
+            // stop moving when mouse button is released:
+            document.onmouseup = null;
+            document.onmousemove = null;
+        }
+    }
+
+    function delayed_scroll(anchor, smooth=true, parent=null) {
         let scroll_opts = {behavior: 'smooth'};
         if (!smooth) scroll_opts = null;
 
-        if ($(`#${anchor}`).length) {
-            $(`#${anchor}`)[0].scrollIntoView(scroll_opts);
+        let id_selector = `${parent ? '#' + parent + ' ' : ''}#${anchor}`;
+        let anchor_selector = `${parent ? '#' + parent + ' ' : ''}a[name=${anchor}]`;
+
+        console.log(id_selector);
+        console.log(anchor_selector);
+
+        if ($(id_selector).length) {
+            $(id_selector)[0].scrollIntoView(scroll_opts);
         }
-        else $(`a[name=${anchor}]`)[0].scrollIntoView(scroll_opts);
+        else $(anchor_selector)[0].scrollIntoView(scroll_opts);
     }
 
     function setup_lines() {
         var line_observer = new IntersectionObserver(function(entries) {
             if (entries[entries.length - 1].isIntersecting) {
                 let line_id = entries[entries.length - 1].target.id.replace('-row', '');
+
+                // determine whether more commentary ought to be loaded
                 let line_no = parseInt(lines[line_id].number);
                 if (line_no > last_visible_line) {
                     clearTimeout(comm_timer);
                     last_visible_line = line_no;
                     comm_timer = setTimeout(load_commentary, 1000);
+                }
+
+                // determine current act/scene
+                let act = lines[line_id].act;
+                let scene = lines[line_id].scene;
+                let act_scene = `${act}.${scene}`;
+                if (act_scene !== current_act_scene) {
+                    $('.actscene-indicator').removeClass('active');
+                    $(`.actscene-indicator[data-actscene="${act_scene}"]`).addClass('active');
+                    current_act_scene = act_scene;
                 }
             }
         }, { threshold: [0] });
@@ -1574,6 +1794,8 @@
                 notes: [],
                 label: row.data('line_label'),
                 number: row.data('line_number'),
+                act: row.data('act'),
+                scene: row.data('scene'),
                 witness_indicators: row.data('witness_indicators'),
                 witness_column: document.getElementById(`${xml_id}-witness-col`),
                 witness_meter: document.getElementById(`${xml_id}-witness-meter`),

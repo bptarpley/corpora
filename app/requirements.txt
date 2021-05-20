@@ -1,7 +1,7 @@
 Django==2.1
 gunicorn
 bson==0.5.8
-pymongo==3.7.2
+pymongo==3.11.4
 mongoengine==0.19.1
 blinker==1.4
 djongo==1.3.0
@@ -25,3 +25,4 @@ python-dateutil
 rdflib
 ipykernel
 viapy
+GitPython

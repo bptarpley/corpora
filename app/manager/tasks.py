@@ -225,6 +225,23 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['convert_foreign_key_to_xref']
     },
+    "Pull Corpus Repo": {
+        "version": "0.0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "repo_name": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Repo Name",
+                },
+            },
+        },
+        "module": 'manager.tasks',
+        "functions": ['pull_repo']
+    },
 }
 
 
@@ -235,6 +252,36 @@ def run_job(job_id):
     if job:
         if job.jobsite.type == 'HUEY':
             try:
+                if job.task.create_report:
+                    corpus_job_reports_path = "{0}/job_reports".format(job.corpus.path)
+                    if not os.path.exists(corpus_job_reports_path):
+                        os.makedirs(corpus_job_reports_path, exist_ok=True)
+
+                    report_path = "{0}/{1}.txt".format(corpus_job_reports_path, job.id)
+                    job.report_path = report_path
+                    job.save()
+                    job.report('''##########################################################
+Job ID:         {0}
+Task Name:      {1}
+Scholar:        {2}
+Corpus ID:      {3}
+Content Type:   {4}
+Content ID:     {5}
+Run Time:       {6}
+##########################################################
+                    '''.format(
+                        job_id,
+                        job.task.name,
+                        "{0} {1}".format(
+                            job.scholar.fname,
+                            job.scholar.lname if job.scholar.lname else ''
+                        ),
+                        job.corpus_id,
+                        job.content_type,
+                        job.content_id,
+                        datetime.now().ctime()
+                    ), overwrite=True)
+
                 task_module = importlib.import_module(job.jobsite.task_registry[job.task.name]['module'])
                 task_function = getattr(task_module, job.jobsite.task_registry[job.task.name]['functions'][job.stage])
                 task_function(job_id)
@@ -648,4 +695,19 @@ def convert_foreign_key_to_xref(job_id):
                     if all_targets_found and delete_old_field:
                         corpus.delete_content_type_field(source_ct, source_field)
 
+    job.complete(status='complete')
+
+
+@db_task(priority=5)
+def pull_repo(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    repo_name = job.get_param_value('repo_name')
+    if repo_name in job.corpus.repos:
+        try:
+            job.corpus.repos[repo_name].pull(job.corpus)
+        except:
+            job.corpus.repos[repo_name].error = True
+            job.corpus.save()
+            print(traceback.format_exc())
     job.complete(status='complete')

@@ -88,6 +88,28 @@ def corpus(request, corpus_id):
                             False
                         ))
 
+            # HANDLE NEW REPO SUBMISSION
+            if _contains(request.POST, ['new-repo-name', 'new-repo-url', 'new-repo-branch']):
+                repo = GitRepo()
+                repo.name = _clean(request.POST, 'new-repo-name')
+                repo.remote_url = _clean(request.POST, 'new-repo-url')
+                repo.remote_branch = _clean(request.POST, 'new-repo-branch')
+
+                if repo.name and repo.remote_url and repo.remote_branch:
+                    repo.path = "{0}/{1}/{2}".format(corpus.path, 'repos', repo.name)
+
+                    if repo.name not in corpus.repos and not os.path.exists(repo.path):
+                        corpus.repos[repo.name] = repo
+                        corpus.save()
+                        run_job(corpus.queue_local_job(task_name="Pull Corpus Repo", parameters={
+                            'repo_name': repo.name,
+                        }))
+                        response['messages'].append('Repository "{0}" successfully added to this corpus.'.format(repo.name))
+                    else:
+                        response['errors'].append('A repository with that name already exists in this corpus!')
+                else:
+                    response['errors'].append("Please provide values for the repository's name, URL, and branch.")
+
             # HANDLE CONTENT DELETION
             elif _contains(request.POST, ['deletion-confirmed', 'content-type', 'content-ids']):
                 deletion_ct = _clean(request.POST, 'content-type')
@@ -1019,7 +1041,15 @@ def get_corpus_file(request, corpus_id):
 
     if corpus and path and (context['scholar'].is_admin or role == 'Editor'):
         file_path = "{0}/files/{1}".format(corpus.path, path)
+        path_exists = False
         if os.path.exists(file_path):
+            path_exists = True
+        else:
+            file_path = "{0}/{1}".format(corpus.path, path)
+            if os.path.exists(file_path):
+                path_exists = True
+
+        if path_exists:
             mime_type, encoding = mimetypes.guess_type(file_path)
             response = HttpResponse(content_type=mime_type)
             response['X-Accel-Redirect'] = "/files/{0}".format(file_path.replace('/corpora/', ''))

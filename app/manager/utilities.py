@@ -289,6 +289,13 @@ def _contains(obj, keys):
     return True
 
 
+def _contains_any(obj, keys):
+    for key in keys:
+        if key in obj:
+            return True
+    return False
+
+
 def _clean(obj, key, default_value=''):
     val = obj.get(key, False)
     if val:

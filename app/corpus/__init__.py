@@ -8,6 +8,7 @@ import zlib
 import shutil
 import logging
 import redis
+import git
 from math import ceil
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -23,7 +24,7 @@ from elasticsearch_dsl.connections import get_connection
 from django.template import Template, Context
 
 
-FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'file', 'link', 'iiif-image', 'cross_reference', 'embedded')
+FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'file', 'repo', 'link', 'iiif-image', 'cross_reference', 'embedded')
 MIME_TYPES = ('text/html', 'text/xml', 'text/turtle', 'application/json')
 
 
@@ -67,9 +68,9 @@ class Field(mongoengine.EmbeddedDocument):
                 return int(dt.timestamp())
             elif self.type == 'cross_reference':
                 return value.to_dict(ref_only=True)
-            elif self.type == 'embedded':
-                return value.to_dict(parent_uri)
-            elif self.type == 'file':
+            elif self.type == 'repo':
+                return value.to_dict()
+            elif self.type in ['embedded', 'file']:
                 return value.to_dict(parent_uri)
         return value
     
@@ -96,6 +97,8 @@ class Field(mongoengine.EmbeddedDocument):
                 return mongoengine.DateField()
         elif self.type == 'file':
             return mongoengine.EmbeddedDocumentField(File)
+        elif self.type == 'repo':
+            return mongoengine.EmbeddedDocumentField(GitRepo)
         elif self.type != 'cross_reference':
             if self.unique and not self.unique_with:
                 return mongoengine.StringField(unique=True, sparse=True)
@@ -151,9 +154,10 @@ class Field(mongoengine.EmbeddedDocument):
 class Task(mongoengine.Document):
     name = mongoengine.StringField(unique_with='jobsite_type')
     version = mongoengine.StringField()
-    jobsite_type = mongoengine.StringField()
+    jobsite_type = mongoengine.StringField(default="HUEY")
     content_type = mongoengine.StringField(default="Corpus")
     track_provenance = mongoengine.BooleanField(default=True)
+    create_report = mongoengine.BooleanField(default=False)
     configuration = mongoengine.DictField()
 
     def save(self, index_pages=False, **kwargs):
@@ -178,6 +182,7 @@ class Task(mongoengine.Document):
             'jobsite_type': self.jobsite_type,
             'content_type': self.content_type,
             'track_provenance': self.track_provenance,
+            'create_report': self.create_report,
             'configuration': self.configuration
         }
 
@@ -279,6 +284,7 @@ class Job(object):
             self.submitted_time = None
             self.status = None
             self.status_time = None
+            self.report_path = None
             self.stage = 0
             self.timeout = 0
             self.tries = 0
@@ -310,6 +316,10 @@ class Job(object):
         self.submitted_time = datetime.fromtimestamp(result['submitted_time'])
         self.status = result['status']
         self.status_time = datetime.fromtimestamp(result['status_time'])
+        if 'report_path' in result:
+            self.report_path = result['report_path']
+        else:
+            self.report_path = None
         self.stage = result['stage']
         self.timeout = result['timeout']
         self.tries = result['tries']
@@ -358,6 +368,7 @@ class Job(object):
                     SET j.submitted_time = $job_submitted_time
                     SET j.status = $job_status
                     SET j.status_time = $job_status_time
+                    SET j.report_path = $job_report_path
                     SET j.stage = $job_stage
                     SET j.timeout = $job_timeout
                     SET j.tries = $job_tries
@@ -378,6 +389,7 @@ class Job(object):
                     'job_submitted_time': int(self.submitted_time.timestamp()),
                     'job_status': self.status,
                     'job_status_time': int(self.status_time.timestamp()),
+                    'job_report_path': self.report_path,
                     'job_stage': self.stage,
                     'job_timeout': self.timeout,
                     'job_tries': self.tries,
@@ -401,6 +413,7 @@ class Job(object):
                     SET j.submitted_time = $job_submitted_time
                     SET j.status = $job_status
                     SET j.status_time = $job_status_time
+                    SET j.report_path = $job_report_path
                     SET j.stage = $job_stage
                     SET j.timeout = $job_timeout
                     SET j.tries = $job_tries
@@ -422,6 +435,7 @@ class Job(object):
                     'job_submitted_time': int(self.submitted_time.timestamp()),
                     'job_status': self.status,
                     'job_status_time': int(self.status_time.timestamp()),
+                    'job_report_path': self.report_path,
                     'job_stage': self.stage,
                     'job_timeout': self.timeout,
                     'job_tries': self.tries,
@@ -443,6 +457,7 @@ class Job(object):
             'submitted_time': int(self.submitted_time.timestamp()),
             'status': self.status,
             'status_time': int(self.status_time.timestamp()),
+            'report_path': self.report_path,
             'stage': self.stage,
             'timeout': self.timeout,
             'tries': self.tries,
@@ -476,6 +491,15 @@ class Job(object):
                 'percent_complete': self.percent_complete
             }
         )
+
+    def report(self, message, overwrite=False):
+        if self.task.create_report and self.report_path:
+            mode = 'a+'
+            if overwrite:
+                mode = 'w'
+
+            with open(self.report_path, mode, encoding='utf-8') as report_out:
+                report_out.write(message + '\n')
 
     def add_process(self, process_id):
         run_neo(
@@ -583,6 +607,9 @@ class Job(object):
         if error_msg:
             self.error = error_msg
 
+        if self.report_path:
+            self.report("\nCORPORA JOB COMPLETE")
+
         if self.task.track_provenance:
             ct = CompletedTask()
             ct.job_id = self.id
@@ -593,6 +620,7 @@ class Job(object):
             ct.scholar = ObjectId(self.scholar_id)
             ct.submitted = self.submitted_time
             ct.completed = self.status_time
+            ct.report_path = self.report_path
             ct.status = self.status
             ct.error = self.error
 
@@ -812,6 +840,7 @@ class CompletedTask(mongoengine.EmbeddedDocument):
     submitted = mongoengine.DateTimeField()
     completed = mongoengine.DateTimeField()
     status = mongoengine.StringField()
+    report_path = mongoengine.StringField()
     error = mongoengine.StringField()
 
     def to_dict(self):
@@ -826,6 +855,7 @@ class CompletedTask(mongoengine.EmbeddedDocument):
             'submitted': int(self.submitted.timestamp()),
             'completed': int(self.completed.timestamp()),
             'status': self.status,
+            'report_path': self.report_path,
             'error': self.error
         }
 
@@ -1064,6 +1094,54 @@ class File(mongoengine.EmbeddedDocument):
         }
 
 
+class GitRepo(mongoengine.EmbeddedDocument):
+
+    name = mongoengine.StringField()
+    path = mongoengine.StringField()
+    remote_url = mongoengine.StringField()
+    remote_branch = mongoengine.StringField()
+    last_pull = mongoengine.DateTimeField()
+    error = mongoengine.BooleanField(default=False)
+
+    def pull(self, parent):
+        if self.path and self.remote_url and self.remote_branch:
+            repo = None
+
+            # need to clone
+            if not os.path.exists(self.path):
+                os.makedirs(self.path)
+                repo = git.Repo.init(self.path)
+                origin = repo.create_remote('origin', self.remote_url)
+                assert origin.exists()
+                assert origin == repo.remotes.origin == repo.remotes['origin']
+                origin.fetch()
+                repo.create_head(self.remote_branch, origin.refs[self.remote_branch])
+                repo.heads[self.remote_branch].set_tracking_branch(origin.refs[self.remote_branch])
+                repo.heads[self.remote_branch].checkout()
+
+            elif self.last_pull:
+                repo = git.Repo(self.path)
+                assert not repo.bare
+                assert repo.remotes.origin.exists()
+                repo.remotes.origin.fetch()
+
+            if repo:
+                repo.remotes.origin.pull()
+                self.last_pull = datetime.now()
+                self.error = False
+                parent.save()
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'path': self.path,
+            'remote_url': self.remote_url,
+            'remote_branch': self.remote_branch,
+            'last_pull': int(datetime.combine(self.last_pull, datetime.min.time()).timestamp()) if self.last_pull else None,
+            'error': self.error
+        }
+
+
 class Corpus(mongoengine.Document):
     name = mongoengine.StringField(unique=True)
     description = mongoengine.StringField()
@@ -1071,6 +1149,7 @@ class Corpus(mongoengine.Document):
     path = mongoengine.StringField()
     kvp = mongoengine.DictField()
     files = mongoengine.MapField(mongoengine.EmbeddedDocumentField(File))
+    repos = mongoengine.MapField(mongoengine.EmbeddedDocumentField(GitRepo))
     open_access = mongoengine.BooleanField(default=False)
     content_types = mongoengine.MapField(mongoengine.EmbeddedDocumentField(ContentType))
     provenance = mongoengine.EmbeddedDocumentListField(CompletedTask)
@@ -1954,7 +2033,7 @@ class Corpus(mongoengine.Document):
 
             self.content_types[ct_name].has_file_field = schema.get('has_file_field', False)
             for field in self.content_types[ct_name].fields:
-                if field.type == 'file':
+                if field.type in ['file', 'repo']:
                     self.content_types[ct_name].has_file_field = True
                     break
 
@@ -2284,11 +2363,15 @@ class Corpus(mongoengine.Document):
             'kvp': deepcopy(self.kvp),
             'open_access': self.open_access,
             'files': {},
+            'repos': {},
             'content_types': {},
         }
 
         for file_key in self.files:
             corpus_dict['files'][file_key] = self.files[file_key].to_dict(parent_uri=self.uri)
+
+        for repo_name in self.repos:
+            corpus_dict['repos'][repo_name] = self.repos[repo_name].to_dict()
 
         for ct_name in self.content_types:
             corpus_dict['content_types'][ct_name] = self.content_types[ct_name].to_dict()

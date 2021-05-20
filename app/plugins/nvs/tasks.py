@@ -1,23 +1,21 @@
-import os
 import re
 import difflib
-import logging
 import html as html_lib
+from timeit import default_timer as timer
 from .content import REGISTRY as NVS_CONTENT_TYPE_SCHEMA
 from plugins.document.content import REGISTRY as DOCUMENT_REGISTRY
-from mongoengine.queryset.visitor import Q as mongoQ
 from corpus import *
-from manager.tasks import run_job
-from manager.utilities import _contains, parse_uri
+from manager.utilities import _contains, _contains_any
 from bs4 import BeautifulSoup
 from django.utils.html import strip_tags
 from string import punctuation
 
 REGISTRY = {
     "Import NVS Data from TEI": {
-        "version": "0.4",
+        "version": "0.7",
         "jobsite_type": "HUEY",
         "track_provenance": True,
+        "create_report": True,
         "content_type": "Corpus",
         "configuration": {
             "parameters": {
@@ -31,11 +29,11 @@ REGISTRY = {
                     "type": "text",
                     "label": "Play Prefix",
                 },
-                "driver_file": {
+                "play_repo": {
                     "value": "",
-                    "type": "corpus_file",
-                    "label": "Edition Driver File",
-                    "note": "Likely named [prefix]_driver.xml"
+                    "type": "corpus_repo",
+                    "label": "Edition TEI Repository",
+                    "note": "Likely named [prefix]_tei"
                 },
                 "basetext_siglum": {
                     "value": "",
@@ -112,6 +110,12 @@ nvs_document_fields = [
         "in_lists": True
     },
     {
+        "name": "bibliographic_entry_text",
+        "label": "Bibliographic Entry Text",
+        "in_lists": True,
+        "type": "keyword",
+    },
+    {
         "name": "nvs_doc_type",
         "label": "Document Type",
         "type": "keyword",
@@ -121,36 +125,48 @@ nvs_document_fields = [
 
 
 def import_data(job_id):
+    time_start = timer()
+
     job = Job(job_id)
     corpus = job.corpus
-    driver_file_key = job.get_param_value('driver_file')
-    driver_file = corpus.files[driver_file_key]
+    play_repo_name = job.get_param_value('play_repo')
+    play_repo = corpus.repos[play_repo_name]
     play_title = job.get_param_value('play_title')
     play_prefix = job.get_param_value('play_prefix')
     basetext_siglum = job.get_param_value('basetext_siglum')
     delete_existing = job.get_param_value('delete_existing') == 'Yes'
 
     job.set_status('running')
-    try:
-        if delete_existing:
-            delete_play_data(corpus, play_prefix)
+    job.report('''Attempting play TEI ingestion using following parameters:
+Play Title:         {0}
+Play Repo:          {1}
+Play Prefix:        {2}
+Copytext Siglum:    {3}
+Delete Existing:    {4}
+    \n'''.format(
+        play_title,
+        play_repo.name,
+        play_prefix,
+        basetext_siglum,
+        delete_existing
+    ))
 
+    try:
         es_logger = logging.getLogger('elasticsearch')
         es_log_level = es_logger.getEffectiveLevel()
         es_logger.setLevel(logging.WARNING)
 
-        if os.path.exists(driver_file.path):
+        if delete_existing:
+            deletion_report = delete_play_data(corpus, play_prefix)
+            job.report("Deleted existing play data:\n{0}".format(deletion_report))
 
-            cached_playviewer_path = "{0}/plugins/nvs/templates/{1}_playviewer_cached.html".format(settings.BASE_DIR, play_prefix)
-            cached_commentary_path = "{0}/plugins/nvs/templates/{1}_commentary_cached.html".format(settings.BASE_DIR, play_prefix)
+        # pull down latest commits to play repo
+        play_repo.pull(corpus)
 
-            if os.path.exists(cached_playviewer_path):
-                os.remove(cached_playviewer_path)
+        driver_file_path = "{0}/{1}_driver.xml".format(play_repo.path, play_prefix)
+        if os.path.exists(driver_file_path):
 
-            if os.path.exists(cached_commentary_path):
-                os.remove(cached_commentary_path)
-
-            with open(driver_file.path, 'r') as tei_in:
+            with open(driver_file_path, 'r') as tei_in:
                 tei = BeautifulSoup(tei_in, "xml")
 
             tei_root = tei.TEI
@@ -191,11 +207,11 @@ def import_data(job_id):
                 elif x_pointer == 'div_endpapers':
                     include_file_paths['endpapers'] = href
 
-            print(json.dumps(include_file_paths, indent=4))
+            job.report("Ingestion files located: \n{0}".format(json.dumps(include_file_paths, indent=4)))
 
             include_files_exist = True
             for include_file in include_file_paths.keys():
-                full_path = os.path.join(os.path.dirname(driver_file.path), include_file_paths[include_file])
+                full_path = os.path.join(os.path.dirname(driver_file_path), include_file_paths[include_file])
                 if os.path.exists(full_path):
                     include_file_paths[include_file] = full_path
                 else:
@@ -215,30 +231,78 @@ def import_data(job_id):
                     play.reload()
 
                 if play:
-                    parse_front_file(corpus, play, include_file_paths['front'])
-
+                    # PARSE FRONT MATTER
+                    job.report(
+                        parse_front_file(
+                            corpus,
+                            play,
+                            include_file_paths['front']
+                        )
+                    )
                     job.set_status('running', percent_complete=17)
-                    parse_playtext_file(corpus, play, include_file_paths['playtext'], basetext_siglum)
 
+                    # PARSE PLAY TEXT
+                    job.report(
+                        parse_playtext_file(
+                            corpus,
+                            play,
+                            include_file_paths['playtext'],
+                            basetext_siglum
+                        )
+                    )
                     job.set_status('running', percent_complete=34)
-                    parse_textualnotes_file(corpus, play, include_file_paths['textualnotes'])
 
+                    # PARSE TEXTUAL NOTES
+                    job.report(
+                        parse_textualnotes_file(
+                            corpus,
+                            play,
+                            include_file_paths['textualnotes']
+                        )
+                    )
                     job.set_status('running', percent_complete=51)
-                    parse_bibliography(corpus, play, include_file_paths['bibliography'])
 
+                    # PARSE BIBLIOGRAPHY
+                    job.report(
+                        parse_bibliography(
+                            corpus,
+                            play,
+                            include_file_paths['bibliography']
+                        )
+                    )
                     job.set_status('running', percent_complete=68)
-                    parse_commentary(corpus, play, include_file_paths['commentary'])
 
+                    # PARSE COMMENTARY
+                    job.report(
+                        parse_commentary(
+                            corpus,
+                            play,
+                            include_file_paths['commentary']
+                        )
+                    )
                     job.set_status('running', percent_complete=75)
-                    parse_appendix(corpus, play, include_file_paths['appendix'])
 
+                    # PARSE APPENDIX
+                    job.report(
+                        parse_appendix(
+                            corpus,
+                            play,
+                            include_file_paths['appendix']
+                        )
+                    )
                     job.set_status('running', percent_complete=85)
+
                     render_lines_html(corpus, play)
 
+        time_stop = timer()
+        job.report("\n\nPlay TEI ingestion completed in {0} seconds.".format(time_stop - time_start))
         job.complete(status='complete')
         es_logger.setLevel(es_log_level)
     except:
-        print(traceback.format_exc())
+        job.report("\n\nA major error prevented the ingestion of play TEI:\n{0}".format(
+            traceback.format_exc()
+        ))
+        job.complete(status='error')
 
 
 def reset_nvs_content_types(corpus):
@@ -264,6 +328,7 @@ def reset_nvs_content_types(corpus):
 
 
 def delete_play_data(corpus, play_prefix):
+    report = ""
     play = corpus.get_content('Play', {'prefix': play_prefix}, single_result=True)
     if play:
         nvs_content_types = [
@@ -280,15 +345,21 @@ def delete_play_data(corpus, play_prefix):
 
         for nvs_ct in nvs_content_types:
             contents = corpus.get_content(nvs_ct, {'play': play.id})
+            count = contents.count()
             for content in contents:
                 content.delete()
-            print('{0}(s) deleted.'.format(nvs_ct))
+            report += '{0} {1}(s) deleted.\n\n'.format(count, nvs_ct)
 
         play.delete()
-
+    return report
 
 
 def parse_front_file(corpus, play, front_file_path):
+    report = '''
+##########################################################
+FRONT MATTER INGESTION
+##########################################################\n'''
+
     with open(front_file_path, 'r') as tei_in:
         tei_text = tei_in.read()
         text_replacements = extract_text_replacements(tei_in)
@@ -345,8 +416,10 @@ def parse_front_file(corpus, play, front_file_path):
     unhandled += list(set(pt_data['unhandled']))
     pt.save()
 
-    print("Unhandled Front Matter tags:")
-    print(json.dumps(unhandled, indent=4))
+    if unhandled:
+        report += "When ingesting the Preface and Plan of Work, the following TEI tags were not properly converted to HTML: {0}\n\n".format(
+            ", ".join(unhandled)
+        )
 
     # extract witness and reference documents
     try:
@@ -358,8 +431,9 @@ def parse_front_file(corpus, play, front_file_path):
             if nvs_doc_type == "editions":
                 nvs_doc_type = "witness"
             elif nvs_doc_type == "other":
-                nvs_doc_type = "reference"
+                nvs_doc_type = "occasional"
 
+            doc_type_count = 0
             for witness_tag in witness_list.find_all('witness'):
                 siglum = witness_tag['xml:id']
                 siglum_label = tei_to_html(witness_tag.siglum)
@@ -367,27 +441,6 @@ def parse_front_file(corpus, play, front_file_path):
                     siglum_label = "<span style='font-variant: small-caps;'>{0}</span>".format(siglum_label)
 
                 if witness_tag.bibl:
-                    '''
-                    witness = corpus.get_content('Document')
-                    witness.siglum = siglum
-                    witness.siglum_label = siglum_label
-
-                    witness.nvs_doc_type = nvs_doc_type
-
-                    author = witness_tag.bibl.find('name')
-                    if author:
-                        witness.author = _str(author)
-                    else:
-                        witness.author = "Unknown"
-
-                    common_title = witness_tag.bibl.find('hi')
-                    if common_title:
-                        witness.title = _str(common_title)
-                        witness.work = _str(witness_tag.bibl.title)
-                    else:
-                        witness.title = _str(witness_tag.bibl.title)
-                    '''
-
                     pub_date = _str(witness_tag.date)
                     pub_date = re.sub(r"\D", "", pub_date)
                     pub_date = pub_date[:4]
@@ -401,6 +454,7 @@ def parse_front_file(corpus, play, front_file_path):
                         date=pub_date,
                         siglum_label=siglum_label
                     )
+                    doc_type_count += 1
 
                     if witness and witness.nvs_doc_type == 'witness':
                         play.primary_witnesses.append(witness.id)
@@ -412,7 +466,9 @@ def parse_front_file(corpus, play, front_file_path):
                         'tag': witness_tag
                     })
 
-            play.save()
+            report += "{0} {1} editions ingested.\n\n".format(doc_type_count, nvs_doc_type)
+
+        play.save()
 
         for witness_collection_info in witness_collections:
             witness_collection = corpus.get_content('DocumentCollection')
@@ -428,60 +484,35 @@ def parse_front_file(corpus, play, front_file_path):
 
             witness_collection.save()
 
+        bibl_count = 0
         for bibl_list in plan_of_work.find_all('listBibl'):
             nvs_doc_type = bibl_list['xml:id'].replace("bibl_", "")
 
             for bibl in bibl_list.find_all('bibl'):
-                handle_bibl_tag(corpus, bibl, nvs_doc_type, unhandled)
+                if handle_bibl_tag(corpus, bibl, nvs_doc_type, unhandled):
+                    bibl_count += 1
+                else:
+                    report += "Error parsing the following bibliographic entry:\n{0}\n\n".format(str(bibl))
+
+        report += "{0} bibliographic entries ingested.\n\n".format(bibl_count)
 
         unhandled = list(set(unhandled))
-        print("Unhandled bibliography tags for frontmatter:")
-        print(json.dumps(unhandled, indent=4))
-
-        # Create Witness Collection for first folio
-        # witness_collection = corpus.get_content('DocumentCollection')
-        # witness_collection.siglum = "s_F"
-        # witness_collection.siglum_label = "F"
-        # reffed_doc = corpus.get_content('Document', {'siglum': "s_f1"})[0]
-        # witness_collection.referenced_documents.append(reffed_doc.id)
-        # witness_collection.save()
+        if unhandled:
+            report += "When ingesting bibliographic entries from the front matter, the following TEI tags were not properly converted to HTML: {0}\n\n".format(
+                ", ".join(unhandled)
+            )
 
     except:
-        print(traceback.format_exc())
-    '''
-    for bibl_tag in plan_of_work.listBibl.find_all('bibl'):
-        biblio_id = bibl_tag['xml:id'].replace("pw_", "")
+        report += "A error occurred preventing the full ingestion of the front matter:\n{0}\n\n".format(traceback.format_exc())
 
-        try:
-            biblio = Document(corpus.id).objects(corpus=corpus, kvp__biblio_id=biblio_id)[0]
-        except:
-            biblio = Document(corpus.id)()
-            biblio.corpus = corpus
-            biblio.kvp['biblio_id'] = biblio_id
-
-        if biblio:
-            author = bibl_tag.find('name')
-            if author:
-                biblio.author = _str(author)
-            else:
-                biblio.author = "Unknown"
-
-            common_title = bibl_tag.find('hi')
-            if common_title:
-                biblio.title = _str(common_title)
-                biblio.work = _str(bibl_tag.title)
-            else:
-                biblio.title = _str(bibl_tag.title)
-
-            biblio.pub_date = _str(bibl_tag.date)
-            biblio.pub_date = re.sub(r"\D", "", biblio.pub_date)
-            biblio.pub_date = biblio.pub_date[:4]
-
-            biblio.save()
-    '''
+    return report
 
 
 def parse_playtext_file(corpus, play, playtext_file_path, basetext_siglum, start_line_xml_id=None, end_line_xml_id=None):
+    report = '''
+##########################################################
+PLAY TEXT INGESTION
+##########################################################\n'''
     unhandled_tags = []
 
     with open(playtext_file_path, 'r') as tei_in:
@@ -502,12 +533,15 @@ def parse_playtext_file(corpus, play, playtext_file_path, basetext_siglum, start
             'line_number': 0,
             'line_xml_id': None,
             'line_label': None,
+            'virtual_lines': {},
+            'make_next_line': True,
+            'next_line_label': None,
             'start_line_xml_id': start_line_xml_id,
             'end_line_xml_id': end_line_xml_id,
             'act': None,
             'scene': None,
             'witness_location_id': None,
-            'witness_count': corpus.get_content('Document', {'nvs_doc_type': 'witness'}).count(),
+            'witness_count': len(play.primary_witnesses),
             'basetext_id': basetext.id,
             'unhandled_tags': [],
             'characters': [],
@@ -538,16 +572,37 @@ def parse_playtext_file(corpus, play, playtext_file_path, basetext_siglum, start
                 line_info['characters'].append(character)
                 line_info['character_id_map'][character.xml_id] = character.id
 
-        # start recursively parsing the playtext
+        report += "The following characters have been ingested: {0}\n\n".format(
+            ", ".join([char.name for char in line_info['characters']])
+        )
+
+        # gather virtual line info
+        links = tei.find_all('link')
+        for link in links:
+            if _contains(link.attrs, ['xml:id', 'type', 'target']) and link['type'] == 'join':
+                tln = link['xml:id']
+                targets = link['target'].replace('#', '').split()
+                for t_index in range(0, len(targets)):
+                    line_info['virtual_lines'][targets[t_index]] = tln
+
+        # recursively parse the playtext
         for child in tei.find('div', attrs={'type': 'playtext', 'xml:id': 'div_playtext'}).children:
             handle_playtext_tag(corpus, play, child, line_info)
 
-        fakeline = BeautifulSoup('<lb xml:id="fake" n="fake"/>', 'xml')
+        fakeline = BeautifulSoup('<lb xml:id="xxxx" n="xxxx"/>', 'xml')
         handle_playtext_tag(corpus, play, fakeline.lb, line_info)
 
+        report += "{0} lines ingested.\n\n".format(line_info['line_number'])
+        line_info['unhandled_tags'] = list(set(line_info['unhandled_tags']))
+        if line_info['unhandled_tags']:
+            report += "When ingesting lines from the play text, the following TEI tags were not properly converted to HTML: {0}\n\n".format(
+                ", ".join(line_info['unhandled_tags'])
+            )
+
     except:
-        print(json.dumps(unhandled_tags, indent=4))
-        print(traceback.format_exc())
+        report += "An error prevented full ingestion of the play text:\n\n{0}".format(traceback.format_exc())
+
+    return report
 
 
 def handle_playtext_tag(corpus, play, tag, line_info):
@@ -565,21 +620,73 @@ def handle_playtext_tag(corpus, play, tag, line_info):
 
         # lb
         elif tag.name == 'lb' and _contains(tag.attrs, ['xml:id', 'n']):
-            if line_info['line_xml_id']:
+            # make current line if appropriate
+            if line_info['line_xml_id'] and line_info['make_next_line']:
                 make_playtext_line(corpus, play, line_info)
 
-            line_info['line_number'] += 1
-            line_info['line_xml_id'] = tag['xml:id']
-            line_info['line_label'] = tag['n']
-            line_info['text'] = ''
+            lb_xml_id = tag['xml:id']
+
+            # determine whether to make next line
+            if line_info['virtual_lines'] and '-' in lb_xml_id or lb_xml_id.endswith('i'):
+                line_info['make_next_line'] = False
+            else:
+                line_info['make_next_line'] = True
+
+            # extract next line id
+            if line_info['virtual_lines'] and '-' in lb_xml_id:
+                id_parts = lb_xml_id.split('-')
+                line_info['line_xml_id'] = id_parts[0]
+            elif _contains_any(lb_xml_id, ['i', 'f']):
+                line_info['line_xml_id'] = line_info['virtual_lines'][lb_xml_id]
+            else:
+                line_info['line_xml_id'] = lb_xml_id
+
+            # extract next line label
+            hyphen_a = '-'
+            hyphen_b = '–'
+            label_parts = []
+            if hyphen_a in tag['n']:
+                label_parts = tag['n'].split(hyphen_a)
+            elif hyphen_b in tag['n']:
+                label_parts = tag['n'].split(hyphen_b)
+
+            if label_parts:
+                line_info['line_label'] = label_parts[0]
+            elif ',' in tag['n']:
+                label_parts = tag['n'].split(',')
+                line_info['line_label'] = label_parts[0].strip()
+                line_info['next_line_label'] = label_parts[1].strip()
+            else:
+                line_info['line_label'] = tag['n']
+
 
         # nvsSeg (for virtual lineation)
         elif tag.name == 'nvsSeg' and _contains(tag.attrs, ['type', 'xml:id']) and tag['type'] == 'linePart':
-            new_tln = tag['xml:id']
-            if new_tln[-1] in ['i', 'f']:
-                new_tln = new_tln[:-1]
-            line_info['line_xml_id'] = new_tln
-            # NOT FINISHED...
+            # make current line and calculate next label if appropriate
+            if line_info['line_xml_id'] and line_info['make_next_line']:
+                make_playtext_line(corpus, play, line_info)
+                if line_info['next_line_label']:
+                    line_info['line_label'] = line_info['next_line_label']
+                    line_info['next_line_label'] = None
+                else:
+                    line_info['line_label'] = str(int(line_info['line_label']) + 1)
+
+            seg_tln = tag['xml:id']
+
+            # determine whether to make next line
+            if seg_tln.endswith('i'):
+                line_info['make_next_line'] = False
+            else:
+                line_info['make_next_line'] = True
+
+            # determine next line id
+            if seg_tln in line_info['virtual_lines']:
+                line_info['line_xml_id'] = line_info['virtual_lines'][seg_tln]
+            else:
+                line_info['line_xml_id'] = seg_tln
+
+            for child in tag.children:
+                handle_playtext_tag(corpus, play, child, line_info)
 
         # div for act/scene
         elif tag.name == 'div' and _contains(tag.attrs, ['type', 'n']):
@@ -591,6 +698,10 @@ def handle_playtext_tag(corpus, play, tag, line_info):
             if line_info['line_xml_id']:
                 make_playtext_line(corpus, play, line_info)
                 line_info['line_xml_id'] = None
+
+            if tag['type'] == "act":
+                line_info['act'] = "Trailer"
+                line_info['scene'] = "0"
 
         # all other tags handled by PlayTag convention
         else:
@@ -721,13 +832,22 @@ def make_playtext_line(corpus, play, line_info):
     line.xml_id = line_info['line_xml_id']
     line.line_label = line_info['line_label']
     line.line_number = line_info['line_number']
-    line.act = line_info['act']
-    line.scene = line_info['scene']
+
+    if line_info['act'] and line_info['scene']:
+        line.act = line_info['act']
+        line.scene = line_info['scene']
+    else:
+        line.act = "Dramatis Personae"
+        line.scene = "0"
+
     if line_info['witness_location_id']:
         line.witness_locations.append(line_info['witness_location_id'])
     line.text = line_info['text'].strip()
     line.witness_meter = "0" * line_info['witness_count']
     line.save()
+
+    line_info['line_number'] += 1
+    line_info['text'] = ''
 
     if line_info['current_speech']:
         line_info['current_speech'].lines.append(line)
@@ -749,17 +869,12 @@ def make_text_location(line_number, char_index):
 
 
 def parse_textualnotes_file(corpus, play, textualnotes_file_path):
-    parse_report = []
+    report = '''
+##########################################################
+TEXTUAL NOTES INGESTION
+##########################################################\n'''
 
     try:
-
-        '''
-        for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
-            if nvs_content_type['name'] in ['TextualNote', 'TextualVariant']:
-                corpus.delete_content_type(nvs_content_type['name'])
-                corpus.save_content_type(nvs_content_type)
-        '''
-
         # open textualnotes xml, read raw text into tei_text,
         # and perform special text replacements before feeding
         # into BeautifulSoup
@@ -799,6 +914,7 @@ def parse_textualnotes_file(corpus, play, textualnotes_file_path):
 
         # get all "note" tags, corresponding to TexualNote content
         # type so we can iterate over and build them
+        note_counter = 0
         notes = tei.find_all("note", attrs={'type': 'textual'})
         note_id_map = {}
         for note in notes:
@@ -848,17 +964,14 @@ def parse_textualnotes_file(corpus, play, textualnotes_file_path):
                 exclusion_started = False
                 excluding_sigla = []
 
-                #textual_variant.witness_formula = strip_tags(str(variant.wit))
                 textual_variant.witness_formula = ""
-
                 for child in variant.wit.children:
                     if child.name == 'siglum':
                         siglum_label = strip_tags(tei_to_html(child))
                         textual_variant.witness_formula += '''
-                            <a href="javascript: navigate_to('siglum', '{0}');" class="variant-siglum">{0}</a>
+                            <a href="#" onClick="navigate_to('siglum', '{0}', this); return false;" class="variant-siglum">{0}</a>
                         '''.format(siglum_label)
                         if siglum_label not in all_sigla and siglum_label not in missing_sigla:
-                            print(siglum_label)
                             missing_sigla.append(siglum_label)
 
                         if not starting_siglum:
@@ -939,18 +1052,20 @@ def parse_textualnotes_file(corpus, play, textualnotes_file_path):
                 try:
                     textual_variant.variant = perform_variant_transform(corpus, textual_note, textual_variant)
                 except:
-                    parse_report.append("Error when performing transform for variant in note {0}".format(textual_note.xml_id))
-                    parse_report.append(traceback.format_exc())
+                    report += "Error when performing transform for variant in note {0}:\n{1}\n\n".format(
+                        textual_note.xml_id,
+                        traceback.format_exc()
+                    )
                     textual_variant.has_bug = 1
-
-                    if len(parse_report) > 20:
-                        return None
 
                 textual_variant.save()
                 textual_note.variants.append(textual_variant.id)
 
             textual_note.save()
             note_id_map[str(textual_note.id)] = textual_note
+            note_counter += 1
+
+        report += "{0} textual notes ingested.\n\n".format(note_counter)
 
         lines = corpus.get_content('PlayLine', {'play': play.id})
         lines = lines.order_by('line_number')
@@ -962,7 +1077,6 @@ def parse_textualnotes_file(corpus, play, textualnotes_file_path):
             right_content_type="TextualNote",
             order_by="right.uri"
         )
-        print(len(lines))
         recolored_notes = {}
         for line in lines:
             line.witness_meter = "0" * len(witnesses)
@@ -993,10 +1107,9 @@ def parse_textualnotes_file(corpus, play, textualnotes_file_path):
                 line.save()
 
     except:
-        print(traceback.format_exc())
+        "An error prevented full ingestion of textual notes:\n{0}\n\n".format(traceback.format_exc())
 
-        for parse_report_line in parse_report:
-            print(parse_report_line)
+    return report
 
 
 def collapse_indicators(variant, base):
@@ -1281,11 +1394,10 @@ def perform_variant_transform(corpus, note, variant):
 
 
 def parse_bibliography(corpus, play, bibliography_file_path):
-    '''
-    old_bibs = corpus.get_content('Document', {'nvs_doc_type': 'bibliography'})
-    for bib in old_bibs:
-        bib.delete()
-    '''
+    report = '''
+##########################################################
+BIBLIOGRAPHY INGESTION
+##########################################################\n'''
 
     with open(bibliography_file_path, 'r') as tei_in:
         tei_text = tei_in.read()
@@ -1297,12 +1409,20 @@ def parse_bibliography(corpus, play, bibliography_file_path):
         tei = BeautifulSoup(tei_text, "xml")
 
     unhandled = []
+    doc_count = 0
     bibls = tei.find_all('bibl')
     for bibl in bibls:
-        handle_bibl_tag(corpus, bibl, 'bibliography', unhandled)
+        if handle_bibl_tag(corpus, bibl, 'bibliography', unhandled):
+            doc_count += 1
+        else:
+            report += "Error creating bibliographic entry for this TEI representation:\n{0}\n\n".format(str(bibl).replace('<', '&lt;').replace('>', '&gt;'))
 
     unhandled = list(set(unhandled))
-    print(json.dumps(unhandled, indent=4))
+    if unhandled:
+        report += "The following tags were not properly converted from TEI to HTML: {0}\n\n".format(', '.join(unhandled))
+
+    report += "{0} bibliographic entries created.\n\n".format(doc_count)
+    return report
 
 
 def handle_bibl_tag(corpus, bibl, nvs_doc_type, unhandled, xml_id=None, date='', siglum_label=''):
@@ -1333,6 +1453,9 @@ def handle_bibl_tag(corpus, bibl, nvs_doc_type, unhandled, xml_id=None, date='',
             if hasattr(doc, key) and doc_data[key]:
                 setattr(doc, key, doc_data[key])
 
+        if doc.bibliographic_entry:
+            doc.bibliographic_entry_text = strip_tags(doc.bibliographic_entry).strip()
+
         if doc_data['unhandled']:
             unhandled.extend(doc_data['unhandled'])
 
@@ -1346,7 +1469,7 @@ def extract_bibl_components(tag, doc_data, inside_note=False):
     for element in tag.children:
         if element.name:
             if element.name == 'author':
-                author = _str(element.string)
+                author = element.text
                 if doc_data['author']:
                     doc_data['author'] += ", "
                 doc_data['author'] += author
@@ -1361,22 +1484,22 @@ def extract_bibl_components(tag, doc_data, inside_note=False):
 
             elif element.name == 'date':
                 if not doc_data['pub_date']:
-                    doc_data['pub_date'] = _str(element.string)
+                    doc_data['pub_date'] = element.text
                     doc_data['bibliographic_entry'] += doc_data['pub_date']
 
             elif element.name == 'pubPlace':
-                doc_data['place'] = _str(element.string)
+                doc_data['place'] = element.text
                 doc_data['bibliographic_entry'] += doc_data['place']
 
             elif element.name == 'publisher':
-                doc_data['publisher'] = _str(element.string)
+                doc_data['publisher'] = element.text
                 doc_data['bibliographic_entry'] += doc_data['publisher']
 
             elif element.name in ['note', 'bibl']:
                 extract_bibl_components(element, doc_data, inside_note=True)
 
             elif element.name == 'ref' and _contains(element.attrs, ['targType', 'target']):
-                doc_data['bibliographic_entry'] += '''<a ref="javascript: navigate_to('{0}', '{1}');">'''.format(
+                doc_data['bibliographic_entry'] += '''<a ref="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                     element['targType'],
                     element['target']
                 )
@@ -1391,7 +1514,7 @@ def extract_bibl_components(tag, doc_data, inside_note=False):
 
             else:
                 doc_data['unhandled'].append(element.name)
-                doc_data['bibliographic_entry'] += _str(element.string)
+                doc_data['bibliographic_entry'] += element.text
         else:
             doc_data['bibliographic_entry'] += str(element)
 
@@ -1429,16 +1552,12 @@ def handle_bibl_title(tag, toggle_italics=False):
 
 
 def parse_commentary(corpus, play, commentary_file_path):
-    parse_report = []
+    report = '''
+##########################################################
+COMMENTARY NOTE INGESTION
+##########################################################\n'''
 
     try:
-        '''
-        for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
-            if nvs_content_type['name'] in ['Commentary']:
-                corpus.delete_content_type(nvs_content_type['name'])
-                corpus.save_content_type(nvs_content_type)
-        '''
-
         # open commentary xml, read raw text into tei_text,
         # and perform special text replacements before feeding
         # into BeautifulSoup
@@ -1467,9 +1586,7 @@ def parse_commentary(corpus, play, commentary_file_path):
 
             note.lines = get_line_ids(line_id_map, note_tag['target'], note_tag.attrs.get('targetEnd', None))
             if len(note.lines) < 1:
-                print("\n-----------------------------------------------")
-                print("ERROR FINDING LINES FOR Commentary w/ XML ID {0}".format(note.xml_id))
-                print("-----------------------------------------------\n")
+                report += "Error finding lines for commentary note w/ XML ID {0}\n\n".format(note.xml_id)
 
             note.contents = ""
             note_data = {}
@@ -1483,25 +1600,29 @@ def parse_commentary(corpus, play, commentary_file_path):
 
                 # build lemma span for line html
                 try:
-                    mark_commentary_lemma(corpus, play, note)
+                    report += mark_commentary_lemma(corpus, play, note)
                 except:
-                    print("error marking lemma for note {0}".format(note.id))
-                    print(traceback.format_exc())
+                    report += "An error prevented marking lemma for note {0}: {1}\n\n".format(
+                        note.xml_id,
+                        traceback.format_exc()
+                    )
 
             else:
-                parse_report.append("commentary note {0} missing label or lem".format(note.xml_id))
+                report += "Commentary note {0} missing label or lemma\n\n".format(note.xml_id)
 
             if 'unhandled' in note_data:
                 unhandled.extend(note_data['unhandled'])
 
         if unhandled:
             unhandled = list(set(unhandled))
-            parse_report.append(unhandled)
+            report += "The following TEI tags were not properly converted to HTML: {0}\n\n".format(
+                ', '.join(unhandled)
+            )
 
     except:
-        parse_report.append(traceback.format_exc())
+        report += "An error prevented full ingestion of commentary notes: {0}\n\n".format(traceback.format_exc())
 
-    print(json.dumps(parse_report, indent=4))
+    return report
 
 
 def handle_commentary_tag(tag, data={}):
@@ -1522,7 +1643,7 @@ def handle_commentary_tag(tag, data={}):
             if targ_type == 'lb' and 'targetEnd' in tag.attrs:
                 xml_id += ' ' + tag['targetEnd'].replace("#", '').strip()
 
-            html += '''<a href="javascript: navigate_to('{0}', '{1}');">'''.format(
+            html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                 targ_type,
                 xml_id
             )
@@ -1584,7 +1705,7 @@ def handle_commentary_tag(tag, data={}):
             if 'targetEnd' in tag.attrs:
                 target += " " + tag['targetEnd']
 
-            html += '''<a href="javascript: navigate_to('{0}', '{1}');">here</a>'''.format(
+            html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">here</a>'''.format(
                 tag['targType'],
                 target
             )
@@ -1594,7 +1715,7 @@ def handle_commentary_tag(tag, data={}):
             if 'rend' in tag.attrs and tag['rend'] == 'smcaps':
                 siglum_label = '''<span style="font-variant: small-caps;">{0}</span>'''.format(siglum_label)
 
-            html += '''<a href="javascript: navigate_to('{0}', '{1}');">'''.format(
+            html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                 'siglum',
                 strip_tags(siglum_label)
             )
@@ -1632,6 +1753,7 @@ def handle_commentary_tag(tag, data={}):
 
 
 def mark_commentary_lemma(corpus, play, note):
+    report = ""
     note.reload()
     lemma_string = strip_tags(note.subject_matter)
 
@@ -1662,10 +1784,8 @@ def mark_commentary_lemma(corpus, play, note):
     if len(line_groups) > 1:
         lemmas = [l.strip() for l in lemma_string.split(',') if l]
         if len(line_groups) != len(lemmas):
-            print("\n-----------------------------------------------")
-            print("ERROR BUILDING LINE GROUPS and LEMMAS for note {0} w/ lemma [{1}]".format(note.id, lemma_string))
-            print("-----------------------------------------------\n")
-            return None
+            return "Error building line groups and lemmas for commentary note {0} w/ lemma [{1}]\n".format(note.xml_id, lemma_string)
+
     else:
         lemmas.append(lemma_string)
 
@@ -1722,21 +1842,21 @@ def mark_commentary_lemma(corpus, play, note):
             lemma_span.save()
 
         else:
-            print("\n-----------------------------------------------")
-            print("LEMMA NOT FOUND for note {0} w/ lemma [{1}]".format(note.id, lemma))
-            print("TEXT: {0}".format(all_words))
-            print("-----------------------------------------------\n")
+            report += "-----------------------------------------------\n"
+            report += "Lemma not found for note {0} w/ lemma [{1}]\n".format(note.xml_id, lemma)
+            report += "Text from play line(s): {0}\n".format(all_words)
+            report += "-----------------------------------------------\n\n"
+
+    return report
 
 
 def parse_appendix(corpus, play, appendix_file_path):
-    try:
-        '''
-        for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
-            if nvs_content_type['name'] in ['ParaText']:
-                corpus.delete_content_type(nvs_content_type['name'])
-                corpus.save_content_type(nvs_content_type)
-        '''
+    report = '''
+##########################################################
+APPENDIX INGESTION
+##########################################################\n'''
 
+    try:
         # open xml, read raw text into tei_text,
         # and perform special text replacements before feeding
         # into BeautifulSoup
@@ -1752,12 +1872,17 @@ def parse_appendix(corpus, play, appendix_file_path):
         unhandled = []
         unhandled += create_appendix_divs(corpus, play, tei, None, 1)
         unhandled = list(set(unhandled))
-        print("Unhandled Appendix Tags:")
-        print(json.dumps(unhandled, indent=4))
+        if unhandled:
+            report += "The following TEI tags were not properly converted to HTML: {0}\n\n".format(
+                ', '.join(unhandled)
+            )
 
     except:
-        print("Error parsing appendix:")
-        print(traceback.format_exc())
+        report += "An error prevented full ingestion of the appendix:\n{0}\n\n".format(
+            traceback.format_exc()
+        )
+
+    return report
 
 
 def create_appendix_divs(corpus, play, container, parent, level):
@@ -1890,7 +2015,7 @@ def handle_paratext_tag(tag, pt, pt_data):
             if 'rend' in tag.attrs and tag['rend'] == 'smcaps':
                 siglum_label = '''<span style="font-variant: small-caps;">{0}</span>'''.format(siglum_label)
 
-            html += '''<a href="javascript: navigate_to('{0}', '{1}');">'''.format(
+            html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                 'siglum',
                 strip_tags(siglum_label)
             )
@@ -1901,7 +2026,7 @@ def handle_paratext_tag(tag, pt, pt_data):
             target = tag['target'].replace('#', '')
             if 'targetEnd' in tag.attrs:
                 target += " " + tag['targetEnd']
-            html += '''<a href="javascript: navigate_to('{0}', '{1}');">here</a>'''.format(
+            html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">here</a>'''.format(
                 tag['targType'],
                 target
             )
@@ -1913,7 +2038,7 @@ def handle_paratext_tag(tag, pt, pt_data):
             if targ_type == 'lb' and 'targetEnd' in tag.attrs:
                 xml_id += ' ' + tag['targetEnd'].replace("#", '').strip()
 
-            html += '''<a href="javascript: navigate_to('{0}', '{1}');">'''.format(
+            html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                 targ_type,
                 xml_id
             )
@@ -1938,7 +2063,7 @@ def handle_paratext_tag(tag, pt, pt_data):
             pt_data['current_note'] = None
 
         elif tag.name == "label" and pt_data['current_note']:
-            html += '''<a href="javascript: navigate_to('lb', '{0}');">'''.format(
+            html += '''<a href="#" onClick="navigate_to('lb', '{0}', this); return false;">'''.format(
                 pt_data['current_note']['target_tln']
             )
             for child in tag.children:
@@ -2035,8 +2160,14 @@ def get_rend_style(rend):
         style += 'font-style: italic; '
     if 'superscript' in rend:
         style += 'vertical-align: super; font-size: smaller; '
+    if 'indent(' in rend:
+        match = re.match(r'indent\(([^)]*)\)', rend)
+        if match:
+            indent_size = match.group(1)
+            style += 'margin-left: {0}; '.format(indent_size)
 
-    return style
+
+    return style.strip()
 
 
 def get_line_ids(line_id_map, xml_id_start, xml_id_end=None):
@@ -2045,14 +2176,15 @@ def get_line_ids(line_id_map, xml_id_start, xml_id_end=None):
     if xml_id_start and xml_id_end and len(xml_id_start.split()) == len(xml_id_end.split()):
         starts = xml_id_start.split()
         ends = xml_id_end.split()
+        all_line_ids = list(line_id_map.keys())
 
         for pair_index in range(0, len(starts)):
             start_id = starts[pair_index].replace('#', '')
             end_id = ends[pair_index].replace('#', '')
 
-            if int(start_id.replace('tln_', '')) < int(end_id.replace('tln_', '')):
+            if all_line_ids.index(start_id) < all_line_ids.index(end_id):
                 started = False
-                for line_xml_id in line_id_map.keys():
+                for line_xml_id in all_line_ids:
                     if not started and line_xml_id == start_id:
                         started = True
 
@@ -2062,8 +2194,12 @@ def get_line_ids(line_id_map, xml_id_start, xml_id_end=None):
                     if started and line_xml_id == end_id:
                         break
 
-    elif xml_id_start and not xml_id_end:
+    elif xml_id_start:
         xml_ids = xml_id_start.replace('#', '').split()
+
+        if xml_id_end:
+            xml_ids += xml_id_end.replace('#', '').split()
+
         for xml_id in xml_ids:
             line_ids.append(line_id_map[xml_id])
 
@@ -2120,7 +2256,7 @@ def _str(val):
         return val
     return ''
 
-
+'''
 def tei_to_html(tei):
     html = ""
 
@@ -2165,14 +2301,147 @@ def tei_to_html(tei):
 
         for tei_transform in tei_transforms:
             match = re.search(tei_transform[0], child_html, flags=re.S)
+            match_counter = 0
             while match:
                 full_match = match.group(0)
                 transform_match = match.group(1)
                 transformed = tei_transform[1](transform_match)
                 child_html = child_html.replace(full_match, transformed)
                 match = re.search(tei_transform[0], child_html)
+                match_counter += 1
+                if match_counter > 2:
+                    print(child_html)
+                    print(full_match)
+                    print(transformed)
 
         html += child_html
+
+    return html
+'''
+
+
+def tei_to_html(tag):
+    html = ""
+
+    simple_conversions = {
+        'p': 'p',
+        'hi': 'span',
+        'title': 'i',
+        'quote': 'q',
+        'table': 'table',
+        'row': 'tr',
+        'cell': 'td',
+        'list': 'ul',
+        'item': 'li',
+        'front': 'div',
+        'floatingText': 'div',
+        'titlePage': 'span',
+        'docTitle': 'span',
+        'figDesc': 'p',
+        'docImprint': 'p',
+        'byline': 'p',
+        'docAuthor': 'span',
+        'lb': 'br',
+        'div': 'div',
+        'signed': 'div',
+        'lg': 'i:mt-2',
+        'l': 'div',
+        'milestone': 'div:float-right',
+        'sp': 'div:mx-auto',
+        'speaker': 'span',
+        'trailer': 'div:mt-2',
+        'label': 'b',
+        'figure': 'div',
+        'salute': 'span',
+        'abbr': 'dt',
+        'expan': 'dd',
+        'listBibl': 'div:bibl-list',
+        'bibl': 'span:bibl',
+        'listWit': 'div:witness-list',
+        'witness': 'span:witness',
+        'edition': 'q'
+    }
+
+    silent = [
+        'app', 'appPart', 'lem', 'wit', 'rdgDesc',
+        'rdg', 'name', 'rs', 'epigraph',
+        'body', 'foreign', 'cit', 'stage',
+        'docDate', 'date', 'closer'
+    ]
+
+    if tag.name:
+        if tag.name in silent:
+            for child in tag.children:
+                html += tei_to_html(child)
+        else:
+            attributes = ""
+            if 'xml:id' in tag.attrs:
+                attributes += " id='{0}'".format(tag['xml:id'])
+            if 'rend' in tag.attrs:
+                attributes += " style='{0}'".format(get_rend_style(tag['rend']))
+
+            if tag.name == 'lb' and attributes:
+                html += '<br /><span{0}>&nbsp;</span>'
+
+            elif tag.name == 'space' and 'extent' in tag.attrs:
+                space_size = tag['extent']
+                if 'indent(' in space_size and ')' in space_size:
+                    space_size = space_size.replace('indent(', '').replace(')', '')
+                html += '<span style="width: {0}; display: inline-block;">&nbsp;</span>'.format(space_size)
+
+            elif tag.name == 'siglum':
+                siglum_label = "".join([tei_to_html(child) for child in tag.children])
+                if 'rend' in tag.attrs and tag['rend'] == 'smcaps':
+                    siglum_label = '''<span style="font-variant: small-caps;">{0}</span>'''.format(siglum_label)
+
+                html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
+                    'siglum',
+                    strip_tags(siglum_label)
+                )
+                html += siglum_label
+                html += "</a>"
+
+            elif tag.name == 'ptr' and _contains(tag.attrs, ['targType', 'target']):
+                target = tag['target'].replace('#', '')
+                if 'targetEnd' in tag.attrs:
+                    target += " " + tag['targetEnd']
+                html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">here</a>'''.format(
+                    tag['targType'],
+                    target
+                )
+
+            elif tag.name == 'ref' and _contains(tag.attrs, ['targType', 'target']):
+                targ_type = tag['targType']
+                xml_id = tag['target'].replace('#', '').strip()
+
+                if targ_type == 'lb' and 'targetEnd' in tag.attrs:
+                    xml_id += ' ' + tag['targetEnd'].replace("#", '').strip()
+
+                html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
+                    targ_type,
+                    xml_id
+                )
+                html += "".join([tei_to_html(child) for child in tag.children])
+                html += "</a>"
+
+            elif tag.name in simple_conversions:
+                html_tag = simple_conversions[tag.name]
+                if ':' in html_tag:
+                    html_tag = html_tag.split(':')[0]
+                    attributes += " class='{0}'".format(
+                        simple_conversions[tag.name].split(':')[1]
+                    )
+
+                html += "<{0}{1}>".format(
+                    html_tag,
+                    attributes
+                )
+                for child in tag.children:
+                    html += tei_to_html(child)
+                html += "</{0}>".format(html_tag)
+
+    else:
+        html += str(tag)
 
     return html
 
@@ -2216,7 +2485,7 @@ def process_link(reffed, pointer=False):
             text = match.group(3)
 
     if link_type and target and text:
-        return '''<a ref="javascript: navigate_to('{0}', '{1}');">{2}</a>'''.format(
+        return '''<a ref="#" onClick="navigate_to('{0}', '{1}', this); return false;">{2}</a>'''.format(
             link_type,
             target,
             text
