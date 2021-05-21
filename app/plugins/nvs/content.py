@@ -135,21 +135,6 @@ REGISTRY = [
                 "stats": {},
                 "inherited": False
             },
-            {
-                "name": "play",
-                "label": "Play",
-                "indexed": True,
-                "unique": False,
-                "multiple": False,
-                "in_lists": True,
-                "type": "cross_reference",
-                "choices": [],
-                "cross_reference_type": "Play",
-                "indexed_with": [],
-                "unique_with": [],
-                "stats": {},
-                "inherited": False
-            }
         ],
         "show_in_nav": True,
         "proxy_field": "",

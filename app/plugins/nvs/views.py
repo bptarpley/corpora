@@ -386,6 +386,174 @@ def play_minimap(request, corpus_id=None, play_prefix=None):
             return response
 
 
+def info_about(request, corpus_id=None):
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'info_about'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'info_about.html',
+        {
+            'corpus_id': corpus_id,
+            'content': dynamic_content
+        }
+    )
+
+
+def info_contributors(request, corpus_id=None):
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'info_contributors'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'info_contributors.html',
+        {
+            'corpus_id': corpus_id,
+            'content': dynamic_content
+        }
+    )
+
+
+def info_print_editions(request, corpus_id=None):
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'info_print'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'info_print.html',
+        {
+            'corpus_id': corpus_id,
+            'content': dynamic_content
+        }
+    )
+
+
+def info_how_to(request, corpus_id=None):
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'info_how_to'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'info_how_to.html',
+        {
+            'corpus_id': corpus_id,
+            'content': dynamic_content
+        }
+    )
+
+
+def info_faqs(request, corpus_id=None):
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'info_faqs'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'info_faqs.html',
+        {
+            'corpus_id': corpus_id,
+            'content': dynamic_content
+        }
+    )
+
+
+def tools_about(request, corpus_id=None):
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'tools_about'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'tools_about.html',
+        {
+            'corpus_id': corpus_id,
+            'content': dynamic_content
+        }
+    )
+
+
+def tools_advanced_search(request, corpus_id=None):
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'tools_advanced_search'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'tools_advanced_search.html',
+        {
+            'corpus_id': corpus_id,
+            'content': dynamic_content
+        }
+    )
+
+
+def tools_data_extraction(request, corpus_id=None):
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'tools_data'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'tools_data.html',
+        {
+            'corpus_id': corpus_id,
+            'content': dynamic_content
+        }
+    )
+
+
 @api_view(['GET'])
 def api_lines(request, corpus_id, starting_line_no, ending_line_no):
     context = _get_context(request)

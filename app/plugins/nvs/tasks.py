@@ -156,6 +156,26 @@ Delete Existing:    {4}
         es_log_level = es_logger.getEffectiveLevel()
         es_logger.setLevel(logging.WARNING)
 
+        ensure_nvs_content_types(corpus)
+
+        content_block_handles = [
+            'info_about',
+            'info_contributors',
+            'info_print',
+            'info_how_to',
+            'info_faqs',
+            'tools_about',
+            'tools_advanced_search',
+            'tools_data'
+        ]
+        for handle in content_block_handles:
+            content_block = corpus.get_content('ContentBlock', {'handle': handle}, single_result=True)
+            if not content_block:
+                content_block = corpus.get_content('ContentBlock')
+                content_block.handle = handle
+                content_block.html = "Default content."
+                content_block.save()
+
         if delete_existing:
             deletion_report = delete_play_data(corpus, play_prefix)
             job.report("Deleted existing play data:\n{0}".format(deletion_report))
@@ -325,6 +345,35 @@ def reset_nvs_content_types(corpus):
         nvs_doc_schema['fields'] += nvs_document_fields
         nvs_doc_schema['templates']['Label']['template'] = "{{ Document.siglum_label|safe }}"
         corpus.save_content_type(nvs_doc_schema)
+
+
+def ensure_nvs_content_types(corpus):
+    for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
+        if nvs_content_type['name'] not in corpus.content_types:
+            corpus.save_content_type(nvs_content_type)
+
+    nvs_doc_schema = None
+    for schema in DOCUMENT_REGISTRY:
+        if schema['name'] == "Document":
+            nvs_doc_schema = deepcopy(schema)
+            break
+
+    if nvs_doc_schema:
+        nvs_doc_schema['fields'] += nvs_document_fields
+        nvs_doc_schema['templates']['Label']['template'] = "{{ Document.siglum_label|safe }}"
+
+        doc_schema_ensured = True
+        if 'Document' in corpus.content_types:
+            corpus_doc_ct = corpus.content_types['Document']
+            for field in nvs_document_fields:
+                if not corpus_doc_ct.get_field(field['name']):
+                    doc_schema_ensured = False
+        else:
+            doc_schema_ensured = False
+
+        if not doc_schema_ensured:
+            corpus.delete_content_type('Document')
+            corpus.save_content_type(nvs_doc_schema)
 
 
 def delete_play_data(corpus, play_prefix):
