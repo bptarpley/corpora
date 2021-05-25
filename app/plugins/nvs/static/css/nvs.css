@@ -33,7 +33,7 @@
   --maxScale: 1.125;
   --minScaled: 16;
   --maxScaled: 18;
-  --fluidFontSize: clamp(var(--minScaled)* 1px, calc( var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled))*(100vw - var(--minScreen) * 1px)/(var(--maxScreen) - var(--minScreen)) ), var(--maxScaled) * 1px);
+  --fluidFontSize: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
 }
 
 /* Global Styles -------------------------- */
@@ -64,7 +64,7 @@ body {
 }
 
 .serif {
-  font-family: Baskerville,Baskerville Old Face,Hoefler Text,Garamond,Times New Roman,serif;
+  font-family: Baskerville, Baskerville Old Face, Hoefler Text, Garamond, Times New Roman, serif;
 }
 
 p,
@@ -95,7 +95,7 @@ h1 a:hover, h2 a:hover, h3 a:hover, h4 a:hover, h5 a:hover, h6 a:hover,
 h1, .h1 {
   --minScaled: calc(var(--min) * var(--minScale) * var(--minScale) * var(--minScale) * var(--minScale));
   --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale) * var(--maxScale) * var(--maxScale));
-  font-size: clamp(var(--minScaled)* 1px, calc( var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled))*(100vw - var(--minScreen) * 1px)/(var(--maxScreen) - var(--minScreen)) ), var(--maxScaled) * 1px);
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
   font-weight: bold;
   color: var(--blue);
   font-family: "Roboto Condensed", sans-serif;
@@ -106,47 +106,184 @@ h1, .h1 {
 h2, .h2 {
   --minScaled: calc(var(--min) * var(--minScale) * var(--minScale) * var(--minScale));
   --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale) * var(--maxScale));
-  font-size: clamp(var(--minScaled)* 1px, calc( var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled))*(100vw - var(--minScreen) * 1px)/(var(--maxScreen) - var(--minScreen)) ), var(--maxScaled) * 1px);
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
   margin-top: 3rem;
 }
 h3, .h3 {
   --minScaled: calc(var(--min) * var(--minScale) * var(--minScale));
   --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale));
-  font-size: clamp(var(--minScaled)* 1px, calc( var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled))*(100vw - var(--minScreen) * 1px)/(var(--maxScreen) - var(--minScreen)) ), var(--maxScaled) * 1px);
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
   margin-top: 2rem;
 }
 h4, .h4 {
   --minScaled: calc(var(--min) * var(--minScale));
   --maxScaled: calc(var(--max) * var(--maxScale));
-  font-size: clamp(var(--minScaled)* 1px, calc( var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled))*(100vw - var(--minScreen) * 1px)/(var(--maxScreen) - var(--minScreen)) ), var(--maxScaled) * 1px);
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
   margin-top: 2rem;
 }
 h5, .h5 {
-  font-size: clamp(var(--minScaled)* 1px, calc( var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled))*(100vw - var(--minScreen) * 1px)/(var(--maxScreen) - var(--minScreen)) ), var(--maxScaled) * 1px);
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
   margin-top: 1rem;
 }
 h6, .h6 {
   --minScaled: calc(var(--min) / var(--minScale));
   --maxScaled: calc(var(--max) / var(--maxScale));
-  font-size: clamp(var(--minScaled)* 1px, calc( var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled))*(100vw - var(--minScreen) * 1px)/(var(--maxScreen) - var(--minScreen)) ), var(--maxScaled) * 1px);
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
   margin-top: 1rem;
 }
 
-.play-row {
-  border-bottom: solid 4px #fdf4ee;
+li {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
-.play-words {
-  padding-top: 10px;
-  font-family: 'Libre Baskerville', serif;
-  max-width: 800px;
-  color: #070707;
+small, p.small {
+  display: block;
+  --minScaled: calc(var(--min) / var(--minScale));
+  --maxScaled: calc(var(--max) / var(--maxScale));
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
 }
 
-.play-label {
-  padding-top: 15px;
-  background-color: #fbf5f1;
-  font-family: 'Roboto', sans-serif;
-  font-size: 10px;
+code, kbd, pre, samp {
+  font-family: monospace;
+  white-space: normal;
 }
 
+ul {
+  padding-left: 1rem;
+  list-style-type: disc;
+}
+
+ol {
+  padding-left: 1rem;
+  list-style-type: decimal;
+}
+
+video {
+  width: 100%;
+  height: auto;
+  margin-bottom: 1rem;
+}
+
+em, i { font-style: italic; }
+
+strong, b { font-weight: bold; }
+
+blockquote {
+  font-weight: bold;
+  padding-left: 1rem;
+}
+
+a { color: inherit; }
+
+sup, sub {
+  vertical-align: baseline;
+  position: relative;
+  top: -0.4em;
+}
+
+sub { top: 0.4em; }
+
+label {
+  --minScaled: calc(var(--min) / var(--minScale));
+  --maxScaled: calc(var(--max) / var(--maxScale));
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+  line-height: 1.2;
+  font-weight: normal;
+}
+
+.text-input,
+input[type="text"],
+input[type="password"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="email"],
+input[type="month"],
+input[type="number"],
+input[type="range"],
+input[type="search"],
+input[type="tel"],
+input[type="time"],
+input[type="url"],
+input[type="week"],
+textarea {
+  display: block;
+  font-family: inherit;
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+  padding: 0.2rem 0.5rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid;
+  border-radius: 2px;
+  line-height: 1.6;
+  background-color: transparent;
+  -webkit-appearance: none;
+}
+
+.file-input,
+input[type="file"],
+.radio-input,
+input[type="radio"],
+.checkbox-input,
+input[type="checkbox"],
+select {
+  font-family: inherit;
+}
+
+.button,
+button,
+input[type="submit"],
+input[type="button"],
+input[type="reset"] {
+  display: inline-block;
+
+  padding: 0 1rem;
+
+  font-family: inherit;
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+  line-height: 2;
+  text-decoration: none;
+  white-space: nowrap;
+  border: 1px solid;
+  border-radius: 2px;
+
+  color: inherit;
+  background-color: transparent;
+  cursor: pointer;
+}
+
+.button:hover {
+  text-decoration: none;
+}
+button.link {
+  border: none;
+  padding: 0;
+  background-color: transparent;
+  white-space: normal;
+  line-height: inherit;
+  font-size: inherit;
+}
+button.icon,
+.button.icon {
+  border: none;
+  padding: 0;
+  background-color: transparent;
+}
+button.icon svg,
+.button.icon svg {
+  height: 1.5rem;
+  width: auto;
+  display: block;
+}
+
+.errorMsg {
+  color: var(--error);
+}
+
+.container {
+  max-width: var(--maxScreen) px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+.container > :first-child { margin-top: 0; }
+.container > :last-child { margin-bottom: 0; }

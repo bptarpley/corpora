@@ -1,0 +1,103 @@
+{% load static %}
+
+<style>
+  .small-header--holder {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 10;
+    background-color: var(--white);
+  }
+  @media ( min-width: 992px ) {
+    .small-header--holder { display: none }
+  }
+  .small-header--row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 1rem 0;
+  }
+  .small-header--row a.logo {
+    display: flex;
+    align-items: center;
+    margin-right: auto;
+  }
+  .small-header--row a.logo svg {
+    height: 2rem;
+    width: auto;
+    display: block;
+  }
+  .small-header--row a.logo svg:last-child {
+    margin-left: 0.5rem;
+  }
+  .small-header--row .menu { margin-left: 1rem; }
+  .small-header--row .menu svg:first-child{ display: block; }
+  .small-header--row .menu svg:last-child{ display: none; }
+  .active .small-header--row .menu svg:first-child{ display: none; }
+  .active .small-header--row .menu svg:last-child{ display: block; }
+
+  .small-header--nav-holder {
+    background-color: var(--blue5);
+    transition: max-height 0.75s;
+    max-height: 0;
+    overflow: hidden;
+  }
+
+  .active .small-header--nav-holder {
+    max-height: 100vh;
+  }
+  .small-header--nav-holder nav {
+    padding-top: 1rem;
+  }
+  .small-header--nav-holder ul {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+  }
+  .small-header--nav-holder ul ul {
+    margin: 0.5rem 0;
+    padding-left: 0.5rem;
+  }
+  .small-header--nav-holder ul li {
+    --minScaled: calc(var(--min) * var(--minScale) * var(--minScale));
+    --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale));
+    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+  }
+  .small-header--nav-holder ul a {
+    text-decoration: none;
+  }
+  .small-header--nav-holder ul a:hover {
+    text-decoration: underline;
+  }
+</style>
+
+<div class="small-header--holder">
+  <div class="container">
+    <div class="small-header--row">
+      <a class="logo" href="#">
+        {% include 'svg/logo.svg' %}
+        {% include 'svg/type.svg' %}
+      </a>
+      <a href="#" class="small-header--search button icon">
+        {% include 'svg/icon_search.svg' %}
+      </a>
+      <button class="icon menu">
+        {% include 'svg/hamburger.svg' %}
+        {% include 'svg/cross.svg' %}
+      </button>
+    </div>
+  </div>
+  <div class="small-header--nav-holder">
+    <div class="container">
+      {% include 'blocks/atoms/navigation.html' %}
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript">
+  let holder = document.querySelector('.small-header--holder');
+  document.querySelector('button.menu').addEventListener("click", () => {
+    holder.classList.toggle("active");
+  })
+</script>

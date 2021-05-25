@@ -2,48 +2,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>New Variorum Shakespeare</title>
-    <link rel="stylesheet" href="{% static 'css/nvs.css' %}">
-    <style>
-        html, body {
-            /*background-color: #1E1E1E;*/
-            /*color: whitesmoke;*/
-        }
-    </style>
-    {% block headrefs %}
-    {% endblock %}
+  <meta charset="UTF-8">
+  <title>New Variorum Shakespeare</title>
+  <link rel="stylesheet" href="{% static 'css/nvs.css' %}">
+  <style>
+    .nvs_base--main { margin-top: 4rem; }
+    @media ( min-width: 576px ) {
+      .nvs_base--main { margin-top: 3.5rem; }
+    }
+  </style>
+  {% block headrefs %}
+  {% endblock %}
 </head>
 <body>
-    <h1>This is on every page.</h1>
-    <h2>This is on every page.</h2>
-    <h3>This is on every page.</h3>
-    <h4>This is on every page.</h4>
-    <h5>This is on every page.</h5>
-    <h6>This is on every page.</h6>
 
-    <!-- Here is a reference to a file living in the "static" folder of the NVS plugin: -->
-    <img src="{% static 'img/nvs-logo.png' %}" style="height: 100px; width: auto;" />
+{% include 'blocks/organisms/small-header.html' %}
 
-    <h4>Page Links</h4>
-    <ul>
-        <li><a href="/corpus/{{ corpus_id }}/about/">Info About</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/contributors/">Info Contributors</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/print/">Info Print Editions</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/how-to/">Info How To</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/faqs/">Info FAQ's</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/tools/">Tools About</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/search/">Tools Search</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/data/">Tools Data</a></li>
-    </ul>
+<main class="nvs_base--main">
+  <h1>This is on every page.</h1>
+  <h2>This is on every page.</h2>
+  <h3>This is on every page.</h3>
+  <h4>This is on every page.</h4>
+  <h5>This is on every page.</h5>
+  <h6>This is on every page.</h6>
 
-    {% block main %}
-    {% endblock %}
+  <!-- Here is a reference to a file living in the "static" folder of the NVS plugin: -->
+  <img src="{% static 'img/nvs-logo.png' %}" style="height: 100px; width: auto;"/>
 
-    <!-- Here could be some javascript libraries referenced by every page -->
+  <h4>Page Links</h4>
+  <ul>
+    <li><a href="/corpus/{{ corpus_id }}/about/">Info About</a></li>
+    <li><a href="/corpus/{{ corpus_id }}/contributors/">Info Contributors</a></li>
+    <li><a href="/corpus/{{ corpus_id }}/print/">Info Print Editions</a></li>
+    <li><a href="/corpus/{{ corpus_id }}/how-to/">Info How To</a></li>
+    <li><a href="/corpus/{{ corpus_id }}/faqs/">Info FAQ's</a></li>
+    <li><a href="/corpus/{{ corpus_id }}/tools/">Tools About</a></li>
+    <li><a href="/corpus/{{ corpus_id }}/search/">Tools Search</a></li>
+    <li><a href="/corpus/{{ corpus_id }}/data/">Tools Data</a></li>
+  </ul>
 
-    <!-- Here is a block for child pages to have their own specific javascript libraries: -->
-    {% block js %}
-    {% endblock %}
+  {% block main %}
+  {% endblock %}
+
+  <!-- Here could be some javascript libraries referenced by every page -->
+
+  <!-- Here is a block for child pages to have their own specific javascript libraries: -->
+  {% block js %}
+  {% endblock %}
+</main>
 </body>
 </html>

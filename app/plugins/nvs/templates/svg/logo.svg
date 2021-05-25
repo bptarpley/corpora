@@ -1,0 +1,42 @@
+<svg id="logo-svg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 189 224">
+  <defs>
+    <clipPath id="clip-path">
+      <path d="M155.77,86.33l.06-.54h25.91V3.2H80.12a76,76,0,0,0-48.4,134.63c0,.17,0,.35-.06.53H5.75V221H107.37a76,76,0,0,0,48.4-134.62Z" fill="none"/>
+    </clipPath>
+    <clipPath id="clip-path-2">
+      <path d="M-52.23,86.33l.06-.54h25.91V3.2H-127.88a76,76,0,0,0-76,76,75.87,75.87,0,0,0,27.62,58.62c0,.17-.05.35-.06.53h-25.91V221h101.62a76,76,0,0,0,76-76A75.83,75.83,0,0,0-52.23,86.33Z" fill="none"/>
+    </clipPath>
+  </defs>
+  <g id="logo">
+    <g clip-path="url(#clip-path)">
+      <g>
+        <path d="M156,86.47c0-.17,0-.35.06-.53h25.9V3.34H80.83v0l-.54,0A76,76,0,0,0,31.89,138c0,.18,0,.36-.06.53H5.92v82.6H107.55A76,76,0,0,0,156,86.47Z" fill="#0066a5"/>
+        <rect x="108.91" y="-17.16" width="0.58" height="311.1" fill="#fff"/>
+        <rect x="108.91" y="-17.16" width="0.58" height="311.1" transform="translate(-65.25 163.77) rotate(-60)" fill="#fff"/>
+        <rect x="108.9" y="-17.15" width="0.58" height="311.1" transform="translate(-54.57 73.14) rotate(-30)" fill="#fff"/>
+        <rect x="-46.35" y="138.1" width="311.1" height="0.58" fill="#fff"/>
+        <rect x="-46.35" y="138.1" width="311.1" height="0.58" transform="translate(-54.59 73.2) rotate(-30.02)" fill="#fff"/>
+        <rect x="-29.79" y="166.45" width="244.37" height="0.58" transform="translate(-98.18 162.6) rotate(-59.76)" fill="#fff"/>
+        <rect x="78.35" y="-69.5" width="0.58" height="311.1" fill="#fff"/>
+        <rect x="78.35" y="-69.5" width="0.58" height="311.1" transform="translate(-35.2 111.13) rotate(-60)" fill="#fff"/>
+        <rect x="19.46" y="-171.36" width="0.58" height="309.92" transform="translate(24.06 8.9) rotate(-59.97)" fill="#fff"/>
+        <rect x="166.72" y="89.92" width="0.58" height="311.1" transform="translate(-129.08 267.37) rotate(-60)" fill="#fff"/>
+        <rect x="-76.91" y="85.76" width="311.1" height="0.58" fill="#fff"/>
+        <rect x="-76.91" y="85.76" width="311.1" height="0.58" transform="translate(-32.5 50.89) rotate(-30.02)" fill="#fff"/>
+        <rect x="-31.03" y="59.07" width="249.95" height="0.58" transform="translate(-4.14 111.6) rotate(-60.33)" fill="#fff"/>
+        <polygon points="110.52 139.45 -3.48 139.45 -3.48 138.47 108.8 138.47 77.92 85.88 191.92 85.88 191.92 86.87 79.64 86.87 110.52 139.45" fill="#fff"/>
+      </g>
+    </g>
+    <g clip-path="url(#clip-path-2)">
+      <g>
+        <rect x="-99.09" y="-17.16" width="0.58" height="311.1" transform="translate(-169.25 -16.37) rotate(-60)" fill="#fff"/>
+        <rect x="-254.35" y="138.1" width="311.1" height="0.58" fill="#fff"/>
+        <rect x="-254.35" y="138.1" width="311.1" height="0.58" transform="translate(-82.49 -30.86) rotate(-30.02)" fill="#fff"/>
+        <rect x="-129.65" y="-69.5" width="0.58" height="311.1" transform="translate(-139.2 -69) rotate(-60)" fill="#fff"/>
+        <rect x="-41.28" y="89.92" width="0.58" height="311.1" transform="translate(-233.08 87.24) rotate(-60)" fill="#fff"/>
+        <rect x="-284.91" y="85.76" width="311.1" height="0.58" fill="#fff"/>
+        <rect x="-284.91" y="85.76" width="311.1" height="0.58" transform="translate(-60.41 -53.18) rotate(-30.02)" fill="#fff"/>
+      </g>
+    </g>
+  </g>
+</svg>
