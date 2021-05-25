@@ -1,22 +1,150 @@
+/* Variables -------------------------- */
+:root {
+  /*Colours*/
+  --black: #373737;
+  --white: white;
+  --blue: #2a69a1;
+  --blue2: #6C9ECC;
+  --blue3: #C3E0FC;
+  --blue4: #DAE9F7;
+  --blue5: #EBF4FC;
+  --yellow: #F0E438;
+  --grey1: #808080;
+  --grey2: #ABABAB;
+  --grey3: #CFCFCF;
+  --grey4: #E6E6E6;
+  --grey5: #F2F2F2;
+  --focus: #4fcd90;
+  --error: #d0021b;
+
+  /*Misc*/
+  --boxShadow: rgba(99, 99, 99, 0.3) 4px 8px 8px 0;
+  --sideBar: 16rem;
+  --searchWidth: 8rem;
+
+  /*Type*/
+  --min: 16;
+  --max: 18;
+  --minScreen: 400;
+  --maxScreen: 2000;
+  --minScale: 1.067;
+  --maxScale: 1.125;
+  --minScaled: 16;
+  --maxScaled: 18;
+  --fluidFontSize: clamp(var(--minScaled)* 1px, calc( var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled))*(100vw - var(--minScreen) * 1px)/(var(--maxScreen) - var(--minScreen)) ), var(--maxScaled) * 1px);
+}
+
+/* Global Styles -------------------------- */
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: var(--fluidFontSize);
+}
+html * { box-sizing: border-box; }
+
+
 body {
-    background-color: #FFFFFF;
+  margin: 0;
+  font-family: "Public Sans", serif;
+  color: var(--black);
+  background-color: var(--white);
+}
+
+.roboto {
+  font-family: "Roboto Condensed", sans-serif;
+}
+
+.roboto-uppercase {
+  font-family: "Roboto Condensed", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.serif {
+  font-family: Baskerville,Baskerville Old Face,Hoefler Text,Garamond,Times New Roman,serif;
+}
+
+p,
+ol, ul, li,
+code, kbd, pre, samp {
+  line-height: 1.5;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+}
+
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
+  line-height: 1.1;
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+}
+
+h1 a, h2 a, h3 a, h4 a, h5 a, h6 a,
+.h1 a, .h2 a, .h3 a, .h4 a, .h5 a, .h6 a {
+  text-decoration: none;
+}
+
+h1 a:hover, h2 a:hover, h3 a:hover, h4 a:hover, h5 a:hover, h6 a:hover,
+.h1 a:hover, .h2 a:hover, .h3 a:hover, .h4 a:hover, .h5 a:hover, .h6 a:hover {
+  text-decoration: none;
+}
+
+h1, .h1 {
+  --minScaled: calc(var(--min) * var(--minScale) * var(--minScale) * var(--minScale) * var(--minScale));
+  --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale) * var(--maxScale) * var(--maxScale));
+  font-size: clamp(var(--minScaled)* 1px, calc( var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled))*(100vw - var(--minScreen) * 1px)/(var(--maxScreen) - var(--minScreen)) ), var(--maxScaled) * 1px);
+  font-weight: bold;
+  color: var(--blue);
+  font-family: "Roboto Condensed", sans-serif;
+  text-transform: uppercase;
+  margin-top: 3rem;
+  margin-bottom: 3rem;
+}
+h2, .h2 {
+  --minScaled: calc(var(--min) * var(--minScale) * var(--minScale) * var(--minScale));
+  --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale) * var(--maxScale));
+  font-size: clamp(var(--minScaled)* 1px, calc( var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled))*(100vw - var(--minScreen) * 1px)/(var(--maxScreen) - var(--minScreen)) ), var(--maxScaled) * 1px);
+  margin-top: 3rem;
+}
+h3, .h3 {
+  --minScaled: calc(var(--min) * var(--minScale) * var(--minScale));
+  --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale));
+  font-size: clamp(var(--minScaled)* 1px, calc( var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled))*(100vw - var(--minScreen) * 1px)/(var(--maxScreen) - var(--minScreen)) ), var(--maxScaled) * 1px);
+  margin-top: 2rem;
+}
+h4, .h4 {
+  --minScaled: calc(var(--min) * var(--minScale));
+  --maxScaled: calc(var(--max) * var(--maxScale));
+  font-size: clamp(var(--minScaled)* 1px, calc( var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled))*(100vw - var(--minScreen) * 1px)/(var(--maxScreen) - var(--minScreen)) ), var(--maxScaled) * 1px);
+  margin-top: 2rem;
+}
+h5, .h5 {
+  font-size: clamp(var(--minScaled)* 1px, calc( var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled))*(100vw - var(--minScreen) * 1px)/(var(--maxScreen) - var(--minScreen)) ), var(--maxScaled) * 1px);
+  margin-top: 1rem;
+}
+h6, .h6 {
+  --minScaled: calc(var(--min) / var(--minScale));
+  --maxScaled: calc(var(--max) / var(--maxScale));
+  font-size: clamp(var(--minScaled)* 1px, calc( var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled))*(100vw - var(--minScreen) * 1px)/(var(--maxScreen) - var(--minScreen)) ), var(--maxScaled) * 1px);
+  margin-top: 1rem;
 }
 
 .play-row {
-    border-bottom: solid 4px #fdf4ee;
+  border-bottom: solid 4px #fdf4ee;
 }
 
 .play-words {
-    padding-top: 10px;
-    font-family: 'Libre Baskerville', serif;
-    max-width: 800px;
-    color: #070707;
+  padding-top: 10px;
+  font-family: 'Libre Baskerville', serif;
+  max-width: 800px;
+  color: #070707;
 }
 
 .play-label {
-    padding-top: 15px;
-    background-color: #fbf5f1;
-    font-family: 'Roboto', sans-serif;
-    font-size: 10px;
+  padding-top: 15px;
+  background-color: #fbf5f1;
+  font-family: 'Roboto', sans-serif;
+  font-size: 10px;
 }
 

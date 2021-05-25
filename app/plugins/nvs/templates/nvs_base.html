@@ -4,10 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <title>New Variorum Shakespeare</title>
+    <link rel="stylesheet" href="{% static 'css/nvs.css' %}">
     <style>
         html, body {
-            background-color: #1E1E1E;
-            color: whitesmoke;
+            /*background-color: #1E1E1E;*/
+            /*color: whitesmoke;*/
         }
     </style>
     {% block headrefs %}
@@ -15,6 +16,11 @@
 </head>
 <body>
     <h1>This is on every page.</h1>
+    <h2>This is on every page.</h2>
+    <h3>This is on every page.</h3>
+    <h4>This is on every page.</h4>
+    <h5>This is on every page.</h5>
+    <h6>This is on every page.</h6>
 
     <!-- Here is a reference to a file living in the "static" folder of the NVS plugin: -->
     <img src="{% static 'img/nvs-logo.png' %}" style="height: 100px; width: auto;" />
