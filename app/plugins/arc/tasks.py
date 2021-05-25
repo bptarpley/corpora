@@ -1,17 +1,21 @@
 import os
 import redis
-from huey.contrib.djhuey import db_task
 import rdflib
-from datetime import datetime
-from .content import REGISTRY as ARC_CONTENT_TYPE_SCHEMA
-from corpus import *
 import time
 import logging
 import traceback
+from huey.contrib.djhuey import db_task
+from datetime import datetime
+from time import sleep
+from .content import REGISTRY as ARC_CONTENT_TYPE_SCHEMA
+from .content import Ascription
+from corpus import *
+from viapy.api import ViafAPI
+
 
 REGISTRY = {
     "Index ARC Archive(s)": {
-        "version": "0.1",
+        "version": "0.2",
         "jobsite_type": "HUEY",
         "track_provenance": True,
         "content_type": "Corpus",
@@ -29,18 +33,27 @@ REGISTRY = {
                     "label": "Number of Archives to Index",
                     "note": "If no handle specified, provide number of unindexed archives to index."
                 },
-                "delete_existing": {
+                "new_only": {
                     "value": "No",
                     "type": "choice",
                     "choices": ["No", "Yes"],
-                    "label": "Delete existing content?",
-                    "note": "Selecting 'Yes' will first delete all relevant content before importing!"
+                    "label": "Only index new archives?",
+                    "note": "Selecting 'Yes' will skip indexing for existing archives."
                 }
             },
         },
         "module": 'plugins.arc.tasks',
         "functions": ['index_archives']
     },
+    "Automated URI Attribution": {
+        "version": "0.0",
+        "jobsite_type": "HUEY",
+        "track_provenance": True,
+        "content_type": "ArcAgent",
+        "configuration": {},
+        "module": 'plugins.arc.tasks',
+        "functions": ['guess_agent_uri']
+    }
 }
 
 archives_dir = '/import/arc_rdf'
@@ -94,23 +107,25 @@ def index_archives(job_id):
     corpus = job.corpus
     archive_handle = job.configuration['parameters']['archive_handle']['value'].strip()
     num_archives_to_index = job.configuration['parameters']['archives_to_index']['value'].strip()
-    delete_existing = job.configuration['parameters']['delete_existing']['value'].strip() == 'Yes'
+    new_only = job.configuration['parameters']['new_only']['value'].strip() == 'Yes'
     archives = []
 
+    '''
     for arc_content_type in ARC_CONTENT_TYPE_SCHEMA:
         if delete_existing and arc_content_type['name'] in corpus.content_types:
             corpus.delete_content_type(arc_content_type['name'])
             corpus.save_content_type(arc_content_type)
         elif arc_content_type['name'] not in corpus.content_types:
             corpus.save_content_type(arc_content_type)
+    '''
 
     es_logger = logging.getLogger('elasticsearch')
     es_log_level = es_logger.getEffectiveLevel()
     es_logger.setLevel(logging.WARNING)
 
     if archive_handle:
-        archive = get_or_create_archive(corpus, archive_handle)
-        if archive:
+        archive, new = get_or_create_archive(corpus, archive_handle)
+        if archive and ((new and new_only) or not new_only):
             archives.append(archive)
     elif num_archives_to_index:
         print("Indexing {0} archives...".format(num_archives_to_index))
@@ -120,8 +135,8 @@ def index_archives(job_id):
             if num_archives_to_index > 0:
                 if os.path.exists(archive_dir + '/.git'):
                     archive_handle = os.path.basename(archive_dir).replace('arc_rdf_', '')
-                    archive = get_or_create_archive(corpus, archive_handle)
-                    if archive:
+                    archive, new = get_or_create_archive(corpus, archive_handle)
+                    if archive and ((new and new_only) or not new_only):
                         do_indexing = True
 
                         if archive.last_indexed:
@@ -137,6 +152,8 @@ def index_archives(job_id):
                 break
 
     if archives:
+        process_merged_agents(corpus)
+
         for archive in archives:
             huey_task = index_archive(job_id, str(archive.id))
             job.add_process(huey_task.id)
@@ -151,6 +168,7 @@ def index_archives(job_id):
 
 def get_or_create_archive(corpus, handle):
     archive = None
+    new = False
     try:
         archive = corpus.get_content('ArcArchive', {'handle': handle})[0]
     except:
@@ -162,11 +180,34 @@ def get_or_create_archive(corpus, handle):
             archive.handle = handle
             archive.save()
             print("Created archive for {0} ({1})".format(archive.handle, archive.id))
+            new = True
         except:
             print("Error creating archive:")
             print(traceback.format_exc())
 
-    return archive
+    return archive, new
+
+
+def process_merged_agents(corpus):
+    merge_report_dir = "{0}/files/merge_reports".format(corpus.path)
+    if os.path.exists(merge_report_dir):
+        merge_files = os.listdir(merge_report_dir)
+        for merge_file in merge_files:
+            if merge_file.startswith('ArcAgent') and '_merged_into_' in merge_file and merge_file.endswith('.json'):
+                merge_file_parts = merge_file.split('_')
+                target_id = merge_file_parts[4].replace('.json', '')
+                merge_file = "{0}/{1}".format(merge_report_dir, merge_file)
+                merged_content = None
+                with open(merge_file, 'r') as merged_in:
+                    merged_content = json.load(merged_in)
+                if merged_content and 'entity' in merged_content and 'name' in merged_content['entity']:
+                    alt_name = merged_content['entity']['name']
+                    target_agent = corpus.get_content('ArcAgent', target_id, single_result=True)
+                    if target_agent:
+                        if alt_name not in target_agent.entity.alternate_names:
+                            target_agent.entity.alternate_names.append(alt_name)
+                            target_agent.entity.save()
+                os.rename(merge_file, merge_file + '.processed')
 
 
 @db_task(priority=1, context=True)
@@ -234,6 +275,7 @@ def index_archive(job_id, archive_id, task=None):
 
                             a.url = art['url']
                             a.title = art['title']
+                            a.archive = archive.id
 
                             if 'language' in art:
                                 a.language = art['language']
@@ -245,10 +287,6 @@ def index_archive(job_id, archive_id, task=None):
 
                             if 'full_text' in art:
                                 a.full_text = 1 if art['full_text'] else 0
-
-                            archive_id = get_reference(corpus, art['archive'], 'ArcArchive', cache, make_new=False)
-                            if archive_id:
-                                a.archive = corpus.get_content_dbref('ArcArchive', archive_id)
 
                             for fed in art['federations']:
                                 federation_id = get_reference(corpus, fed, 'ArcFederation', cache)
@@ -574,11 +612,13 @@ def parse_rdf(rdf_file):
 
             # IMAGE URL
             elif prop == "http://www.collex.org/schema#image":
-                art['image_url'] = str(value)
+                if not str(value).startswith('file://'):
+                    art['image_url'] = str(value)
 
             # THUMBNAIL URL
             elif prop == "http://www.collex.org/schema#thumbnail":
-                art['thumbnail_url'] = str(value)
+                if not str(value).startswith('file://'):
+                    art['thumbnail_url'] = str(value)
 
             # HAS PART
             elif prop == "http://purl.org/dc/terms/hasPart":
@@ -647,15 +687,21 @@ def get_reference(corpus, value, ref_type, cache, make_new=True):
             if cached_ref:
                 return cached_ref
             else:
+                ref = None
+
                 if ref_type in single_key_reference_fields:
                     query = {}
                     for field_name in single_key_reference_fields[ref_type].keys():
                         query[field_name] = single_key_reference_fields[ref_type][field_name].format(value)
 
-                    ref_obj = None
-                    try:
-                        ref_obj = corpus.get_content(ref_type, query)[0]
-                    except:
+                    ref_obj = corpus.get_content(ref_type, query, single_result=True)
+                    if not ref_obj:
+                        if ref_type == 'ArcEntity':
+                            alt_ent = corpus.search_content('ArcEntity', page_size=1, fields_filter={'alternate_names': value}, only=['id'])
+                            if alt_ent and 'records' in alt_ent and len(alt_ent['records']) == 1:
+                                ref = alt_ent['records'][0]['id']
+                                make_new = False
+
                         if make_new:
                             ref_obj = corpus.get_content(ref_type)
                             for field_name in single_key_reference_fields[ref_type].keys():
@@ -668,7 +714,7 @@ def get_reference(corpus, value, ref_type, cache, make_new=True):
                     if ref_obj:
                         ref = str(ref_obj.id)
 
-                elif ref_type == 'ArcAgent': # need to speak entitites instead of people
+                elif ref_type == 'ArcAgent': # need to speak entities instead of people
                     vals = value.split('_|_')
                     if len(vals) == 2:
                         pers_val = get_reference(corpus, vals[0], 'ArcEntity', cache)
@@ -703,3 +749,178 @@ def get_reference(corpus, value, ref_type, cache, make_new=True):
         '''.format(ref_type, value))
 
     return ref
+
+@db_task(priority=2)
+def guess_agent_uri(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    corpus = job.corpus
+    agent_id = job.content_id
+
+    agent = corpus.get_content('ArcAgent', agent_id)
+
+    # if entity's external uri has been verified, don't attempt
+    if not agent.entity.external_uri_verified:
+        artifacts = corpus.get_content('ArcArtifact', {'agents': agent.id})
+
+        # retrieve an existing attribution
+        existing_attribution = None
+        try:
+            existing_attribution = corpus.get_content('UriAscription', {'corpora_uri': agent.entity.uri})[0]
+        except:
+            existing_attribution = None
+
+        vapi = ViafAPI()
+        persons = vapi.find_person(agent.entity.name)
+        sleep(3) # trying to limit rate of VIAF queries
+
+        if persons:
+            people_data = []
+
+            for person in persons:
+                person_probability = 0
+
+                # RETRIEVE NAMES
+                person_names = []
+                if 'mainHeadings' in person['recordData'] and 'data' in person['recordData']['mainHeadings']:
+                    for name_data in person['recordData']['mainHeadings']['data']:
+                        if type(name_data) == dict:
+                            person_names.append(name_data['text'])
+
+                # RETRIEVE AND PARSE BIRTH/DEATH DATES
+                person_birth_year = None
+                person_death_year = None
+
+                if 'birthDate' in person['recordData']:
+                    person_birth_date = parse_date_string(person['recordData']['birthDate'])
+                    if person_birth_date:
+                        person_birth_year = person_birth_date.year
+
+                if 'deathDate' in person['recordData']:
+                    if person['recordData']['deathDate'] != '0':
+                        person_death_date = parse_date_string(person['recordData']['deathDate'])
+                        if person_death_date:
+                            person_death_year = person_death_date.year
+
+                # RETRIEVE AUTHORED TITLES
+                person_titles = []
+                if 'titles' in person['recordData'] and person['recordData']['titles'] and 'work' in person['recordData']['titles']:
+                    if type(person['recordData']['titles']['work']) == dict:
+                        for work in person['recordData']['titles']['work']:
+                            if work and type(work) == dict and 'title' in work:
+                                person_titles.append(work['title'])
+
+                # CALCULATE PROBABILITIES/BONUSES
+                name_probability = 0
+                date_probability = 0
+                title_bonus = 0
+
+                # NAME PROBABILITY
+                for name in person_names:
+                    name_probability += get_match_probability(agent.entity.name, name)
+
+                if name_probability > 0:
+                    name_probability = name_probability / len(person_names)
+
+                # DATE PROBABILITY
+                date_probability = 0
+                for artifact in artifacts:
+                    if artifact.years and person_birth_year and min(artifact.years) and in_publication_range(person_birth_year, person_death_year, min(artifact.years)):
+                        date_probability += 1
+
+                if date_probability > 0:
+                    date_probability = (date_probability / len(artifacts)) * 100
+
+                # TITLE BONUS
+                potential_title_matches = []
+                for artifact in artifacts:
+                    highest_match_probability = 0
+                    for person_title in person_titles:
+                        match_probability = get_match_probability(artifact.title, person_title)
+                        if match_probability > highest_match_probability:
+                            highest_match_probability = match_probability
+
+                    if highest_match_probability > 0:
+                        potential_title_matches.append(highest_match_probability)
+
+                if potential_title_matches:
+                    title_bonus = sum(potential_title_matches) / len(potential_title_matches)
+
+                person_label = "No label available."
+                if person_names:
+                    person_label = person_names[0]
+
+                people_data.append({
+                    'label': person_label,
+                    'uri': person.uri,
+                    'name_prob': name_probability,
+                    'date_prob': date_probability,
+                    'title_bonus': title_bonus,
+                    'probability': (name_probability + date_probability / 2) + title_bonus
+                })
+
+            attribution = corpus.get_content('UriAscription')
+            attribution.corpora_uri = agent.entity.uri
+            people_data = sorted(people_data, reverse=True, key=lambda person: person['probability'])
+            for person_data in people_data:
+                asc = Ascription()
+                asc.uri = person_data['uri']
+                asc.label = person_data['label']
+                asc.name_probability = person_data['name_prob']
+                asc.date_probability = person_data['date_prob']
+                asc.title_score = person_data['title_bonus']
+                asc.total_score = person_data['probability']
+
+                attribution.ascriptions.append(asc)
+
+            use_attribution = True
+
+            if existing_attribution:
+                if existing_attribution.best_score < attribution.best_score:
+                    existing_attribution.delete()
+                    sleep(2)
+                else:
+                    use_attribution = False
+
+            if use_attribution:
+                attribution.save()
+                agent.entity.external_uri = attribution.best_uri
+                agent.entity.save()
+
+    agent.uri_attribution_attempted = True
+    agent.save()
+    job.complete(status='complete')
+
+
+def get_match_probability(str1, str2):
+    probability = 0
+
+    strip_chars = ['.', ',', ':']
+    for strip_char in strip_chars:
+        str1 = str1.replace(strip_char, '')
+        str2 = str2.replace(strip_char, '')
+
+    str1_parts = str1.lower().split()
+    str2_parts = str2.lower().split()
+
+    for str1_part in str1_parts:
+        if str1_part in str2_parts:
+            probability += 1
+
+    if probability > 0 and len(str1_parts) > 0:
+        probability = (probability / len(str1_parts)) * 100
+
+    return probability
+
+
+def in_publication_range(birth, death, pub_date):
+    in_range = False
+
+    if pub_date > birth:
+        if death:
+            if pub_date <= death:
+                in_range = True
+        else:
+            in_range = True
+
+    return in_range

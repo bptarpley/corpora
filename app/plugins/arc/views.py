@@ -39,7 +39,8 @@ def query(request, corpus_id):
         aggs['decades'] = A('histogram', field='years', interval=10)
 
         if context['search']:
-            content = corpus.search_content(content_type='ArcArtifact', excludes=['full_text_contents'], aggregations=aggs, **context['search'])
+            context['search']['aggregations'] = aggs
+            content = corpus.search_content(content_type='ArcArtifact', excludes=['full_text_contents'], **context['search'])
         else:
             content = corpus.search_content(content_type='ArcArtifact', excludes=['full_text_contents'], aggregations=aggs, general_query="*")
 
@@ -63,5 +64,35 @@ def bigdiva(request, corpus_id):
             'corpus_id': corpus_id,
             'role': role,
             'response': response,
+        }
+    )
+
+
+def uri_ascription(request, corpus_id, content_type, content_id):
+    context = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+    ascription = None
+
+    if corpus:
+        content_uri = '/corpus/{0}/{1}/{2}'.format(
+            corpus_id,
+            content_type,
+            content_id
+        )
+
+        try:
+            ascription = corpus.get_content('UriAscription', {'corpora_uri': content_uri})[0]
+        except:
+            ascription = None
+
+    return render(
+        request,
+        'AscriptionWidget.html',
+        {
+            'corpus_id': corpus_id,
+            'popup': True,
+            'role': role,
+            'attribution': ascription,
+            'response': context,
         }
     )

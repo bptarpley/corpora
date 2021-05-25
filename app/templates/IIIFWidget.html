@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+
+{% endblock %}
+
+{% block main %}
+    <div id="iiif-div" style="height: 100%; width: 100%;">
+    </div>
+{% endblock %}
+
+
+{% block js %}
+    <script src="{% static 'js/openseadragon.min.js' %}"></script>
+    <script type="application/javascript">
+        let dragon = null;
+
+        $(document).ready(function() {
+            let height = $('#main-container').height();
+            $('#iiif-div').css('height', `${height}px`);
+
+            dragon = OpenSeadragon({
+                id:                 "iiif-div",
+                prefixUrl:          "/static/img/openseadragon/",
+                preserveViewport:   false,
+                visibilityRatio:    1,
+                minZoomLevel:       .25,
+                maxZoomLevel:       5,
+                defaultZoomLevel:   1,
+                homeFillsViewer:    true,
+                wrapHorizontal:     true,
+                wrapVertical:       true,
+                sequenceMode:       false,
+                showRotationControl: true,
+                tileSources:   ["{{ image_url }}"]
+            });
+
+            hide_loading_overlay();
+        });
+    </script>
+{% endblock %}

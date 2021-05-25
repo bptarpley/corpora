@@ -25,6 +25,17 @@
             overflow: scroll;
             -ms-overflow-style: -ms-autohiding-scrollbar;
         }
+
+        #job-report-div {
+            max-height: calc(80vh);
+            overflow-y: scroll;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            white-space: -moz-pre-wrap;
+            white-space: -pre-wrap;
+            white-space: -o-pre-wrap;
+            word-wrap: break-word;
+        }
     </style>
 {% endblock %}
 
@@ -75,6 +86,41 @@
         </div>
     </div>
 
+    <!-- REPO MODAL -->
+    <div class="modal fade" id="new-repo-modal" tabindex="-1" role="dialog" aria-labelledby="new-repo-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <form method="post">
+                {% csrf_token %}
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add a Git Repository</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="new-repo-name-box">Name</label>
+                            <input id="new-repo-name-box" type="text" class="form-control" name="new-repo-name">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-repo-url-box">URL</label>
+                            <input id="new-repo-url-box" type="text" class="form-control" name="new-repo-url">
+                        </div>
+                        <div class="form-group">
+                            <label for="new-repo-branch-box">Branch</label>
+                            <input id="new-repo-branch-box" type="text" class="form-control" name="new-repo-branch">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <input type="submit" class="btn btn-primary" id="new-repo-save-button" value="Save" />
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- JOB MODAL -->
     <div class="modal fade" id="job-modal" tabindex="-1" role="dialog" aria-labelledby="job-modal-label" aria-hidden="true">
         <div class="modal-dialog" role="document">
@@ -109,6 +155,26 @@
             </div>
         </div>
     </div>
+    
+    <!-- Job Report Modal -->
+    <div class="modal fade" id="job-report-modal" tabindex="-1" role="dialog" aria-labelledby="job-report-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Job Report</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <pre id="job-report-div">Loading...</pre>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Job Finished Modal -->
     <div class="modal fade" id="job-finished-modal" tabindex="-1" role="dialog" aria-labelledby="job-finished-modal-label" aria-hidden="true">
@@ -127,7 +193,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" onclick="window.location = window.location.href;">Refresh</button>
+                    <button type="button" class="btn btn-primary" onclick="window.location = window.location.href.replace(location.hash, '');">Refresh</button>
                 </div>
             </div>
         </div>
@@ -200,13 +266,21 @@
                             <option value="html">HTML</option>
                             <option value="number">Number</option>
                             <option value="decimal">Decimal</option>
+                            <option value="boolean">Boolean</option>
                             <option value="date">Date</option>
                             <option value="link">Link</option>
+                            <option value="iiif-image">IIIF Image URL</option>
                             <option value="file">File Upload</option>
                             <option value="cross_reference">Cross Reference</option>
                         </select>
                         <select id="new-f-cross-reference-box" class="d-none">
                             <option value="Document">Document</option>
+                        </select>
+                    </div>
+                    <div class="form-group d-none" id="new-f-synonym-div">
+                        <label for="new-f-synonym-box">Synonyms for Searching this Field</label>
+                        <select id="new-f-synonym-box">
+                            <option value="None">None</option>
                         </select>
                     </div>
                     <div class="form-check">
@@ -271,6 +345,7 @@
                         <label for="template-mime-type">MIME Type</label>
                         <select id="template-mime-type">
                             <option value="text/html">text/html</option>
+                            <option value="text/turtle">text/turtle</option>
                             <option value="text/xml">text/xml</option>
                             <option value="application/json">application/json</option>
                         </select>
@@ -305,7 +380,7 @@
         </div>
     </div>
 
-    <!-- CONFIRMATION MODAL -->
+    <!-- CONTENT MANAGER CONFIRMATION MODAL -->
     <div class="modal fade" id="confirmation-modal" tabindex="-1" role="dialog" aria-labelledby="confirmation-modal-label" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -328,6 +403,27 @@
                         <button type="submit" class="btn btn-primary" id="confirmation-confirm-button">Confirm</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT DELETION CONFIRMATION MODAL -->
+    <div class="modal fade" id="deletion-confirmation-modal" tabindex="-1" role="dialog" aria-labelledby="deletion-confirmation-modal-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deletion-confirmation-modal-label">Confirm Deletion</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="deletion-confirmation-modal-message" class="alert alert-danger"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="deletion-confirmation-button">Delete</button>
+                </div>
             </div>
         </div>
     </div>
@@ -382,6 +478,25 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- REPOS -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h4>Corpus Repos</h4>
+                            {% if response.scholar.is_admin or role == 'Editor' %}
+                                <button id="add-corpus-repo-button" class="btn btn-primary rounded" type="button">Add</button>
+                            {% else %}
+                                <span>&nbsp;</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body" id="corpus-repos-div">
+                        <div class="alert alert-info">
+                            There are currently no repos for this corpus.
+                        </div>
+                    </div>
+                </div>
             </div>
 
 
@@ -391,19 +506,20 @@
                     <div class="card-header">
                         <div class="d-flex w-100 justify-content-between align-items-center">
                             <h4>Running Jobs</h4>
+                            <span>
                             {% if response.scholar.is_admin or role == 'Editor' %}
                                 <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
-                            {% else %}
-                                <span>&nbsp;</span>
+                                <button id="launch-notebook-button" class="btn btn-primary rounded ml-1" type="button">Launch Notebook</button>
+                                <form id="launch-notebook-form" method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="launch-notebook" value="y" />
+                                </form>
                             {% endif %}
+                            </span>
                         </div>
                     </div>
                     <div class="card-body">
-                        <div id="running-jobs-div">
-                            <div id="no-running-jobs-div" class="alert alert-info">
-                                There are currently no jobs running for this corpus.
-                            </div>
-                        </div>
+                        <iframe src="/jobs/corpus/{{ corpus_id }}/" width="100%" height="100%" frameBorder="0"></iframe>
                     </div>
                 </div>
 
@@ -508,13 +624,13 @@
     <script type="application/javascript">
         let corpus_id = "{{ corpus_id }}";
         let role = "{{ role }}";
+        let available_jobsites = {{ available_jobsites|safe }};
+        let available_tasks = {{ available_tasks|safe }};
         let corpus = null;
         let template_formats = null;
         let jobsites = [];
         let local_jobsite_id = null;
         let tasks = [];
-        let check_jobs_timer = null;
-        let check_jobs_interval = 10;
         let ct_search = {};
         let selected_content = {};
         let import_editor;
@@ -557,9 +673,11 @@
             choice: 'Choice',
             number: 'Number',
             decimal: 'Decimal',
+            boolean: 'Boolean',
             date: 'Date',
             file: 'File',
             link: 'Link',
+            'iiif-image': 'IIIF Image URL',
             cross_reference: 'Cross Reference',
             embedded: 'Embedded'
         };
@@ -593,6 +711,7 @@
                 if (corpus.provenance.length > 0) { provenance_div.html(''); }
                 corpus.provenance.forEach( prov => {
                     let retry_form = '';
+                    let report_button = '';
                     if (role === 'Admin' || role === 'Editor') {
                         retry_form = `
                             <form method="post">
@@ -601,6 +720,12 @@
                                 <button type="submit" role="button" class="btn btn-danger">Retry</button>
                             </form>
                         `;
+
+                        if (prov.report_path) {
+                            report_button = `
+                                <button type="button" onClick="view_job_report('${prov.job_id}');" class="btn btn-primary mr-1">View Report</button>
+                            `;
+                        }
                     }
 
                     provenance_div.append(`
@@ -611,6 +736,7 @@
                                     Completed: ${corpora.time_string(prov.completed)}
                                 </div>
                                 <div class="col-sm-2">
+                                    ${report_button}
                                     ${retry_form}
                                 </div>
                             </div>
@@ -675,6 +801,32 @@
                     }
                 }
 
+                // load corpus repos
+                if (Object.keys(corpus.repos).length > 0) {
+                    let corpus_repos_div = $('#corpus-repos-div');
+                    corpus_repos_div.html('');
+                    for (let repo_name in corpus.repos) {
+                        let repo = corpus.repos[repo_name];
+                        if (repo.error) {
+                            corpus_repos_div.append(`
+                                <div class="alert alert-danger">
+                                    <b>${repo.name}</b><br/>
+                                    Error pulling from branch "${repo.remote_branch}"!
+                                </div>
+                            `);
+                        }
+                        else {
+                            corpus_repos_div.append(`
+                                <div class="alert alert-info">
+                                    <b>${repo.name}</b><br/>
+                                    Branch "${repo.remote_branch}"
+                                    last pulled ${corpora.time_string(repo.last_pull)}
+                                </div>
+                            `);
+                        }
+                    }
+                }
+
                 // setup content type manager
                 if (role === 'Editor' || role === 'Admin') {
                     // setup the editor for importing a content type schema
@@ -686,6 +838,16 @@
                     template_editor = ace.edit("template-editor");
                     template_editor.setTheme("ace/theme/monokai");
                     template_editor.getSession().setMode("ace/mode/django");
+
+                    // populate synonym file options
+                    if (corpus.hasOwnProperty('available_synonyms')) {
+                        let synonym_box = $('#new-f-synonym-box');
+                        for (let synonym_option in corpus.available_synonyms) {
+                            synonym_box.append(`
+                                <option value='${synonym_option}'>${corpus.available_synonyms[synonym_option].label}</option>
+                            `);
+                        }
+                    }
 
                     // setup event for showing schema import modal
                     $('#show-import-modal-button').click(function () {
@@ -775,10 +937,16 @@
                     $('#new-f-type-box').change(function () {
                         let selection = $(this).val();
 
-                        if (selection == 'cross_reference') {
+                        if (selection === 'cross_reference') {
                             $('#new-f-cross-reference-box').removeClass('d-none');
                         } else {
                             $('#new-f-cross-reference-box').addClass('d-none');
+                        }
+
+                        if (['text', 'large_text', 'html'].includes(selection)) {
+                            $('#new-f-synonym-div').removeClass('d-none');
+                        } else {
+                            $('#new-f-synonym-div').addClass('d-none');
                         }
                     });
 
@@ -806,6 +974,7 @@
 
                     // CREATE FIELD BUTTON CLICK
                     $('#new-f-create-button').click(function () {
+                        let synonym_file = $('#new-f-synonym-box').val();
                         let cross_reference_type = '';
                         if ($('#new-f-type-box').val() == 'cross_reference') {
                             cross_reference_type = $('#new-f-cross-reference-box').val();
@@ -821,6 +990,7 @@
                             unique_with: $('#new-f-unique-with-box').val(),
                             multiple: $('#new-f-multiple-checkbox').is(':checked'),
                             cross_reference_type: cross_reference_type,
+                            synonym_file: synonym_file !== 'None' ? synonym_file : null,
                             type: $('#new-f-type-box').val(),
                         };
 
@@ -892,11 +1062,12 @@
                             <div class="dropdown-menu" aria-labelledby="ct_nav_dropdown">
                 `;
                 for (let ct_name in corpus.content_types) {
-                    build_content_table(ct_name);
-                    selected_content[ct_name] = {
-                        all: false,
-                        ids: []
-                    };
+                    let content_table = new ContentTable({
+                        container_id: 'content-types-div',
+                        corpora: corpora,
+                        corpus: corpus,
+                        content_type: ct_name
+                    });
 
                     if (role === 'Editor' || role === 'Admin') {
                         manage_content_type(ct_name);
@@ -922,26 +1093,30 @@
                 breadcrumb.css('position', 'fixed');
 
                 // SETUP JOBS
-                corpora.get_jobsites(function(jobsites_data) {
+                corpora.get_jobsites(function (jobsites_data) {
                     jobsites = jobsites_data;
 
                     if (role === 'Editor' || role === 'Admin') {
                         let jobsite_selector = $('#jobsite-selector');
 
                         for (let x = 0; x < jobsites.length; x++) {
-                            jobsite_selector.append(`
-                                <option value="${_id(jobsites[x])}" class="${jobsites[x]["type"]}">
-                                    ${jobsites[x]["name"]}
-                                </option>
-                            `);
-                            if (jobsites[x].name === 'Local') {
-                                local_jobsite_id = _id(jobsites[x]);
+                            if (role === 'Admin' || available_jobsites.includes(_id(jobsites[x]))) {
+                                jobsite_selector.append(`
+                                    <option value="${_id(jobsites[x])}" class="${jobsites[x]["type"]}">
+                                        ${jobsites[x]["name"]}
+                                    </option>
+                                `);
+                                if (jobsites[x].name === 'Local') {
+                                    local_jobsite_id = _id(jobsites[x]);
+                                }
                             }
                         }
                     }
 
-                    corpora.get_tasks('Corpus', function(tasks_data) {
-                        tasks = tasks_data.filter(function(value, index, arr) { return value.track_provenance; });
+                    corpora.get_tasks('Corpus', function (tasks_data) {
+                        tasks = tasks_data.filter(function (value, index, arr) {
+                            return value.track_provenance;
+                        });
 
                         if (role === 'Editor' || role === 'Admin') {
                             load_tasks(local_jobsite_id);
@@ -956,10 +1131,22 @@
                             $('#job-submit-button').click(function () {
                                 $('#job-form').submit();
                             });
-                        }
 
-                        check_jobs();
+                            $('#launch-notebook-button').click(function () {
+                                $('#launch-notebook-form').submit();
+                            })
+                        }
                     });
+                });
+
+                // CONTENT DELETION BUTTON
+                $('#deletion-confirmation-button').click(function() {
+                    let multi_form = $('#multiselect-form');
+                    multi_form.append(`
+                        <input type='hidden' name='deletion-confirmed' value='y'/>
+                    `);
+                    multi_form.attr('action', '');
+                    multi_form.submit();
                 });
 
                 let scroll_location = location.hash;
@@ -969,461 +1156,6 @@
 
             hide_loading_overlay();
         });
-
-        function build_content_table(ct_name) {
-            let ct_row = $("#content-types-div");
-            let ct = corpus.content_types[ct_name];
-
-            ct_row.append(`
-                <div class="row">
-                    <div class="col-12">
-                        <a name="${ct.plural_name}"></a>
-                        <div class="card mt-4">
-                            <div class="card-header" style="padding: 0 !important;">
-                                <div class="d-flex w-100 justify-content-between align-items-center text-nowrap p-2 ml-2">
-                                    <h4>${ct.plural_name}</h4>
-                                    <div class="input-group ml-2 mr-2">
-                                        <input type="text" class="form-control form-control" id="ct-${ct.name}-search-box" placeholder="Search" />
-                                        <div class="input-group-append">
-                                            <button id="ct-${ct.name}-search-setting-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">All Fields</button>
-                                            <div id="ct-${ct.name}-search-settings-menu" class="dropdown-menu">
-                                                <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-default" href="#">All Fields</a>
-                                            </div>
-                                            <input type="hidden" id="ct-${ct.name}-search-setting-value" value="default" />
-                                        </div>
-                                    </div>
-
-                                    <button id="ct-${ct.name}-search-clear-button" class="btn btn-primary rounded mr-2 d-none" type="button">Clear Search</button>
-                                    ${ (role === 'Editor' || role === 'Admin') ? `<a role="button" id="ct-${ct.name}-new-button" href="/corpus/${corpus_id}/${ct.name}/" class="btn btn-primary rounded mr-2">New ${ct.name}</a>` : ''}
-
-                                    <div class="form-inline mr-2">
-                                        <select class="form-control btn-primary d-none" id="ct-${ct.name}-page-selector">
-                                        </select>
-                                    </div>
-
-                                    <div class="form-inline mr-2">
-                                        <select class="form-control btn-primary" id="ct-${ct.name}-per-page-selector">
-                                            <option selected>5</option>
-                                            <option>10</option>
-                                            <option>20</option>
-                                            <option>50</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div id="ct-${ct.name}-current-search-div" class="d-flex w-100 align-items-center p-2 pl-3 badge-secondary" style="padding-top: 12px !important;"></div>
-                            </div>
-                            <div class="card-body">
-                                <table class="table table-striped">
-                                    <thead class="thead-dark">
-                                        <tr id="ct-${ct.name}-table-header-row">
-                                        </tr>
-                                    </thead>
-                                    <tbody id="ct-${ct.name}-table-body">
-                                    </tbody>
-                                </table>
-                                <div class="form-inline">
-                                    With selected:
-                                    <select class="form-control-sm btn-primary ml-1 mr-1" id="ct-${ct.name}-selection-action-selector">
-                                        <option value="explore" selected>Explore</option>
-                                        <option value="merge">Merge</option>
-                                    </select>
-                                    <button type="button" class="btn btn-sm btn-secondary" id="ct-${ct.name}-selection-action-go-button" disabled>Go</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `);
-
-            // setup content type table headers
-            let table_header_row = $(`#ct-${ct.name}-table-header-row`);
-            table_header_row.append(`
-                <th scope="col">
-                    <input type="checkbox" id="ct_${ct.name}_select-all_box">
-                </th>
-            `);
-            for (let x = 0; x < ct.fields.length; x++) {
-                if (ct.fields[x].in_lists) {
-                    table_header_row.append(`
-                        <th scope="col">
-                            <a href="javascript: ct_order_by('${ct.name}', '${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}');"><h5>${ct.fields[x].label}</h5></a>
-                        </th>
-                    `);
-                }
-            }
-
-            // handle select all box checking/unchecking
-            $(`#ct_${ct.name}_select-all_box`).change(function() {
-                let id_parts = this.id.split('_');
-                let ct_name = id_parts[1];
-                let go_button = $(`#ct-${ct_name}-selection-action-go-button`);
-
-                if ($(this).is(':checked')) {
-                    selected_content[ct_name].all = true;
-                    selected_content[ct_name].ids = [];
-
-                    $(`.ct-${ct_name}-selection-box`).each(function() {
-                        $(this).prop("checked", true);
-                        $(this).attr("disabled", true);
-                    });
-
-                    go_button.removeAttr('disabled');
-                } else {
-                    selected_content[ct_name].all = false;
-                    $(`.ct-${ct_name}-selection-box`).each(function() {
-                        $(this).prop("checked", false);
-                        $(this).removeAttr("disabled");
-                    });
-
-                    go_button.attr('disabled', true);
-                }
-            });
-
-            // setup content type search fields
-            let search_settings_menu = $(`#ct-${ct.name}-search-settings-menu`);
-            for (let x = 0; x < ct.fields.length; x++) {
-                if (ct.fields[x].in_lists) {
-                    search_settings_menu.append(`
-                        <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}" href="#">${ct.fields[x].label}</a>
-                    `);
-
-                    // add cross reference sub field options
-                    if (ct.fields[x].type === 'cross_reference') {
-                        if (corpus.content_types.hasOwnProperty(ct.fields[x].cross_reference_type)) {
-                            let cx = corpus.content_types[ct.fields[x].cross_reference_type];
-                            for (let y = 0; y < cx.fields.length; y++) {
-                                if (cx.fields[y].in_lists && cx.fields[y].type !== 'cross_reference') {
-                                    search_settings_menu.append(`
-                                        <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-${ct.fields[x].name + '.' + cx.fields[y].name}" href="#">${ct.fields[x].label} -> ${cx.fields[y].label}</a>
-                                    `);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            $(`.ct-${ct.name}-search-setting`).click(function (event) {
-                event.preventDefault();
-                let field = event.target.id.replace(`ct-${ct.name}-search-setting-`, '');
-                let label = $(this).text();
-
-                $(`#ct-${ct.name}-search-setting-selection`).text(label);
-                $(`#ct-${ct.name}-search-setting-value`).val(field);
-            });
-
-            // setup page selector events
-            $(`#ct-${ct.name}-page-selector`).on("change", function () {
-                ct_search[ct.name].page = parseInt($(`#ct-${ct.name}-page-selector`).val());
-                corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
-            });
-
-            $(`#ct-${ct.name}-per-page-selector`).on("change", function () {
-                ct_search[ct.name]['page-size'] = parseInt($(`#ct-${ct.name}-per-page-selector`).val());
-                ct_search[ct.name]['page'] = 1;
-                corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
-            });
-
-            // setup search events
-            $(`#ct-${ct.name}-search-box`).keypress(function (e) {
-                let key = e.which;
-                if (key === 13) {
-                    let query = $(`#ct-${ct.name}-search-box`).val();
-                    let field = $(`#ct-${ct.name}-search-setting-value`).val();
-
-                    if (field === 'default') {
-                        ct_search[ct.name].q = query;
-                    } else {
-                        ct_search[ct.name]['q_' + field] = query;
-                    }
-
-                    $(`#ct-${ct.name}-search-clear-button`).removeClass('d-none');
-                    corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
-                }
-            });
-
-            $(`#ct-${ct.name}-search-clear-button`).click(function (event) {
-                $(`#ct-${ct.name}-search-box`).val('');
-                for (let param in ct_search[ct.name]) {
-                    if (ct_search[ct.name].hasOwnProperty(param)) {
-                        if (param.startsWith("q")) {
-                            delete ct_search[ct.name][param];
-                        }
-                    }
-                }
-                $(`#ct-${ct.name}-search-setting-selection`).text("All Fields");
-                $(`#ct-${ct.name}-search-setting-value`).val('default');
-
-                corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
-            });
-
-            $(`#ct-${ct.name}-selection-action-go-button`).click(function() {
-                let id_parts = this.id.split('-');
-                let ct_name = id_parts[1];
-                let action = $(`#ct-${ct.name}-selection-action-selector`).val();
-                let multi_form = $('#multiselect-form');
-                $('#multiselect-content-ids').val(selected_content[ct_name].ids.join(','));
-
-                if (action === 'explore') {
-                    multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/explore/`);
-                    multi_form.submit();
-                } else if (action === 'merge') {
-                    multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/merge/`);
-                    multi_form.submit();
-                }
-            });
-
-            // default search settings
-            ct_search[ct.name] = {
-                'page': 1,
-                'page-size': 5,
-            };
-
-            // perform initial query of content based on search settings
-            corpora.list_content(corpus_id, ct.name, ct_search[ct.name], load_content);
-        }
-
-        // callback function for loading a page of content returned by corpora.list_content
-        function load_content(content) {
-            let ct = corpus.content_types[content.meta.content_type];
-            $('#save-content-type-schema-button').attr('disabled', false);
-
-            // instantiate some variables to keep track of elements
-            let ct_table_body = $(`#ct-${ct.name}-table-body`); // <-- the table body for listing results
-            let page_selector = $(`#ct-${ct.name}-page-selector`); // <-- the page select box
-            let per_page_selector = $(`#ct-${ct.name}-per-page-selector`); // <-- the page size select box
-            let current_search_div = $(`#ct-${ct.name}-current-search-div`); // <-- the search criteria div
-
-            // clear the table body, page selector, and search criteria div
-            ct_table_body.html('');
-            page_selector.html('');
-            current_search_div.html('');
-
-            // add the total number of results to the search criteria div
-            current_search_div.append(`
-                <span id="ct-${ct.name}-total-badge" class="badge badge-primary p-2 mr-2" data-total="${content.meta.total}" style="font-size: 12px;">
-                    Total: ${content.meta.total.toLocaleString('en-US')}
-                </span>
-            `);
-
-            // add existing search criteria to the div
-            let has_filtering_criteria = false;
-            for (let search_setting in ct_search[ct.name]) {
-                if (ct_search[ct.name].hasOwnProperty(search_setting) && (search_setting === 'q' || search_setting.startsWith('q_') || search_setting.startsWith('s_'))) {
-                    let setting_type = 'Searching';
-                    let field = "";
-                    let field_name = "";
-                    let search_value = `"${ct_search[ct.name][search_setting]}"`;
-
-                    if (search_setting !== 'q') {
-                        field = search_setting.substring(2);
-                        let subfield = "";
-                        if (field.includes('.')) {
-                            let field_parts = field.split('.');
-                            field = field_parts[0];
-                            subfield = field_parts[1];
-                        }
-
-                        for (let x = 0; x < ct.fields.length; x++) {
-                            if (ct.fields[x].name === field) {
-                                field_name = ct.fields[x].label;
-
-                                if (subfield !== "" && ct.fields[x].type === 'cross_reference' && corpus.content_types.hasOwnProperty(ct.fields[x].cross_reference_type)) {
-                                    let cx = corpus.content_types[ct.fields[x].cross_reference_type];
-                                    for (let y = 0; y < cx.fields.length; y++) {
-                                        if (cx.fields[y].name === subfield) {
-                                            field_name += " -> " + cx.fields[y].label;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        if (search_setting.startsWith('s_')) {
-                            setting_type = 'Sorting';
-                            search_value = "";
-
-                        }
-                    }
-
-                    if (setting_type === 'Searching') { has_filtering_criteria = true; }
-
-                    current_search_div.append(`
-                        <span class="badge badge-primary p-2 mr-2" style="font-size: 12px;">
-                            ${setting_type} ${field_name} ${search_value}
-                            <a class="text-white" href="javascript: ct_remove_search_param('${ct.name}', '${search_setting}');"><i class="far fa-times-circle"></i></a>
-                        </span>
-                    `);
-                }
-            }
-
-            // if there are no search results, show a default message
-            if (content.records.length < 1) {
-                let no_records_msg = `There are currently no ${ct.plural_name} in this corpus. Click the "New ${ct.name}" button above to create one.`;
-                if (has_filtering_criteria) {
-                    no_records_msg = `No ${ct.plural_name} in this corpus match your search criteria.`;
-                }
-
-                let num_cols = 1;
-                for (let x = 0; x < ct.fields.length; x++) {
-                    if (ct.fields[x].in_lists) {
-                        num_cols += 1;
-                    }
-                }
-
-                let row_html = `
-                    <tr>
-                        <td colspan="${num_cols}">
-                            <div class="alert alert-warning">
-                                ${no_records_msg}
-                            </div>
-                        </td>
-                    </tr>
-                `;
-                ct_table_body.append(row_html);
-
-                page_selector.addClass("d-none");
-                per_page_selector.addClass("d-none");
-
-            // records exist, so populate the content type table with a page of results
-            } else {
-                // setup the page selector based on total # of pages within 50 page range
-                let min_page = content.meta.page - 50;
-                let max_page = content.meta.page + 50;
-                let first_pg_msg = '';
-                let last_pg_msg = '';
-
-                if (min_page < 1) { min_page = 1; }
-                if (max_page > content.meta.num_pages) { max_page = content.meta.num_pages; }
-                if (min_page > 1) { first_pg_msg = ' and below'; }
-                if (max_page < content.meta.num_pages) { last_pg_msg = ' and above'; }
-
-                for (let x = min_page; x <= max_page; x++) {
-                    let option_html = `<option value="${x}">Page ${x}</option>`;
-
-                    if (x === content.meta.page) { option_html = option_html.replace('">', '" selected>'); }
-                    if (x === min_page) { option_html = option_html.replace('</', `${first_pg_msg}</`); }
-                    else if (x === max_page) { option_html = option_html.replace('</', `${last_pg_msg}</`); }
-
-                    page_selector.append(option_html);
-                }
-                page_selector.removeClass("d-none");
-                per_page_selector.removeClass("d-none");
-                per_page_selector.val(ct_search[ct.name]['page-size'].toString());
-
-                // iterate through the records, adding a row for each one
-                content.records.forEach(item => {
-                    let selected = '';
-                    if (selected_content[ct.name].all) {
-                        selected = "checked disabled";
-                    } else if (selected_content[ct.name].ids.includes(item.id)) {
-                        selected = "checked";
-                    }
-
-                    let row_html = `
-                        <tr>
-                            <td class="ct-selection-cell">
-                                <input type="checkbox" id="ct_${ct.name}_${item.id}_selection-box" class="ct-${ct.name}-selection-box" ${selected}>
-                                <a href="${item.uri}" target="_blank">
-                                    <span class="badge">Open <span class="fas fa-external-link-square-alt"></span></span>
-                                </a>
-                            </td>
-                    `;
-
-                    ct.fields.map(field => {
-                        if (field.in_lists) {
-                            let value = '';
-                            if (item.hasOwnProperty(field.name)) {
-                                value = item[field.name];
-
-                                if (field.cross_reference_type && value) {
-                                    if (field.multiple) {
-                                        let multi_value = '';
-                                        for (let y in value) {
-                                            multi_value += `, <a href="${value[y].uri}" target="_blank">${value[y].label}</a>`;
-                                        }
-                                        if (multi_value) {
-                                            multi_value = multi_value.substring(2);
-                                        }
-                                        value = multi_value;
-                                    } else {
-                                        value = `<a href="${value.uri}" target="_blank">${value.label}</a>`;
-                                    }
-                                } else if (field.multiple) {
-                                    if (field.type === 'text' || field.type === 'large_text' || field.type === 'keyword') {
-                                        value = value.join(' ');
-                                    } else {
-                                        let multi_value = '';
-                                        for (let y in value) {
-                                            if (field.type === 'date') {
-                                                multi_value += `, ${corpora.date_string(value[y])}`;
-                                            }
-                                            else {
-                                                multi_value += `, ${value[y]}`;
-                                            }
-                                        }
-                                        if (multi_value) {
-                                            multi_value = multi_value.substring(2);
-                                        }
-                                        value = multi_value;
-                                    }
-                                }
-                                else if (field.type === 'date') {
-                                    value = corpora.date_string(value);
-                                }
-                            }
-
-                            row_html += `
-                                <td style="width: auto;">
-                                    <div class="corpora-content-cell">
-                                        ${value}
-                                    </div>
-                                </td>`;
-                        }
-                    });
-
-                    row_html += "</tr>";
-                    ct_table_body.append(row_html);
-                });
-            }
-
-            // handle checking/unchecking content selection boxes
-            $(`.ct-${ct.name}-selection-box`).change(function() {
-                let id_parts = this.id.split('_');
-                let ct_name = id_parts[1];
-                let content_id = id_parts[2];
-                let go_button = $(`#ct-${ct_name}-selection-action-go-button`);
-
-                if($(this).is(':checked')) {
-                    selected_content[ct_name].ids.push(content_id);
-                } else {
-                    selected_content[ct_name].ids = selected_content[ct_name].ids.filter(id => id !== content_id);
-                }
-
-                if (selected_content[ct_name].ids.length > 0) { go_button.removeAttr('disabled'); }
-                else { go_button.attr('disabled', true); }
-            });
-        }
-
-        function ct_order_by(ct_name, field) {
-            let key = "s_" + field;
-            if (ct_search[ct_name].hasOwnProperty(key)) {
-                if (ct_search[ct_name][key] === 'asc') {
-                    ct_search[ct_name][key] = 'desc';
-                } else {
-                    ct_search[ct_name][key] = 'asc';
-                }
-            } else {
-                ct_search[ct_name][key] = 'asc';
-            }
-            corpora.list_content(corpus_id, ct_name, ct_search[ct_name], load_content);
-        }
-
-        function ct_remove_search_param(ct_name, param) {
-            if (ct_search[ct_name].hasOwnProperty(param)) {
-                delete ct_search[ct_name][param];
-                corpora.list_content(corpus_id, ct_name, ct_search[ct_name], load_content);
-            }
-        }
 
         function manage_content_type(ct_name) {
             let ct_div_prefix = `tm-ct-${ct_name}`;
@@ -1443,6 +1175,7 @@
                         <span class="float-right">
                             <button id="${ct_div_prefix}-edit-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Edit"><span class="fas fa-edit"></span></button>
                             <button id="${ct_div_prefix}-reindex-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Re-Index"><span class="fas fa-sync"></span></button>
+                            <button id="${ct_div_prefix}-relabel-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Re-Label"><span class="fas fa-tag"></span></button>
                             ${delete_or_lock_button}
                         </span>
                         <div id="${ct_div_prefix}" class="alert alert-info collapse p-3 mt-2" aria-labelledby="${ct_div_prefix}-container" data-parent="#tm-ct-group">
@@ -1534,11 +1267,28 @@
                     $('#confirmation-field-name').val('');
                     $('#confirmation-action').val('reindex');
                     $('#confirmation-confirm-button').attr('disabled', false);
+                    $('#confirmation-modal-label').html('Confirm Re-indexing');
 
                     let message = `You are attempting to re-index the <b>${ct_name}</b> content type.
                     Depending on how much content belongs to this type, this may take a long time, and
                     while re-indexing is taking place, the content will be temporarily unavailable in
                     lists. Do you wish to proceed?`;
+
+                    $('#confirmation-modal-message').html(message);
+                    $('#confirmation-modal').modal();
+                });
+
+                // REINDEX CONTENT TYPE BUTTON
+                $(`#${ct_div_prefix}-relabel-button`).click(function() {
+                    $('#confirmation-ct-name').val(ct_name);
+                    $('#confirmation-field-index').val('');
+                    $('#confirmation-field-name').val('');
+                    $('#confirmation-action').val('relabel');
+                    $('#confirmation-confirm-button').attr('disabled', false);
+                    $('#confirmation-modal-label').html('Confirm Re-Labeling');
+
+                    let message = `You are attempting to re-label content belonging to the <b>${ct_name}</b> content type.
+                    Depending on how much content belongs to this type, this may take a long time. Do you wish to proceed?`;
 
                     $('#confirmation-modal-message').html(message);
                     $('#confirmation-modal').modal();
@@ -1553,6 +1303,8 @@
                             $('#confirmation-field-name').val('');
                             $('#confirmation-action').val('delete');
                             $('#confirmation-confirm-button').attr('disabled', false);
+                            $('#confirmation-modal-label').html('Confirm Deletion');
+
 
                             let message = `You are attempting to delete the <b>${ct_name}</b> content type.
                             Upon doing so, <b>all content of this type will be irreversibly deleted</b>. Some templates may also need to be
@@ -1599,6 +1351,8 @@
                     $('#new-f-name-box').prop('disabled', false);
                     $('#new-f-label-box').val('');
                     $('#new-f-type-box').val('keyword');
+                    $('#new-f-synonym-box').val('None');
+                    $('#new-f-synonym-div').addClass('d-none');
                     $('#new-f-in-lists-checkbox').prop('checked', true);
                     $('#new-f-indexed-checkbox').prop('checked', false);
                     $('#new-f-unique-checkbox').prop('checked', false);
@@ -1674,6 +1428,13 @@
                 case 'cross_reference':
                     field_type_display = ct.fields[f_index].cross_reference_type;
                     break;
+                case 'text':
+                    field_type_display = 'Text';
+                    let syn_file_key = ct.fields[f_index].synonym_file;
+                    if (syn_file_key) {
+                        field_type_display += ` (${corpus.available_synonyms[syn_file_key].label})`;
+                    }
+                    break;
                 default:
                     field_type_display = FIELD_TYPE_LABELS[ct.fields[f_index].type];
                     break;
@@ -1737,11 +1498,19 @@
                     $('#new-f-name-box').prop('disabled', true);
                     $('#new-f-label-box').val(ct.fields[f_index].label);
                     $('#new-f-type-box').val(ct.fields[f_index].type);
+
                     if (ct.fields[f_index].type === 'cross_reference') {
                         $('#new-f-cross-reference-box').removeClass('d-none');
                         $('#new-f-cross-reference-box').val(ct.fields[f_index].cross_reference_type);
                     } else {
                         $('#new-f-cross-reference-box').addClass('d-none');
+                    }
+
+                    $('#new-f-synonym-box').val(ct.fields[f_index].synonym_file == null ? 'None' : ct.fields[f_index].synonym_file);
+                    if (['text', 'large_text', 'html'].includes(ct.fields[f_index].type)) {
+                        $('#new-f-synonym-div').removeClass('d-none');
+                    } else {
+                        $('#new-f-synonym-div').addClass('d-none');
                     }
 
                     $('.f-with').html('');
@@ -1928,6 +1697,19 @@
             $('#import-corpus-files-form').submit();
         });
 
+        // REPO FUNCTIONALITY
+        $('#add-corpus-repo-button').click(function() {
+            $('#new-repo-name-box').val('');
+            $('#new-repo-url-box').val('');
+            $('#new-repo-branch-box').val('master');
+            $('#new-repo-modal').modal();
+        });
+
+        // PEP8 CLASS FORMAT REPO NAME
+        $('#new-repo-name-box').focusout(function () {
+            $('#new-repo-name-box').val(pep8_variable_format($('#new-repo-name-box').val()));
+        });
+
         // JOB FUNCTIONALITY
         function load_tasks(jobsite_id) {
             let task_selector = $('#task-selector');
@@ -1978,7 +1760,6 @@
             let parameters = task['configuration']['parameters'];
             for (let parameter in parameters) {
                 if (parameters[parameter].hasOwnProperty('type')) {
-                    console.log('handling parameter ' + parameter);
                     let parameter_html = '';
                     let note_html = '';
                     if (parameters[parameter].hasOwnProperty('note')) {
@@ -1993,8 +1774,23 @@
 
                         parameter_html = `
                             <div class="form-group">
-                                <label for="corpus-file-selector">${parameters[parameter]['label']}</label>
-                                <select id="corpus-file-selector" class="form-control" name="${parameter}">
+                                <label for="${parameter}-file-selector">${parameters[parameter]['label']}</label>
+                                <select id="${parameter}-file-selector" class="form-control" name="${parameter}">
+                                    ${select_options}
+                                </select>
+                                ${note_html}
+                            </div>
+                        `;
+                    } else if (parameters[parameter]['type'] === 'corpus_repo') {
+                        let select_options = '';
+                        Object.keys(corpus.repos).forEach(repo_name => {
+                            select_options += `<option value="${repo_name}">${repo_name}</option>`;
+                        });
+
+                        parameter_html = `
+                            <div class="form-group">
+                                <label for="${parameter}-repo-selector">${parameters[parameter]['label']}</label>
+                                <select id="${parameter}-repo-selector" class="form-control" name="${parameter}">
                                     ${select_options}
                                 </select>
                                 ${note_html}
@@ -2008,11 +1804,37 @@
 
                         parameter_html = `
                             <div class="form-group">
-                                <label for="corpus-ct-selector">${parameters[parameter]['label']}</label>
-                                <select id="corpus-ct-selector" class="form-control" name="${parameter}">
+                                <label for="${parameter}-ct-selector">${parameters[parameter]['label']}</label>
+                                <select id="${parameter}-ct-selector" class="form-control" name="${parameter}">
                                     ${select_options}
                                 </select>
                                 ${note_html}
+                            </div>
+                        `;
+                    } else if (parameters[parameter]['type'] === 'content_type_field') {
+                        let select_options = '';
+                        Object.keys(corpus.content_types).forEach(ct => {
+                            corpus.content_types[ct].fields.map(f => {
+                                select_options += `<option value="${ct}->${f.name}">${ct} -> ${f.label}</option>`;
+                            });
+                        });
+
+                        parameter_html = `
+                            <div class="form-group">
+                                <label for="${parameter}-ct-field-selector">${parameters[parameter]['label']}</label>
+                                <select id="${parameter}-ct-field-selector" class="form-control" name="${parameter}">
+                                    ${select_options}
+                                </select>
+                                ${note_html}
+                            </div>
+                        `;
+                    } else if (parameters[parameter]['type'] === 'boolean') {
+                        let checked = parameters[parameter]['value'] ? 'checked' : '';
+
+                        parameter_html = `
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="${parameter}-boolean-checkbox" name="${parameter}" ${checked}>
+                                <label class="form-check-label" for="${parameter}-boolean-checkbox">${parameters[parameter]['label']}</label>
                             </div>
                         `;
                     } else if (parameters[parameter]['type'] === 'choice' && parameters[parameter].hasOwnProperty('choices')) {
@@ -2030,6 +1852,14 @@
                                 ${note_html}
                             </div>
                         `;
+                    } else if (parameters[parameter]['type'] === 'pep8_text') {
+                        parameter_html = `
+                            <div class="form-group">
+                                <label for="${parameter}-pep8-text-box">${parameters[parameter]['label']}</label>
+                                <input type="text" class="form-control" id="${parameter}-pep8-text-box" name="${parameter}" />
+                                ${note_html}
+                            </div>
+                        `;
                     } else if (parameters[parameter]['type'] === 'text') {
                         parameter_html = `
                             <div class="form-group">
@@ -2041,115 +1871,34 @@
                     }
 
                     $('#task-parameters-div').append(parameter_html);
+
+                    if (parameters[parameter]['type'] === 'pep8_text') {
+                        $(`#${parameter}-pep8-text-box`).focusout(function () {
+                            let pep8_box = $(`#${parameter}-pep8-text-box`);
+                            pep8_box.val(pep8_variable_format(pep8_box.val()));
+                        });
+                    }
                 }
             }
         }
 
-        function check_jobs() {
-            corpora.get_corpus_jobs(corpus_id, function(jobs) {
-                let has_running = false;
-                let has_completed = false;
-                let stale_jobs = [];
-                let stale_window = 1000 * 60 * 60 * 24;
+        function view_job_report(job_id) {
+            $('#job-report-modal').modal();
+            load_job_report(job_id);
+        }
 
-                $('.running-job').each(function(index, item) {
-                    stale_jobs.push($(item).attr('id').replace('running-job-', '').replace('-div', ''));
-                });
+        function load_job_report(job_id) {
+            let no_cache_string = Math.random().toString(36).substring(7);
+            let report_url = `/corpus/${corpus_id}/get-file/?path=job_reports/${job_id}.txt&no-cache=${no_cache_string}`;
+            let report_div = $('#job-report-div');
 
-                for (let x = 0; x < jobs.length; x++) {
-                    if (jobs[x].status == 'running' || jobs[x].status == 'preparing') {
-                        let task_name = "";
-                        for (let task_index = 0; task_index < tasks.length; task_index++) {
-                            if (_id(tasks[task_index]) === jobs[x].task_id) {
-                                task_name = tasks[task_index].name;
-                                break;
-                            }
-                        }
+            report_div.load(report_url, function() {
+                report_div.scrollTop(report_div[0].scrollHeight);
 
-                        if (!has_running) {
-                            $('#running-jobs-div').html('');
-                            has_running = true;
-                        }
-
-                        let job_id = jobs[x].id;
-                        let progress_value = jobs[x].percent_complete;
-                        if (jobs[x].status == 'preparing') {
-                            progress_value = 0;
-                        }
-                        let label = `${progress_value}%`;
-                        if (progress_value < 4) {
-                            label = "";
-                        }
-
-                        if ($(`#running-job-${job_id}-div`).length) {
-                            $(`#running-job-${job_id}-progress-bar`).css("width", progress_value);
-                            $(`#running-job-${job_id}-progress-bar`).attr("aria-valuenow", progress_value);
-                            $(`#running-job-${job_id}-progress-bar`).html(progress_value);
-                        } else {
-                            let kill_job_form = '';
-                            let job_status_time = jobs[x].status_time * 1000;
-
-                            if ((Date.now() - job_status_time) > stale_window && (role === 'Admin' || role === 'Editor')) {
-                                kill_job_form = `
-                                    <form method="post">
-                                        <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
-                                        <input type="hidden" name="kill-job-id" value="${job_id}">
-                                        <button type="submit" role="button" class="btn btn-danger">Kill</button>
-                                    </form>
-                                `;
-                            }
-
-                            let job_html = `
-                                <div id="running-job-${job_id}-div" class="alert alert-info running-job">
-                                    <div class="row">
-                                        <div class="col-sm-10">
-                                            Task: <b>${task_name}</b>
-                                        </div>
-                                        <div class="col-sm-2">
-                                            ${kill_job_form}
-                                        </div>
-                                    </div>
-                                    <div class="row"><div class="col-sm-12">
-                                        <div class="progress">
-                                            <div id="running-job-${job_id}-progress-bar"
-                                                 class="progress-bar progress-bar-striped bg-success progress-bar-animated"
-                                                 role="progressbar"
-                                                 aria-valuenow="${progress_value}"
-                                                 aria-valuemin="0"
-                                                 aria-valuemax="100"
-                                                 style="width: ${progress_value}%">
-                                                ${label}
-                                            </div>
-                                        </div>
-                                    </div></div>
-                                </div>
-                            `;
-
-                            $('#running-jobs-div').append(job_html);
-                            stale_jobs = stale_jobs.filter(function (value, index, arr) {
-                                return value != job_id;
-                            });
-                        }
-                    }
-                }
-
-                for (let x = 0; x < stale_jobs.length; x++) {
-                    $(`#running-job-${stale_jobs[x]}-div`).remove();
-                    $('#job-finished-modal').modal();
-                }
-
-                if (!has_running && !$('#no-running-jobs-div').length) {
-                    $('#running-jobs-div').append(`
-                        <div id="no-running-jobs-div" class="alert alert-info">
-                            There are currently no jobs running for this corpus.
-                        </div>
-                    `);
+                if (!report_div.html().includes('CORPORA JOB COMPLETE')) {
+                    setTimeout(load_job_report.bind(null, job_id), 10000);
                 }
             });
-
-            check_jobs_timer = setTimeout(function() {
-                check_jobs();
-            }, check_jobs_interval * 1000);
         }
     </script>
 {% endblock %}

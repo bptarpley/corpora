@@ -73,7 +73,7 @@ services:
       - 27017:27017
 
   neo4j:
-    image: graphfoundation/ongdb:3.5.14
+    image: neo4j:3.5.14
     environment:
       NEO4J_dbms_memory_pagecache_size: 512M
       NEO4J_dbms_memory_heap_max__size: 512M
@@ -88,6 +88,7 @@ services:
     environment:
       discovery.type: single-node
     volumes:
+      - ./elasticsearch/early_modern_synonyms.txt:/usr/share/elasticsearch/config/early_modern_synonyms.txt
       - /your/corpora/basedir/search:/usr/share/elasticsearch/data
     ports:
       - 9200:9200

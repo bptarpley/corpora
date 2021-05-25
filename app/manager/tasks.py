@@ -20,11 +20,43 @@ from PyPDF2 import PdfFileReader
 from PyPDF2.pdf import ContentStream
 from PyPDF2.generic import TextStringObject, u_, b_
 
-from manager.utilities import _contains
+from manager.utilities import _contains, build_search_params_from_dict
 from django.utils.text import slugify
 from zipfile import ZipFile
 
 REGISTRY = {
+    "Bulk Launch Jobs": {
+        "version": "0.0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "content_type": {
+                    "value": "",
+                    "type": "content_type",
+                    "label": "Content Type",
+                },
+                "task_id": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Task ID"
+                },
+                "query": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Content Search Query JSON"
+                },
+                "job_params": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Bulk Job Params JSON"
+                },
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['bulk_launch_jobs']
+    },
     "Adjust Content": {
         "version": "0.2",
         "jobsite_type": "HUEY",
@@ -154,6 +186,62 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['merge_content']
     },
+    "Convert Foreign Key Field to Cross Reference": {
+        "version": "0.2",
+        "jobsite_type": "HUEY",
+        "track_provenance": True,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "source_ct_field": {
+                    "value": "",
+                    "type": "content_type_field",
+                    "label": "Foreign Key Field",
+                    "note": "Choose the content type and field containing the foreign key you wish to convert."
+                },
+                "target_ct_field": {
+                    "value": "",
+                    "type": "content_type_field",
+                    "label": "Field Referenced by Foreign Key",
+                    "note": "Choose the content type and field to which the foreign key refers."
+                },
+                "new_field_name": {
+                    "value": "",
+                    "type": "pep8_text",
+                    "label": "New Field Name for Cross Reference",
+                },
+                "new_field_label": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Label for New Field",
+                },
+                "delete_old_field": {
+                    "value": True,
+                    "type": "boolean",
+                    "label": "Delete Old Foreign Key Field After Conversion?"
+                }
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['convert_foreign_key_to_xref']
+    },
+    "Pull Corpus Repo": {
+        "version": "0.0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "repo_name": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Repo Name",
+                },
+            },
+        },
+        "module": 'manager.tasks',
+        "functions": ['pull_repo']
+    },
 }
 
 
@@ -164,11 +252,84 @@ def run_job(job_id):
     if job:
         if job.jobsite.type == 'HUEY':
             try:
+                if job.task.create_report:
+                    corpus_job_reports_path = "{0}/job_reports".format(job.corpus.path)
+                    if not os.path.exists(corpus_job_reports_path):
+                        os.makedirs(corpus_job_reports_path, exist_ok=True)
+
+                    report_path = "{0}/{1}.txt".format(corpus_job_reports_path, job.id)
+                    job.report_path = report_path
+                    job.save()
+                    job.report('''##########################################################
+Job ID:         {0}
+Task Name:      {1}
+Scholar:        {2}
+Corpus ID:      {3}
+Content Type:   {4}
+Content ID:     {5}
+Run Time:       {6}
+##########################################################
+                    '''.format(
+                        job_id,
+                        job.task.name,
+                        "{0} {1}".format(
+                            job.scholar.fname,
+                            job.scholar.lname if job.scholar.lname else ''
+                        ),
+                        job.corpus_id,
+                        job.content_type,
+                        job.content_id,
+                        datetime.now().ctime()
+                    ), overwrite=True)
+
                 task_module = importlib.import_module(job.jobsite.task_registry[job.task.name]['module'])
                 task_function = getattr(task_module, job.jobsite.task_registry[job.task.name]['functions'][job.stage])
                 task_function(job_id)
             except:
                 job.complete(status='error', error_msg="Error launching task: {0}".format(traceback.format_exc()))
+
+
+@db_task(priority=3)
+def bulk_launch_jobs(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    if job:
+        corpus = job.corpus
+        content_type = job.get_param_value('content_type')
+        task_id = job.get_param_value('task_id')
+        search_query = json.loads(job.get_param_value('query'))
+        search_params = build_search_params_from_dict(search_query)
+        job_params = json.loads(job.get_param_value('job_params'))
+
+        search_params['page_size'] = 100
+        search_params['only'] = ['id']
+        page = 1
+        num_pages = 1
+
+        while page <= num_pages:
+            search_params['page'] = page
+            results = corpus.search_content(content_type, **search_params)
+            if results:
+                job_ids = []
+                if results['meta']['num_pages'] < num_pages:
+                    num_pages = results['meta']['num_pages']
+
+                for record in results['records']:
+                    job_ids.append(
+                        corpus.queue_local_job(
+                            content_type=content_type,
+                            content_id=record['id'],
+                            task_id=task_id,
+                            scholar_id=job.scholar_id,
+                            parameters=job_params
+                        )
+                    )
+
+                for j_id in job_ids:
+                    run_job(j_id)
+            page += 1
+
+    job.complete('complete')
 
 
 @db_periodic_task(crontab(minute='*'), priority=4)
@@ -405,6 +566,17 @@ def merge_content(job_id):
 
                         if merge_content and no_problems_merging and delete_merged:
                             report.write("Attempting to delete merged {0} with ID {1}...\n".format(content_type, merge_content.id))
+                            merge_content_dict = corpus.search_content(content_type, page_size=1, fields_filter={'id': str(merge_content.id)})
+                            if len(merge_content_dict['records']) == 1:
+                                merge_content_dict = merge_content_dict['records'][0]
+                                merge_content_archive_path = "{0}/{1}_{2}_merged_into_{3}.json".format(
+                                    merge_report_dir,
+                                    content_type,
+                                    merge_content.id,
+                                    target_content.id
+                                )
+                                with open(merge_content_archive_path, 'w') as archive_out:
+                                    json.dump(merge_content_dict, archive_out, indent=4)
 
                             if cascade_deletion:
                                 report.write("Attempting to cascade delete any singularly connected content...\n".format(content_type, merge_content.id))
@@ -456,4 +628,86 @@ def merge_content(job_id):
             report.write("Merged deletions: {0}\n".format(merged_deletions))
             report.write("Cascade deletions: {0}\n".format(cascade_deletions))
 
+    job.complete(status='complete')
+
+
+@db_task(priority=5)
+def convert_foreign_key_to_xref(job_id):
+    job = Job(job_id)
+    corpus = job.corpus
+    job.set_status('running')
+
+    source_ct_field = job.get_param_value('source_ct_field')
+    target_ct_field = job.get_param_value('target_ct_field')
+    new_field_name = job.get_param_value('new_field_name')
+    new_field_label = job.get_param_value('new_field_label')
+    delete_old_field = job.get_param_value('delete_old_field')
+
+    if source_ct_field and target_ct_field and new_field_name:
+        print(source_ct_field)
+        source_parts = source_ct_field.split('->')
+        print(source_parts)
+        source_ct = source_parts[0]
+        source_field = source_parts[1]
+
+        target_parts = target_ct_field.split('->')
+        target_ct = target_parts[0]
+        target_field = target_parts[1]
+
+        if source_ct in corpus.content_types and corpus.content_types[source_ct].get_field(source_field) and \
+                target_ct in corpus.content_types and corpus.content_types[target_ct].get_field(target_field):
+
+            if not corpus.content_types[source_ct].get_field(new_field_name):
+                source_schema = corpus.content_types[source_ct].to_dict()
+                source_schema['fields'].append({
+                    'name': new_field_name,
+                    'label': new_field_label,
+                    'type': 'cross_reference',
+                    'cross_reference_type': target_ct,
+                    'multiple': False,
+                    'in_lists': True,
+                    'indexed': False,
+                    'indexed_with': [],
+                    'unique': False,
+                    'unique_with': [],
+                    'proxy_field': "",
+                    'inherited': False,
+                })
+                adjustment_jobs = corpus.save_content_type(source_schema)
+                for adjustment_job in adjustment_jobs:
+                    run_job(adjustment_job)
+                time.sleep(10 * len(adjustment_jobs))
+
+                if corpus.content_types[source_ct].get_field(new_field_name):
+                    all_targets_found = True
+
+                    source_contents = corpus.get_content(source_ct, all=True)
+                    for source_content in source_contents:
+                        old_field_value = getattr(source_content, source_field)
+                        if old_field_value or old_field_value == 0:
+                            target_content = corpus.get_content(target_ct, {target_field: old_field_value})[0]
+                            if target_content:
+                                setattr(source_content, new_field_name, target_content.id)
+                                source_content.save()
+                            else:
+                                all_targets_found = False
+
+                    if all_targets_found and delete_old_field:
+                        corpus.delete_content_type_field(source_ct, source_field)
+
+    job.complete(status='complete')
+
+
+@db_task(priority=5)
+def pull_repo(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    repo_name = job.get_param_value('repo_name')
+    if repo_name in job.corpus.repos:
+        try:
+            job.corpus.repos[repo_name].pull(job.corpus)
+        except:
+            job.corpus.repos[repo_name].error = True
+            job.corpus.save()
+            print(traceback.format_exc())
     job.complete(status='complete')

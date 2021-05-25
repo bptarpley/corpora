@@ -3,10 +3,18 @@ from . import views as nvs_views
 
 
 urlpatterns = [
-    path('corpus/<str:corpus_id>/NVSLines/<int:starting_line_no>/', nvs_views.lines),
-    path('corpus/<str:corpus_id>/NVSLines/<int:starting_line_no>/<int:ending_line_no>/', nvs_views.lines),
-    path('corpus/<str:corpus_id>/nvs-design/<int:starting_line_no>/<int:ending_line_no>/', nvs_views.design),
-    path('api/corpus/<str:corpus_id>/PlayLine/<int:starting_line_no>/<int:ending_line_no>/', nvs_views.api_lines),
-    path('corpus/<str:corpus_id>/NVSCommentaries/', nvs_views.commentaries),
-    path('corpus/<str:corpus_id>/play-minimap/', nvs_views.play_minimap)
+    path('corpus/<str:corpus_id>/about/', nvs_views.info_about),
+    path('corpus/<str:corpus_id>/contributors/', nvs_views.info_contributors),
+    path('corpus/<str:corpus_id>/print/', nvs_views.info_print_editions),
+    path('corpus/<str:corpus_id>/how-to/', nvs_views.info_how_to),
+    path('corpus/<str:corpus_id>/faqs/', nvs_views.info_faqs),
+    path('corpus/<str:corpus_id>/tools/', nvs_views.tools_about),
+    path('corpus/<str:corpus_id>/search/', nvs_views.tools_advanced_search),
+    path('corpus/<str:corpus_id>/data/', nvs_views.tools_data_extraction),
+    path('corpus/<str:corpus_id>/play-viewer/<str:play_prefix>/', nvs_views.playviewer),
+    path('corpus/<str:corpus_id>/play-minimap/<str:play_prefix>/', nvs_views.play_minimap),
+    path('corpus/<str:corpus_id>/play-bibliography/<str:play_prefix>/', nvs_views.bibliography),
+    path('corpus/<str:corpus_id>/paratext-viewer/<str:play_prefix>/<str:section>/', nvs_views.paratext),
+    path('nvs/witness-meter/<str:witness_flags>/<str:height>/<str:width>/<str:inactive_color_hex>/', nvs_views.witness_meter),
+    path('api/corpus/<str:corpus_id>/nvs-search/<str:play_prefix>/', nvs_views.api_search)
 ]

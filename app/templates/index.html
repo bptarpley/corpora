@@ -50,21 +50,32 @@
                         </div>
                     </div>
                     <div class="card-body">
-                        <table class="table">
-                            <thead class="thead-dark">
-                                <th scope="col">Corpus</th>
-                                <th scope="col">Description</th>
-                            </thead>
-                            <tbody id="corpus-table">
-                                <tr>
-                                    <td colspan="2">
-                                        <div class="alert alert-info">
-                                            Loading corpora...
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <table class="table">
+                                    <thead class="thead-dark">
+                                        <th scope="col">Corpus</th>
+                                        <th scope="col">Description</th>
+                                    </thead>
+                                    <tbody id="corpus-table">
+                                        <tr>
+                                            <td colspan="2">
+                                                <div class="alert alert-info">
+                                                    Loading corpora...
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% if response.scholar.is_admin %}
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <iframe src="/jobs/" width="100%" height="100%" frameBorder="0"></iframe>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                     {% if response.scholar.is_admin %}
                     <div class="card-footer">

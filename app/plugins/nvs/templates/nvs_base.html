@@ -1,0 +1,43 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>New Variorum Shakespeare</title>
+    <style>
+        html, body {
+            background-color: #1E1E1E;
+            color: whitesmoke;
+        }
+    </style>
+    {% block headrefs %}
+    {% endblock %}
+</head>
+<body>
+    <h1>This is on every page.</h1>
+
+    <!-- Here is a reference to a file living in the "static" folder of the NVS plugin: -->
+    <img src="{% static 'img/nvs-logo.png' %}" style="height: 100px; width: auto;" />
+
+    <h4>Page Links</h4>
+    <ul>
+        <li><a href="/corpus/{{ corpus_id }}/about/">Info About</a></li>
+        <li><a href="/corpus/{{ corpus_id }}/contributors/">Info Contributors</a></li>
+        <li><a href="/corpus/{{ corpus_id }}/print/">Info Print Editions</a></li>
+        <li><a href="/corpus/{{ corpus_id }}/how-to/">Info How To</a></li>
+        <li><a href="/corpus/{{ corpus_id }}/faqs/">Info FAQ's</a></li>
+        <li><a href="/corpus/{{ corpus_id }}/tools/">Tools About</a></li>
+        <li><a href="/corpus/{{ corpus_id }}/search/">Tools Search</a></li>
+        <li><a href="/corpus/{{ corpus_id }}/data/">Tools Data</a></li>
+    </ul>
+
+    {% block main %}
+    {% endblock %}
+
+    <!-- Here could be some javascript libraries referenced by every page -->
+
+    <!-- Here is a block for child pages to have their own specific javascript libraries: -->
+    {% block js %}
+    {% endblock %}
+</body>
+</html>

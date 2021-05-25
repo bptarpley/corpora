@@ -6,6 +6,9 @@ import traceback
 import importlib
 import zlib
 import shutil
+import logging
+import redis
+import git
 from math import ceil
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -15,14 +18,14 @@ from bson import DBRef
 from PIL import Image
 from django.conf import settings
 from elasticsearch_dsl import Index, Mapping, analyzer, Keyword, Text, Integer, Date, \
-    Nested, char_filter, Q, Search
+    Nested, token_filter, char_filter, Q, Search
 from elasticsearch_dsl.query import SimpleQueryString, Ids
 from elasticsearch_dsl.connections import get_connection
 from django.template import Template, Context
 
 
-FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'date', 'file', 'link', 'cross_reference', 'embedded')
-MIME_TYPES = ('text/html', 'text/xml', 'application/json')
+FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'file', 'repo', 'link', 'iiif-image', 'cross_reference', 'embedded')
+MIME_TYPES = ('text/html', 'text/xml', 'text/turtle', 'application/json')
 
 
 class Field(mongoengine.EmbeddedDocument):
@@ -35,6 +38,7 @@ class Field(mongoengine.EmbeddedDocument):
     type = mongoengine.StringField(choices=FIELD_TYPES)
     choices = mongoengine.ListField()
     cross_reference_type = mongoengine.StringField()
+    synonym_file = mongoengine.StringField(choices=list(settings.ES_SYNONYM_OPTIONS.keys()))
     indexed_with = mongoengine.ListField()
     unique_with = mongoengine.ListField()
     stats = mongoengine.DictField()
@@ -64,9 +68,9 @@ class Field(mongoengine.EmbeddedDocument):
                 return int(dt.timestamp())
             elif self.type == 'cross_reference':
                 return value.to_dict(ref_only=True)
-            elif self.type == 'embedded':
-                return value.to_dict(parent_uri)
-            elif self.type == 'file':
+            elif self.type == 'repo':
+                return value.to_dict()
+            elif self.type in ['embedded', 'file']:
                 return value.to_dict(parent_uri)
         return value
     
@@ -81,6 +85,11 @@ class Field(mongoengine.EmbeddedDocument):
                 return mongoengine.FloatField(unique=True, sparse=True)
             else:
                 return mongoengine.FloatField()
+        elif self.type == 'boolean':
+            if self.unique and not self.unique_with:
+                return mongoengine.BooleanField(unique=True, sparse=True)
+            else:
+                return mongoengine.BooleanField()
         elif self.type == 'date':
             if self.unique and not self.unique_with:
                 return mongoengine.DateField(unique=True, sparse=True)
@@ -88,11 +97,40 @@ class Field(mongoengine.EmbeddedDocument):
                 return mongoengine.DateField()
         elif self.type == 'file':
             return mongoengine.EmbeddedDocumentField(File)
+        elif self.type == 'repo':
+            return mongoengine.EmbeddedDocumentField(GitRepo)
         elif self.type != 'cross_reference':
             if self.unique and not self.unique_with:
                 return mongoengine.StringField(unique=True, sparse=True)
             else:
                 return mongoengine.StringField()
+
+    def get_elasticsearch_analyzer(self):
+        analyzer_filters = ['lowercase', 'classic', 'stop']
+        if self.synonym_file and self.synonym_file in settings.ES_SYNONYM_OPTIONS:
+            analyzer_filters.insert(1, token_filter(
+                '{0}_synonym_filter'.format(self.synonym_file),
+                'synonym',
+                lenient=True,
+                synonyms_path=settings.ES_SYNONYM_OPTIONS[self.synonym_file]['file']
+            ))
+
+        if self.type in ['text', 'large_text']:
+            return analyzer(
+                '{0}_analyzer'.format(self.name).lower(),
+                tokenizer='classic',
+                filter=analyzer_filters,
+            )
+
+        elif self.type == 'html':
+            return analyzer(
+                '{0}_analyzer'.format(self.name).lower(),
+                tokenizer='classic',
+                filter=analyzer_filters,
+                char_filter=['html_strip']
+            )
+
+        return None
 
     def to_dict(self):
         return {
@@ -105,6 +143,7 @@ class Field(mongoengine.EmbeddedDocument):
             'type': self.type,
             'choices': [choice for choice in self.choices],
             'cross_reference_type': self.cross_reference_type,
+            'synonym_file': self.synonym_file,
             'indexed_with': [index for index in self.indexed_with],
             'unique_with': [unq for unq in self.unique_with],
             'stats': deepcopy(self.stats),
@@ -115,9 +154,10 @@ class Field(mongoengine.EmbeddedDocument):
 class Task(mongoengine.Document):
     name = mongoengine.StringField(unique_with='jobsite_type')
     version = mongoengine.StringField()
-    jobsite_type = mongoengine.StringField()
+    jobsite_type = mongoengine.StringField(default="HUEY")
     content_type = mongoengine.StringField(default="Corpus")
     track_provenance = mongoengine.BooleanField(default=True)
+    create_report = mongoengine.BooleanField(default=False)
     configuration = mongoengine.DictField()
 
     def save(self, index_pages=False, **kwargs):
@@ -133,6 +173,18 @@ class Task(mongoengine.Document):
                 'task_name': self.name
             }
         )
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'name': self.name,
+            'version': self.version,
+            'jobsite_type': self.jobsite_type,
+            'content_type': self.content_type,
+            'track_provenance': self.track_provenance,
+            'create_report': self.create_report,
+            'configuration': self.configuration
+        }
 
     @classmethod
     def _post_delete(self, sender, document, **kwargs):
@@ -232,6 +284,7 @@ class Job(object):
             self.submitted_time = None
             self.status = None
             self.status_time = None
+            self.report_path = None
             self.stage = 0
             self.timeout = 0
             self.tries = 0
@@ -263,14 +316,21 @@ class Job(object):
         self.submitted_time = datetime.fromtimestamp(result['submitted_time'])
         self.status = result['status']
         self.status_time = datetime.fromtimestamp(result['status_time'])
+        if 'report_path' in result:
+            self.report_path = result['report_path']
+        else:
+            self.report_path = None
         self.stage = result['stage']
         self.timeout = result['timeout']
         self.tries = result['tries']
         self.error = result['error']
+        if 'percent_complete' in result:
+            self.percent_complete = result['percent_complete']
+        else:
+            self.percent_complete = 0
         self.configuration = json.loads(result['configuration'])
 
         # check process completion
-        self.percent_complete = 0
         results = run_neo(
             '''
                 MATCH (j:Job { uri: $job_uri }) -[rel:hasProcess]-> (p:Process)
@@ -308,10 +368,12 @@ class Job(object):
                     SET j.submitted_time = $job_submitted_time
                     SET j.status = $job_status
                     SET j.status_time = $job_status_time
+                    SET j.report_path = $job_report_path
                     SET j.stage = $job_stage
                     SET j.timeout = $job_timeout
                     SET j.tries = $job_tries
                     SET j.error = $job_error
+                    SET j.percent_complete = $percent_complete
                     SET j.configuration = $job_configuration
                     MERGE (c) -[:hasJob]-> (j)
                 '''.format(self.content_type),
@@ -327,10 +389,12 @@ class Job(object):
                     'job_submitted_time': int(self.submitted_time.timestamp()),
                     'job_status': self.status,
                     'job_status_time': int(self.status_time.timestamp()),
+                    'job_report_path': self.report_path,
                     'job_stage': self.stage,
                     'job_timeout': self.timeout,
                     'job_tries': self.tries,
                     'job_error': self.error,
+                    'percent_complete': self.percent_complete,
                     'job_configuration': json.dumps(self.configuration)
                 }
             )
@@ -349,10 +413,12 @@ class Job(object):
                     SET j.submitted_time = $job_submitted_time
                     SET j.status = $job_status
                     SET j.status_time = $job_status_time
+                    SET j.report_path = $job_report_path
                     SET j.stage = $job_stage
                     SET j.timeout = $job_timeout
                     SET j.tries = $job_tries
                     SET j.error = $job_error
+                    SET j.percent_complete = $percent_complete
                     SET j.configuration = $job_configuration
                     MERGE (c) -[:hasJob]-> (j) <-[:hasJob]- (d)
                 '''.format(self.content_type),
@@ -369,10 +435,12 @@ class Job(object):
                     'job_submitted_time': int(self.submitted_time.timestamp()),
                     'job_status': self.status,
                     'job_status_time': int(self.status_time.timestamp()),
+                    'job_report_path': self.report_path,
                     'job_stage': self.stage,
                     'job_timeout': self.timeout,
                     'job_tries': self.tries,
                     'job_error': self.error,
+                    'percent_complete': self.percent_complete,
                     'job_configuration': json.dumps(self.configuration)
                 }
             )
@@ -389,6 +457,7 @@ class Job(object):
             'submitted_time': int(self.submitted_time.timestamp()),
             'status': self.status,
             'status_time': int(self.status_time.timestamp()),
+            'report_path': self.report_path,
             'stage': self.stage,
             'timeout': self.timeout,
             'tries': self.tries,
@@ -397,22 +466,40 @@ class Job(object):
             'percent_complete': self.percent_complete
         }
 
-    def set_status(self, status):
+    def get_param_value(self, parameter):
+        if 'parameters' in self.configuration and parameter in self.configuration['parameters'] and 'value' in self.configuration['parameters'][parameter]:
+            return self.configuration['parameters'][parameter]['value']
+        return None
+
+    def set_status(self, status, percent_complete=None):
         self.status = status
         self.status_time = datetime.now()
+        if percent_complete:
+            self.percent_complete = percent_complete
 
         run_neo(
             '''
                 MATCH (j:Job { uri: $job_uri })
                 SET j.status = $job_status
                 SET j.status_time = $job_status_time
+                SET j.percent_complete = $percent_complete
             ''',
             {
                 'job_uri': "/job/{0}".format(self.id),
                 'job_status': self.status,
-                'job_status_time': int(self.status_time.timestamp())
+                'job_status_time': int(self.status_time.timestamp()),
+                'percent_complete': self.percent_complete
             }
         )
+
+    def report(self, message, overwrite=False):
+        if self.task.create_report and self.report_path:
+            mode = 'a+'
+            if overwrite:
+                mode = 'w'
+
+            with open(self.report_path, mode, encoding='utf-8') as report_out:
+                report_out.write(message + '\n')
 
     def add_process(self, process_id):
         run_neo(
@@ -520,6 +607,9 @@ class Job(object):
         if error_msg:
             self.error = error_msg
 
+        if self.report_path:
+            self.report("\nCORPORA JOB COMPLETE")
+
         if self.task.track_provenance:
             ct = CompletedTask()
             ct.job_id = self.id
@@ -530,6 +620,7 @@ class Job(object):
             ct.scholar = ObjectId(self.scholar_id)
             ct.submitted = self.submitted_time
             ct.completed = self.status_time
+            ct.report_path = self.report_path
             ct.status = self.status
             ct.error = self.error
 
@@ -563,23 +654,39 @@ class Job(object):
         return j
 
     @staticmethod
-    def get_jobs(corpus_id=None, content_type=None, content_id=None):
+    def get_jobs(corpus_id=None, content_type=None, content_id=None, count_only=False, limit=None, skip=0):
         jobs = []
         results = None
+
+        return_statement = "RETURN j"
+        if count_only:
+            return_statement = "RETURN count(j) as job_count"
+        elif limit:
+            return_statement += " SKIP {0} LIMIT {1}".format(skip, limit)
 
         if not corpus_id and not content_type and not content_id:
             results = run_neo(
                 '''
                     MATCH (j:Job)
-                    RETURN j
-                ''', {}
+                    {0}
+                '''.format(return_statement), {}
             )
         elif corpus_id and not content_type:
             results = run_neo(
                 '''
-                    MATCH (c:Corpus { uri: $corpus_uri }) -[rel:hasJob]-> (j:Job)
-                    RETURN j
-                ''',
+                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[rel:hasJob]-> (j:Job)
+                    {0}
+                '''.format(return_statement),
+                {
+                    'corpus_uri': "/corpus/{0}".format(corpus_id)
+                }
+            )
+        elif corpus_id and content_type and not content_id:
+            results = run_neo(
+                '''
+                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:Job) <-[:hasJob]- (d:{0})
+                    {1}
+                '''.format(content_type, return_statement),
                 {
                     'corpus_uri': "/corpus/{0}".format(corpus_id)
                 }
@@ -588,8 +695,8 @@ class Job(object):
             results = run_neo(
                 '''
                     MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:Job) <-[:hasJob]- (d:{0} {{ uri: $content_uri }})
-                    return j
-                '''.format(content_type),
+                    {1}
+                '''.format(content_type, return_statement),
                 {
                     'corpus_uri': "/corpus/{0}".format(corpus_id),
                     'content_uri': "/corpus/{0}/{1}/{2}".format(corpus_id, content_type, content_id)
@@ -597,6 +704,9 @@ class Job(object):
             )
 
         if results:
+            if count_only:
+                return results[0]['job_count']
+
             for result in results:
                 j = Job()
                 j._load_from_result(result['j'])
@@ -730,6 +840,7 @@ class CompletedTask(mongoengine.EmbeddedDocument):
     submitted = mongoengine.DateTimeField()
     completed = mongoengine.DateTimeField()
     status = mongoengine.StringField()
+    report_path = mongoengine.StringField()
     error = mongoengine.StringField()
 
     def to_dict(self):
@@ -744,6 +855,7 @@ class CompletedTask(mongoengine.EmbeddedDocument):
             'submitted': int(self.submitted.timestamp()),
             'completed': int(self.completed.timestamp()),
             'status': self.status,
+            'report_path': self.report_path,
             'error': self.error
         }
 
@@ -766,6 +878,8 @@ class ContentType(mongoengine.EmbeddedDocument):
     show_in_nav = mongoengine.BooleanField(default=True)
     proxy_field = mongoengine.StringField()
     templates = mongoengine.MapField(mongoengine.EmbeddedDocumentField(ContentTemplate))
+    view_widget_url = mongoengine.StringField()
+    edit_widget_url = mongoengine.StringField()
     inherited_from_module = mongoengine.StringField()
     inherited_from_class = mongoengine.StringField()
     base_mongo_indexes = mongoengine.StringField()
@@ -852,7 +966,9 @@ class ContentType(mongoengine.EmbeddedDocument):
             'proxy_field': self.proxy_field,
             'templates': {},
             'inherited': True if self.inherited_from_module else False,
-            'invalid_field_names': deepcopy(self.invalid_field_names)
+            'invalid_field_names': deepcopy(self.invalid_field_names),
+            'view_widget_url': self.view_widget_url,
+            'edit_widget_url': self.edit_widget_url
         }
 
         for template_name in self.templates:
@@ -955,6 +1071,10 @@ class File(mongoengine.EmbeddedDocument):
     def generate_key(cls, path):
         return zlib.compress(path.encode('utf-8')).hex()
 
+    def get_url(self, parent_uri):
+        uri = "{0}/file/{1}".format(parent_uri, self.key)
+        return "/file/uri/{0}/".format(uri.replace('/', '|'))
+
     def to_dict(self, parent_uri):
         return {
             'uri': "{0}/file/{1}".format(parent_uri, self.key),
@@ -974,6 +1094,54 @@ class File(mongoengine.EmbeddedDocument):
         }
 
 
+class GitRepo(mongoengine.EmbeddedDocument):
+
+    name = mongoengine.StringField()
+    path = mongoengine.StringField()
+    remote_url = mongoengine.StringField()
+    remote_branch = mongoengine.StringField()
+    last_pull = mongoengine.DateTimeField()
+    error = mongoengine.BooleanField(default=False)
+
+    def pull(self, parent):
+        if self.path and self.remote_url and self.remote_branch:
+            repo = None
+
+            # need to clone
+            if not os.path.exists(self.path):
+                os.makedirs(self.path)
+                repo = git.Repo.init(self.path)
+                origin = repo.create_remote('origin', self.remote_url)
+                assert origin.exists()
+                assert origin == repo.remotes.origin == repo.remotes['origin']
+                origin.fetch()
+                repo.create_head(self.remote_branch, origin.refs[self.remote_branch])
+                repo.heads[self.remote_branch].set_tracking_branch(origin.refs[self.remote_branch])
+                repo.heads[self.remote_branch].checkout()
+
+            elif self.last_pull:
+                repo = git.Repo(self.path)
+                assert not repo.bare
+                assert repo.remotes.origin.exists()
+                repo.remotes.origin.fetch()
+
+            if repo:
+                repo.remotes.origin.pull()
+                self.last_pull = datetime.now()
+                self.error = False
+                parent.save()
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'path': self.path,
+            'remote_url': self.remote_url,
+            'remote_branch': self.remote_branch,
+            'last_pull': int(datetime.combine(self.last_pull, datetime.min.time()).timestamp()) if self.last_pull else None,
+            'error': self.error
+        }
+
+
 class Corpus(mongoengine.Document):
     name = mongoengine.StringField(unique=True)
     description = mongoengine.StringField()
@@ -981,6 +1149,7 @@ class Corpus(mongoengine.Document):
     path = mongoengine.StringField()
     kvp = mongoengine.DictField()
     files = mongoengine.MapField(mongoengine.EmbeddedDocumentField(File))
+    repos = mongoengine.MapField(mongoengine.EmbeddedDocumentField(GitRepo))
     open_access = mongoengine.BooleanField(default=False)
     content_types = mongoengine.MapField(mongoengine.EmbeddedDocumentField(ContentType))
     provenance = mongoengine.EmbeddedDocumentListField(CompletedTask)
@@ -989,9 +1158,8 @@ class Corpus(mongoengine.Document):
         self.modify(**{'set__files__{0}'.format(file.key): file})
         file._do_linking(content_type='Corpus', content_uri=self.uri)
 
-    def get_content(self, content_type, content_id_or_query={}, only=[], all=False):
+    def get_content(self, content_type, content_id_or_query={}, only=[], all=False, single_result=False):
         content = None
-        single_result = False
 
         if content_type in self.content_types:
             content_obj = self.content_types[content_type].get_mongoengine_class(self)
@@ -1008,13 +1176,39 @@ class Corpus(mongoengine.Document):
                     if single_result:
                         content = content[0]
                 except:
-                    print("Error retrieving content:")
-                    print(traceback.format_exc())
                     return None
             else:
                 content = content_obj()
                 content.corpus_id = str(self.id)
                 content.content_type = content_type
+
+        return content
+
+    def get_or_create_content(self, content_type, fields={}, use_cache=False):
+        content = None
+        cache_key = None
+
+        if use_cache:
+            cache_key = "/corpus/{0}/cached-{1}:{2}".format(
+                self.id,
+                content_type,
+                json.dumps(fields)
+            )
+            content_id = self.redis_cache.get(cache_key)
+            if content_id:
+                content = self.get_content(content_type, content_id)
+
+        if not content:
+            content = self.get_content(content_type, fields, single_result=True)
+            if content and cache_key:
+                self.redis_cache.set(cache_key, str(content.id), ex=settings.REDIS_CACHE_EXPIRY_SECONDS)
+            elif not content:
+                content = self.get_content(content_type)
+                content.from_dict(fields)
+                content.save()
+
+                if cache_key:
+                    self.redis_cache.set(cache_key, str(content.id), ex=settings.REDIS_CACHE_EXPIRY_SECONDS)
 
         return content
 
@@ -1100,14 +1294,22 @@ class Corpus(mongoengine.Document):
             page_size=50,
             general_query="",
             fields_query={},
+            fields_term={},
+            fields_phrase={},
             fields_wildcard={},
             fields_filter={},
             fields_range={},
+            fields_highlight=[],
+            fields_exist=[],
             fields_sort=[],
             only=[],
             excludes=[],
             operator="and",
-            aggregations={}
+            highlight_num_fragments=5,
+            highlight_fragment_size=100,
+            aggregations={},
+            es_debug=False,
+            es_debug_query=False
     ):
         results = {
             'meta': {
@@ -1136,85 +1338,176 @@ class Corpus(mongoengine.Document):
             must = []
             filter = []
 
-            if general_query and not fields_query:
-                should.append(SimpleQueryString(query=general_query))
+            # GENERAL QUERY
+            if general_query:
+                if operator == 'and':
+                    must.append(SimpleQueryString(query=general_query))
+                else:
+                    should.append(SimpleQueryString(query=general_query))
 
-            if fields_query:
-                for search_field in fields_query.keys():
-                    field_values = [value_part for value_part in fields_query[search_field].split('__') if value_part]
+            # FIELDS QUERY
+            for search_field in fields_query.keys():
+                field_values = [value_part for value_part in fields_query[search_field].split('__') if value_part]
+                field_type = None
 
-                    if not field_values:
-                        if '.' in search_field:
-                            field_parts = search_field.split('.')
-                            must.append(Q(
-                                "nested",
-                                path=field_parts[0],
-                                query=~Q(
-                                    'exists',
-                                    field=search_field
-                                )
-                            ))
-                        else:
-                            must.append(~Q('exists', field=search_field))
+                if '.' in search_field:
+                    field_parts = search_field.split('.')
+                    xref_ct = self.content_types[content_type].get_field(field_parts[0]).cross_reference_type
 
-                    for field_value in field_values:
-                        q = None
+                    if field_parts[1] == 'label':
+                        field_type = 'text'
+                    elif field_parts[1] in ['uri', 'id']:
+                        field_type = 'keyword'
+                    else:
+                        field_type = self.content_types[xref_ct].get_field(field_parts[1]).type
+                else:
+                    if search_field == 'label':
+                        field_type = 'text'
+                    elif search_field in ['uri', 'id']:
+                        field_type = 'keyword'
+                    else:
+                        field_type = self.content_types[content_type].get_field(search_field).type
 
-                        if '.' in search_field:
-                            field_parts = search_field.split('.')
-                            q = Q(
-                                "nested",
-                                path=field_parts[0],
-                                query=Q(
-                                    'match',
-                                    **{search_field: {
-                                        'query': field_value,
-                                        'operator': 'and',
-                                        'fuzziness': 'AUTO'
-                                    }}
-                                )
+                if not field_values:
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        must.append(Q(
+                            "nested",
+                            path=field_parts[0],
+                            query=~Q(
+                                'exists',
+                                field=search_field
                             )
+                        ))
+                    else:
+                        must.append(~Q('exists', field=search_field))
+
+                for field_value in field_values:
+                    q = None
+
+                    search_criteria = {
+                        search_field: {'query': field_value}
+                    }
+
+                    if field_type in ['text', 'large_text', 'html']:
+                        search_criteria[search_field]['operator'] = 'and'
+                        search_criteria[search_field]['fuzziness'] = 'AUTO'
+
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        q = Q(
+                            "nested",
+                            path=field_parts[0],
+                            query=Q('match', **search_criteria)
+                        )
+                    else:
+                        q = Q('match', **search_criteria)
+
+                    if q:
+                        if operator == 'and':
+                            must.append(q)
                         else:
-                            q = Q('match', **{search_field: {
-                                'query': field_value,
-                                'operator': 'and',
-                                'fuzziness': 'AUTO'
-                            }})
+                            should.append(q)
 
-                        if q:
-                            if operator == 'and':
-                                must.append(q)
-                            else:
-                                should.append(q)
+            for search_field in fields_phrase.keys():
+                field_values = [value_part for value_part in fields_phrase[search_field].split('__') if value_part]
 
-            if fields_wildcard:
-                for search_field in fields_wildcard.keys():
-                    field_values = [value_part for value_part in fields_wildcard[search_field].split('__') if value_part]
+                for field_value in field_values:
+                    q = None
 
-                    for field_value in field_values:
-                        if '*' not in field_value:
-                            field_value += '*'
-
-                        q = None
-
-                        if '.' in search_field:
-                            field_parts = search_field.split('.')
-                            q = Q(
-                                "nested",
-                                path=field_parts[0],
-                                query=Q(
-                                    'wildcard',
-                                    **{search_field: field_value}
-                                )
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        q = Q(
+                            "nested",
+                            path=field_parts[0],
+                            query=Q(
+                                'match_phrase',
+                                **{search_field: field_value}
                             )
-                        else:
-                            q = Q('wildcard', **{search_field: field_value})
+                        )
+                    else:
+                        q = Q('match_phrase', **{search_field: field_value})
 
-                        if q:
-                            if operator == 'and':
-                                must.append(q)
-                            else:
-                                should.append(q)
+                    if q:
+                        if operator == 'and':
+                            must.append(q)
+                        else:
+                            should.append(q)
+
+            for search_field in fields_term.keys():
+                field_values = [value_part for value_part in fields_term[search_field].split('__') if value_part]
+
+                for field_value in field_values:
+                    q = None
+
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        q = Q(
+                            "nested",
+                            path=field_parts[0],
+                            query=Q(
+                                'term',
+                                **{search_field: field_value}
+                            )
+                        )
+                    else:
+                        q = Q('term', **{search_field: field_value})
+
+                    if q:
+                        if operator == 'and':
+                            must.append(q)
+                        else:
+                            should.append(q)
+
+            for search_field in fields_wildcard.keys():
+                field_values = [value_part for value_part in fields_wildcard[search_field].split('__') if value_part]
+
+                for field_value in field_values:
+                    if '*' not in field_value:
+                        field_value += '*'
+
+                    q = None
+
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        q = Q(
+                            "nested",
+                            path=field_parts[0],
+                            query=Q(
+                                'wildcard',
+                                **{search_field: field_value}
+                            )
+                        )
+                    else:
+                        q = Q('wildcard', **{search_field: field_value})
+
+                    if q:
+                        if operator == 'and':
+                            must.append(q)
+                        else:
+                            should.append(q)
+
+            for search_field in fields_exist:
+                q = None
+
+                if '.' in search_field:
+                    field_parts = search_field.split('.')
+                    q = Q(
+                        "nested",
+                        path=field_parts[0],
+                        query=Q(
+                            'exists',
+                            field=search_field
+                        )
+                    )
+                else:
+                    q = Q('exists', field=search_field)
+
+                if q:
+                    if operator == 'and':
+                        must.append(q)
+                    else:
+                        should.append(q)
 
             if fields_filter:
                 for search_field in fields_filter.keys():
@@ -1231,42 +1524,86 @@ class Corpus(mongoengine.Document):
                                 )
                             ))
                         else:
+                            if search_field == 'id':
+                                search_field = '_id'
                             filter.append(Q('term', **{search_field: field_value}))
 
             if fields_range:
                 for search_field in fields_range.keys():
                     field_values = [value_part for value_part in fields_range[search_field].split('__') if value_part]
-                    if len(field_values) == 2 and field_values[0].isdigit() and field_values[1].isdigit():
-                        filter.append(Q(
-                            "range",
-                            **{search_field: {
-                                'gte': int(field_values[0]),
-                                'lte': int(field_values[1])
-                            }}
-                        ))
-                    elif len(field_values) == 1 and fields_range[search_field].endswith('__'):
-                        filter.append(Q(
-                            "range",
-                            **{search_field: {
-                                'gte': int(field_values[0]),
-                            }}
-                        ))
-                    elif len(field_values) == 1 and fields_range[search_field].startswith('__'):
-                        filter.append(Q(
-                            "range",
-                            **{search_field: {
-                                'lte': int(field_values[0]),
-                            }}
-                        ))
+                    field_converter = None
+                    field_type = None
+                    range_query = None
 
-            if general_query and fields_query:
-                must.append(SimpleQueryString(query=general_query))
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        xref_ct = self.content_types[content_type].get_field(field_parts[0]).cross_reference_type
+
+                        if field_parts[1] == 'label':
+                            field_type = 'text'
+                        elif field_parts[1] in ['uri', 'id']:
+                            field_type = 'keyword'
+                        else:
+                            field_type = self.content_types[xref_ct].get_field(field_parts[1]).type
+                    else:
+                        if search_field == 'label':
+                            field_type = 'text'
+                        elif search_field in ['uri', 'id']:
+                            field_type = 'keyword'
+                        else:
+                            field_type = self.content_types[content_type].get_field(search_field).type
+
+                    if field_type in ['number', 'decimal', 'date']:
+                        # default field conversion for number value
+                        field_converter = lambda x: int(x)
+
+                        if field_type == 'decimal':
+                            field_converter = lambda x: float(x)
+                        elif field_type == 'date':
+                            field_converter = lambda x: int(parse_date_string(x).timestamp())
+
+                        if len(field_values) == 2:
+                            range_query = Q(
+                                "range",
+                                **{search_field: {
+                                    'gte': field_converter(field_values[0]),
+                                    'lte': field_converter(field_values[1])
+                                }}
+                            )
+                        elif len(field_values) == 1 and fields_range[search_field].endswith('__'):
+                            range_query = Q(
+                                "range",
+                                **{search_field: {
+                                    'gte': field_converter(field_values[0]),
+                                }}
+                            )
+                        elif len(field_values) == 1 and fields_range[search_field].startswith('__'):
+                            range_query = Q(
+                                "range",
+                                **{search_field: {
+                                    'lte': field_converter(field_values[0]),
+                                }}
+                            )
+
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        filter.append(
+                            Q(
+                                'nested',
+                                path=field_parts[0],
+                                query=range_query
+                            )
+                        )
+                    else:
+                        filter.append(range_query)
 
             if should or must or filter:
 
                 search_query = Q('bool', should=should, must=must, filter=filter)
 
                 extra = {'track_total_hits': True}
+                if fields_query and fields_highlight:
+                    extra['min_score'] = 0.001
 
                 search_cmd = Search(using=get_connection(), index=index_name, extra=extra).query(search_query)
 
@@ -1319,30 +1656,60 @@ class Corpus(mongoengine.Document):
 
                     search_cmd = search_cmd.sort(*adjusted_fields_sort)
 
+                if fields_highlight:
+                    search_cmd = search_cmd.highlight(*fields_highlight, fragment_size=highlight_fragment_size, number_of_fragments=highlight_num_fragments)
+
                 search_cmd = search_cmd[start_index:end_index]
-                #print(json.dumps(search_cmd.to_dict(), indent=4))
-                search_results = search_cmd.execute().to_dict()
-                #print(json.dumps(search_results, indent=4))
-                results['meta']['total'] = search_results['hits']['total']['value']
-                results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
-                results['meta']['has_next_page'] = results['meta']['page'] < results['meta']['num_pages']
 
-                for hit in search_results['hits']['hits']:
-                    record = deepcopy(hit['_source'])
-                    record['id'] = hit['_id']
-                    record['_search_score'] = hit['_score']
-                    results['records'].append(record)
+                # execute search
+                try:
+                    es_logger = None
+                    es_log_level = None
+                    if es_debug or es_debug_query:
+                        print(json.dumps(search_cmd.to_dict(), indent=4))
+                        es_logger = logging.getLogger('elasticsearch')
+                        es_log_level = es_logger.getEffectiveLevel()
+                        es_logger.setLevel(logging.DEBUG)
 
-                if 'aggregations' in search_results:
-                    for agg_name in search_results['aggregations'].keys():
-                        results['meta']['aggregations'][agg_name] = {}
+                    search_results = search_cmd.execute().to_dict()
 
-                        if agg_type_map[agg_name] == 'nested':
-                            for agg_result in search_results['aggregations'][agg_name]['names']['buckets']:
-                                results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
+                    if es_debug:
+                        print(json.dumps(search_results, indent=4))
+                        es_logger.setLevel(es_log_level)
+
+                    results['meta']['total'] = search_results['hits']['total']['value']
+                    if results['meta']['page_size'] > 0:
+                        results['meta']['num_pages'] = ceil(results['meta']['total'] / results['meta']['page_size'])
+                        results['meta']['has_next_page'] = results['meta']['page'] < results['meta']['num_pages']
+                    else:
+                        results['meta']['num_pages'] = 0
+                        results['meta']['has_next_page'] = False
+
+                    for hit in search_results['hits']['hits']:
+                        record = deepcopy(hit['_source'])
+                        record['id'] = hit['_id']
+                        record['_search_score'] = hit['_score']
+                        if fields_highlight:
+                            if 'highlight' in hit:
+                                record['_search_highlights'] = hit['highlight']
+                                results['records'].append(record)
                         else:
-                            for agg_result in search_results['aggregations'][agg_name]['buckets']:
-                                results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
+                            results['records'].append(record)
+
+                    if 'aggregations' in search_results:
+                        for agg_name in search_results['aggregations'].keys():
+                            results['meta']['aggregations'][agg_name] = {}
+
+                            if agg_type_map[agg_name] == 'nested':
+                                for agg_result in search_results['aggregations'][agg_name]['names']['buckets']:
+                                    results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
+                            else:
+                                for agg_result in search_results['aggregations'][agg_name]['buckets']:
+                                    results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
+
+                except:
+                    print('Error executing elasticsearch query in corpus.search_content:')
+                    print(traceback.format_exc())
 
         return results
 
@@ -1469,7 +1836,6 @@ class Corpus(mongoengine.Document):
         ct_name = schema['name']
 
         default_field_values = {
-            'show_in_nav': True,
             'in_lists': True,
             'indexed': False,
             'indexed_with': [],
@@ -1479,6 +1845,7 @@ class Corpus(mongoengine.Document):
             'proxy_field': "",
             'inherited': False,
             'cross_reference_type': '',
+            'synonym_file': None
         }
 
         default_invalid_field_names = [
@@ -1494,6 +1861,7 @@ class Corpus(mongoengine.Document):
         invalid_field_names = deepcopy(default_invalid_field_names)
         if 'invalid_field_names' in schema:
             invalid_field_names += schema['invalid_field_names']
+            invalid_field_names = list(set(invalid_field_names))
 
         # NEW CONTENT TYPE
         if ct_name not in self.content_types:
@@ -1502,6 +1870,12 @@ class Corpus(mongoengine.Document):
             new_content_type.plural_name = schema['plural_name']
             new_content_type.show_in_nav = schema['show_in_nav']
             new_content_type.proxy_field = schema['proxy_field']
+
+            if 'view_widgel_url' in schema:
+                new_content_type.view_widget_url = schema['view_widget_url']
+            if 'edit_widget_url' in schema:
+                new_content_type.edit_widget_url = schema['edit_widget_url']
+
             new_content_type.invalid_field_names = invalid_field_names
 
             if 'templates' in schema:
@@ -1538,6 +1912,7 @@ class Corpus(mongoengine.Document):
                     new_field.type = field['type']
                     new_field.cross_reference_type = field['cross_reference_type']
                     new_field.inherited = field['inherited']
+                    new_field.synonym_file = field['synonym_file']
 
                     if new_field.type == 'embedded':
                         new_field.in_lists = False
@@ -1555,6 +1930,14 @@ class Corpus(mongoengine.Document):
             self.content_types[ct_name].plural_name = schema['plural_name']
             self.content_types[ct_name].show_in_nav = schema['show_in_nav']
             self.content_types[ct_name].proxy_field = schema['proxy_field']
+
+            if 'view_widgel_url' in schema:
+                self.content_types[ct_name].view_widget_url = schema['view_widget_url']
+            if 'edit_widget_url' in schema:
+                self.content_types[ct_name].edit_widget_url = schema['edit_widget_url']
+
+            if 'synonym_file' in schema:
+                self.content_types[ct_name].synonym_file = schema['synonym_file']
 
             label_template = self.content_types[ct_name].templates['Label'].template
             for template_name in schema['templates']:
@@ -1591,6 +1974,7 @@ class Corpus(mongoengine.Document):
                         new_field.multiple = schema['fields'][x]['multiple']
                         new_field.type = schema['fields'][x]['type']
                         new_field.cross_reference_type = schema['fields'][x]['cross_reference_type']
+                        new_field.synonym_file = schema['fields'][x]['synonym_file']
 
                         self.content_types[ct_name].fields.append(new_field)
                         if new_field.in_lists:
@@ -1612,6 +1996,7 @@ class Corpus(mongoengine.Document):
                             self.content_types[ct_name].fields[field_index].multiple = schema['fields'][x]['multiple']
                             self.content_types[ct_name].fields[field_index].type = schema['fields'][x]['type']
                             self.content_types[ct_name].fields[field_index].cross_reference_type = schema['fields'][x]['cross_reference_type']
+                            self.content_types[ct_name].fields[field_index].synonym_file = schema['fields'][x]['synonym_file']
 
             if not valid:
                 self.reload()
@@ -1648,7 +2033,7 @@ class Corpus(mongoengine.Document):
 
             self.content_types[ct_name].has_file_field = schema.get('has_file_field', False)
             for field in self.content_types[ct_name].fields:
-                if field.type == 'file':
+                if field.type in ['file', 'repo']:
                     self.content_types[ct_name].has_file_field = True
                     break
 
@@ -1767,10 +2152,12 @@ class Corpus(mongoengine.Document):
                 'html': 'text',
                 'number': 'integer',
                 'decimal': 'float',
+                'boolean': 'boolean',
                 'date': 'date',
                 'file': 'text',
-                'image': 'text',
-                'link': 'text',
+                'image': 'keyword',
+                'iiif-image': 'keyword',
+                'link': 'keyword',
                 'cross_reference': None,
                 'document': 'text',
             }
@@ -1780,44 +2167,53 @@ class Corpus(mongoengine.Document):
             if index.exists():
                 index.delete()
 
-            corpora_analyzer = analyzer(
-                'corpora_analyzer',
+            label_analyzer = analyzer(
+                'corpora_label_analyzer',
                 tokenizer='classic',
                 filter=['stop', 'lowercase', 'classic']
             )
 
             mapping = Mapping()
-            mapping.field('label', 'text', analyzer=corpora_analyzer, fields={'raw': Keyword()})
+            mapping.field('label', 'text', analyzer=label_analyzer, fields={'raw': Keyword()})
             mapping.field('uri', 'keyword')
 
             for field in ct.fields:
                 if field.type != 'embedded' and field.in_lists:
                     field_type = field_type_map[field.type]
-                    nested_text_type = {
-                        'type': 'text',
-                        'analyzer': corpora_analyzer,
-                        'fields': {
-                            'raw': {
-                                'type': 'keyword'
-                            }
-                        }
-                    }
 
                     if field.type == 'cross_reference' and field.cross_reference_type in self.content_types:
                         xref_ct = self.content_types[field.cross_reference_type]
                         xref_mapping_props = {
                             'id': 'keyword',
-                            'label': nested_text_type,
+                            'label': {
+                                'type': 'text',
+                                'analyzer': label_analyzer,
+                                'fields': {
+                                    'raw': {
+                                        'type': 'keyword'
+                                    }
+                                }
+                            },
                             'uri': 'keyword'
                         }
 
                         for xref_field in xref_ct.fields:
                             if xref_field.in_lists and not xref_field.type == 'cross_reference':
                                 xref_field_type = field_type_map[xref_field.type]
-                                if xref_field.type == 'text':
-                                    xref_field_type = nested_text_type
-                                elif xref_field.type == 'large_text':
-                                    xref_field_type = {'type': 'text', 'analyzer': corpora_analyzer}
+
+                                if xref_field.type in ['text', 'large_text', 'html']:
+
+                                    xref_field_type = {
+                                        'type': 'text',
+                                        'analyzer': xref_field.get_elasticsearch_analyzer(),
+                                    }
+
+                                    if xref_field.type == 'text':
+                                        xref_field_type['fields'] = {
+                                            'raw': {
+                                                'type': 'keyword'
+                                            }
+                                        }
 
                                 xref_mapping_props[xref_field.name] = xref_field_type
 
@@ -1825,11 +2221,11 @@ class Corpus(mongoengine.Document):
 
                     elif field_type == 'text':
                         subfields = {'raw': {'type': 'keyword'}}
-                        mapping.field(field.name, field_type, analyzer=corpora_analyzer, fields=subfields)
+                        mapping.field(field.name, field_type, analyzer=field.get_elasticsearch_analyzer(), fields=subfields)
 
                     # large text fields assumed too large to provide a "raw" subfield for sorting
-                    elif field_type == 'large_text':
-                        mapping.field(field.name, 'text', analyzer=corpora_analyzer)
+                    elif field_type in ['large_text', 'html']:
+                        mapping.field(field.name, 'text', analyzer=field.get_elasticsearch_analyzer())
                     else:
                         mapping.field(field.name, field_type)
 
@@ -1873,6 +2269,12 @@ class Corpus(mongoengine.Document):
         corpus_path = "/corpora/{0}".format(self.id)
         os.makedirs("{0}/files".format(corpus_path), exist_ok=True)
         return corpus_path
+
+    @property
+    def redis_cache(self):
+        if not hasattr(self, '_redis_cache'):
+            setattr(self, '_redis_cache', redis.Redis(host=settings.REDIS_HOST, decode_responses=True))
+        return self._redis_cache
 
     @classmethod
     def _post_save(cls, sender, document, **kwargs):
@@ -1961,11 +2363,15 @@ class Corpus(mongoengine.Document):
             'kvp': deepcopy(self.kvp),
             'open_access': self.open_access,
             'files': {},
+            'repos': {},
             'content_types': {},
         }
 
         for file_key in self.files:
             corpus_dict['files'][file_key] = self.files[file_key].to_dict(parent_uri=self.uri)
+
+        for repo_name in self.repos:
+            corpus_dict['repos'][repo_name] = self.repos[repo_name].to_dict()
 
         for ct_name in self.content_types:
             corpus_dict['content_types'][ct_name] = self.content_types[ct_name].to_dict()
@@ -2129,7 +2535,7 @@ class Content(mongoengine.Document):
         for field in self._ct.fields:
             if field.in_lists:
                 field_value = getattr(self, field.name)
-                if field_value:
+                if field_value or ((field.type == 'number' or field.type == 'decimal') and field_value == 0):
                     if field.cross_reference_type:
                         if field.multiple:
                             field_value = []
@@ -2153,7 +2559,7 @@ class Content(mongoengine.Document):
                             }
 
                             for xref_field in self._corpus.content_types[field.cross_reference_type].fields:
-                                if xref_field.in_lists:
+                                if xref_field.in_lists and xref_field.type != "cross_reference":
                                     field_value[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
 
                         index_obj[field.name] = field_value
@@ -2175,18 +2581,15 @@ class Content(mongoengine.Document):
             print(traceback.format_exc())
 
     def _do_linking(self):
-        # here we're making sure the node exists and has a relationship with the corpus
+        # here we're making sure the node exists
         run_neo(
             '''
-                MATCH (c:Corpus {{ uri: $corpus_uri }})
                 MERGE (d:{content_type} {{ uri: $content_uri }})
                 SET d.id = $content_id
                 SET d.corpus_id = $corpus_id
                 SET d.label = $content_label
-                MERGE (c) -[rel:has{content_type}]-> (d)
             '''.format(content_type=self.content_type),
             {
-                'corpus_uri': "/corpus/{0}".format(self.corpus_id),
                 'corpus_id': str(self.corpus_id),
                 'content_uri': self.uri,
                 'content_id': str(self.id),
@@ -2280,6 +2683,12 @@ class Content(mongoengine.Document):
                 content_dict[field.name] = field.get_dict_value(getattr(self, field.name), self.uri)
 
         return content_dict
+
+    def from_dict(self, field_values):
+        for field in field_values.keys():
+            if field == 'id':
+                field_values[field] = ObjectId(field_values[field])
+            setattr(self, field, field_values[field])
 
     meta = {
         'abstract': True
@@ -2472,7 +2881,7 @@ def get_network_json(cypher):
                 net_json['nodes'].append({
                     'id': uri,
                     'group': node_type,
-                    'title': label
+                    'label': label
                 })
 
                 node_id_to_uri_map[node.id] = uri

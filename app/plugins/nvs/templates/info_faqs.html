@@ -1,0 +1,18 @@
+{% extends 'nvs_base.html' %}
+{% load static %}
+
+{% block headrefs %}
+    <!-- This goes inside the head tag specific for this page -->
+{% endblock %}
+
+{% block main %}
+    <h2>Info: FAQ's</h2>
+
+    {% if content %}
+        {{ content|safe }}
+    {% endif %}
+{% endblock %}
+
+{% block js %}
+    <!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+{% endblock %}

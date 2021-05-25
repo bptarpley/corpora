@@ -60,6 +60,28 @@
                                 </form>
                             </div>
                         </div>
+
+                        <div id="job-permissions-container" class="list-group-item">
+                            <button class="btn btn-link" data-toggle="collapse" data-target="#job-permissions-collapsible" aria-expanded="false" aria-controls="job-permissions-collapsible">
+                                <span id="job-permissions-collapse-indicator" class="fas fa-caret-right"></span>
+                                Job permissions
+                            </button>
+                            <div id="job-permissions-collapsible" class="collapse" aria-labelledby="job-permissions-container" data-parent="#scholar-list-group">
+                                <form method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="job-perms" class="scholar-id" />
+                                    <div class="alert alert-info">
+                                        <h4 class="mb-2">Jobsite Permissions</h4>
+                                        <div id="jobsite-permissions-div">
+
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary">Set Permissions</button>
+                                </form>
+                            </div>
+                        </div>
+
                         <div id="set-password-container" class="list-group-item">
                             <button class="btn btn-link" data-toggle="collapse" data-target="#set-password-collapsible" aria-expanded="false" aria-controls="set-password-collapsible">
                                 <span id="set-password-collapse-indicator" class="fas fa-caret-right"></span>
@@ -129,10 +151,35 @@
 
 {% block js %}
     <script type="application/javascript">
-        var scholars = [];
-        var scholar_search = {};
+        let scholars = [];
+        let jobsites = [];
+        let scholar_search = {};
 
         $(document).ready(function() {
+            corpora.get_jobsites(function(jobsite_data) {
+                jobsites = jobsite_data;
+                let jobsite_div = $('#jobsite-permissions-div');
+                jobsites.map(jobsite => {
+                    jobsite_div.append(`
+                        <div class="form-check">
+                            <input class="form-check-input job-perm" type="checkbox" id="jobsite-${_id(jobsite)}" name="jobsite-${_id(jobsite)}">
+                            <label class="form-check-label" for="jobsite-${_id(jobsite)}">${jobsite.name} (${jobsite.type})</label>
+                        </div>
+                    `);
+
+                    Object.keys(jobsite.task_registry).map(task_name => {
+                        let task = jobsite.task_registry[task_name];
+                        let task_id = task['task_id']['$oid'];
+                        jobsite_div.append(`
+                            <div class="form-check ml-3">
+                                <input class="form-check-input job-perm" type="checkbox" id="task-${task_id}" name="task-${task_id}">
+                                <label class="form-check-label" for="task-${task_id}">${task_name}</label>
+                            </div>
+                        `);
+                    });
+                });
+            });
+
             load_scholars();
 
             $('#corpus-new-button').click(function() {
@@ -230,6 +277,16 @@
                 } else {
                     $('#scholar-admin-privs-button').html('Grant Admin Privileges');
                 }
+
+                $('.job-perm').attr('checked', false);
+
+                scholar_data.available_jobsites.map(js_id => {
+                    $(`#jobsite-${js_id}`).attr('checked', true);
+                });
+
+                scholar_data.available_tasks.map(task_id => {
+                    $(`#task-${task_id}`).attr('checked', true);
+                });
 
                 $('#scholar-modal').modal();
             });

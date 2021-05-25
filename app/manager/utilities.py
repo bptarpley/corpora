@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from math import ceil
 from bson.objectid import ObjectId
 from google.cloud import vision
+from elasticsearch_dsl import A
 import traceback
 import shutil
 import json
@@ -98,56 +99,15 @@ def _get_context(req):
         'scholar': {},
         'url': req.build_absolute_uri(req.get_full_path()),
         'only': [],
-        'search': {}
+        'search': build_search_params_from_dict(req.GET)
     }
 
-    default_search = {
-        'general_query': '',
-        'fields_query': {},
-        'fields_filter': {},
-        'fields_range': {},
-        'fields_wildcard': {},
-        'fields_sort': [],
-        'page': 1,
-        'page_size': 50,
-        'only': [],
-        'operator': "and"
-    }
-
-    for param in req.GET.keys():
-        value = req.GET[param]
-        search_field_name = param[2:]
-
-        if param in ['q', 'page', 'page-size', 'operator'] or param.startswith('q_') or param.startswith('s_') or param.startswith('f_') or param.startswith('r_') or param.startswith('w_'):
-            context['search'] = default_search
-        
-        if param == 'msg':
-            context['messages'].append(value)
-        if param == 'only':
-            context['only'] = value.split(',')
-            if context['search']:
-                context['search']['only'] = context['only']
-        elif param == 'q':
-            context['search']['general_query'] = value
-        elif param.startswith('q_'):
-            context['search']['fields_query'][search_field_name] = value
-        elif param.startswith('s_'):
-            context['search']['fields_sort'].append({search_field_name: {"order": value, "missing": "_first"}})
-        elif param.startswith('f_'):
-            context['search']['fields_filter'][search_field_name] = value
-        elif param.startswith('r_'):
-            context['search']['fields_range'][search_field_name] = value
-        elif param.startswith('w_'):
-            context['search']['fields_wildcard'][search_field_name] = value
-        elif param == 'operator':
-            context['search']['operator'] = value
-        elif param == 'page':
-            context['search']['page'] = int(value)
-        elif param == 'page-size':
-            context['search']['page_size'] = int(value)
-
-    if context['search'] and (not context['search']['general_query'] and not context['search']['fields_query'] and not context['search']['fields_filter']):
-        context['search']['general_query'] = "*"
+    if 'msg' in req.GET:
+        context['messages'].append(req.GET['msg'])
+    elif 'only' in req.GET:
+        context['only'] = req.GET['only'].split(',')
+        if context['search']:
+            context['search']['only'] = context['only']
 
     if req.user.is_authenticated:
 
@@ -176,6 +136,114 @@ def _get_context(req):
     return context
 
 
+def build_search_params_from_dict(params):
+    search = {}
+    
+    default_search = {
+        'general_query': '',
+        'fields_query': {},
+        'fields_term': {},
+        'fields_phrase': {},
+        'fields_filter': {},
+        'fields_range': {},
+        'fields_wildcard': {},
+        'fields_exist': [],
+        'fields_highlight': [],
+        'fields_sort': [],
+        'aggregations': {},
+        'page': 1,
+        'page_size': 50,
+        'only': [],
+        'operator': "and",
+        'highlight_num_fragments': 5,
+        'highlight_fragment_size': 100,
+        'es_debug': False
+    }
+
+    for param in params.keys():
+        value = params[param]
+        search_field_name = param[2:]
+
+        if not search and param in [
+            'q',
+            'page',
+            'page-size',
+            'only',
+            'operator',
+            'highlight_fields',
+            'highlight_num_fragments',
+            'highlight_fragment_size',
+            'es_debug'
+        ] or param[:2] in ['q_', 't_', 'p_', 's_', 'f_', 'r_', 'w_', 'e_', 'a_']:
+            search = default_search
+
+        if param == 'highlight_fields':
+            search['fields_highlight'] = value.split(',')
+        elif param == 'highlight_num_fragments' and value.isdigit():
+            search['highlight_num_fragments'] = int(value)
+        elif param == 'highlight_fragment_size' and value.isdigit():
+            search['highlight_fragment_size'] = int(value)
+        elif param == 'q':
+            search['general_query'] = value
+        elif param.startswith('q_'):
+            search['fields_query'][search_field_name] = value
+        elif param.startswith('t_'):
+            search['fields_term'][search_field_name] = value
+        elif param.startswith('p_'):
+            search['fields_phrase'][search_field_name] = value
+        elif param.startswith('s_'):
+            if value.lower() == 'asc':
+                search['fields_sort'].append({search_field_name: {"order": 'ASC', "missing": "_first"}})
+            else:
+                search['fields_sort'].append({search_field_name: {"order": value}})
+        elif param.startswith('f_'):
+            search['fields_filter'][search_field_name] = value
+        elif param.startswith('r_'):
+            search['fields_range'][search_field_name] = value
+        elif param.startswith('w_'):
+            search['fields_wildcard'][search_field_name] = value
+        elif param.startswith('e_'):
+            search['fields_exist'].append(search_field_name)
+        elif param.startswith('a_'):
+            if param.startswith('a_terms_'):
+                agg_name = param.replace('a_terms_', '')
+                field_val = None
+                script_val = None
+
+                if ',' in value:
+                    agg_fields = value.split(',')
+                    script_agg_fields = ["doc['{0}'].value".format(f) for f in agg_fields if f]
+                    script_val = "return {0}".format(" + '|||' + ".join(script_agg_fields))
+                else:
+                    field_val = value
+
+                if '.' in value:
+                    nested_path = value.split('.')[0]
+                    agg = A('nested', path=nested_path)
+                    if field_val:
+                        agg.bucket('names', 'terms', size=10000, field=field_val)
+                    elif script_val:
+                        agg.bucket('names', 'terms', size=10000, script={'source': script_val})
+                    search['aggregations'][agg_name] = agg
+                elif field_val:
+                    search['aggregations'][agg_name] = A('terms', size=10000, field=field_val)
+                elif script_val:
+                    search['aggregations'][agg_name] = A('terms', size=10000, script={'source': script_val})
+        elif param == 'operator':
+            search['operator'] = value
+        elif param == 'page':
+            search['page'] = int(value)
+        elif param == 'page-size':
+            search['page_size'] = int(value)
+        elif param == 'es_debug':
+            search['es_debug'] = True
+
+    if search and (not search['general_query'] and not search['fields_query'] and not search['fields_filter'] and not search['fields_wildcard'] and not search['fields_range']):
+        search['general_query'] = "*"
+
+    return search
+
+
 def clear_cached_session_scholar(user_id):
     cache = redis.Redis(host='redis', db=1, decode_responses=True)
     key_prefix = 'corpora:1:django.contrib.sessions.cache'
@@ -198,12 +266,12 @@ def clear_cached_session_scholar(user_id):
                 session.save()
 
 
-def get_open_access_corpora():
+def get_open_access_corpora(use_cache=True):
     oa_corpora = []
 
     cache = redis.Redis(host='redis', decode_responses=True)
     oa_corpora_list = cache.get('/open_access_corpora')
-    if not oa_corpora_list:
+    if not oa_corpora_list or not use_cache:
         corpora = Corpus.objects(open_access=True)
         oa_corpora_list = ",".join([str(corpus.id) for corpus in corpora])
         cache.set('/open_access_corpora', oa_corpora_list)
@@ -219,6 +287,13 @@ def _contains(obj, keys):
         if key not in obj:
             return False
     return True
+
+
+def _contains_any(obj, keys):
+    for key in keys:
+        if key in obj:
+            return True
+    return False
 
 
 def _clean(obj, key, default_value=''):

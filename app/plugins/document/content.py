@@ -220,12 +220,13 @@ class Page(mongoengine.EmbeddedDocument):
                 file._do_linking(content_type='Page', content_uri=page_uri)
 
     def to_dict(self, parent_uri):
+        self_uri = "{0}/page/{1}".format(parent_uri, self.ref_no)
         return {
-            'uri': "{0}/page/{1}".format(parent_uri, self.ref_no),
+            'uri': self_uri,
             'instance': self.instance,
             'label': self.label,
             'ref_no': self.ref_no,
-            'files': [file.to_dict(parent_uri) for file_key, file in self.files.items()]
+            'files': [file.to_dict(self_uri) for file_key, file in self.files.items()]
         }
 
 
@@ -291,11 +292,12 @@ class Document(Content):
     def page_file_collections(self):
         if not hasattr(self, '_page_file_collections'):
             self._page_file_collections = {}
+            '''
             cached_pfcs = run_neo(
-                '''
+                # triple quotes
                     MATCH (d:Document { uri: $doc_uri }) -[:hasPageFileCollection]-> (pfc:PageFileCollection)
                     RETURN pfc
-                '''
+                # triple quotes
                 ,
                 {
                     'doc_uri': "/corpus/{0}/Document/{1}".format(self.corpus_id, self.id)
@@ -313,6 +315,7 @@ class Document(Content):
                             'label': label,
                             'page_files': PageNavigator(page_file_dict)
                         }
+            '''
 
             if not self._page_file_collections:
                 for ref_no, page in self.ordered_pages:
@@ -323,8 +326,9 @@ class Document(Content):
                                 'label': file.collection_label,
                                 'page_files': {}
                             }
-                        self._page_file_collections[slug]['page_files'][ref_no] = file.to_dict(self.uri)
+                        self._page_file_collections[slug]['page_files'][ref_no] = file.to_dict(self.uri + '/page/{0}'.format(ref_no))
 
+                '''
                 self._corpus.queue_local_job(
                     content_type="Document",
                     content_id=str(self.id),
@@ -333,6 +337,7 @@ class Document(Content):
                         'page_file_collections': self._page_file_collections
                     }
                 )
+                '''
 
                 for slug in self._page_file_collections:
                     self._page_file_collections[slug]['page_files'] = PageNavigator(self._page_file_collections[slug]['page_files'])

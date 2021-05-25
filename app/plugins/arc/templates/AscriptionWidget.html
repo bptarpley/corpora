@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block main %}
+    {% if attribution %}
+        {% for ascription in attribution.ascriptions %}
+            <div class="alert {% if attribution.best_uri == ascription.uri %}alert-success{% else %}alert-info{% endif %}">
+                <strong>URI</strong>: <a href="{{ ascription.uri }}" target="_blank">{{ ascription.uri }}</a><br />
+                <strong>Label</strong>: {{ ascription.label }}<br />
+                <strong>Total Score</strong>: {{ ascription.total_score }}<br />
+                <strong>Name Probability</strong>: {{ ascription.name_probability }}<br />
+                <strong>Date Probability</strong>: {{ ascription.date_probability }}<br />
+                <strong>Title Score</strong>: {{ ascription.title_score }}<br />
+                {% if role == 'Admin' or role == 'Editor' %}
+                    <a class="btn btn-primary" href="javascript: set_value('{{ ascription.uri }}');" role="button">Set External URI</a>
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endblock %}
+
+{% block js %}
+    <script type="application/javascript">
+        $(document).ready(function() {
+            hide_loading_overlay();
+        });
+
+        function set_value(uri) {
+            parent.document.getElementById('external_uri-value').value = uri;
+            parent.document.getElementById('external_uri_verified-value').checked = true;
+        }
+    </script>
+{% endblock %}

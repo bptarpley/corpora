@@ -1,8 +1,8 @@
 #!/bin/bash
 
 if [ ! -f /apps/initialized ]; then
-    echo "WAITING FOR DATABASES..."
-    sleep 30
+    echo "WAITING 60 SECONDS FOR DATABASES..."
+    sleep 60
 fi
 
 cd /apps/corpora

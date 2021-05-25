@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+    <style type="text/css">
+        .content-type-card .row {
+            margin-bottom: 20px;
+        }
+
+        #merge-report-div {
+            max-height: calc(80vh);
+            overflow-y: scroll;
+        }
+    </style>
+
+{% endblock %}
+
+{% block main %}
+    <div class="row mt-4">
+        <div class="col-12">
+
+            <!-- CONTENT CARD -->
+            <div class="card h-100">
+                <div class="card-header">
+                    <h4 id="header-label">
+                        {{ content_type_plural }} Jobs
+                    </h4>
+                </div>
+                <div class="card-body h-100">
+                    Viewing progress for {{ num_jobs }} jobs:
+                    <iframe src="/jobs/corpus/{{ corpus_id }}/{{ content_type }}/" width="100%" height="100%" style="min-height: 400px;" frameborder="0"></iframe>
+                </div>
+            </div>
+
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'js/filepond.js' %}"></script>
+    <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
+    <script type="application/javascript">
+        let corpus_id = '{{ corpus_id }}';
+        let corpus_uri = `/corpus/${corpus_id}`;
+        let content_type_name = '{{ content_type }}';
+
+        $(document).ready(function() {
+            add_breadcrumb('{{ corpus_name }}', '/corpus/{{ corpus_id }}/');
+            add_breadcrumb('{{ content_type_plural }} Jobs', '/corpus/{{ corpus_id }}/{{ content_type }}/bulk-job-manager/');
+            hide_loading_overlay();
+        });
+    </script>
+{% endblock %}

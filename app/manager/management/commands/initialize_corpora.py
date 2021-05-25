@@ -69,6 +69,8 @@ class Command(BaseCommand):
                     requirePasswordChange=False
                 )
 
+                # BELOW COMMENTED OUT FOR Neo4J Community
+                '''
                 # grant admin account admin privs
                 neo.run(
                     "CALL dbms.security.addRoleToUser",
@@ -90,6 +92,7 @@ class Command(BaseCommand):
                     roleName="reader",
                     username=os.environ['CRP_NEO4J_RO_USER']
                 )
+                '''
 
             initial_neo.close()
 
@@ -251,6 +254,7 @@ class Command(BaseCommand):
                                     existing_task.version = plugin_task['version']
                                     existing_task.content_type = plugin_task['content_type']
                                     existing_task.track_provenance = plugin_task['track_provenance']
+                                    existing_task.create_report = plugin_task.get('create_report', False)
                                     existing_task.configuration = deepcopy(plugin_task['configuration'])
                                     existing_task.save()
                                 break
@@ -262,6 +266,7 @@ class Command(BaseCommand):
                             new_task.version = plugin_task['version']
                             new_task.content_type = plugin_task['content_type']
                             new_task.track_provenance = plugin_task['track_provenance']
+                            new_task.create_report = plugin_task.get('create_report', False)
                             new_task.configuration = deepcopy(plugin_task['configuration'])
                             new_task.save()
 

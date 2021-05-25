@@ -96,9 +96,20 @@
                     </h4>
                 </div>
                 <div class="card-body">
+                    {% if edit_widget_url %}
+                        <div class="row">
+                            <div class="col-sm-12 col-md-6">
+                    {% endif %}
                     <form id="content-form" method="post">
                         {% csrf_token %}
                     </form>
+                    {% if edit_widget_url %}
+                            </div>
+                            <div class="col-sm-12 col-md-6">
+                                <iframe id="edit-widget-iframe" src="" height="100%" width="100%" frameBorder="0"></iframe>
+                            </div>
+                        </div>
+                    {% endif %}
                 </div>
                 <div class="card-footer">
                     <button type="button" class="btn btn-primary" id="content-save-button">Save</button>
@@ -191,6 +202,16 @@
                     </div>
                 `;
             },
+            boolean: function(field, value, id_suffix) {
+                let is_true = false;
+                if (['t', 'T', 'true', 'True', 1, true].includes(value)) { is_true = true; }
+                return `
+                    <div id="${field.name}-value${id_suffix}-div" class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" ${is_true ? 'checked': ''}>
+                        <label class="form-check-label" for="${field.name}-value${id_suffix}">${field.label}</label>
+                    </div>
+                `;
+            },
             date: function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2">
@@ -218,6 +239,14 @@
                 `;
             },
             link: function(field, value, id_suffix) {
+                return `
+                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2">
+                        <input type="text" class="form-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value}">
+                        ${multi_remover(field, id_suffix)}
+                    </div>
+                `;
+            },
+            'iiif-image': function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2">
                         <input type="text" class="form-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value}">
@@ -266,6 +295,10 @@
                 corpus = corpus_data;
                 add_breadcrumb(corpus.name, `/corpus/${corpus_id}/`);
                 build_content_form();
+
+                {% if edit_widget_url %}
+                $('#edit-widget-iframe').attr('src', '{{ edit_widget_url }}');
+                {% endif %}
             });
 
             // SETUP FILE SEARCH BOX
@@ -299,9 +332,13 @@
                 field_indexes[field.name] = x;
 
                 if (field.type !== 'embedded') {
+
+
                     if (field.multiple) {
+                        let label = `<label for="${field.name}-values-div">${field.label}</label>`;
+                        if (field.type === 'boolean') { label = ''; }
                         content_form.append(`
-                            <label for="${field.name}-values-div">${field.label}</label>
+                            ${label}
                             <div class="ml-2 mb-2">
                                 <div id="${field.name}-values-div">
                                 </div>
@@ -309,9 +346,11 @@
                             </div>
                         `);
                     } else {
+                        let label = `<label for="${field.name}-value">${field.label}</label>`;
+                        if (field.type === 'boolean') { label = ''; }
                         content_form.append(`
                             <div id="${field.name}-value-div" class="form-group">
-                                <label for="${field.name}-value">${field.label}</label>
+                                ${label}
                             </div>
                         `);
                     }
@@ -505,7 +544,8 @@
                     let left = (screen.width / 2);
                     let top = (screen.height / 2);
                     let options = `top=${top},left=${left}`;
-                    return window.open(`/edit/${content_type}/new/?popup=y`, 'Create New{% if popup %}:{% endif %}', options);
+                    let creation_url = `/corpus/${corpus_id}/${content_selection_type}/?popup=y`;
+                    return window.open(creation_url, 'Create New{% if popup %}:{% endif %}', options);
                 });
 
                 $('#content-selection-modal').modal();
@@ -519,6 +559,14 @@
                 let input_id = button_id.replace('-select-button', '');
                 let xref_type = $(`#${input_id}-xref-type`).val();
 
+                content_selection_vars = {
+                    q: '*',
+                    only: 'label',
+                    s_label: 'asc',
+                    page_size: 10,
+                    page: 1
+                };
+                $('#content-selection-modal-filter-box').val('');
                 select_content(xref_type, input_id);
             });
 
@@ -550,6 +598,16 @@
                 }
             });
         }
+
+        // content selection filter box
+        $('#content-selection-modal-filter-box').keypress(function (e) {
+            let key = e.which;
+            if (key === 13) {
+                let query = $('#content-selection-modal-filter-box').val();
+                content_selection_vars.q = query;
+                select_content(content_selection_type, content_selection_input_id);
+            }
+        });
 
         // previous select content page click event
         $('#content-selection-modal-prev-page-button').click(function() {

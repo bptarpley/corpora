@@ -120,6 +120,41 @@
         </div>
     </div>
 
+    <!-- Job Modal -->
+    <div class="modal fade" id="job-modal" tabindex="-1" role="dialog" aria-labelledby="job-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="job-form" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="job-modal-label">Run Job</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="job-jobsite-selector">Jobsite</label>
+                            <select id="job-jobsite-selector" class="form-control" name="jobsite">
+                            </select>
+                        </div>
+                        <div id="job-task-selector-div" class="form-group">
+                            <label for="job-task-selector">Task</label>
+                            <select id="job-task-selector" class="form-control" name="task">
+                            </select>
+                        </div>
+                        <div id="job-task-parameters-div">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="job-submit-button" onclick="run_job();" disabled>Run Job</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- OCR Modal -->
     <div class="modal fade" id="ocr-modal" tabindex="-1" role="dialog" aria-labelledby="ocr-modal-label" aria-hidden="true">
         <div class="modal-dialog" role="document">
@@ -288,14 +323,17 @@
                     <div class="col-12">
                         <div class="card mb-3">
                             <div class="card-header">
-                                <h4>Running Jobs</h4>
+                                <div class="d-flex w-100 justify-content-between align-items-center">
+                                    <h4>Running Jobs</h4>
+                                    <span>
+                                        {% if response.scholar.is_admin or role == 'Editor' %}
+                                            <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
+                                        {% endif %}
+                                    </span>
+                                </div>
                             </div>
                             <div class="card-body">
-                                <div id="running-jobs-div">
-                                    <div id="no-running-jobs-div" class="alert alert-info">
-                                        There are currently no jobs running for this document.
-                                    </div>
-                                </div>
+                                <iframe src="/jobs/corpus/{{ corpus_id }}/Document/{{ document_id }}/" width="100%" height="100%" frameBorder="0"></iframe>
                             </div>
                         </div>
                     </div>
@@ -338,6 +376,22 @@
                     <div class="card-body" id="doc-files-div">
                         <div class="alert alert-info">
                             There are currently no files for this document.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ASSOCIATED CONTENT -->
+            <div class="col-12">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h4>Associated Content</h4>
+                        </div>
+                    </div>
+                    <div class="card-body" id="associated-content-div">
+                        <div class="alert alert-info">
+                            There is no content associated with this document.
                         </div>
                     </div>
                 </div>
@@ -454,8 +508,6 @@
         var import_files = [];
 
         var import_pages_files = [];
-        var check_jobs_timer;
-        var check_jobs_interval = 10;
         var jobsites = [];
         var local_jobsite_id = null;
         var tasks = [];
@@ -806,8 +858,8 @@
                                         if (label.includes('HOCR') || label.includes('GCV TextAnnotation')) {
                                             actions = `<a href="${document_uri}/draw-page-regions/${ref_no}/?ocrfile=${file.path}" target="_blank" class="btn btn-primary ml-1">Fix OCR Regions</a>`;
                                         }
-                                        if ((label.includes('HOCR') || label.includes('XML')) && (role === 'Editor' || role === 'Admin')) {
-                                            actions += `<a href="${document_uri}/edit-xml/?path=${file.path}" class="btn btn-primary ml-1">Edit XML</a>`;
+                                        if ((label.includes('XML')) && (role === 'Editor' || role === 'Admin')) {
+                                            actions += `<a href="${document_uri}/edit-xml/?path=${corpora.file_url(file.uri)}" class="btn btn-primary ml-1">Edit XML</a>`;
                                         }
 
                                         doc_pfc_tbody.append(`
@@ -869,6 +921,26 @@
                                 });
 
                                 // -----------------
+                                // SETUP JOB MODAL
+                                // -----------------
+                                $("#run-job-button").click(function() {
+                                    load_jobsites("job", "job");
+                                    $("#job-modal").modal();
+                                });
+
+                                $("#job-jobsite-selector").on("change", function() {
+                                    load_tasks($('#job-jobsite-selector :selected').attr('class'), 'job', 'job');
+                                });
+
+                                $("#job-task-selector").on("change", function() {
+                                    load_task_parameters($('#job-task-selector').val(), 'job');
+                                });
+
+                                $("#job-submit-button").click(function() {
+                                    $("#job-form").submit();
+                                });
+
+                                // -----------------
                                 // SETUP OCR MODAL
                                 // -----------------
                                 $("#perform-ocr-button").click(function() {
@@ -911,6 +983,36 @@
 
                             hide_loading_overlay();
                         });
+
+                        // ASSOCIATED CONTENT
+                        let associated_cts = {};
+                        for (let content_type in corpus.content_types) {
+                            let ct = corpus.content_types[content_type];
+                            ct.fields.map(field => {
+                                if (field.type === 'cross_reference' && field.cross_reference_type === 'Document') {
+                                    associated_cts[ct.name] = field.name;
+                                }
+                            });
+                        }
+
+                        if (associated_cts) {
+                            $('#associated-content-div').html('');
+                            for (let ct_name in associated_cts) {
+                                let associated_search = {
+                                    page: 1,
+                                    'page-size': 5,
+                                };
+                                associated_search[`f_${associated_cts[ct_name]}.id`] = document_id;
+
+                                let ct_table = new ContentTable({
+                                    container_id: 'associated-content-div',
+                                    corpora: corpora,
+                                    corpus: corpus,
+                                    content_type: ct_name,
+                                    search: associated_search
+                                });
+                            }
+                        }
                     });
                 });
             });
@@ -985,8 +1087,6 @@
                     }
                 });
             }
-
-            check_jobs();
         });
 
         function get_page(collection, ref_no) {
@@ -1108,7 +1208,7 @@
                     let tasks_populated = 0;
 
                     for (let x = 0; x < tasks.length; x++) {
-                        if (tasks[x]["jobsite_type"] == jobsite_type && tasks[x]["name"].includes(task_filter)) {
+                        if (tasks[x]["jobsite_type"] == jobsite_type && (tasks[x]["name"].includes(task_filter) || task_filter === 'job')) {
                             $(`#${modal}-task-selector`).append(`
                                 <option value="${tasks[x]["_id"]["$oid"]}">
                                     ${tasks[x]["name"]}
@@ -1132,16 +1232,13 @@
         }
 
         function load_task_parameters(task_id, modal) {
-            console.log('load parameters fired');
             $(`#${modal}-task-parameters-div`).html('');
 
             for (let x = 0; x < tasks.length; x++) {
                 if (tasks[x]["_id"]["$oid"] == task_id) {
-                    console.log('found task');
                     let parameters = tasks[x]['configuration']['parameters'];
                     for (let parameter in parameters) {
                         if (parameters[parameter].hasOwnProperty('type')) {
-                            console.log('handling parameter ' + parameter);
                             let parameter_html = '';
                             let note_html = '';
                             if (parameters[parameter].hasOwnProperty('note')) {
@@ -1178,6 +1275,29 @@
                                         ${note_html}
                                     </div>
                                 `;
+                            } else if (parameters[parameter]['type'] == 'document_file') {
+                                let select_options = '';
+                                Object.keys(doc.files).forEach(file_key => {
+                                    select_options += `<option value="${file_key}">${doc.files[file_key].basename}</option>`;
+                                });
+
+                                parameter_html = `
+                                    <div class="form-group">
+                                        <label for="${parameter}-file-selector">${parameters[parameter]['label']}</label>
+                                        <select id="${parameter}-file-selector" class="form-control" name="${parameter}">
+                                            ${select_options}
+                                        </select>
+                                        ${note_html}
+                                    </div>
+                                `;
+                            } else if (parameters[parameter]['type'] === 'text') {
+                                parameter_html = `
+                                    <div class="form-group">
+                                        <label for="${parameter}-text-box">${parameters[parameter]['label']}</label>
+                                        <input type="text" class="form-control" id="${parameter}-text-box" name="${parameter}" />
+                                        ${note_html}
+                                    </div>
+                                `;
                             }
 
                             $(`#${modal}-task-parameters-div`).append(parameter_html);
@@ -1195,81 +1315,6 @@
                 }
             });
             return name;
-        }
-
-        function check_jobs() {
-            corpora.get_content_jobs(corpus_id, 'Document', document_id, function(jobs) {
-                let has_running = false;
-                let has_completed = false;
-                let stale_jobs = [];
-                $('.running-job').each(function(index, item) {
-                    stale_jobs.push($(item).attr('id').replace('running-job-', '').replace('-div', ''));
-                });
-
-                for (let x = 0; x < jobs.length; x++) {
-                    if (jobs[x].status == 'running' || jobs[x].status == 'preparing') {
-                        if (!has_running) {
-                            $('#running-jobs-div').html('');
-                            has_running = true;
-                        }
-
-                        let job_id = jobs[x].id;
-                        let progress_value = jobs[x].percent_complete;
-                        if (jobs[x].status == 'preparing') {
-                            progress_value = 0;
-                        }
-                        let label = `${progress_value}%`;
-                        if (progress_value < 4) {
-                            label = "";
-                        }
-
-                        if ($(`#running-job-${job_id}-div`).length) {
-                            $(`#running-job-${job_id}-progress-bar`).css("width", progress_value);
-                            $(`#running-job-${job_id}-progress-bar`).attr("aria-valuenow", progress_value);
-                            $(`#running-job-${job_id}-progress-bar`).html(progress_value);
-                        } else {
-                            let job_html = `
-                                <div id="running-job-${job_id}-div" class="alert alert-info running-job">
-                                    Task: <b>${get_task_name(jobs[x].task_id)}</b>
-                                    <div class="progress">
-                                        <div id="running-job-${job_id}-progress-bar"
-                                             class="progress-bar progress-bar-striped bg-success progress-bar-animated"
-                                             role="progressbar"
-                                             aria-valuenow="${progress_value}"
-                                             aria-valuemin="0"
-                                             aria-valuemax="100"
-                                             style="width: ${progress_value}%">
-                                            ${label}
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-
-                            $('#running-jobs-div').append(job_html);
-                            stale_jobs = stale_jobs.filter(function (value, index, arr) {
-                                return value != job_id;
-                            });
-                        }
-                    }
-                }
-
-                for (let x = 0; x < stale_jobs.length; x++) {
-                    $(`#running-job-${stale_jobs[x]}-div`).remove();
-                    $('#job-finished-modal').modal();
-                }
-
-                if (!has_running && !$('#no-running-jobs-div').length) {
-                    $('#running-jobs-div').append(`
-                        <div id="no-running-jobs-div" class="alert alert-info">
-                            There are currently no jobs running for this document.
-                        </div>
-                    `);
-                }
-            });
-
-            check_jobs_timer = setTimeout(function() {
-                check_jobs();
-            }, check_jobs_interval * 1000);
         }
 
         // FILE UPLOAD FUNCTIONALITY

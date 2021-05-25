@@ -29,7 +29,7 @@
                     </h4>
                 </div>
                 <div class="card-body h-100 {% if popup %}p-0 m-0{% endif %}">
-                    <ul class="nav nav-tabs" role="tablist">
+                    <ul id="content-nav-tabs" class="nav nav-tabs" role="tablist">
                         <li class="nav-item" role="presentation">
                             <a class="nav-link active" id="metadata-tab" data-toggle="tab" href="#metadata" role="tab" aria-controls="metadata" aria-selected="true">Metadata</a>
                         </li>
@@ -37,18 +37,35 @@
                         <li class="nav-item" role="presentation">
                             <a class="nav-link disabled" id="explore-tab" data-toggle="tab" href="#explore" role="tab" aria-controls="explore" aria-selected="false">Explore</a>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" id="associated-tab" data-toggle="tab" href="#associated" role="tab" aria-controls="associated" aria-selected="false">Associated Content</a>
+                        </li>
                         {% endif %}
                     </ul>
                     <div class="tab-content h-100 {% if popup %}p-0 m-0{% else %}p-3{% endif %}">
                         <div class="tab-pane fade show active" id="metadata" role="tabpanel" aria-labelledby="metadata-tab">
+                            {% if view_widget_url %}
+                                <div class="row">
+                                    <div class="col-sm-12 col-md-6">
+                            {% endif %}
                             <div class="content-type-card" id="content-div">
                                 <!-- content metadata -->
                             </div>
+                            {% if view_widget_url %}
+                                    </div>
+                                    <div class="col-sm-12 col-md-6">
+                                        <iframe id="view-widget-iframe" src="" height="100%" width="100%" frameBorder="0"></iframe>
+                                    </div>
+                                </div>
+                            {% endif %}
                         </div>
                         {% if not popup %}
                         <div class="tab-pane fade" id="explore" role="tabpanel" aria-labelledby="explore-tab" style="height: 825px;">
                             <div id="explore-legend" class="d-inline-flex align-items-start"></div>
                             <div id="explore-div" style="height: 800px;"></div>
+                        </div>
+                        <div class="tab-pane fade" id="associated" role="tabpanel" aria-labelledby="associated-tab">
+                            <div id="associated-div"></div>
                         </div>
                         {% endif %}
                     </div>
@@ -78,27 +95,10 @@
         let content_id = '{% if content_id %}{{ content_id }}{% endif %}';
         let content_uri = `${corpus_uri}/${content_type_name}/${content_id}`;
         let content_type = null;
+        let content = null;
         let popup = {% if popup %}true{% else %}false{% endif %};
-        let canvas, content, network, nodes, edges, stabilization_timer = null;
-        let stabilization_seconds = 20;
-        let panes_displayed = {};
-        let per_group_limit = 20;
-        let groups = {};
-        let group_colors = [
-            '#EF3E36',
-            '#091540',
-            '#17BEBB',
-            '#BFC0C0',
-            '#2191FB',
-            '#297045',
-            '#9448BC',
-            '#FFB627',
-            '#CCC9E7',
-            '#E9E3B4',
-        ];
-        let group_color_cursor = 0;
-
-
+        let network = null;
+        let last_table = null;
 
         var field_templates = {
             text: function(field, value) {
@@ -143,6 +143,13 @@
                     </div>
                 `;
             },
+            boolean: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value ? 'Yes' : 'No'}
+                    </div>
+                `;
+            },
             date: function(field, value) {
                 return `
                     <div class="col-10 d-flex align-left field-value ${field.type}-value">
@@ -165,6 +172,13 @@
                     <div class="col-10">&nbsp;</div>
                 `;
             },
+            'iiif-image': function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-center field-value ${field.type}-value">
+                        <img src='${value}/full/,100/0/default.png' />
+                    </div>
+                `;
+            },
             cross_reference: function(field, value) {
                 return `
                     <div class="col-10 d-flex align-left field-value ${field.type}-value">
@@ -175,232 +189,74 @@
         };
 
         $(document).ready(function() {
-            canvas = $('#explore-div');
-
             $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
                 if (e.target.id === 'explore-tab') {
-                    network.fit();
-                    nodes.update([{ id: content.uri, label: content.label, title: null, fixed: true }]);
+                    network.network.fit();
                 }
             });
 
             corpora.get_corpus(corpus_id, function(corpus_data) {
-
                 content_type = corpus_data.content_types[content_type_name];
                 build_content_div();
                 corpora.get_content(corpus_id, content_type_name, content_id, function(content_data) {
                     content = content_data;
                     inject_content();
 
+                    {% if view_widget_url %}
+                    $('#view-widget-iframe').attr('src', '{{ view_widget_url }}');
+                    {% endif %}
+
                     if (!popup) {
 
                         add_breadcrumb(corpus_data.name, `/corpus/${corpus_id}/`);
                         add_breadcrumb(content.label, `${content_uri}/`);
-                        corpora.get_network_json(corpus_id, content_type_name, content_id, {per_type_limit: per_group_limit}, function(net_json) {
-                            nodes = new vis.DataSet(net_json.nodes);
-                            edges = new vis.DataSet(net_json.edges);
-                            determine_group_colors();
 
-                            // set shape for root node
-                            nodes.update([{
-                                id: content_uri,
-                                size: 20,
-                                skip: per_group_limit,
-                            }]);
-
-                            let explore_div = $('#explore-div')[0];
-                            network = new vis.Network(
-                                explore_div,
-                                {
-                                    nodes: nodes,
-                                    edges: edges
-                                },
-                                {
-                                    nodes: {
-                                        shape: 'dot',
-                                        size: 10
-                                    },
-                                    groups: groups,
-                                    interaction: {
-                                        zoomSpeed: 0.4,
-                                        hover: true,
-                                        tooltipDelay: 100
-                                    }
-                                }
-                            );
-                            extrude_node(corpus_uri);
-                            $('#explore-tab').removeClass('disabled');
-
-                            network.on("dragStart", function(params){
-                                params.nodes.map(id => {
-                                    let n = nodes.get(id);
-                                    n.fixed = false;
-                                    affix_node_label(n);
-                                    nodes.update(n);
-                                });
-                            });
-
-                            network.on("dragEnd", function(params){
-                                params.nodes.map(id => {
-                                    nodes.update([{ id: id, fixed: true }]);
-                                });
-                            });
-
-                            network.on("click", function(params) {
-                                remove_unpinned_panes();
-
-                                if (params.nodes.length > 0) {
-                                    let clicked_uri = params.nodes[0];
-                                    let clicked_node = nodes.get(clicked_uri);
-                                    let pane_id = `${clicked_uri.replaceAll('/', '-')}-pane`;
-                                    let canvas_offset = canvas.offset();
-                                    let pane_x = params.pointer.DOM.x + canvas_offset.left;
-                                    let pane_y = params.pointer.DOM.y + canvas_offset.top;
-
-                                    affix_node_label(clicked_node);
-                                    nodes.update(clicked_node);
-
-                                    if ($(`#${pane_id}`).length > 0) {
-                                        console.log('already there!');
-                                    } else {
-                                        $('#main-container').append(`
-                                            <div id="${pane_id}"
-                                                class="content-pane"
-                                                style="background-color: rgba(255, 255, 255, .8);
-                                                    width: 200px;
-                                                    height: 225px;
-                                                    position: absolute;
-                                                    top: ${pane_y}px;
-                                                    left: ${pane_x}px;">
-
-                                                <div style="height: 25px;">
-                                                    <span id="${pane_id}-pin" title="Pin" onClick="pin_node('${clicked_uri}');" class="popup-button fas fa-thumbtack"></span>
-                                                    <span title="Sprawl" onClick="sprawl_node('${clicked_uri}');" class="popup-button fas fa-expand-arrows-alt"></span>
-                                                    <span title="Remove" onClick="extrude_node('${clicked_uri}', true);" class="popup-button far fa-trash-alt"></span>
-                                                </div>
-                                                <iframe src="${clicked_uri}/?popup=y" frameBorder="0" width="200px" height="200px" />
-                                            </div>
-                                        `);
-                                        panes_displayed[clicked_uri] = {pinned: false};
-                                        make_draggable(document.getElementById(pane_id));
-                                    }
+                        // LOAD ASSOCIATED CONTENT TABLES
+                        let associated_cts = {};
+                        for (let ct_name in corpus_data.content_types) {
+                            let ct = corpus_data.content_types[ct_name];
+                            ct.fields.map(field => {
+                                if (field.type === 'cross_reference' && field.cross_reference_type === content_type_name) {
+                                    associated_cts[ct_name] = field.name;
                                 }
                             });
+                        }
 
-                            network.on("stabilized", function(params) {
-                                clearTimeout(stabilization_timer);
+                        for (let ct_name in associated_cts) {
+                            let associated_search = {
+                                page: 1,
+                                'page-size': 5,
+                            };
+                            associated_search[`f_${associated_cts[ct_name]}.id`] = content_id;
+                            last_table = new ContentTable({
+                                container_id: 'associated-div',
+                                corpora: corpora,
+                                corpus: corpus_data,
+                                content_type: ct_name,
+                                search: associated_search
                             });
-                        });
+                        }
+
+                        // INITIAL EXPLORE VIZ LOAD
+                        let explore_container_width = $('#content-nav-tabs').innerWidth();
+                        $('#explore-div').css("width", `${explore_container_width}px`);
+                        network = new ContentGraph(
+                            corpora,
+                            corpus_data,
+                            "explore-div",
+                            "explore-legend",
+                            {
+                                'seeds': [content.uri],
+                                'per_type_limit': 20,
+                                'width': explore_container_width,
+                                'height': 800
+                            }
+                        );
+                        $('#explore-tab').removeClass('disabled');
                     }
                 });
             });
         });
-
-        function affix_node_label(node) {
-            if (node.title) {
-                node.label = node.title;
-                node.title = null;
-            }
-        }
-
-        function extrude_node(uri, remove_isolated=false) {
-            edge_ids = network.getConnectedEdges(uri);
-            edge_ids.map(edge_id => edges.remove(edge_id));
-            nodes.remove(uri);
-
-            if (remove_isolated) {
-                let isolated_nodes = new vis.DataView(nodes, {
-                    filter: function (node) {
-                        let connEdges = edges.get({
-                            filter: function (edge) {
-                                return (
-                                    (edge.to == node.id) || (edge.from == node.id));
-                            }
-                        });
-                        return connEdges.length == 0;
-                    }
-                });
-
-                isolated_nodes.map(i => extrude_node(i.id, false));
-            }
-        }
-
-        function pin_node(uri) {
-            if (!panes_displayed[uri].pinned) {
-                panes_displayed[uri].pinned = true;
-                let pin_id = `${uri.replaceAll('/', '-')}-pane-pin`;
-                $(`#${pin_id}`).css('color', '#EF3E36');
-            } else {
-                panes_displayed[uri].pinned = false;
-                remove_unpinned_panes();
-            }
-        }
-
-        function sprawl_node(uri, sprawl_children=false) {
-            let node_ct = uri.split('/').slice(-2)[0];
-            let node_id = uri.split('/').slice(-1)[0];
-            let skip = 0;
-
-            let node = nodes.get(uri);
-            if (node && node.hasOwnProperty('skip')) {
-                skip = node.skip;
-            }
-
-            corpora.get_network_json(corpus_id, node_ct, node_id, {per_type_skip: skip, per_type_limit: per_group_limit}, function(net_json) {
-                let children = [];
-
-                net_json.nodes.map(n => {
-                    if (n.id !== corpus_uri && !nodes.get(n.id)) {
-                        if (n.id === uri) { n.skip = per_group_limit; }
-                        nodes.add(n);
-                        children.push(n.id);
-                    }
-                });
-
-                net_json.edges.map(e => {
-                    if (e.from !== corpus_uri && e.to !== corpus_uri && !edges.get(e.id)) {
-                        edges.add(e);
-                    }
-                });
-
-                determine_group_colors();
-                network.setOptions({groups: groups});
-
-                if (sprawl_children) {
-                    children.map(child_uri => sprawl_node(child_uri));
-                }
-
-                clearTimeout(stabilization_timer);
-                stabilization_timer = setTimeout(stop_jitter, stabilization_seconds * 1000);
-            });
-
-            if (node) {
-                node.skip = skip += per_group_limit;
-                nodes.update(node);
-            }
-        }
-
-        function determine_group_colors() {
-            let group_names = nodes.map(n => n.group);
-            group_names = [...new Set(group_names)];
-            group_names.map(group_name => {
-                if (group_name !== 'Corpus' && !Object.keys(groups).includes(group_name)) {
-                    groups[group_name] = {
-                        color: group_colors[group_color_cursor]
-                    };
-                    group_color_cursor++;
-                    if (group_color_cursor >= group_colors.length) group_color_cursor = 0;
-                }
-            });
-
-            let legend = $('#explore-legend');
-            legend.html('');
-            for (let group_name in groups) {
-                legend.append(`
-                    <span class="badge mr-1" style="background-color: ${groups[group_name].color}; color: #FFFFFF;">${group_name}</span>
-                `);
-            }
-        }
 
         function build_content_div() {
             let content_div = $("#content-div");
@@ -440,67 +296,12 @@
                             });
                         }
                     } else {
-                        field_div.append(field_templates[field.type](field, content[field.name] ? content[field.name] : "", ""));
+                        field_div.append(field_templates[field.type](field, (content[field.name] || content[field.name] === 0) ? content[field.name] : "", ""));
                     }
                 }
             }
 
             hide_loading_overlay();
-        }
-
-        function remove_unpinned_panes() {
-            for (let pane_uri in panes_displayed) {
-                if (!panes_displayed[pane_uri].pinned) {
-                    let pane_id = `${pane_uri.replaceAll('/', '-')}-pane`;
-                    $(`#${pane_id}`).remove();
-                    delete panes_displayed[pane_uri];
-                }
-            }
-        }
-
-        function stop_jitter() {
-            nodes.map(n => {n.fixed = true; nodes.update(n);});
-        }
-
-        function make_draggable(elmnt) {
-            var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-            if (document.getElementById(elmnt.id + "header")) {
-                // if present, the header is where you move the DIV from:
-                document.getElementById(elmnt.id + "header").onmousedown = dragMouseDown;
-            } else {
-                // otherwise, move the DIV from anywhere inside the DIV:
-                elmnt.onmousedown = dragMouseDown;
-            }
-
-            function dragMouseDown(e) {
-                e = e || window.event;
-                e.preventDefault();
-                // get the mouse cursor position at startup:
-                pos3 = e.clientX;
-                pos4 = e.clientY;
-                document.onmouseup = closeDragElement;
-                // call a function whenever the cursor moves:
-                document.onmousemove = elementDrag;
-            }
-
-            function elementDrag(e) {
-                e = e || window.event;
-                e.preventDefault();
-                // calculate the new cursor position:
-                pos1 = pos3 - e.clientX;
-                pos2 = pos4 - e.clientY;
-                pos3 = e.clientX;
-                pos4 = e.clientY;
-                // set the element's new position:
-                elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
-                elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
-            }
-
-            function closeDragElement() {
-                // stop moving when mouse button is released:
-                document.onmouseup = null;
-                document.onmousemove = null;
-            }
         }
     </script>
 {% endblock %}
