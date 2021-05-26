@@ -386,6 +386,26 @@ def play_minimap(request, corpus_id=None, play_prefix=None):
             return response
 
 
+def home(request, corpus_id=None):
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'nvs_home'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'nvs_home.html',
+        {
+            'corpus_id': corpus_id,
+            'content': dynamic_content
+        }
+    )
+
 def info_about(request, corpus_id=None):
     dynamic_content = "Some <i>dynamically</i> generated content!"
 

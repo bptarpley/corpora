@@ -35,8 +35,8 @@ if 'CRP_HOST' in os.environ:
 elif 'CRP_HOSTS' in os.environ:
     ALLOWED_HOSTS = [h for h in os.environ['CRP_HOSTS'].split(',') if h]
 
-if os.path.exists('/CORPORA_SITES.json'):
-    with open('/CORPORA_SITES.json', 'r') as sites_in:
+if os.path.exists('/conf/corpora_sites.json'):
+    with open('/conf/corpora_sites.json', 'r') as sites_in:
         CORPORA_SITES = json.load(sites_in)
 else:
     CORPORA_SITES = {}
@@ -156,13 +156,15 @@ MONGO_POOLSIZE = os.environ['CRP_MONGO_POOLSIZE']
 
 DATABASES = {
     'default': {
-        'ENGINE': 'djongo',
-        'NAME': MONGO_DB,
-        'USER': MONGO_USER,
-        'PASSWORD': MONGO_PWD,
-        'HOST': MONGO_HOST,
-        'AUTH_SOURCE': MONGO_AUTH_SOURCE,
-        'AUTH_MECHANISM': 'SCRAM-SHA-1',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': '/conf/corpora_users.sqlite3',
+        #'ENGINE': 'djongo',
+        #'NAME': MONGO_DB,
+        #'USER': MONGO_USER,
+        #'PASSWORD': MONGO_PWD,
+        #'HOST': MONGO_HOST,
+        #'AUTH_SOURCE': MONGO_AUTH_SOURCE,
+        #'AUTH_MECHANISM': 'SCRAM-SHA-1',
     }
 }
 
