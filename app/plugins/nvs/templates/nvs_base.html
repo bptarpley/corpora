@@ -17,6 +17,7 @@
 <body>
 
 {% include 'blocks/organisms/small-header.html' %}
+{% include 'blocks/organisms/large-header.html' %}
 
 <main class="nvs_base--main">
   <h1>This is on every page.</h1>
@@ -51,4 +52,36 @@
   {% endblock %}
 </main>
 </body>
+
+
+<script type="text/javascript">
+  document.addEventListener('DOMContentLoaded', () => {
+    let holders = document.querySelectorAll('.navigation--holder');
+    holders.forEach(holder => {
+
+      let dropDowns = holder.querySelectorAll('.navigation--dropdown');
+      dropDowns.forEach(dropDown => {
+        let button = dropDown.firstElementChild;
+        button.addEventListener('click', () => {
+          if (dropDown.classList.contains('active')) {
+            dropDown.classList.remove('active');
+          } else {
+            let previouslyActive;
+            if (dropDown.classList.contains('nested')) {
+              previouslyActive = holder.querySelector('.navigation--dropdown.active.nested');
+            } else {
+              previouslyActive = holder.querySelector('.navigation--dropdown.active.parent');
+            }
+            if (previouslyActive) {
+              previouslyActive.classList.remove('active');
+            }
+            dropDown.classList.add('active');
+          }
+        });
+      })
+
+    })
+  })
+</script>
+
 </html>

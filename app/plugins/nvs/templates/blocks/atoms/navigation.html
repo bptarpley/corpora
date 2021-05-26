@@ -12,7 +12,7 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
-  @media ( min-width: 768px ) {
+  @media ( min-width: 992px ) {
     .navigation--dropdown { z-index: 1; }
 
     .navigation--dropdown.active {
@@ -54,7 +54,7 @@
     font-weight: bold;
     letter-spacing: 0.02em;
   }
-  @media ( min-width: 768px ) {
+  @media ( min-width: 992px ) {
     .navigation--dropdown > button {
       padding: 0.5rem 1rem 1.5rem 1rem;
       height: 3.5rem;
@@ -82,7 +82,7 @@
   .navigation--dropdown.active > .navigation--dropdown-inner {
     max-height: 20rem;
   }
-  @media ( min-width: 768px ) {
+  @media ( min-width: 992px ) {
     .navigation--dropdown-inner {
       display: none;
       border-bottom: 1px solid var(--white);
@@ -101,7 +101,7 @@
       display: block;
       box-shadow: var(--boxShadow);
     }
-    .navigation--dropdown-inner.nested {
+    .navigation--dropdown.nested .navigation--dropdown-inner {
       top: 0;
       left: 100%;
       min-width: 15rem;
@@ -119,7 +119,7 @@
       background-color: var(--grey4);
     }
     @media ( min-width: 1400px ) {
-      .navigation--dropdown-inner.nested {
+      .navigation--dropdown.nested .navigation--dropdown-inner {
         width: 100%;
         min-width: 0;
       }
@@ -174,30 +174,3 @@
     </li>
   </ul>
 </nav>
-
-<script type="text/javascript">
-  document.addEventListener('DOMContentLoaded', () => {
-    let holder = document.querySelector('.navigation--holder'),
-      dropDowns = holder.querySelectorAll('.navigation--dropdown');
-
-    dropDowns.forEach(dropDown => {
-      let button = dropDown.firstElementChild;
-      button.addEventListener('click', () => {
-        if (dropDown.classList.contains('active')) {
-          dropDown.classList.remove('active');
-        } else {
-          let previouslyActive;
-          if (dropDown.classList.contains('nested')) {
-            previouslyActive = holder.querySelector('.navigation--dropdown.active.nested');
-          } else {
-            previouslyActive = holder.querySelector('.navigation--dropdown.active.parent');
-          }
-          if (previouslyActive) {
-            previouslyActive.classList.remove('active');
-          }
-          dropDown.classList.add('active');
-        }
-      });
-    })
-  })
-</script>
