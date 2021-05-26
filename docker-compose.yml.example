@@ -40,6 +40,7 @@ services:
       - ./app/imagemagick.xml:/etc/ImageMagick-6/policy.xml
       - /your/corpora/basedir/static:/static
       - /your/corpora/basedir/corpora:/corpora
+      - /your/corpora/basedir/conf:/conf
     depends_on:
       - mongo
       - neo4j
