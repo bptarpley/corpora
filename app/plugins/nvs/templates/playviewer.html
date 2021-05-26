@@ -249,6 +249,10 @@
                 min-height: var(--nvs-play-row-min-height);
             }
 
+            .bg-nvs {
+                background-color: var(--nvs-background-color);
+            }
+
             .bg-nvs-light-blue {
                 background-color: var(--nvs-light-blue);
             }
@@ -270,10 +274,30 @@
                 width: 100%;
             }
 
-            #playtext-col, #act-scene-frame, #commentary-frame {
+            #playtext-col, #playtext-header-col, #act-scene-frame, #commentary-frame {
                 overflow-y: scroll;
+                overflow-x: hidden;
                 max-height: calc(100vh - 60px);
                 background-repeat: no-repeat;
+            }
+
+            #playtext-col::-webkit-scrollbar, #playtext-header-col::-webkit-scrollbar {
+                width: 40px;
+            }
+
+            #playtext-col::-webkit-scrollbar-track {
+                background-color: var(--nvs-lightest-gray);
+                background-image: var(--scrollbarURL);
+                background-size: contain;
+                background-repeat: no-repeat;
+            }
+
+            #playtext-col::-webkit-scrollbar-thumb {
+                background-color: rgba(247, 155, 86, .5);
+            }
+
+            #playtext-header-col::-webkit-scrollbar-track {
+                background-color: var(--nvs-lightest-gray);
             }
 
             #act-scene-frame {
@@ -286,22 +310,8 @@
                 padding-top: 0px;
             }
 
-            #playtext-col::-webkit-scrollbar {
-                width: 40px;
-            }
-
-            #playtext-col::-webkit-scrollbar-track {
-                background-image: var(--scrollbarURL);
-                background-size: contain;
-                background-repeat: no-repeat;
-            }
-
-            #playtext-col::-webkit-scrollbar-thumb {
-                background-color: rgba(247, 155, 86, .5);
-            }
-
             .play-row {
-                border-bottom: solid 1px var(--nvs-light-blue);
+                border-top: solid 1px var(--nvs-light-blue);
                 min-height: var(--nvs-play-row-min-height);
             }
 
@@ -651,47 +661,56 @@
 
                     <!-- header row -->
                     <div class="row">
-                        <div class="col-sm-8 pr-0">
-                            <div class="row header-block bg-nvs-light-blue">
+                        <div class="col-sm-8 pr-0 bg-nvs-light-blue">
+                            <div class="row no-gutters header-block align-items-end">
                                 <div class="col-sm-4">
                                     <div class="heading-section-label mt-auto">
                                         TEXTUAL VARIANTS BY YEAR
                                     </div>
                                 </div>
-                                <div class="col-sm-7">
+                                <div class="col-sm-7 m-0 p-0">
                                     <div class="heading-section-label mt-auto">
                                         PLAY TEXT
                                     </div>
                                 </div>
-                                <div class="col-sm-1">
+                                <div class="col-sm-1 m-0 p-0">
                                     &nbsp;
-                                </div>
-                            </div>
-                            <div class="row header-block">
-                                <div id="witness-header" class="col-sm-4 bg-nvs-light-orange">
-                                    <canvas id="witness-header-canvas"></canvas>
-                                </div>
-                                <div class="col-sm-7">
-                                    <span class="text-muted">SHOW VARS BY LINE | HIGHLIGHT</span>
-                                </div>
-                                <div class="col-sm-1" style="position: relative; left: -40px;">
-                                    <div class="heading-section-label mt-auto" style="color: var(--nvs-mid-gray);">
-                                        TLN
-                                    </div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-sm-4">
-                            <div class="row header-block bg-nvs-light-blue">
-                                <div class="col-sm-1">
+                            <div class="row header-block bg-nvs-light-blue align-items-end">
+                                <div class="col-sm-1 m-0 p-0">
                                     &nbsp;
                                 </div>
-                                <div class="col-sm-11">
+                                <div class="col-sm-11 m-0 p-0">
                                     <div class="heading-section-label mt-auto">
                                         COMMENTARY NOTES BY LINE
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div id="playtext-header-col" class="col-sm-8 pr-0 bg-nvs-light-orange">
+                            <div class="row no-gutters header-block align-items-end">
+                                <div id="witness-header" class="col-sm-4 m-0 p-0">
+                                    &nbsp;
+                                </div>
+                                <div class="col-sm-7 bg-nvs">
+                                    <span class="heading-label">
+                                        SHOW VARS BY LINE | HIGHLIGHT
+                                    </span>
+                                </div>
+                                <div class="col-sm-1 bg-nvs">
+                                    <span class="heading-label">
+                                        TLN
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-4">
                             <div class="row header-block">
                                 <div class="col-sm-1 bg-nvs-lightest-gray">
                                     AS
@@ -1423,18 +1442,18 @@
 
     function draw_witness_header_and_background() {
         let wit_header = $('#witness-header');
+        let wit_header_col = $('#playtext-header-col');
         let width = wit_header.width();
         let witness_width = width / witness_count;
         let header_height = wit_header.height();
 
-        let header_canvas = $('#witness-header-canvas');
-        header_canvas.attr('width', `${width}px`);
-        header_canvas.attr('height', `${header_height}px`);
-        let header_context = header_canvas[0].getContext('2d');
-        let light_beige = get_nvs_var('nvs-light-beige');
-        let dark_beige = get_nvs_var('nvs-dark-beige');
+        let header_canvas = document.createElement('canvas');
+        let header_context = header_canvas.getContext('2d');
+        //let light_beige = get_nvs_var('nvs-light-beige');
+        //let dark_beige = get_nvs_var('nvs-dark-beige');
         let font_color = get_nvs_var('nvs-mid-gray');
         let light_orange = get_nvs_var('nvs-light-orange');
+        let delimiter_color = get_nvs_var('nvs-background-color');
         let font_size = 12;
         header_context.font = `${font_size}px Roboto`;
         header_context.textAlign = "left";
@@ -1446,28 +1465,28 @@
         background_canvas.width = width;
         let background_context = background_canvas.getContext('2d');
 
+        // DRAW LIGHT ORANGE BACKGROUND ON BOTH CANVASES
+        header_context.beginPath();
+        header_context.fillStyle = light_orange;
+        header_context.fillRect(0, 0, width, header_height);
+
+        background_context.beginPath();
+        background_context.fillStyle = light_orange;
+        background_context.fillRect(0, 0, width, playtext_col.innerHeight());
+
         let century_cursor = 0;
         let width_cursor = 0;
+        let delimiter_width = 2;
         for (let century in witness_centuries) {
             let century_width = witness_centuries[century] * witness_width;
 
-            if (century_cursor % 2 === 0) {
-                header_context.beginPath();
-                header_context.fillStyle = dark_beige;
-                header_context.fillRect(width_cursor, 0, century_width, header_height);
+            header_context.beginPath();
+            header_context.fillStyle = delimiter_color;
+            header_context.fillRect(width_cursor, 0, delimiter_width, header_height);
 
-                background_context.beginPath();
-                background_context.fillStyle = dark_beige;
-                background_context.fillRect(width_cursor, 0, century_width, playtext_col.innerHeight());
-            } else {
-                header_context.beginPath();
-                header_context.fillStyle = light_beige;
-                header_context.fillRect(width_cursor, 0, century_width, header_height);
-
-                background_context.beginPath();
-                background_context.fillStyle = light_beige;
-                background_context.fillRect(width_cursor, 0, century_width, playtext_col.innerHeight());
-            }
+            background_context.beginPath();
+            background_context.fillStyle = delimiter_color;
+            background_context.fillRect(width_cursor, 0, delimiter_width, playtext_col.innerHeight());
 
             header_context.save();
             header_context.fillStyle = font_color;
@@ -1480,12 +1499,15 @@
             width_cursor += century_width;
         }
 
+        wit_header_col.css('background-image', `url(${header_canvas.toDataURL()})`);
+        wit_header_col.css('background-position', `${wit_header.offset().left + 6}px 6px`);
+
         playtext_col.css('background-image', `url(${background_canvas.toDataURL()})`);
-        playtext_col.css('background-position', `${header_canvas.offset().left + 6}px 0px`);
+        playtext_col.css('background-position', `${wit_header.offset().left + 6}px 0px`);
         playtext_col.css('background-color', light_orange);
     }
 
-    function draw_witness_meter(witness_meter, canvas_element, width, height, inactive_color="#9A9A99") {
+    function draw_witness_meter(witness_meter, canvas_element, width, height, inactive_color="#CFCFCF") {
         canvas_element.src = `${witness_meter_prefix}${witness_meter}/${Math.floor(height)}/${Math.floor(width)}/${inactive_color.replace('#', '')}/`;
     }
 
