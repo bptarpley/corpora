@@ -34,7 +34,7 @@
                 --scrollbarURL: url("/corpus/{{ corpus_id }}/play-minimap/{{ play.prefix }}/?width=40&height=1000");
                 {% endif %}
                 --nvs-form-control-height: 35px;
-                --nvs-play-row-min-height: 40px;
+                --nvs-play-row-min-height: 50px;
                 --nvs-form-control-font-size: 12px;
                 --nvs-background-color: #FFFFFF;
                 --nvs-lightest-gray: #F2F2F2;
@@ -68,13 +68,6 @@
             /* -----------------------------
             || HEADERS AND CONTROLS
             || -------------------------- */
-
-            .heading-section-label {
-                font-family: 'Roboto', sans-serif;
-                color: #FFFFFF;
-                font-size: 14px;
-                font-weight: bold;
-            }
 
             .heading-label {
                 font-family: 'Roboto', sans-serif;
@@ -269,6 +262,17 @@
                 background-color: var(--nvs-lightest-gray);
             }
 
+            .text-white {
+                color: #FFFFFF;
+            }
+
+            .vertical {
+                font-size: 12px;
+                position: relative;
+                transform: rotate(-90deg);
+                transform-origin: 45% 70%;
+            }
+
             #witness-header {
                 height: var(--nvs-form-control-height);
                 width: 100%;
@@ -302,6 +306,7 @@
 
             #act-scene-frame {
                 background-color: var(--nvs-lightest-gray);
+                overflow-x: hidden;
             }
 
             #commentary-frame {
@@ -319,9 +324,9 @@
                 background-color: var(--nvs-background-color);
                 color: var(--nvs-mid-gray);
                 border: none;
-                border-left: solid 1px var(--nvs-light-blue);
+                border-left: solid 1px var(--nvs-mid-gray);
                 font-family: 'Roboto', sans-serif;
-                font-size: 1.2vw;
+                font-size: 14px;
             }
 
             .play-words, .play-words-seen {
@@ -441,6 +446,8 @@
 
             .actscene-indicator {
                 color: var(--nvs-mid-gray);
+                font-size: 12px;
+                cursor: pointer;
             }
 
             .actscene-indicator.active {
@@ -664,12 +671,12 @@
                         <div class="col-sm-8 pr-0 bg-nvs-light-blue">
                             <div class="row no-gutters header-block align-items-end">
                                 <div class="col-sm-4">
-                                    <div class="heading-section-label mt-auto">
+                                    <div class="heading-label text-white">
                                         TEXTUAL VARIANTS BY YEAR
                                     </div>
                                 </div>
                                 <div class="col-sm-7 m-0 p-0">
-                                    <div class="heading-section-label mt-auto">
+                                    <div class="heading-label text-white">
                                         PLAY TEXT
                                     </div>
                                 </div>
@@ -684,7 +691,7 @@
                                     &nbsp;
                                 </div>
                                 <div class="col-sm-11 m-0 p-0">
-                                    <div class="heading-section-label mt-auto">
+                                    <div class="heading-label text-white">
                                         COMMENTARY NOTES BY LINE
                                     </div>
                                 </div>
@@ -694,26 +701,32 @@
 
                     <div class="row">
                         <div id="playtext-header-col" class="col-sm-8 pr-0 bg-nvs-light-orange">
-                            <div class="row no-gutters header-block align-items-end">
+                            <div class="row no-gutters header-block">
                                 <div id="witness-header" class="col-sm-4 m-0 p-0">
                                     &nbsp;
                                 </div>
                                 <div class="col-sm-7 bg-nvs">
-                                    <span class="heading-label">
+                                    <div class="heading-label mt-1 ml-2">
                                         SHOW VARS BY LINE | HIGHLIGHT
-                                    </span>
+                                    </div>
                                 </div>
                                 <div class="col-sm-1 bg-nvs">
-                                    <span class="heading-label">
-                                        TLN
-                                    </span>
+                                    <div class="row no-gutters h-100">
+                                        <div class="col-sm-8 offset-4 play-label">
+                                            <div class="heading-label vertical d-flex h-100 justify-content-center align-items-end">
+                                                TLN
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-sm-4">
                             <div class="row header-block">
                                 <div class="col-sm-1 bg-nvs-lightest-gray">
-                                    AS
+                                    <div class="heading-label vertical d-flex h-100 align-items-end">
+                                        ACT<br>SCENE
+                                    </div>
                                 </div>
                                 <div class="col-sm-11 bg-nvs-light-yellow">
                                     &nbsp;
@@ -738,7 +751,7 @@
                                      data-witness_indicators="{{ line.witness_meter }}"
                                 >
                                     <div id="{{ line.xml_id }}-witness-col" class="col-sm-4 m-0 p-0 witness-meter">
-                                        <img id="{{ line.xml_id }}-witness-meter" height="30" width="100%" src="{% static 'img/blank-meter.png'%}" />
+                                        <img id="{{ line.xml_id }}-witness-meter" height="35" width="100%" src="{% static 'img/blank-meter.png'%}" />
                                     </div>
                                     <div id="{{ line.xml_id }}-text-col" class="col-sm-7 m-0 p-0 play-words offscreen">
                                         {% if line.witness_meter|to_int > 0 %}
@@ -757,8 +770,12 @@
                                         {% endif %}
                                         {{ line.rendered_html|safe }}
                                     </div>
-                                    <div id="{{ line.xml_id }}-number-col" class="col-sm-1 m-0 p-0 d-flex justify-content-center play-label">
-                                        {{ line.line_label }}
+                                    <div id="{{ line.xml_id }}-number-col" class="col-sm-1 m-0 p-0">
+                                        <div class="row no-gutters h-100 bg-nvs">
+                                            <div class="col-sm-8 offset-4 play-label d-flex justify-content-center align-items-center">
+                                                {{ line.line_label }}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 {% if line.witness_meter|to_int > 0 %}
@@ -1500,7 +1517,7 @@
         }
 
         wit_header_col.css('background-image', `url(${header_canvas.toDataURL()})`);
-        wit_header_col.css('background-position', `${wit_header.offset().left + 6}px 6px`);
+        wit_header_col.css('background-position', `${wit_header.offset().left + 6}px 14px`);
 
         playtext_col.css('background-image', `url(${background_canvas.toDataURL()})`);
         playtext_col.css('background-position', `${wit_header.offset().left + 6}px 0px`);
