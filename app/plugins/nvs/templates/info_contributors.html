@@ -2,17 +2,36 @@
 {% load static %}
 
 {% block headrefs %}
-    <!-- This goes inside the head tag specific for this page -->
+<!-- This goes inside the head tag specific for this page -->
 {% endblock %}
 
 {% block main %}
-    <h2>Info: Contributors</h2>
 
-    {% if content %}
-        {{ content|safe }}
-    {% endif %}
+<div class="page-holder is-grey">
+  <div class="container">
+    <div class="page-holder--inner has-max-width">
+      <div class="anchor-links--holder">
+        <ul class="anchor-links--inner">
+          <li class="anchor-link">
+            <a href="#">{% include 'svg/icon_arrow.svg' %}Link</a>
+          </li>
+        </ul>
+      </div>
+      <div>
+        <h1>Contributors</h1>
+        <h2 id="board">NVS Board and Editors</h2>
+        <h2 id="research-design">Research & Design</h2>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+{% if content %}
+{{ content|safe }}
+{% endif %}
 {% endblock %}
 
 {% block js %}
-    <!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+<!-- If you wanted this particular page to have a javascript library referenced, put it here -->
 {% endblock %}

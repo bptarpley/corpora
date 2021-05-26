@@ -20,28 +20,6 @@
 {% include 'blocks/organisms/large-header.html' %}
 
 <main class="nvs_base--main">
-  <h1>This is on every page.</h1>
-  <h2>This is on every page.</h2>
-  <h3>This is on every page.</h3>
-  <h4>This is on every page.</h4>
-  <h5>This is on every page.</h5>
-  <h6>This is on every page.</h6>
-
-  <!-- Here is a reference to a file living in the "static" folder of the NVS plugin: -->
-  <img src="{% static 'img/nvs-logo.png' %}" style="height: 100px; width: auto;"/>
-
-  <h4>Page Links</h4>
-  <ul>
-    <li><a href="/corpus/{{ corpus_id }}/about/">Info About</a></li>
-    <li><a href="/corpus/{{ corpus_id }}/contributors/">Info Contributors</a></li>
-    <li><a href="/corpus/{{ corpus_id }}/print/">Info Print Editions</a></li>
-    <li><a href="/corpus/{{ corpus_id }}/how-to/">Info How To</a></li>
-    <li><a href="/corpus/{{ corpus_id }}/faqs/">Info FAQ's</a></li>
-    <li><a href="/corpus/{{ corpus_id }}/tools/">Tools About</a></li>
-    <li><a href="/corpus/{{ corpus_id }}/search/">Tools Search</a></li>
-    <li><a href="/corpus/{{ corpus_id }}/data/">Tools Data</a></li>
-  </ul>
-
   {% block main %}
   {% endblock %}
 
@@ -53,7 +31,6 @@
 </main>
 {% include 'blocks/organisms/footer.html' %}
 </body>
-
 
 <script type="text/javascript">
   document.addEventListener('DOMContentLoaded', () => {
