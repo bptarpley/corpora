@@ -96,8 +96,10 @@
 </div>
 
 <script type="text/javascript">
-  let holder = document.querySelector('.small-header--holder');
-  document.querySelector('button.menu').addEventListener("click", () => {
-    holder.classList.toggle("active");
+  document.addEventListener('DOMContentLoaded', ()=>{
+    let holder = document.querySelector('.small-header--holder');
+    document.querySelector('button.menu').addEventListener("click", () => {
+      holder.classList.toggle("active");
+    })
   })
 </script>
