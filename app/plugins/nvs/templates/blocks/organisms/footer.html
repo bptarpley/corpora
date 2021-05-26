@@ -1,0 +1,89 @@
+{% load static %}
+<style>
+  .footer--holder {
+    background-color: var(--grey1);
+    color: var(--white);
+    padding: 1rem 0;
+  }
+  @media ( min-width: 768px ) {
+    .footer--holder {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      z-index: 10;
+    }
+    .footer--holder:hover .footer--hidden-text {
+      max-height: 30rem;
+    }
+  }
+
+  .footer--inner {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-gap: 2rem;
+  }
+  @media ( min-width: 768px ) {
+    .footer--inner { grid-template-columns: 1fr 1fr 1fr; }
+  }
+
+
+  @media ( min-width: 768px ) {
+    .footer--logo-row {
+      display: flex;
+      justify-content: start;
+    }
+  }
+  .footer--logo-row img {
+    height: 1.5rem;
+    width: auto;
+    display: block;
+    margin-right: 1rem;
+  }
+  .footer--logo-row img.nvs {
+    height: 1rem;
+    margin-top: 0.25rem;
+  }
+
+  .footer--hidden-text {
+    transition: max-height 0.5s;
+    max-height: 0;
+    overflow: hidden;
+  }
+  .footer--hidden-text small {
+    margin-top: 1rem;
+  }
+</style>
+<div class="footer--holder">
+  <div class="container">
+    <div class="footer--inner">
+      <div>
+        <div class="footer--logo-row">
+          <img class="nvs" src="{% static 'img/logos/NVS-type.png' %}" alt="New Variorum Shakespeare"/>
+        </div>
+      </div>
+      <div>
+        <div class="footer--logo-row">
+          <img src="{% static 'img/logos/codhr.png' %}" alt="CODHR"/>
+          <img src="{% static 'img/logos/TAMU_liberalarts.png' %}" alt="TAMU Liberal Arts"/>
+        </div>
+        <div class="footer--hidden-text">
+          <small>Contact : Center of Digital Humanities Research (CoDHR) at Texas A&M University,
+            448 Liberal Arts and Arts & Humanities Building (LAAH), TX 77843-4213. Phone:
+            979-458-1552 | Fax: 979-862-4334 | Email: torabik@tamu.edu.</small>
+        </div>
+      </div>
+      <div>
+        <div class="footer--logo-row">
+          <img src="{% static 'img/logos/publicdomain.png' %}" alt="Public Domain"/>
+        </div>
+        <div class="footer--hidden-text">
+          <small>To the extent possible under law, The Center of Digital Humanities Research
+            (CoDHR) at Texas A&M University has waived all copyright and related or neighboring
+            rights to New Variorum Shakespeare (NVS). This work is published from: United States.
+            2021 Center of Digital Humanities Research. Updated Spring 2021. Report errors.</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
