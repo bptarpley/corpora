@@ -42,6 +42,7 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-size: var(--fluidFontSize);
+  scroll-behavior: smooth;
 }
 html * { box-sizing: border-box; }
 
@@ -130,6 +131,25 @@ h6, .h6 {
   --maxScaled: calc(var(--max) / var(--maxScale));
   font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
   margin-top: 1rem;
+}
+
+.fluid-type-0 {
+  --minScaled: var(--min);
+  --maxScaled: var(--max);
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+}
+
+.fluid-type--1 {
+  --minScaled: calc(var(--min) / var(--minScale));
+  --maxScaled: calc(var(--max) / var(--maxScale));
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+}
+
+.anchor:before {
+  content: "";
+  display: block;
+  padding-top: 5rem;
+  margin-top: -5rem;
 }
 
 li {
