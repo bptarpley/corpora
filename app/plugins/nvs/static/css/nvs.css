@@ -2,203 +2,203 @@
 
 /* Variables -------------------------- */
 :root {
-  /*Colours*/
-  --black: #373737;
-  --white: white;
-  --blue: #2a69a1;
-  --blue2: #6C9ECC;
-  --blue3: #C3E0FC;
-  --blue4: #DAE9F7;
-  --blue5: #EBF4FC;
-  --yellow: #F0E438;
-  --grey1: #808080;
-  --grey2: #ABABAB;
-  --grey3: #CFCFCF;
-  --grey4: #E6E6E6;
-  --grey5: #F2F2F2;
-  --focus: #4fcd90;
-  --error: #d0021b;
+    /*Colours*/
+    --black: #373737;
+    --white: white;
+    --blue: #2a69a1;
+    --blue2: #6C9ECC;
+    --blue3: #C3E0FC;
+    --blue4: #DAE9F7;
+    --blue5: #EBF4FC;
+    --yellow: #F0E438;
+    --grey1: #808080;
+    --grey2: #ABABAB;
+    --grey3: #CFCFCF;
+    --grey4: #E6E6E6;
+    --grey5: #F2F2F2;
+    --focus: #4fcd90;
+    --error: #d0021b;
 
-  /*Misc*/
-  --boxShadow: rgba(99, 99, 99, 0.3) 4px 8px 8px 0;
-  --sideBar: 16rem;
-  --searchWidth: 8rem;
+    /*Misc*/
+    --boxShadow: rgba(99, 99, 99, 0.3) 4px 8px 8px 0;
+    --sideBar: 16rem;
+    --searchWidth: 8rem;
 
-  /*Type*/
-  --min: 16;
-  --max: 18;
-  --minScreen: 400;
-  --maxScreen: 2000;
-  --minScale: 1.067;
-  --maxScale: 1.125;
-  --minScaled: 16;
-  --maxScaled: 18;
-  --fluidFontSize: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    /*Type*/
+    --min: 16;
+    --max: 18;
+    --minScreen: 400;
+    --maxScreen: 2000;
+    --minScale: 1.067;
+    --maxScale: 1.125;
+    --minScaled: 16;
+    --maxScaled: 18;
+    --fluidFontSize: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
 }
 
 /* Global Styles -------------------------- */
 
 html {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  font-size: var(--fluidFontSize);
-  scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-size: var(--fluidFontSize);
+    scroll-behavior: smooth;
 }
 html * { box-sizing: border-box; }
 
 
 body {
-  margin: 0;
-  font-family: "Public Sans", serif;
-  color: var(--black);
-  background-color: var(--white);
+    margin: 0;
+    font-family: "Public Sans", serif;
+    color: var(--black);
+    background-color: var(--white);
 }
 
 .roboto {
-  font-family: "Roboto Condensed", sans-serif;
+    font-family: "Roboto Condensed", sans-serif;
 }
 
 .roboto-uppercase {
-  font-family: "Roboto Condensed", sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+    font-family: "Roboto Condensed", sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .serif {
-  font-family: Baskerville, Baskerville Old Face, Hoefler Text, Garamond, Times New Roman, serif;
+    font-family: Baskerville, Baskerville Old Face, Hoefler Text, Garamond, Times New Roman, serif;
 }
 
 p,
 ol, ul, li,
 code, kbd, pre, samp {
-  line-height: 1.5;
-  margin-top: 0;
-  margin-bottom: 1.5rem;
+    line-height: 1.5;
+    margin-top: 0;
+    margin-bottom: 1.5rem;
 }
 
 h1, h2, h3, h4, h5, h6,
 .h1, .h2, .h3, .h4, .h5, .h6 {
-  line-height: 1.1;
-  font-weight: bold;
-  margin-bottom: 0.25rem;
+    line-height: 1.1;
+    font-weight: bold;
+    margin-bottom: 0.25rem;
 }
 
 h1 a, h2 a, h3 a, h4 a, h5 a, h6 a,
 .h1 a, .h2 a, .h3 a, .h4 a, .h5 a, .h6 a {
-  text-decoration: none;
+    text-decoration: none;
 }
 
 h1 a:hover, h2 a:hover, h3 a:hover, h4 a:hover, h5 a:hover, h6 a:hover,
 .h1 a:hover, .h2 a:hover, .h3 a:hover, .h4 a:hover, .h5 a:hover, .h6 a:hover {
-  text-decoration: none;
+    text-decoration: none;
 }
 
 h1, .h1 {
-  font-weight: bold;
-  color: var(--blue);
-  font-family: "Roboto Condensed", sans-serif;
-  text-transform: uppercase;
-  margin-top: 3rem;
-  margin-bottom: 3rem;
+    font-weight: bold;
+    color: var(--blue);
+    font-family: "Roboto Condensed", sans-serif;
+    text-transform: uppercase;
+    margin-top: 3rem;
+    margin-bottom: 3rem;
 }
 h2, .h2 {
-  margin-top: 3rem;
+    margin-top: 3rem;
 }
 h3, .h3,
 h4, .h4 {
-  margin-top: 2rem;
+    margin-top: 2rem;
 }
 h5, .h5,
 h6, .h6 {
-  margin-top: 1rem;
+    margin-top: 1rem;
 }
 .fluid-type-4, h1, .h1 {
-  --minScaled: calc(var(--min) * var(--minScale) * var(--minScale) * var(--minScale) * var(--minScale));
-  --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale) * var(--maxScale) * var(--maxScale));
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    --minScaled: calc(var(--min) * var(--minScale) * var(--minScale) * var(--minScale) * var(--minScale));
+    --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale) * var(--maxScale) * var(--maxScale));
+    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
 }
 .fluid-type-3, h2, .h2 {
-  --minScaled: calc(var(--min) * var(--minScale) * var(--minScale) * var(--minScale));
-  --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale) * var(--maxScale));
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    --minScaled: calc(var(--min) * var(--minScale) * var(--minScale) * var(--minScale));
+    --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale) * var(--maxScale));
+    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
 }
 .fluid-type-2, h3, .h3 {
-  --minScaled: calc(var(--min) * var(--minScale) * var(--minScale));
-  --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale));
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    --minScaled: calc(var(--min) * var(--minScale) * var(--minScale));
+    --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale));
+    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
 }
 
 .fluid-type-1, h4, .h4 {
-  --minScaled: calc(var(--min) * var(--minScale));
-  --maxScaled: calc(var(--max) * var(--maxScale));
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    --minScaled: calc(var(--min) * var(--minScale));
+    --maxScaled: calc(var(--max) * var(--maxScale));
+    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
 }
 
 .fluid-type-0, h5, .h5 {
-  --minScaled: var(--min);
-  --maxScaled: var(--max);
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    --minScaled: var(--min);
+    --maxScaled: var(--max);
+    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
 }
 
 .fluid-type--1, h6, .h6, small {
-  --minScaled: calc(var(--min) / var(--minScale));
-  --maxScaled: calc(var(--max) / var(--maxScale));
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    --minScaled: calc(var(--min) / var(--minScale));
+    --maxScaled: calc(var(--max) / var(--maxScale));
+    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
 }
 
 .fluid-type--2 {
-  --minScaled: calc(var(--min) / var(--minScale) / var(--minScale));
-  --maxScaled: calc(var(--max) / var(--maxScale) / var(--maxScale));
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    --minScaled: calc(var(--min) / var(--minScale) / var(--minScale));
+    --maxScaled: calc(var(--max) / var(--maxScale) / var(--maxScale));
+    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
 }
 
 .fluid-type--3 {
-  --minScaled: calc(var(--min) / var(--minScale) / var(--minScale) / var(--minScale));
-  --maxScaled: calc(var(--max) / var(--maxScale) / var(--maxScale) / var(--maxScale));
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    --minScaled: calc(var(--min) / var(--minScale) / var(--minScale) / var(--minScale));
+    --maxScaled: calc(var(--max) / var(--maxScale) / var(--maxScale) / var(--maxScale));
+    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
 }
 
 .fluid-type--4 {
-  --minScaled: calc(var(--min) / var(--minScale) / var(--minScale) / var(--minScale) / var(--minScale));
-  --maxScaled: calc(var(--max) / var(--maxScale) / var(--maxScale) / var(--maxScale) / var(--maxScale));
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    --minScaled: calc(var(--min) / var(--minScale) / var(--minScale) / var(--minScale) / var(--minScale));
+    --maxScaled: calc(var(--max) / var(--maxScale) / var(--maxScale) / var(--maxScale) / var(--maxScale));
+    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
 }
 
 .anchor:before {
-  content: "";
-  display: block;
-  padding-top: 5rem;
-  margin-top: -5rem;
+    content: "";
+    display: block;
+    padding-top: 5rem;
+    margin-top: -5rem;
 }
 
 li {
-  margin-top: 0;
-  margin-bottom: 0;
+    margin-top: 0;
+    margin-bottom: 0;
 }
 
 small {
-  display: block;
+    display: block;
 }
 
 code, kbd, pre, samp {
-  font-family: monospace;
-  white-space: normal;
+    font-family: monospace;
+    white-space: normal;
 }
 
 ul {
-  padding-left: 1rem;
-  list-style-type: disc;
+    padding-left: 1rem;
+    list-style-type: disc;
 }
 
 ol {
-  padding-left: 1rem;
-  list-style-type: decimal;
+    padding-left: 1rem;
+    list-style-type: decimal;
 }
 
 video {
-  width: 100%;
-  height: auto;
-  margin-bottom: 1rem;
+    width: 100%;
+    height: auto;
+    margin-bottom: 1rem;
 }
 
 em, i { font-style: italic; }
@@ -206,26 +206,26 @@ em, i { font-style: italic; }
 strong, b { font-weight: bold; }
 
 blockquote {
-  font-weight: bold;
-  padding-left: 1rem;
+    font-weight: bold;
+    padding-left: 1rem;
 }
 
 a { color: inherit; }
 
 sup, sub {
-  vertical-align: baseline;
-  position: relative;
-  top: -0.4em;
+    vertical-align: baseline;
+    position: relative;
+    top: -0.4em;
 }
 
 sub { top: 0.4em; }
 
 label {
-  --minScaled: calc(var(--min) / var(--minScale));
-  --maxScaled: calc(var(--max) / var(--maxScale));
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-  line-height: 1.2;
-  font-weight: normal;
+    --minScaled: calc(var(--min) / var(--minScale));
+    --maxScaled: calc(var(--max) / var(--maxScale));
+    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    line-height: 1.2;
+    font-weight: normal;
 }
 
 .text-input,
@@ -243,17 +243,17 @@ input[type="time"],
 input[type="url"],
 input[type="week"],
 textarea {
-  display: block;
-  font-family: inherit;
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-  padding: 0.2rem 0.5rem;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
-  border: 1px solid;
-  border-radius: 2px;
-  line-height: 1.6;
-  background-color: transparent;
-  -webkit-appearance: none;
+    display: block;
+    font-family: inherit;
+    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    padding: 0.2rem 0.5rem;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid;
+    border-radius: 2px;
+    line-height: 1.6;
+    background-color: transparent;
+    -webkit-appearance: none;
 }
 
 .file-input,
@@ -263,7 +263,7 @@ input[type="radio"],
 .checkbox-input,
 input[type="checkbox"],
 select {
-  font-family: inherit;
+    font-family: inherit;
 }
 
 .button,
@@ -271,205 +271,232 @@ button,
 input[type="submit"],
 input[type="button"],
 input[type="reset"] {
-  display: inline-block;
+    display: inline-block;
 
-  padding: 0 1rem;
+    padding: 0 1rem;
 
-  font-family: inherit;
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-  line-height: 2;
-  text-decoration: none;
-  white-space: nowrap;
-  border: 1px solid;
-  border-radius: 2px;
+    font-family: inherit;
+    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    line-height: 2;
+    text-decoration: none;
+    white-space: nowrap;
+    border: 1px solid;
+    border-radius: 2px;
 
-  color: inherit;
-  background-color: transparent;
-  cursor: pointer;
+    color: inherit;
+    background-color: transparent;
+    cursor: pointer;
 }
 
 .button:hover {
-  text-decoration: none;
+    text-decoration: none;
 }
 button.link {
-  border: none;
-  padding: 0;
-  background-color: transparent;
-  white-space: normal;
-  line-height: inherit;
-  font-size: inherit;
+    border: none;
+    padding: 0;
+    background-color: transparent;
+    white-space: normal;
+    line-height: inherit;
+    font-size: inherit;
 }
 button.icon,
 .button.icon {
-  border: none;
-  padding: 0;
-  background-color: transparent;
+    border: none;
+    padding: 0;
+    background-color: transparent;
 }
 button.icon svg,
 .button.icon svg {
-  height: 1.5rem;
-  width: auto;
-  display: block;
+    height: 1.5rem;
+    width: auto;
+    display: block;
 }
 
 .errorMsg {
-  color: var(--error);
+    color: var(--error);
 }
 
 /* Atoms -------------------------- */
 
 .container {
-  max-width: var(--maxScreen) px;
-  margin: 0 auto;
-  padding: 0 1rem;
+    max-width: var(--maxScreen) px;
+    margin: 0 auto;
+    padding: 0 1rem;
 }
 .container > :first-child { margin-top: 0; }
 .container > :last-child { margin-bottom: 0; }
 
 .page-holder {
-  background-color: var(--white);
-  padding: 2rem 0;
-  min-height: 100vh;
+    background-color: var(--white);
+    padding: 2rem 0;
+    min-height: 100vh;
 }
 @media ( min-width: 768px ) {
-  .page-holder {
-    padding: 0 0 14rem 0;
-  }
+    .page-holder {
+        padding: 0 0 14rem 0;
+    }
 }
 .page-holder.is-grey {
-  background-color: var(--grey5);
+    background-color: var(--grey5);
 }
 .page-holder.is-blue {
-  background-color: var(--blue5);
+    background-color: var(--blue5);
 }
 
 .page-holder--inner {
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-gap: 1rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-gap: 1rem;
 }
 @media ( min-width: 992px ) {
-  .page-holder--inner {
-    grid-template-columns: var(--sideBar) 1fr;
-    grid-gap: 1rem;
-    position: relative;
-  }
+    .page-holder--inner {
+        grid-template-columns: var(--sideBar) 1fr;
+        grid-gap: 1rem;
+        position: relative;
+    }
 }
 @media ( min-width: 1400px ) {
-  .page-holder--inner {
-    grid-template-columns: var(--sideBar) 1fr var(--searchWidth);
-  }
+    .page-holder--inner {
+        grid-template-columns: var(--sideBar) 1fr var(--searchWidth);
+    }
 }
 .page-holder--inner.has-max-width > :nth-child(2) { max-width: 50rem; }
 
 .page-holder--inner h1 {
-  margin-top: 0;
-  margin-bottom: 2rem;
+    margin-top: 0;
+    margin-bottom: 2rem;
 }
 @media ( min-width: 768px ) {
-  .page-holder--inner h1 {
-    margin-top: 3.5rem;
-  }
+    .page-holder--inner h1 {
+        margin-top: 3.5rem;
+    }
 }
 .page-holder--inner h1 + h2,
 .page-holder--inner h1 + p {
-  margin-top: 2rem;
+    margin-top: 2rem;
 }
 
 .page-holder--inner a {
-  text-decoration: underline;
+    text-decoration: underline;
 }
 .page-holder--inner a:hover { text-decoration: underline; }
 
 .anchor-links--holder {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background-color: var(--blue);
-  color: var(--white);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: var(--blue);
+    color: var(--white);
 }
 @media ( min-width: 992px ) {
-  .anchor-links--holder {
-    position: relative;
-    background-color: transparent;
-    color: inherit;
-  }
+    .anchor-links--holder {
+        position: relative;
+        background-color: transparent;
+        color: inherit;
+    }
 }
 .anchor-links--inner {
-  list-style: none;
-  padding-left: 0;
-  position: sticky;
-  top: 10.8rem;
-  left: 0;
-  margin: 0.5rem 0;
+    list-style: none;
+    padding-left: 0;
+    position: sticky;
+    top: 10.8rem;
+    left: 0;
+    margin: 0.5rem 0;
 }
 @media ( min-width: 992px ) {
-  .anchor-links--inner {
-    margin: 0;
-  }
+    .anchor-links--inner {
+        margin: 0;
+    }
 }
 .anchor-links--inner a {
-  text-decoration: none;
+    text-decoration: none;
 }
 .anchor-links--inner .hide-on-sm-screen {
-  display: none;
+    display: none;
 }
 @media ( min-width: 992px ) {
-  .anchor-links--inner .hide-on-sm-screen {
-    display: block;
-  }
+    .anchor-links--inner .hide-on-sm-screen {
+        display: block;
+    }
 }
 
 .anchor-link {
-  font-family: "Roboto Condensed", sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  --minScaled: calc(var(--min) / var(--minScale));
-  --maxScaled: calc(var(--max) / var(--maxScale));
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-  padding-left: 0; /* 1rem for second level */
-  line-height: 1.3;
+    font-family: "Roboto Condensed", sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    --minScaled: calc(var(--min) / var(--minScale));
+    --maxScaled: calc(var(--max) / var(--maxScale));
+    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    padding-left: 0;
+    line-height: 1.3;
 }
-@media( min-width: 768px ) {
-  .anchor-link {
-    margin: 0.3rem 0;
-  }
+
+.anchor-link.is-level-2 {
+    display: none;
+    padding-left: 1rem;
+}
+
+@media ( min-width: 768px ) {
+    .anchor-link {
+        margin: 0.3rem 0;
+    }
+    .anchor-link.is-level-2 {
+        display: block;
+    }
 }
 .anchor-link a {
-  cursor: pointer;
-  display: flex;
-  align-items: start;
+    cursor: pointer;
+    display: flex;
+    align-items: start;
 }
 .anchor-link a svg {
-  margin-top: 0.3rem;
-  margin-right: 0.5rem;
-  width: 0.7rem;
-  height: auto;
-  display: block;
-  opacity: 0;
-  flex-shrink: 0;
+    margin-top: 0.3rem;
+    margin-right: 0.5rem;
+    width: 0.7rem;
+    height: auto;
+    display: block;
+    opacity: 0;
+    flex-shrink: 0;
 }
 .anchor-link a svg rect,
 .anchor-link a svg polygon {
-  fill: var(--blue);
+    fill: var(--blue);
 }
 .anchor-link a:hover {
-  text-decoration: none;
-  color: var(--grey4);
+    text-decoration: none;
+    color: var(--grey4);
 }
-@media( min-width: 768px ) {
-  .anchor-link a:hover {
-    color: var(--blue);
-  }
+@media ( min-width: 768px ) {
+    .anchor-link a:hover {
+        color: var(--blue);
+    }
 }
 .anchor-link a.active {
-  color: var(--grey4);
-  font-weight: bold;
+    color: var(--grey4);
+    font-weight: bold;
 }
-@media( min-width: 768px ) {
-  .anchor-link a.active {
-    color: var(--blue);
-  }
+@media ( min-width: 768px ) {
+    .anchor-link a.active {
+        color: var(--blue);
+    }
 }
 .anchor-link a.active svg { opacity: 1; }
+
+.embed-container {
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+    overflow: hidden;
+    max-width: 100%;
+}
+
+.embed-container iframe,
+.embed-container object,
+.embed-container embed {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
