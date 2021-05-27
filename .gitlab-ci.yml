@@ -9,4 +9,4 @@ dev:
     - corpora
     - dev
   script:
-    - echo deploying!
+    - rsync -r --delete ./ /apps/corpora
