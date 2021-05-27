@@ -1,2 +1,9 @@
-deploy-dev:
-  script: "restart_corpora.sh"
+stages:
+  - dev
+
+dev:
+  stage: dev
+  only:
+    - dev
+  script:
+    - echo deploying!
