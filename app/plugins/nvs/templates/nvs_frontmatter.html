@@ -1,0 +1,31 @@
+{% extends 'nvs_base.html' %}
+{% load static %}
+
+{% block headrefs %}
+<!-- This goes inside the head tag specific for this page -->
+{% endblock %}
+
+{% block main %}
+
+<div class="page-holder is-white">
+  <div class="container">
+    <div class="page-holder--inner has-max-width">
+      <div class="anchor-links--holder">
+        <ul class="anchor-links--inner">
+        </ul>
+      </div>
+      <div>
+        <h1>Frontmatter</h1>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if content %}
+{{ content|safe }}
+{% endif %}
+{% endblock %}
+
+{% block js %}
+<!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+{% endblock %}

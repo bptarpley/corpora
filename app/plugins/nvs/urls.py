@@ -4,6 +4,9 @@ from . import views as nvs_views
 
 urlpatterns = [
     path('corpus/<str:corpus_id>/home/', nvs_views.home),
+    path('corpus/<str:corpus_id>/frontmatter/', nvs_views.frontmatter),
+    path('corpus/<str:corpus_id>/appendix/', nvs_views.appendix),
+    path('corpus/<str:corpus_id>/bibliography/', nvs_views.bibliography),
     path('corpus/<str:corpus_id>/about/', nvs_views.info_about),
     path('corpus/<str:corpus_id>/contributors/', nvs_views.info_contributors),
     path('corpus/<str:corpus_id>/print/', nvs_views.info_print_editions),

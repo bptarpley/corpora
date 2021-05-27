@@ -406,6 +406,67 @@ def home(request, corpus_id=None):
         }
     )
 
+def frontmatter(request, corpus_id=None):
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'nvs_frontmatter'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'nvs_frontmatter.html',
+        {
+            'corpus_id': corpus_id,
+            'content': dynamic_content
+        }
+    )
+
+def appendix(request, corpus_id=None):
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'nvs_appendix'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'nvs_appendix.html',
+        {
+            'corpus_id': corpus_id,
+            'content': dynamic_content
+        }
+    )
+
+def bibliography(request, corpus_id=None):
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'nvs_bibliography'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'nvs_bibliography.html',
+        {
+            'corpus_id': corpus_id,
+            'content': dynamic_content
+        }
+    )
+
+
 def info_about(request, corpus_id=None):
     dynamic_content = "Some <i>dynamically</i> generated content!"
 
