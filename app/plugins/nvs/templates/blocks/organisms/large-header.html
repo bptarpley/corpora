@@ -32,10 +32,17 @@
   }
   .large-header--logo-holder a svg {
     display: block;
-    width: 6.7rem; /* 12rem on homepage */
     max-width: 100%;
     height: auto;
     margin-top: 0.5rem;
+  }
+
+  .large-header--logo-holder a svg:first-child {
+      display: none;
+      width: 12rem;
+  }
+  .large-header--logo-holder a svg:last-child {
+      width: 6.7rem;
   }
 
   .large-header--nav-holder {
@@ -92,8 +99,8 @@
   <div class="container">
     <div class="large-header--inner">
       <div class="large-header--logo-holder">
-        <a href="#">
-<!--          {% include 'svg/logo-w-type.svg' %}-->
+        <a href="/corpus/{{ corpus_id }}/home/">
+          {% include 'svg/logo-w-type.svg' %}
           {% include 'svg/logo.svg' %}
         </a>
       </div>

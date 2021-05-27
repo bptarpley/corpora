@@ -2,17 +2,288 @@
 {% load static %}
 
 {% block headrefs %}
-    <!-- This goes inside the head tag specific for this page -->
+<style>
+    .home--holder {}
+    @media ( min-width: 768px ) {
+        .home--holder {
+            margin-left: var(--sideBar);
+            padding: 0 1rem;
+        }
+    }
+    @media ( min-width: 1400px ) {
+        .home--holder {
+            margin-right: var(--searchWidth);
+        }
+    }
+
+    .home--intro {
+        color: var(--blue);
+        margin: 1rem 0;
+        padding-top: 2rem;
+    }
+    @media ( min-width: 768px ) {
+        .home--intro {
+            width: 42.85%;
+        }
+    }
+
+    .home--cards {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-gap: 1rem;
+        margin: 3rem 0;
+        align-items: start;
+    }
+    @media ( min-width: 576px ) {
+        .home--cards { grid-template-columns: 1fr 1fr; }
+    }
+    @media ( min-width: 768px ) {
+        .home--cards {
+            grid-template-columns: 1fr 1fr 1fr;
+            margin: 6rem 0;
+        }
+    }
+    @media ( min-width: 1400px ) {
+        .home--cards {
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+        }
+    }
+
+    .edition-card--holder {
+        color: var(--white);
+        border: 0.1rem solid var(--white);
+    }
+    .edition-card--holder.current {
+        cursor: pointer;
+    }
+    .edition-card--holder.current.open {
+        border: 0.1rem solid var(--yellow);
+    }
+    .edition-card--image-holder {
+        background-color: var(--grey3);
+        padding: 1rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .edition-card--holder.current .edition-card--image-holder {
+        background-color: var(--blue3);
+    }
+    .edition-card--image-holder img {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+    .edition-card--image-holder svg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        object-fit: cover;
+        z-index: 2;
+    }
+    .edition-card--text-inner {
+        padding: 0.5rem;
+        min-height: 4.3rem;
+        background-color: var(--grey2);
+    }
+    .edition-card--holder.current .edition-card--text-inner {
+        background-color: var(--blue);
+    }
+    .edition-card--text-inner h2 {
+        margin: 0;
+        font-family: "Roboto Condensed", sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: bold;
+    }
+    .edition-card--text-inner h2 .year {
+        font-weight: normal;
+    }
+    .edition-card--text-inner small {
+        color: var(--yellow);
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .edition-card--nav {
+        color: var(--white);
+        background-color: var(--blue);
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.5s ease;
+    }
+    .edition-card--holder.current.open .edition-card--nav {
+        max-height: 20rem;
+    }
+    .edition-card--nav ul {
+        margin: 0;
+        list-style: none;
+        padding: 0 0 0.5rem 0;
+    }
+    .edition-card--nav ul li {
+        margin: 0;
+        padding: 0 0.5rem;
+    }
+    .edition-card--nav ul li:hover {
+        color: var(--blue);
+        background-color: var(--white);
+    }
+    .edition-card--nav ul li a {
+        display: inline-block;
+        text-decoration: none;
+    }
+
+</style>
 {% endblock %}
 
 {% block main %}
-    <h2>Info: Home</h2>
+<div class="container">
+  <article class="home--holder">
+    <div class="home--intro">
+      <small>Mandated by MLA to become digitally available and open access, NVS Digital Editions
+        contain not only the complete text of each play but also present the expanse of
+        scholarly opinion and interpretation from the earliest commentary to the present.
+      </small>
+    </div>
+    <div class="home--cards">
 
-    {% if content %}
-        {{ content|safe }}
-    {% endif %}
+      <div class="edition-card--holder current">
+        <div class="edition-card--image-holder">
+          {% include 'svg/edition-overlay.svg' %}
+          <img src="{% static 'img/home/WT-card.png' %}" alt="The Winter's Tale"/>
+        </div>
+        <div class="edition-card--text">
+          <div class="edition-card--text-inner">
+            <h2 class="fluid-type-0">The Winter's Tale <span class="year fluid-type--2">(1610)</span></h2>
+          </div>
+          <div class="edition-card--nav">
+            <ul>
+              <li class="fluid-type--2 roboto-uppercase"><a href="/">Variorum Reader</a></li>
+              <li class="fluid-type--2 roboto-uppercase"><a href="/">Front matter</a></li>
+              <li class="fluid-type--2 roboto-uppercase"><a href="/">Bibliography</a></li>
+              <li class="fluid-type--2 roboto-uppercase"><a href="/">Appendix</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="edition-card--holder current">
+        <div class="edition-card--image-holder">
+          {% include 'svg/edition-overlay.svg' %}
+          <img src="{% static 'img/home/MND-card.png' %}" alt="A Midsummer Night's Dream"/>
+        </div>
+        <div class="edition-card--text">
+          <div class="edition-card--text-inner">
+            <h2 class="fluid-type-0">A Midsummer Night's Dream <span class="year fluid-type--2">(1595)</span></h2>
+          </div>
+          <div class="edition-card--nav">
+            <ul>
+              <li class="fluid-type--2 roboto-uppercase"><a href="/">Variorum Reader</a></li>
+              <li class="fluid-type--2 roboto-uppercase"><a href="/">Front matter</a></li>
+              <li class="fluid-type--2 roboto-uppercase"><a href="/">Bibliography</a></li>
+              <li class="fluid-type--2 roboto-uppercase"><a href="/">Appendix</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="edition-card--holder">
+        <div class="edition-card--image-holder">
+          {% include 'svg/edition-overlay.svg' %}
+          <img src="{% static 'img/home/COE-card.png' %}" alt="Comedy of Errors"/>
+        </div>
+        <div class="edition-card--text">
+          <div class="edition-card--text-inner">
+            <small class="fluid-type--4">In production<sup>*</sup></small>
+            <h2 class="fluid-type-0">Comedy of Errors <span class="year fluid-type--2">(1589)</span></h2>
+          </div>
+        </div>
+      </div>
+
+      <div class="edition-card--holder">
+        <div class="edition-card--image-holder">
+          {% include 'svg/edition-overlay.svg' %}
+          <img src="{% static 'img/home/TKL-card.png' %}" alt="King Lear"/>
+        </div>
+        <div class="edition-card--text">
+          <div class="edition-card--text-inner">
+            <small class="fluid-type--4">In production<sup>*</sup></small>
+            <h2 class="fluid-type-0">King Lear <span class="year fluid-type--2">(1605)</span></h2>
+          </div>
+        </div>
+      </div>
+
+      <div class="edition-card--holder">
+        <div class="edition-card--image-holder">
+          {% include 'svg/edition-overlay.svg' %}
+          <img src="{% static 'img/home/MWW-card.png' %}" alt="Merry Wives of Windsor"/>
+        </div>
+        <div class="edition-card--text">
+          <div class="edition-card--text-inner">
+            <small class="fluid-type--4">In production<sup>*</sup></small>
+            <h2 class="fluid-type-0">Merry Wives of Windsor <span class="year fluid-type--2">(1600)</span></h2>
+          </div>
+        </div>
+      </div>
+
+      <div class="edition-card--holder">
+        <div class="edition-card--image-holder">
+          {% include 'svg/edition-overlay.svg' %}
+          <img src="{% static 'img/home/C-card.png' %}" alt="Julius Caesar"/>
+        </div>
+        <div class="edition-card--text">
+          <div class="edition-card--text-inner">
+            <small class="fluid-type--4">In production<sup>*</sup></small>
+            <h2 class="fluid-type-0">Julius Caesar <span class="year fluid-type--2">(1599)</span></h2>
+          </div>
+        </div>
+      </div>
+
+      <div class="edition-card--holder">
+        <div class="edition-card--image-holder">
+          {% include 'svg/edition-overlay.svg' %}
+          <img src="{% static 'img/home/TT-card.png' %}" alt="The Tempest"/>
+        </div>
+        <div class="edition-card--text">
+          <div class="edition-card--text-inner">
+            <small class="fluid-type--4">In production<sup>*</sup></small>
+            <h2 class="fluid-type-0">The Tempest <span class="year fluid-type--2">(1611)</span></h2>
+          </div>
+        </div>
+      </div>
+
+      <div class="edition-card--holder">
+        <div class="edition-card--image-holder">
+          {% include 'svg/edition-overlay.svg' %}
+          <img src="{% static 'img/home/TRT-card.png' %}" alt="Richard III"/>
+        </div>
+        <div class="edition-card--text">
+          <div class="edition-card--text-inner">
+            <small class="fluid-type--4">In production<sup>*</sup></small>
+            <h2 class="fluid-type-0">Richard III <span class="year fluid-type--2">(1592)</span></h2>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+</div>
+
+{% if content %}
+{{ content|safe }}
+{% endif %}
 {% endblock %}
 
 {% block js %}
-    <!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+<!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    let holders = document.querySelectorAll('.edition-card--holder.current');
+    holders.forEach(holder => {
+      holder.addEventListener("click", () => {
+        holder.classList.toggle('open');
+      })
+    })
+  })
+</script>
 {% endblock %}

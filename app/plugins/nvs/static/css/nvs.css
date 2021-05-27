@@ -94,9 +94,6 @@ h1 a:hover, h2 a:hover, h3 a:hover, h4 a:hover, h5 a:hover, h6 a:hover,
 }
 
 h1, .h1 {
-  --minScaled: calc(var(--min) * var(--minScale) * var(--minScale) * var(--minScale) * var(--minScale));
-  --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale) * var(--maxScale) * var(--maxScale));
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
   font-weight: bold;
   color: var(--blue);
   font-family: "Roboto Condensed", sans-serif;
@@ -105,43 +102,65 @@ h1, .h1 {
   margin-bottom: 3rem;
 }
 h2, .h2 {
+  margin-top: 3rem;
+}
+h3, .h3,
+h4, .h4 {
+  margin-top: 2rem;
+}
+h5, .h5,
+h6, .h6 {
+  margin-top: 1rem;
+}
+.fluid-type-4, h1, .h1 {
+  --minScaled: calc(var(--min) * var(--minScale) * var(--minScale) * var(--minScale) * var(--minScale));
+  --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale) * var(--maxScale) * var(--maxScale));
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+}
+.fluid-type-3, h2, .h2 {
   --minScaled: calc(var(--min) * var(--minScale) * var(--minScale) * var(--minScale));
   --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale) * var(--maxScale));
   font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-  margin-top: 3rem;
 }
-h3, .h3 {
+.fluid-type-2, h3, .h3 {
   --minScaled: calc(var(--min) * var(--minScale) * var(--minScale));
   --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale));
   font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-  margin-top: 2rem;
 }
-h4, .h4 {
+
+.fluid-type-1, h4, .h4 {
   --minScaled: calc(var(--min) * var(--minScale));
   --maxScaled: calc(var(--max) * var(--maxScale));
   font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-  margin-top: 2rem;
-}
-h5, .h5 {
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-  margin-top: 1rem;
-}
-h6, .h6 {
-  --minScaled: calc(var(--min) / var(--minScale));
-  --maxScaled: calc(var(--max) / var(--maxScale));
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-  margin-top: 1rem;
 }
 
-.fluid-type-0 {
+.fluid-type-0, h5, .h5 {
   --minScaled: var(--min);
   --maxScaled: var(--max);
   font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
 }
 
-.fluid-type--1 {
+.fluid-type--1, h6, .h6, small {
   --minScaled: calc(var(--min) / var(--minScale));
   --maxScaled: calc(var(--max) / var(--maxScale));
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+}
+
+.fluid-type--2 {
+  --minScaled: calc(var(--min) / var(--minScale) / var(--minScale));
+  --maxScaled: calc(var(--max) / var(--maxScale) / var(--maxScale));
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+}
+
+.fluid-type--3 {
+  --minScaled: calc(var(--min) / var(--minScale) / var(--minScale) / var(--minScale));
+  --maxScaled: calc(var(--max) / var(--maxScale) / var(--maxScale) / var(--maxScale));
+  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+}
+
+.fluid-type--4 {
+  --minScaled: calc(var(--min) / var(--minScale) / var(--minScale) / var(--minScale) / var(--minScale));
+  --maxScaled: calc(var(--max) / var(--maxScale) / var(--maxScale) / var(--maxScale) / var(--maxScale));
   font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
 }
 
@@ -157,11 +176,8 @@ li {
   margin-bottom: 0;
 }
 
-small, p.small {
+small {
   display: block;
-  --minScaled: calc(var(--min) / var(--minScale));
-  --maxScaled: calc(var(--max) / var(--maxScale));
-  font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
 }
 
 code, kbd, pre, samp {
