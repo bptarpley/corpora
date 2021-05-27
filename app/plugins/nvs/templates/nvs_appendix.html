@@ -2,7 +2,70 @@
 {% load static %}
 
 {% block headrefs %}
-<!-- This goes inside the head tag specific for this page -->
+
+<style>
+    .textural-note {
+        margin: 0.5rem 0 0.5rem 3rem;
+        display: grid;
+        grid-template-columns: 5rem 1fr;
+    }
+    .textural-note strong {
+        font-weight: normal;
+        text-transform: lowercase;
+        font-variant-caps: small-caps;
+        font-variant-numeric: oldstyle-nums;
+    }
+    .textural-note + p {
+        margin-top: 1.5rem;
+    }
+    .textural-note p {
+        margin: 0;
+    }
+
+    .appendix-entry {
+        margin: 0.5rem 0 0.5rem 3rem;
+        display: flex;
+    }
+    .appendix-entry .line {
+        margin-right: 0.5rem;
+        color: var(--blue);
+    }
+    .appendix-entry + p {
+        margin-top: 1.5rem;
+    }
+    .appendix-entry p { margin: 0; }
+
+    .bibliography-entry {
+        margin: 0.5rem 0 0.5rem 3rem;
+    }
+    .bibliography-entry p {
+        margin: 0;
+    }
+    .bibliography-entry p:first-child,
+    .bibliography-entry p:nth-child(2) {
+        display: inline;
+    }
+    .bibliography-entry p:first-child { margin-right: 0.5rem; }
+    .bibliography-entry p:nth-child(1n + 3) {
+        position: relative;
+        padding-left: 2rem;
+        text-indent: 2.5rem;
+    }
+    .bibliography-entry p:nth-child(1n + 3):before {
+        content: '';
+        position: absolute;
+        top: 0.75rem;
+        left: 0;
+        display: block;
+        width: 4rem;
+        border-bottom: 1px solid;
+    }
+
+    .bibliography-entry + p {
+        margin-top: 1.5rem;
+    }
+</style>
+
 {% endblock %}
 
 {% block main %}
@@ -23,6 +86,68 @@
           </span>
           <span class="edition-header--title fluid-type-2">Appendix</span>
         </h1>
+
+        <h2 id="placeholder-for-edition-content">Placeholder for Edition content</h2>
+        <p><em>Lorem ipsum</em> dolor sit amet, consectetur adipiscing elit. Nam imperdiet tellus urna, in
+          vestibulum dui suscipit at. Sed in tristique lacus. Aliquam augue diam, consectetur rutrum sagittis at,
+          finibus nec ipsum. Praesent tincidunt tellus et ipsum commodo molestie. Aliquam erat volutpat. Proin
+          dignissim viverra turpis, vel scelerisque lacus. Donec dapibus, lorem et faucibus facilisis, lacus urna
+          viverra nibh, quis hendrerit odio est nec lacus. Integer quis pretium odio. Nullam pretium luctus ex ac
+          eleifend. Etiam et sodales leo. Fusce non nisl blandit, porta nunc eget, interdum felis.</p>
+        <h2 id="some-textual-notes">Some Textual Notes</h2>
+        <p>Below are a few examples of these elements.</p>
+        <div class="textural-note"><p>647</p>
+          <div><p>ha’s] hath <strong>ROWE1-JOHN2</strong>, <strong>v1773–MAL</strong></p></div>
+        </div>
+        <div class="textural-note"><p>30</p>
+          <div><p>hath been] F1, <strong>BUL, NLSN, SIS, CLN2, PEN2</strong>+; have been so <strong>COL2, COL3,
+            KTLY</strong>; have been F2 etc.</p></div>
+        </div>
+        <div class="textural-note"><p>34</p>
+          <div><p>Loues] love m<strong>TBY3</strong> <em>conj.</em>, <strong>HAN, DYCE2, HUD2, KIT1</strong></p>
+          </div>
+        </div>
+        <p><strong>This is an Appendix entry (ie. page 567):</strong></p>
+        <div class="appendix-entry">
+          <div class="line"><p><a href="/the-winters-tale/front-matter">42</a></p></div>
+          <div><p>life,]F2;~.F1</p></div>
+        </div>
+        <div class="appendix-entry">
+          <div class="line"><p><a href="/the-winters-tale/front-matter">100</a></p></div>
+          <div><p>o’th’ Clock] o’th’Clock F1</p></div>
+        </div>
+        <div class="appendix-entry">
+          <div class="line"><p><a href="/the-winters-tale/front-matter">107</a></p></div>
+          <div><p>seek] F1 (|); seeke <em>elsewhere</em> Stars] F1 (|); starres <em>elsewhere</em></p></div>
+        </div>
+        <div class="appendix-entry">
+          <div class="line"><p>166</p></div>
+          <div><p>th’Goale] th’ Goale F1 (?)</p></div>
+        </div>
+        <p><strong>Some bibliography entries (ie. page 875):</strong></p>
+        <div class="bibliography-entry"><p>Abartis, Caesarea.</p>
+          <p><em>The Tragicomic Construction of</em> Cymbeline <em>and</em> The Winter’s Tale. Salzburg, 1977.</p>
+        </div>
+        <div class="bibliography-entry"><p>Adams, F.</p>
+          <p>‘‘<em>Winter’s Tale</em>, [575–6.] ’’ 8 N&amp;Q 2 (1892), 444.</p>
+          <p>. ‘‘<em>Winter’s Tale</em>, [2279–81.] ’’ 8 N&amp;Q 5 (1894), 64.</p></div>
+        <div class="bibliography-entry"><p>Adams, Joseph Q.</p>
+          <p>‘‘Greene’s Menaphon and The Thracian Wonder.’’ MP 3 (1906), 1–9.</p>
+          <p>. A Life of William Shakespeare. Boston, 1923.</p>
+          <p>, ed. The Dramatic Records of Sir Henry Herbert. New Haven, 1917. (Rpt. New York: Blom, 1964.)</p>
+        </div>
+        <p>Nam ac diam tortor. In et efficitur libero. Suspendisse feugiat sapien vitae orci vulputate, quis
+          pellentesque nisl egestas. Mauris malesuada neque lorem. In porttitor quam quam, in lobortis tortor
+          rhoncus ac. Vivamus non sapien non dolor tincidunt viverra. Mauris convallis eros id pretium viverra.
+          Nunc vel sem a quam blandit bibendum vel at nulla. Praesent et scelerisque massa. Quisque sollicitudin
+          semper metus, quis condimentum velit mattis at.</p>
+        <p>Aenean ornare porttitor venenatis. Aenean efficitur tempus diam quis ornare. Aenean iaculis gravida
+          dignissim. Nullam vitae maximus ex, quis molestie mi. Proin vitae purus massa. Nullam id sem tellus.
+          Nunc feugiat orci gravida dictum sollicitudin. Nullam suscipit nunc sit amet lacinia pellentesque. Nam
+          molestie scelerisque enim quis gravida. Praesent in neque non odio lacinia iaculis. Aenean libero
+          libero, lobortis sit amet eleifend vel, ultrices et diam. Sed sed elit in elit consectetur auctor.
+          Mauris et fringilla ante, vitae hendrerit diam. Morbi sit amet tristique lorem.</p>
+
       </div>
     </div>
   </div>
