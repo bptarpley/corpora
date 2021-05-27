@@ -5,5 +5,8 @@ dev:
   stage: dev
   only:
     - dev
+  tags:
+    - corpora
+    - dev
   script:
     - echo deploying!
