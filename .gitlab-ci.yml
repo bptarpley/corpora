@@ -9,4 +9,5 @@ dev:
     - corpora
     - dev
   script:
-    - rsync -r --delete ./ /apps/corpora
+    - sudo rsync -r --delete --exclude 'docker-compose.yml' --exclude 'nginx.conf' --exclude 'ssl' ./ /apps/corpora
+    - cd /apps/corpora && sudo docker-compose restart corpora
