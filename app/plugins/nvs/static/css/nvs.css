@@ -332,6 +332,7 @@ button.icon svg,
 .static-type .large { font-size: 18px; }
 .static-type h5 { font-size: 17px; }
 .static-type h6 { font-size: 16px; }
+.static-type .medium { font-size: 16px; }
 .static-type p {
     font-size: 15px;
     margin-top: 5px;
@@ -340,6 +341,7 @@ button.icon svg,
     text-align: justify;
     hyphens: auto;
 }
+.static-type .double-spacing { line-height: 2; }
 .static-type .small { font-size: 14px; }
 .static-type .x-small { font-size: 12px; }
 .static-type .centered { text-align: center }
@@ -348,6 +350,11 @@ button.icon svg,
 .static-type .blue { color: var(--blue); }
 .static-type .orange-link {
     color: var(--orange);
+    text-decoration: underline;
+    font-weight: 500;
+}
+.static-type .blue-link {
+    color: var(--blue);
     text-decoration: underline;
     font-weight: 500;
 }
@@ -364,6 +371,27 @@ button.icon svg,
 .static-type .tln-digits {
     font-weight: 700;
     text-decoration: underline;
+}
+.static-type ol {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    padding-left: 60px;
+}
+.static-type ol li {
+    font-size: 16px;
+    padding-left: 60px;
+    margin-bottom: 20px;
+    text-indent: -60px;
+    list-style-type: none;
+    counter-increment: item;
+}
+.static-type ol li:before {
+    display: inline-block;
+    width: 20px;
+    padding-right: 40px;
+    font-weight: 500;
+    text-align: right;
+    content: counter(item) ".";
 }
 sup, sub {
     vertical-align: baseline;
