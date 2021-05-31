@@ -11,6 +11,7 @@
     --blue4: #DAE9F7;
     --blue5: #EBF4FC;
     --yellow: #F0E438;
+    --orange: #D87448;
     --grey1: #808080;
     --grey2: #ABABAB;
     --grey3: #CFCFCF;
@@ -212,14 +213,6 @@ blockquote {
 
 a { color: inherit; }
 
-sup, sub {
-    vertical-align: baseline;
-    position: relative;
-    top: -0.4em;
-}
-
-sub { top: 0.4em; }
-
 label {
     --minScaled: calc(var(--min) / var(--minScale));
     --maxScaled: calc(var(--max) / var(--maxScale));
@@ -317,6 +310,74 @@ button.icon svg,
 }
 
 /* Atoms -------------------------- */
+
+.static-type {
+    font-family: "Halyard Text", sans-serif;
+}
+.static-type h1,
+.static-type h2,
+.static-type h3,
+.static-type h4,
+.static-type h5,
+.static-type h6 {
+    font-weight: 500;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    line-height: 1.33;
+}
+.static-type h1 { font-size: 24px; }
+.static-type h2 { font-size: 22px; }
+.static-type h3 { font-size: 20px; }
+.static-type h4 { font-size: 18px; }
+.static-type .large { font-size: 18px; }
+.static-type h5 { font-size: 17px; }
+.static-type h6 { font-size: 16px; }
+.static-type p {
+    font-size: 15px;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    line-height: 1.33;
+    text-align: justify;
+    hyphens: auto;
+}
+.static-type .small { font-size: 14px; }
+.static-type .x-small { font-size: 12px; }
+.static-type .centered { text-align: center }
+.static-type b, .static-type strong { font-weight: 500; }
+.static-type .indent { margin-left: 30px; }
+.static-type .blue { color: var(--blue); }
+.static-type .orange-link {
+    color: var(--orange);
+    text-decoration: underline;
+    font-weight: 500;
+}
+.static-type .large-margin { margin-bottom: 20px; }
+.static-type .x-large-margin { margin-bottom: 60px; }
+.static-type .caps { text-transform: uppercase; }
+.static-type .old-style-numbers { font-variant-numeric: oldstyle-nums; }
+.static-type .tln {
+    font-family: "Roboto Condensed", sans-serif;
+    font-size: 14px;
+    text-transform: uppercase;
+    color: var(--blue);
+}
+.static-type .tln-digits {
+    font-weight: 700;
+    text-decoration: underline;
+}
+sup, sub {
+    vertical-align: baseline;
+    position: relative;
+    top: -0.4em;
+    font-size: 0.8em;
+}
+sup.in-text {
+    font-size: 0.6em;
+    text-decoration: underline;
+    color: var(--blue);
+}
+
+sub { top: 0.4em; }
 
 .container {
     max-width: var(--maxScreen) px;
