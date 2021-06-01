@@ -341,6 +341,19 @@ button.icon svg,
     text-align: justify;
     hyphens: auto;
 }
+.static-type .left-align { text-align: left;}
+.static-type table {
+    font-size: 15px;
+    margin: 5px 40px;
+    line-height: 2;
+}
+.static-type td {
+    vertical-align: top;
+}
+.static-type td:first-child{
+    padding-right: 40px;
+    white-space: nowrap;
+}
 .static-type .double-spacing { line-height: 2; }
 .static-type .small { font-size: 14px; }
 .static-type .x-small { font-size: 12px; }
