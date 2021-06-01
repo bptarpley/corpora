@@ -483,28 +483,84 @@
             }
 
             .ref-modal {
-                font-family: 'FormulaSerial';
-                width: 300px;
+                position: absolute;
+                max-width: calc(33vw);
+            }
+
+            .arrow-right, .arrow-left {
+                background-color: #FFFFFF;
+                position: relative;
+                box-sizing: border-box;
+                border: 1px solid var(--nvs-mid-gray);
+                box-shadow: 0px 3px 3px 0 rgba(0, 0, 0, 0.4);
             }
 
             .arrow-right {
-                background-color: #FFFFFF;
-                position: relative;
                 float: left;
             }
 
-            .arrow-right:after {
+            .arrow-left {
+                float: right;
+            }
+
+            .arrow-right:after, .arrow-right:before, .arrow-left:after, .arrow-left:before {
                 content: " ";
+                width: 0;
+                height: 0;
                 position: absolute;
-                right: -15px;
-                top: 15px;
+                left: -15px;
+                top: 10%;
+            }
+
+            .arrow-right:after, .arrow-right:before {
+                left: 100%;
+            }
+
+            .arrow-right:after {
                 border-top: 15px solid transparent;
                 border-right: none;
                 border-left: 15px solid white;
                 border-bottom: 15px solid transparent;
             }
 
+            .arrow-right:before {
+                border-top: 17px solid transparent;
+                border-right: none;
+                border-left: 16px solid var(--nvs-mid-gray);
+                border-bottom: 16px solid transparent;
+                margin-top: -2px;
+            }
+
+            .arrow-left:after {
+                border-top: 15px solid transparent;
+                border-left: none;
+                border-right: 15px solid white;
+                border-bottom: 15px solid transparent;
+            }
+
+            .arrow-left:before {
+                border-top: 17px solid transparent;
+                border-left: none;
+                border-right: 16px solid var(--nvs-mid-gray);
+                border-bottom: 16px solid transparent;
+                margin-top: -2px;
+                margin-left: -1px;
+            }
+
+            .ref-modal-header {
+                font-family: 'Roboto', sans-serif;
+                color: #000000;
+                padding: 10px;
+                cursor: move;
+            }
+
+            .ref-modal-close {
+                cursor: pointer;
+            }
+
             .ref-modal-content {
+                padding: 10px;
+                font-family: 'FormulaSerial';
                 max-height: calc(40vh);
                 overflow-y: scroll;
             }
@@ -881,6 +937,7 @@
     let corpus;
     let screen_size = 'large';
     let meter_height = () => Math.round(window.innerHeight / (100 / 3)) + 'px';
+    let last_century_buffer = 0;
 
     let witnesses = {{ witnesses|safe }};
     let witness_centuries = {{ witness_centuries|safe }};
@@ -907,8 +964,8 @@
             'content_type': 'PlayLine',
             'xml_id_field': 'xml_id',
             'content_field': 'rendered_html',
-            'title': 'Play Line',
-            'title_plural': 'Play Lines',
+            'title': 'LINE',
+            'title_plural': 'LINES',
             'scroll_anchor': false,
             'filter_play': true,
         },
@@ -916,8 +973,8 @@
             'content_type': 'Document',
             'xml_id_field': 'siglum',
             'content_field': 'bibliographic_entry',
-            'title': "Bibliographic Entry",
-            'title_plural': "Bibliographic Entries",
+            'title': "BIBLIOGRAPHY",
+            'title_plural': "BIBLIOGRAPHY",
             'scroll_anchor': false,
             'filter_play': false,
         },
@@ -925,8 +982,8 @@
             'content_type': 'Document',
             'xml_id_field': 'siglum',
             'content_field': 'bibliographic_entry',
-            'title': "Collated Edition",
-            'title_plural': "Collated Editions",
+            'title': "COLLATED EDITION",
+            'title_plural': "COLLATED EDITIONS",
             'scroll_anchor': false,
             'filter_play': false,
         },
@@ -934,8 +991,8 @@
             'content_type': 'Commentary',
             'xml_id_field': 'xml_id',
             'content_field': 'contents',
-            'title': "Commentary Note",
-            'title_plural': "Commentary Notes",
+            'title': "COMMENTARY",
+            'title_plural': "COMMENTARY",
             'scroll_anchor': false,
             'filter_play': true,
         },
@@ -943,8 +1000,8 @@
             'content_type': 'ParaText',
             'xml_id_field': 'child_xml_ids',
             'content_field': 'html_content',
-            'title': "Appendix",
-            'title_plural': "Appendix",
+            'title': "APPENDIX",
+            'title_plural': "APPENDIX",
             'scroll_anchor': true,
             'filter_play': true,
         }
@@ -1105,19 +1162,24 @@
             $('.variant-siglum').off('mouseenter').on('mouseenter', function() {
                 let link = $(this);
                 let siglum = `s_${link.html().toLowerCase()}`;
+
+                let parent_div = link.parent();
+                let line_id = parent_div.data('line-id');
+                let variant_id = parent_div.data('variant-id');
+                let wit_meter = $(`#${line_id}-${variant_id}-witness-meter`);
+                let wit_indicators = wit_meter.data('witness_indicators');
+
                 if (siglum in witnesses) {
-                    let parent_div = link.parent();
-                    let line_id = parent_div.data('line-id');
-                    let variant_id = parent_div.data('variant-id');
-                    let wit_meter = $(`#${line_id}-${variant_id}-witness-meter`);
-                    let wit_indicators = wit_meter.data('witness_indicators');
                     witnesses[siglum].slots.map(slot => {
                         wit_indicators = wit_indicators.substr(0, slot) + 'x' + wit_indicators.substr(slot + 1);
                     });
-                    let url_parts = wit_meter.attr('src').split('/');
-                    url_parts[url_parts.length - 5] = wit_indicators;
-                    wit_meter.attr('src', url_parts.join('/'));
+                } else {
+                    wit_indicators = wit_indicators.slice(0, -1) + 'x';
                 }
+
+                let url_parts = wit_meter.attr('src').split('/');
+                url_parts[url_parts.length - 6] = wit_indicators;
+                wit_meter.attr('src', url_parts.join('/'));
             });
 
             $('.variant-witness-meter').off('click').on('click', function() {
@@ -1461,7 +1523,16 @@
         let wit_header = $('#witness-header');
         let wit_header_col = $('#playtext-header-col');
         let width = wit_header.width();
-        let witness_width = width / witness_count;
+        let selectively_quoted_width = 20;
+        let witness_width = (width - selectively_quoted_width) / witness_count;
+        let centuries = Object.keys(witness_centuries);
+        let last_century = centuries[centuries.length - 1];
+
+        if (witness_centuries[last_century] * witness_width < 20) {
+            last_century_buffer = 20 - witness_centuries[last_century] * witness_width;
+            witness_width = (width - (last_century_buffer + selectively_quoted_width)) / witness_count;
+        }
+
         let header_height = wit_header.height();
 
         let header_canvas = document.createElement('canvas');
@@ -1494,8 +1565,9 @@
         let century_cursor = 0;
         let width_cursor = 0;
         let delimiter_width = 2;
+        let century_width = 0;
         for (let century in witness_centuries) {
-            let century_width = witness_centuries[century] * witness_width;
+            century_width = witness_centuries[century] * witness_width;
 
             header_context.beginPath();
             header_context.fillStyle = delimiter_color;
@@ -1516,6 +1588,25 @@
             width_cursor += century_width;
         }
 
+        if (century_width < 20) {
+            width_cursor += 20 - century_width;
+        }
+
+        header_context.beginPath();
+        header_context.fillStyle = delimiter_color;
+        header_context.fillRect(width_cursor, 0, delimiter_width, header_height);
+
+        background_context.beginPath();
+        background_context.fillStyle = delimiter_color;
+        background_context.fillRect(width_cursor, 0, delimiter_width, playtext_col.innerHeight());
+
+        header_context.save();
+        header_context.fillStyle = font_color;
+        header_context.translate(width_cursor + 5, header_height - 5);
+        header_context.rotate(-Math.PI / 2);
+        header_context.fillText("SEL.", 0, font_size);
+        header_context.restore();
+
         wit_header_col.css('background-image', `url(${header_canvas.toDataURL()})`);
         wit_header_col.css('background-position', `${wit_header.offset().left + 6}px 14px`);
 
@@ -1525,7 +1616,7 @@
     }
 
     function draw_witness_meter(witness_meter, canvas_element, width, height, inactive_color="#CFCFCF") {
-        canvas_element.src = `${witness_meter_prefix}${witness_meter}/${Math.floor(height)}/${Math.floor(width)}/${inactive_color.replace('#', '')}/`;
+        canvas_element.src = `${witness_meter_prefix}${witness_meter}/${Math.floor(height)}/${Math.floor(width)}/${inactive_color.replace('#', '')}/${Math.floor(last_century_buffer)}/`;
     }
 
     function get_param(param) {
@@ -1699,6 +1790,7 @@
 
     function display_nav_modal(title, content, link) {
         let modal_id = '';
+        let modal_el = null;
         let title_html = '';
         if (nav_history_cursor - 1 >= 0) title_html += `<i class="fa fa-chevron-circle-left" aria-hidden="true" onClick="javascript: view_nav_history();" style="cursor: pointer;"></i>`;
         if (nav_history_cursor + 1 <= nav_history.length - 1) title_html += `<i class="fa fa-chevron-circle-right" aria-hidden="true" onClick="javascript: view_nav_history(true);" style="cursor: pointer;"></i>`;
@@ -1708,23 +1800,33 @@
         if (link) {
             modal_id = `ref-modal-${ref_modal_counter}`;
             let link_rect = link.getBoundingClientRect();
+            let arrow_side = 'right';
+            if (link_rect.x <= window.innerWidth / 2) {
+                arrow_side = 'left'
+            }
             $('body').append(`
                 <div
                     id="${modal_id}"
                     class="ref-modal"
-                    style="position: absolute; top: ${link_rect.top + window.pageYOffset - 20}px; left: ${link_rect.left - 310}px;"
                 >
-                    <div class="arrow-right">
-                        <div id="${modal_id}-header" class="ref-modal-header">
+                    <div class="arrow-${arrow_side}">
+                        <div id="${modal_id}-header" class="ref-modal-header d-flex ${arrow_side === 'left' ? 'flex-row-reverse' : ''} justify-content-between">
                             ${title}
-                            <button id="${modal_id}-close-button" data-modal-id="${modal_id}" type="button" aria-label="Close">
-                                <span aria-hidden="true">×</span>
-                            </button>
+                            <i id="${modal_id}-close-button" class="fas fa-times ref-modal-close" data-modal-id="${modal_id}" aria-label="Close"></i>
                         </div>
                         <div class="ref-modal-content">${content}</div>
                     </div>
                 </div>
             `);
+            modal_el = $(`#${modal_id}`);
+            if (arrow_side === 'right') {
+                modal_el.css('top', `${link_rect.top + window.pageYOffset - 20}px`);
+                modal_el.css('left', `${link_rect.left - (modal_el.width() + 20)}px`);
+            } else {
+                modal_el.css('top', `${link_rect.top + window.pageYOffset - 20}px`);
+                modal_el.css('left', `${link_rect.right + 20}px`);
+            }
+
             $(`#${modal_id}-close-button`).click(function() {
                 let close_modal_id = $(this).data('modal-id');
                 $(`#${close_modal_id}`).remove();

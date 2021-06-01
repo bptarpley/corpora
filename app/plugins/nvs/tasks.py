@@ -892,7 +892,7 @@ def make_playtext_line(corpus, play, line_info):
     if line_info['witness_location_id']:
         line.witness_locations.append(line_info['witness_location_id'])
     line.text = line_info['text'].strip()
-    line.witness_meter = "0" * line_info['witness_count']
+    line.witness_meter = "0" * (line_info['witness_count'] + 1)
     line.save()
 
     line_info['line_number'] += 1
@@ -972,7 +972,7 @@ TEXTUAL NOTES INGESTION
             textual_note = corpus.get_content('TextualNote')
             textual_note.play = play.id
             textual_note.xml_id = note['xml:id']
-            textual_note.witness_meter = "0" * len(witnesses)
+            textual_note.witness_meter = "0" * (len(witnesses) + 1)
 
             textual_note.lines = get_line_ids(line_id_map, note['target'], note.attrs.get('targetEnd', None))
 
@@ -986,6 +986,8 @@ TEXTUAL NOTES INGESTION
             for variant in variants:
                 textual_variant = corpus.get_content('TextualVariant')
                 textual_variant.play = play.id
+
+                references_selectively_quoted_witness = False
 
                 reading_description = variant.find('rdgDesc')
                 if reading_description:
@@ -1020,8 +1022,9 @@ TEXTUAL NOTES INGESTION
                         textual_variant.witness_formula += '''
                             <a href="#" onClick="navigate_to('siglum', '{0}', this); return false;" class="variant-siglum">{0}</a>
                         '''.format(siglum_label)
-                        if siglum_label not in all_sigla and siglum_label not in missing_sigla:
-                            missing_sigla.append(siglum_label)
+                        if siglum_label not in all_sigla: # and siglum_label not in missing_sigla:
+                            references_selectively_quoted_witness = True
+                            # missing_sigla.append(siglum_label)
 
                         if not starting_siglum:
                             starting_siglum = siglum_label
@@ -1090,7 +1093,11 @@ TEXTUAL NOTES INGESTION
                     )
 
                 variant_witness_indicators = get_variant_witness_indicators(witnesses, textual_variant)
-                textual_variant.witness_meter = make_witness_meter(variant_witness_indicators, marker=str(current_color))
+                textual_variant.witness_meter = make_witness_meter(
+                    variant_witness_indicators,
+                    marker=str(current_color),
+                    references_selectively_quoted_witness=references_selectively_quoted_witness
+                )
 
                 current_color += 2
                 if current_color >= 10:
@@ -1128,7 +1135,7 @@ TEXTUAL NOTES INGESTION
         )
         recolored_notes = {}
         for line in lines:
-            line.witness_meter = "0" * len(witnesses)
+            line.witness_meter = "0" * (len(witnesses) + 1)
             if hasattr(line, '_exploration') and 'haslines' in line._exploration:
                 color_offset = 0
 
@@ -1137,7 +1144,7 @@ TEXTUAL NOTES INGESTION
                     note = note_id_map[note_id]
 
                     if color_offset > 0 and note_id not in recolored_notes:
-                        note.witness_meter = "0" * len(witnesses)
+                        note.witness_meter = "0" * (len(witnesses) + 1)
 
                         for variant in note.variants:
                             variant_indicators = [int(i) + color_offset if i != '0' else 0 for i in variant.witness_meter]
@@ -1248,13 +1255,19 @@ def get_variant_witness_indicators(witnesses, variant):
     return indicators
 
 
-def make_witness_meter(indicators, marker="1"):
+def make_witness_meter(indicators, marker="1", references_selectively_quoted_witness=False):
     witness_meter = ""
     for witness_indicator in indicators:
         if (isinstance(witness_indicator, str) and witness_indicator == '1') or witness_indicator is True:
             witness_meter += marker
         else:
             witness_meter += "0"
+
+    if references_selectively_quoted_witness:
+        witness_meter += "1"
+    else:
+        witness_meter += "0"
+
     return witness_meter
 
 

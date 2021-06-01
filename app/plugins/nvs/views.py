@@ -260,8 +260,8 @@ def paratext(request, corpus_id=None, play_prefix=None, section=None):
     )
 
 
-def witness_meter(request, witness_flags, height, width, inactive_color_hex):
-    if height.isdigit() and width.isdigit():
+def witness_meter(request, witness_flags, height, width, inactive_color_hex, label_buffer):
+    if height.isdigit() and width.isdigit() and label_buffer.isdigit():
         height = int(height)
         width = int(width)
         color_map = {
@@ -277,11 +277,12 @@ def witness_meter(request, witness_flags, height, width, inactive_color_hex):
             '9': '#8f2d13',
             'x': '#c4dffc'
         }
-        indicator_width = width / len(witness_flags)
+        selectively_quoted_width = 20 + int(label_buffer)
+        indicator_width = (width - selectively_quoted_width) / (len(witness_flags) - 1)
         img = Image.new('RGBA', (width, height), (255, 0, 0, 0))
         draw = ImageDraw.Draw(img)
 
-        for flag_index in range(0, len(witness_flags)):
+        for flag_index in range(0, len(witness_flags) - 1):
             indicator_color = color_map[witness_flags[flag_index]]
             start_x = flag_index * indicator_width
             start_y = 0
@@ -294,6 +295,26 @@ def witness_meter(request, witness_flags, height, width, inactive_color_hex):
                 outline=None,
                 width=0
             )
+
+        if witness_flags[-1] != '0':
+            indicator_color = color_map['3']
+            if witness_flags[-1] == 'x':
+                indicator_color = color_map['x']
+
+            start_x = width - 10 - indicator_width
+            end_x = start_x + indicator_width
+
+            start_y = 0
+            while start_y + 1 < height:
+                draw.rectangle(
+                    [(start_x, start_y), (end_x, start_y + 1)],
+                    fill=indicator_color,
+                    outline=None,
+                    width=0
+                )
+
+                start_y += 4
+
 
         response = HttpResponse(content_type="image/png")
         img.save(response, 'PNG')
