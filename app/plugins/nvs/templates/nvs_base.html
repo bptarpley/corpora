@@ -14,7 +14,7 @@
   {% block headrefs %}
   {% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
 
 {% include 'blocks/organisms/small-header.html' %}
 {% include 'blocks/organisms/large-header.html' %}

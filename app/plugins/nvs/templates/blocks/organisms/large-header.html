@@ -45,6 +45,13 @@
       width: 6.7rem;
   }
 
+  .home .large-header--logo-holder a svg:first-child {
+      display: block;
+  }
+  .home .large-header--logo-holder a svg:last-child {
+      display: none;
+  }
+
   .large-header--nav-holder {
     font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
   }
