@@ -466,7 +466,6 @@ def bibliography(request, corpus_id=None):
         }
     )
 
-
 def info_about(request, corpus_id=None):
     dynamic_content = "Some <i>dynamically</i> generated content!"
 

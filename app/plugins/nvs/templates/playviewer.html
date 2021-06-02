@@ -19,7 +19,7 @@
         <link href="{% static 'css/regular.min.css' %}" rel="stylesheet">
         <link href="{% static 'css/solid.min.css' %}" rel="stylesheet">
         <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
-        <!--<link href="{% static 'css/nvs.css' %}" rel="stylesheet">-->
+        <link href="{% static 'css/nvs.css' %}" rel="stylesheet">
 
         <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=Roboto:ital@0;1&display=swap" rel="stylesheet">
@@ -50,10 +50,6 @@
                 --nvs-light-yellow: #f9f1d9;
                 --nvs-light-beige: #FBF5F1;
                 --nvs-dark-beige: #EBE4DD;
-            }
-
-            body {
-                background-color: #FFFFFF;
             }
 
             canvas {
@@ -87,158 +83,6 @@
                 background-color: var(--nvs-background-color);
                 border-left: solid 5px var(--nvs-background-color);
                 border-right: solid 5px var(--nvs-background-color);
-            }
-
-            .nvs-selection {
-                position: relative;
-            }
-
-            .nvs-selection:after {
-                content: '\f0d7';
-                font-family: "Font Awesome 5 Free";
-                font-weight: 900;
-                font-size: 25px;
-                color: var(--nvs-lighter-gray);
-                right: 10px;
-                top: 4px;
-                height: 35px;
-                position: absolute;
-                pointer-events: none;
-            }
-
-            select::-ms-expand {
-                display: none;
-            }
-
-            .nvs-search, .nvs-selection select, input[type=text], input[type=button] {
-                -webkit-appearance: none;
-                -moz-appearance: none;
-                appearance: none;
-                /* Add some styling */
-
-                display: block;
-                width: 100%;
-                height: var(--nvs-form-control-height);
-                float: right;
-                margin: 2.5px 0px;
-                padding: 0px 10px;
-                font-size: var(--nvs-form-control-font-size);
-                line-height: 1;
-                color: #333;
-                background-color: #ffffff;
-                background-image: none;
-                border: 1px solid var(--nvs-lighter-gray);
-                -ms-word-break: normal;
-                word-break: normal;
-            }
-
-            .nvs-selection select {
-                font-size: 16px;
-            }
-
-            .nvs-search {
-                position: relative;
-                height: unset;
-                min-height: var(--nvs-form-control-height);
-                padding: 10px;
-                max-height: 150px;
-                overflow-x: hidden;
-                overflow-y: auto;
-            }
-
-            .nvs-search:empty:before{
-                content: attr(placeholder);
-                color: var(--nvs-mid-gray);
-                pointer-events: none;
-                display: block;
-            }
-
-            .nvs-search:empty:after {
-                content: '\f002';
-                font-family: "Font Awesome 5 Free";
-                font-weight: 900;
-                font-size: 18px;
-                color: var(--nvs-lighter-gray);
-                right: 10px;
-                top: 6px;
-                height: 35px;
-                position: absolute;
-                pointer-events: none;
-            }
-
-            input[type=button] {
-                cursor: pointer;
-                background-color: var(--nvs-primary-orange);
-                color: var(--nvs-background-color);
-            }
-
-            input.nvs-secondary-button {
-                background-color: var(--nvs-secondary-orange);
-            }
-
-            input[type=checkbox] {
-                height: 20px;
-                left: 0;
-                opacity: 0;
-                position: absolute;
-                top: 0;
-                width: 30px;
-            }
-
-            .toggle-control {
-                display: block;
-                position: relative;
-                padding-left: 40px;
-                cursor: pointer;
-                font-size: 22px;
-                -webkit-user-select: none;
-                -moz-user-select: none;
-                -ms-user-select: none;
-                user-select: none;
-            }
-            .toggle-control input {
-                position: absolute;
-                opacity: 0;
-                cursor: pointer;
-                height: 0;
-                width: 0;
-            }
-            .toggle-control input:checked ~ .control {
-                background-color: var(--nvs-primary-orange);
-            }
-            .toggle-control input:checked ~ .control:after {
-                left: 22px;
-            }
-            .toggle-control .control {
-                position: absolute;
-                top: 0;
-                left: 0;
-                height: 20px;
-                width: 40px;
-                border-radius: 10px;
-                background-color: var(--nvs-mid-gray);
-                -webkit-transition: background-color 0.15s ease-in;
-                transition: background-color 0.15s ease-in;
-            }
-            .toggle-control .control:after {
-                content: "";
-                position: absolute;
-                left: 2px;
-                top: 2px;
-                width: 16px;
-                height: 16px;
-                border-radius: 10px;
-                background: var(--nvs-background-color);
-                -webkit-transition: left 0.15s ease-in;
-                transition: left 0.15s ease-in;
-            }
-            .toggle-control .heading-label {
-                position: relative;
-                top: -10px;
-                left: 10px;
-            }
-            label.toggle-control {
-                margin-bottom: 0px!important;
             }
 
             /* -----------------------------
@@ -465,16 +309,6 @@
             || NAV MODAL
             || -------------------------- */
 
-            #nav-modal-label {
-                font-family: 'Libre Baskerville', serif;
-            }
-
-            #nav-modal-body {
-                font-family: 'FormulaSerial';
-                overflow-y: scroll;
-                max-height: calc(80vh);
-            }
-
             .ref-modal {
                 font-family: 'FormulaSerial';
                 width: 300px;
@@ -506,147 +340,11 @@
         <title>{{ play.title }}</title>
     </head>
     <body>
-        <!-- Navigation Modal -->
-        <div class="modal fade" id="nav-modal" tabindex="-1" role="dialog" aria-labelledby="nav-modal-label" aria-hidden="true">
-            <div class="modal-dialog" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="nav-modal-label"></h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <div id="nav-modal-body" class="modal-body">
+        {% include 'blocks/molecules/play-nav-modal.html' %}
 
-                    </div>
-                    <!--<div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                    </div>-->
-                </div>
-            </div>
-        </div>
+        <div id="main-container">
 
-        <div id="main-container" class="container-fluid h-100">
-
-            <!-- MAIN HEADER -->
-            <div id="main-header" class="row">
-
-                <!-- NVS LOGO -->
-                <div class="d-none d-lg-flex justify-content-center col-lg-1 pt-4 px-1">
-                    <figure>
-                    <img src="{% static 'img/nvs-logo.png'%}" class="img-fluid" style="max-height: 85px;">
-                    </figure>
-                </div>
-
-                <!-- TEXT SETTINGS -->
-                <div class="col-sm-12 col-md-5 col-lg-4">
-                    <div class="heading-section-label">Text</div>
-                    <div class="row p-1">
-                        <div class="col-sm-12 bg-nvs-lightest-gray p-0 p-sm-2">
-                            <div class="heading-label">PLAY</div>
-                            <div class="nvs-selection">
-                                <select id="play-selector" class="font-weight-bold">
-                                    <option value="wt">{{ play.title }}</option>
-                                </select>
-                            </div>
-                            <div class="row">
-                                <!-- search play box -->
-                                <div class="col-sm-6 pr-sm-1">
-                                    <div id="hdr-quick-search-box" class="nvs-search" placeholder="SEARCH THIS PLAY" contentEditable="plaintext-only"></div>
-                                </div>
-
-                                <!-- play line no box -->
-                                <div class="col-sm-4 p-sm-0">
-                                    <input id="hdr-line-no-box" type="text" placeholder="ENTER LINE#" />
-                                </div>
-
-                                <!-- play go button -->
-                                <div class="col-sm-2 pl-sm-1">
-                                    <input type="button" value="GO">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FILTER SETTINGS -->
-                <div class="col-sm-6 col-md-4">
-                    <div class="heading-section-label">Filter</div>
-                    <div class="row p-1">
-                        <div class="col-sm-12 bg-nvs-lightest-gray p-0 p-sm-2">
-                            <div class="row align-items-end">
-                                <!-- act/scene -->
-                                <div class="col-sm-5 pr-sm-1">
-                                    <div class="heading-label">ACT, SCENE</div>
-                                    <div class="nvs-selection">
-                                        <select id="hdr-act-scene-selector">
-                                            <option value="all">ALL</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <!-- character -->
-                                <div class="col-sm-5 p-sm-0">
-                                    <div class="heading-label">CHARACTER</div>
-                                    <div class="nvs-selection">
-                                        <select id="hdr-character-selector">
-                                            <option value="all">ALL</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <!-- filter go button -->
-                                <div class="col-sm-2 pl-sm-1">
-                                    <input type="button" value="GO">
-                                </div>
-                            </div>
-
-                            <div class="row">
-                                <!-- advanced search -->
-                                <div class="col-sm-12">
-                                    <div class="nvs-search" placeholder="ADVANCED SEARCH" contentEditable="true"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- VIEW SETTINGS -->
-                <div class="col-sm-6 col-md-3" style="border-right: solid 5px var(--nvs-background-color);">
-                    <div class="heading-section-label">View</div>
-                    <div class="row p-1">
-                        <div class="col-sm-12 bg-nvs-lightest-gray p-0 p-sm-2">
-                            <div class="row">
-                                <div class="col-sm-7">
-                                    <!-- reader view -->
-                                    <label class="toggle-control">
-                                        <input type="checkbox" checked="checked">
-                                        <span class="control"></span>
-                                        <span class="heading-label">READER</span>
-                                    </label>
-
-                                    <!-- list view -->
-                                    <label class="toggle-control">
-                                        <input type="checkbox">
-                                        <span class="control"></span>
-                                        <span class="heading-label">LIST</span>
-                                    </label>
-
-                                    <!-- chart view -->
-                                    <label class="toggle-control">
-                                        <input type="checkbox">
-                                        <span class="control"></span>
-                                        <span class="heading-label">CHART</span>
-                                    </label>
-                                </div>
-                                <div class="col-sm-5">
-                                    <input type="button" id="hdr-reset-button" class="nvs-secondary-button" value="RESET">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            {% include 'blocks/organisms/play-filters.html' %}
 
             <!-- QUANTITATIVE VIEW -->
             {% if nvs_session.preferences.show_quantitative_view %}
@@ -656,41 +354,10 @@
 
             <!-- READER VIEW -->
             {% if nvs_session.preferences.show_reader_view %}
-            <div id="reader-view" class="row flex-grow-1">
-                <div id="main-col" class="col-md-12 col-lg-12 mt-2 p-1 view-col">
+            <div id="reader-view">
+                <div id="main-col">
 
-                    <!-- header row -->
-                    <div class="row">
-                        <div class="col-sm-8 pr-0 bg-nvs-light-blue">
-                            <div class="row no-gutters header-block align-items-end">
-                                <div class="col-sm-4">
-                                    <div class="heading-section-label mt-auto">
-                                        TEXTUAL VARIANTS BY YEAR
-                                    </div>
-                                </div>
-                                <div class="col-sm-7 m-0 p-0">
-                                    <div class="heading-section-label mt-auto">
-                                        PLAY TEXT
-                                    </div>
-                                </div>
-                                <div class="col-sm-1 m-0 p-0">
-                                    &nbsp;
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-sm-4">
-                            <div class="row header-block bg-nvs-light-blue align-items-end">
-                                <div class="col-sm-1 m-0 p-0">
-                                    &nbsp;
-                                </div>
-                                <div class="col-sm-11 m-0 p-0">
-                                    <div class="heading-section-label mt-auto">
-                                        COMMENTARY NOTES BY LINE
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    {% include 'blocks/organisms/play-header.html' %}
 
                     <div class="row">
                         <div id="playtext-header-col" class="col-sm-8 pr-0 bg-nvs-light-orange">
