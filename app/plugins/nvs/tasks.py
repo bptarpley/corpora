@@ -115,13 +115,16 @@ nvs_document_fields = [
         "in_lists": True,
         "type": "keyword",
     },
-    {
-        "name": "nvs_doc_type",
-        "label": "Document Type",
-        "type": "keyword",
-        "in_lists": True
-    },
 ]
+
+
+nvs_document_types = {
+    'witness': 'primary_witnesses',
+    'occasional': 'occasional_witnesses',
+    'pw_primarysources': 'primary_sources',
+    'pw_occasional': 'occasional_sources',
+    'bibliography': 'bibliographic_sources'
+}
 
 
 def import_data(job_id):
@@ -326,12 +329,6 @@ Delete Existing:    {4}
 
 
 def reset_nvs_content_types(corpus):
-    for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
-        if nvs_content_type['name'] in corpus.content_types:
-            corpus.delete_content_type(nvs_content_type['name'])
-
-        corpus.save_content_type(nvs_content_type)
-
     if 'Document' in corpus.content_types:
         corpus.delete_content_type('Document')
 
@@ -345,6 +342,12 @@ def reset_nvs_content_types(corpus):
         nvs_doc_schema['fields'] += nvs_document_fields
         nvs_doc_schema['templates']['Label']['template'] = "{{ Document.siglum_label|safe }}"
         corpus.save_content_type(nvs_doc_schema)
+
+    for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
+        if nvs_content_type['name'] in corpus.content_types:
+            corpus.delete_content_type(nvs_content_type['name'])
+
+        corpus.save_content_type(nvs_content_type)
 
 
 def ensure_nvs_content_types(corpus):
@@ -497,7 +500,6 @@ FRONT MATTER INGESTION
                     witness = handle_bibl_tag(
                         corpus,
                         witness_tag.bibl,
-                        nvs_doc_type,
                         unhandled,
                         xml_id=siglum,
                         date=pub_date,
@@ -505,8 +507,8 @@ FRONT MATTER INGESTION
                     )
                     doc_type_count += 1
 
-                    if witness and witness.nvs_doc_type == 'witness':
-                        play.primary_witnesses.append(witness.id)
+                    play_field = nvs_document_types[nvs_doc_type]
+                    getattr(play, play_field).append(witness.id)
 
                 elif 'corresp' in witness_tag.attrs:
                     witness_collections.append({
@@ -520,29 +522,37 @@ FRONT MATTER INGESTION
         play.save()
 
         for witness_collection_info in witness_collections:
-            witness_collection = corpus.get_content('DocumentCollection')
-            witness_collection.siglum = witness_collection_info['siglum']
+            witness_collection = corpus.get_content('DocumentCollection', {'siglum': witness_collection_info['siglum']}, single_result=True)
+            if not witness_collection:
+                witness_collection = corpus.get_content('DocumentCollection')
+                witness_collection.siglum = witness_collection_info['siglum']
             witness_collection.siglum_label = witness_collection_info['siglum_label']
             witness_tag = witness_collection_info['tag']
 
             referenced_witnesses = witness_tag['corresp'].split(' ')
             for reffed in referenced_witnesses:
                 reffed_siglum = reffed.replace('#', '')
-                reffed_doc = corpus.get_content('Document', {'siglum': reffed_siglum})[0]
-                witness_collection.referenced_documents.append(reffed_doc.id)
+                reffed_doc = corpus.get_content('Document', {'siglum': reffed_siglum}, single_result=True)
+                if reffed_doc not in witness_collection.referenced_documents:
+                    witness_collection.referenced_documents.append(reffed_doc.id)
 
             witness_collection.save()
 
         bibl_count = 0
         for bibl_list in plan_of_work.find_all('listBibl'):
             nvs_doc_type = bibl_list['xml:id'].replace("bibl_", "")
+            play_field = nvs_document_types[nvs_doc_type]
 
             for bibl in bibl_list.find_all('bibl'):
-                if handle_bibl_tag(corpus, bibl, nvs_doc_type, unhandled):
+                doc = handle_bibl_tag(corpus, bibl, unhandled)
+                if doc:
                     bibl_count += 1
+                    if doc not in getattr(play, play_field):
+                        getattr(play, play_field).append(doc.id)
                 else:
                     report += "Error parsing the following bibliographic entry:\n{0}\n\n".format(str(bibl))
 
+        play.save()
         report += "{0} bibliographic entries ingested.\n\n".format(bibl_count)
 
         unhandled = list(set(unhandled))
@@ -1474,11 +1484,15 @@ BIBLIOGRAPHY INGESTION
     doc_count = 0
     bibls = tei.find_all('bibl')
     for bibl in bibls:
-        if handle_bibl_tag(corpus, bibl, 'bibliography', unhandled):
+        doc = handle_bibl_tag(corpus, bibl, unhandled)
+        if doc:
             doc_count += 1
+            if doc not in play.bibliographic_sources:
+                play.bibliographic_sources.append(doc.id)
         else:
             report += "Error creating bibliographic entry for this TEI representation:\n{0}\n\n".format(str(bibl).replace('<', '&lt;').replace('>', '&gt;'))
 
+    play.save()
     unhandled = list(set(unhandled))
     if unhandled:
         report += "The following tags were not properly converted from TEI to HTML: {0}\n\n".format(', '.join(unhandled))
@@ -1487,18 +1501,21 @@ BIBLIOGRAPHY INGESTION
     return report
 
 
-def handle_bibl_tag(corpus, bibl, nvs_doc_type, unhandled, xml_id=None, date='', siglum_label=''):
+def handle_bibl_tag(corpus, bibl, unhandled, xml_id=None, date='', siglum_label=''):
     doc = None
 
     if xml_id or 'xml:id' in bibl.attrs:
-        doc = corpus.get_content('Document')
-        if xml_id:
-            doc.siglum = xml_id
-        else:
-            doc.siglum = bibl['xml:id']
+        siglum = xml_id
+        if not siglum:
+            siglum = bibl['xml:id']
+
+        doc = corpus.get_content('Document', {'siglum': siglum}, single_result=True)
+        if not doc:
+            doc = corpus.get_content('Document')
+            doc.siglum = siglum
 
         doc_data = {
-            'siglum_label': siglum_label,
+            'siglum_label': siglum_label if siglum_label else siglum,
             'author': '',
             'bibliographic_entry': '',
             'title': '',
@@ -1521,7 +1538,6 @@ def handle_bibl_tag(corpus, bibl, nvs_doc_type, unhandled, xml_id=None, date='',
         if doc_data['unhandled']:
             unhandled.extend(doc_data['unhandled'])
 
-        doc.nvs_doc_type = nvs_doc_type
         doc.save()
 
     return doc

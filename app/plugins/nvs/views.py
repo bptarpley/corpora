@@ -127,8 +127,8 @@ def playviewer(request, corpus_id=None, play_prefix=None):
         if 'Trailer|||0' in as_results['meta']['aggregations']['act_scenes']:
             act_scenes['TR'] = "Trailer.0"
 
-    witness_docs = corpus.get_content('Document', {'nvs_doc_type': 'witness'}).order_by('pub_date')
     play_wit_ids = [w.id for w in play.primary_witnesses]
+    witness_docs = corpus.get_content('Document', {'id__in': play_wit_ids}).order_by('pub_date')
     wit_counter = 0
     for wit_doc in witness_docs:
         if wit_doc.id in play_wit_ids:
@@ -205,23 +205,6 @@ def get_session_lines(corpus, session, only_ids=False):
     if only_ids:
         lines = lines.only('id')
     return lines
-
-
-def bibliography(request, corpus_id, play_prefix):
-    corpus = get_corpus(corpus_id)
-    play = corpus.get_content('Play', {'prefix': play_prefix})[0]
-
-    docs = corpus.get_content('Document', all=True).order_by('bibliographic_entry_text')
-    bibliographic_entries = [doc.bibliographic_entry for doc in docs]
-
-    return render(
-        request,
-        'bibliography.html',
-        {
-            'corpus_id': corpus_id,
-            'bibliography': bibliographic_entries
-        }
-    )
 
 
 def paratext(request, corpus_id=None, play_prefix=None, section=None):
@@ -409,9 +392,11 @@ def play_minimap(request, corpus_id=None, play_prefix=None):
 
 def home(request, corpus_id=None):
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'nvs_home'}, single_result=True)
@@ -423,15 +408,19 @@ def home(request, corpus_id=None):
         'nvs_home.html',
         {
             'corpus_id': corpus_id,
-            'content': dynamic_content
+            'site_request': site_request,
+            'content': dynamic_content,
         }
     )
 
+
 def frontmatter(request, corpus_id=None):
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'nvs_frontmatter'}, single_result=True)
@@ -443,15 +432,19 @@ def frontmatter(request, corpus_id=None):
         'nvs_frontmatter.html',
         {
             'corpus_id': corpus_id,
+            'site_request': site_request,
             'content': dynamic_content
         }
     )
 
+
 def appendix(request, corpus_id=None):
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'nvs_appendix'}, single_result=True)
@@ -463,15 +456,19 @@ def appendix(request, corpus_id=None):
         'nvs_appendix.html',
         {
             'corpus_id': corpus_id,
+            'site_request': site_request,
             'content': dynamic_content
         }
     )
 
+
 def bibliography(request, corpus_id=None):
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'nvs_bibliography'}, single_result=True)
@@ -483,6 +480,7 @@ def bibliography(request, corpus_id=None):
         'nvs_bibliography.html',
         {
             'corpus_id': corpus_id,
+            'site_request': site_request,
             'content': dynamic_content
         }
     )
@@ -490,9 +488,11 @@ def bibliography(request, corpus_id=None):
 
 def info_about(request, corpus_id=None):
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'info_about'}, single_result=True)
@@ -504,6 +504,7 @@ def info_about(request, corpus_id=None):
         'info_about.html',
         {
             'corpus_id': corpus_id,
+            'site_request': site_request,
             'content': dynamic_content
         }
     )
@@ -511,9 +512,11 @@ def info_about(request, corpus_id=None):
 
 def info_contributors(request, corpus_id=None):
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'info_contributors'}, single_result=True)
@@ -525,6 +528,7 @@ def info_contributors(request, corpus_id=None):
         'info_contributors.html',
         {
             'corpus_id': corpus_id,
+            'site_request': site_request,
             'content': dynamic_content
         }
     )
@@ -532,9 +536,11 @@ def info_contributors(request, corpus_id=None):
 
 def info_print_editions(request, corpus_id=None):
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'info_print'}, single_result=True)
@@ -546,6 +552,7 @@ def info_print_editions(request, corpus_id=None):
         'info_print.html',
         {
             'corpus_id': corpus_id,
+            'site_request': site_request,
             'content': dynamic_content
         }
     )
@@ -553,9 +560,11 @@ def info_print_editions(request, corpus_id=None):
 
 def info_how_to(request, corpus_id=None):
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'info_how_to'}, single_result=True)
@@ -567,6 +576,7 @@ def info_how_to(request, corpus_id=None):
         'info_how_to.html',
         {
             'corpus_id': corpus_id,
+            'site_request': site_request,
             'content': dynamic_content
         }
     )
@@ -574,9 +584,11 @@ def info_how_to(request, corpus_id=None):
 
 def info_faqs(request, corpus_id=None):
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'info_faqs'}, single_result=True)
@@ -588,6 +600,7 @@ def info_faqs(request, corpus_id=None):
         'info_faqs.html',
         {
             'corpus_id': corpus_id,
+            'site_request': site_request,
             'content': dynamic_content
         }
     )
@@ -595,9 +608,11 @@ def info_faqs(request, corpus_id=None):
 
 def tools_about(request, corpus_id=None):
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'tools_about'}, single_result=True)
@@ -609,6 +624,7 @@ def tools_about(request, corpus_id=None):
         'tools_about.html',
         {
             'corpus_id': corpus_id,
+            'site_request': site_request,
             'content': dynamic_content
         }
     )
@@ -616,9 +632,11 @@ def tools_about(request, corpus_id=None):
 
 def tools_advanced_search(request, corpus_id=None):
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'tools_advanced_search'}, single_result=True)
@@ -630,6 +648,7 @@ def tools_advanced_search(request, corpus_id=None):
         'tools_advanced_search.html',
         {
             'corpus_id': corpus_id,
+            'site_request': site_request,
             'content': dynamic_content
         }
     )
@@ -637,9 +656,11 @@ def tools_advanced_search(request, corpus_id=None):
 
 def tools_data_extraction(request, corpus_id=None):
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'tools_data'}, single_result=True)
@@ -651,6 +672,7 @@ def tools_data_extraction(request, corpus_id=None):
         'tools_data.html',
         {
             'corpus_id': corpus_id,
+            'site_request': site_request,
             'content': dynamic_content
         }
     )
