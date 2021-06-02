@@ -34,7 +34,7 @@
                 --scrollbarURL: url("/corpus/{{ corpus_id }}/play-minimap/{{ play.prefix }}/?width=40&height=1000");
                 {% endif %}
                 --nvs-form-control-height: 35px;
-                --nvs-play-row-min-height: 50px;
+                --nvs-play-row-min-height: 39px;
                 --nvs-form-control-font-size: 12px;
                 --nvs-background-color: #FFFFFF;
                 --nvs-lightest-gray: #F2F2F2;
@@ -329,9 +329,10 @@
                 font-size: 14px;
             }
 
-            .play-words, .play-words-seen {
+            .play-words {
                 padding-top: 10px;
                 padding-bottom: 5px;
+                padding-left: 0px;
                 font-family: 'Libre Baskerville', serif;
                 font-size: 1.1vw;
                 color: #070707;
@@ -342,6 +343,10 @@
                 display: -webkit-box!important;
                 display: -ms-flexbox!important;
                 display: flex!important;
+            }
+
+            .play-words.no-variants {
+                padding-left: 41px !important;
             }
 
             span.castgroup {
@@ -382,18 +387,18 @@
                 display: flex!important;
             }
 
-            .variant-toggler, .variant-toggler:hover {
-                text-decoration: none;
-                color: #f99b4e;
+            .variant-toggler {
+                margin: 0px;
+                margin-right: 8px;
             }
 
             .variant-row {
-                background-color: var(--nvs-light-orange);
                 border-bottom: solid 1px var(--nvs-light-blue);
             }
 
             .witness-formula {
                 color: #f99b4e;
+                background-color: var(--nvs-light-orange);
                 font-family: 'Roboto', sans-serif;
                 font-size: 12px;
                 text-transform: uppercase;
@@ -405,8 +410,9 @@
 
             .variant-words {
                 font-family: 'Libre Baskerville', serif;
+                font-size: 1.1vw;
                 color: #949494;
-                padding-left: 37px;
+                padding-left: 41px !important;
                 padding-top: 10px;
                 padding-bottom: 5px;
             }
@@ -807,22 +813,20 @@
                                      data-witness_indicators="{{ line.witness_meter }}"
                                 >
                                     <div id="{{ line.xml_id }}-witness-col" class="col-sm-4 m-0 p-0 witness-meter">
-                                        <img id="{{ line.xml_id }}-witness-meter" height="35" width="100%" src="{% static 'img/blank-meter.png'%}" />
+                                        <img id="{{ line.xml_id }}-witness-meter" height="30" width="100%" src="{% static 'img/blank-meter.png'%}" />
                                     </div>
-                                    <div id="{{ line.xml_id }}-text-col" class="col-sm-7 m-0 p-0 play-words offscreen">
+                                    <div id="{{ line.xml_id }}-text-col" class="col-sm-7 m-0 p-0 play-words {% if line.witness_meter|to_int == 0 %}no-variants{% endif %}">
                                         {% if line.witness_meter|to_int > 0 %}
                                             <a id="{{ line.xml_id }}-variant-toggler"
-                                                   class="variant-toggler mx-1"
+                                                   class="variant-toggler"
                                                    data-toggle="collapse"
                                                    href="#{{ line.xml_id }}-variant-div"
                                                    role="button"
                                                    aria-expanded="false"
                                                    aria-controls="{{ line.xml_id }}-variant-div"
                                                 >
-                                                <i id="{{ line.xml_id }}-variant-toggle" class="fas fa-chevron-circle-right"></i>
+                                                <img id="{{ line.xml_id }}-variant-toggle" src="{% static 'img/nvs-variants-expand.png' %}" />
                                             </a>
-                                        {% else %}
-                                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                         {% endif %}
                                         {{ line.rendered_html|safe }}
                                     </div>
@@ -1284,7 +1288,7 @@
                                     <div class="col-sm-4 p-0 m-0">
                                         <div class="row no-gutters">
                                             <div id="variant-${variant.id}" class="col-sm-12 p-0 m-0 variant-witness-meter">
-                                                <img id="${line.xml_id}-${variant.id}-witness-meter" height="20" width="100%" src="{% static 'img/blank-meter.png'%}" data-witness_indicators="${variant.witness_meter}" />
+                                                <img id="${line.xml_id}-${variant.id}-witness-meter" height="15" width="100%" src="{% static 'img/blank-meter.png'%}" data-witness_indicators="${variant.witness_meter}" />
                                             </div>
                                         </div>
                                         <div class="row no-gutters">
@@ -1293,20 +1297,18 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-sm-8 p-0 m-0 variant-words">${variant_words}</div>
+                                    <div class="col-sm-8 p-0 m-0 variant-words align-self-center">${variant_words}</div>
                                 </div>
                             `);
 
                             $(`#${line.xml_id}-variant-div`).on('shown.bs.collapse', function (event) {
                                 let indicator = $(`#${event.target.id.replace('-div', '-toggle')}`);
-                                indicator.removeClass('fa-chevron-circle-right');
-                                indicator.addClass('fa-chevron-circle-down');
+                                indicator.attr('src', "{% static 'img/nvs-variants-collapse.png' %}")
                             });
 
                             $(`#${line.xml_id}-variant-div`).on('hidden.bs.collapse', function (event) {
                                 let indicator = $(`#${event.target.id.replace('-div', '-toggle')}`);
-                                indicator.removeClass('fa-chevron-circle-down');
-                                indicator.addClass('fa-chevron-circle-right');
+                                indicator.attr('src', "{% static 'img/nvs-variants-expand.png' %}")
                             });
 
                             let variant_col = $(`#${line.xml_id}-witness-col`);
@@ -1608,7 +1610,7 @@
         header_context.restore();
 
         wit_header_col.css('background-image', `url(${header_canvas.toDataURL()})`);
-        wit_header_col.css('background-position', `${wit_header.offset().left + 6}px 14px`);
+        wit_header_col.css('background-position', `${wit_header.offset().left + 6}px 5px`);
 
         playtext_col.css('background-image', `url(${background_canvas.toDataURL()})`);
         playtext_col.css('background-position', `${wit_header.offset().left + 6}px 0px`);
