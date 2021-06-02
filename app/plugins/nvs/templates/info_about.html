@@ -2,17 +2,85 @@
 {% load static %}
 
 {% block headrefs %}
-    <!-- This goes inside the head tag specific for this page -->
+<!-- This goes inside the head tag specific for this page -->
 {% endblock %}
 
 {% block main %}
-    <h2>Info: About</h2>
+<div class="page-holder is-blue">
+  <div class="container">
+    <div class="page-holder--inner has-max-width">
+      <div class="anchor-links--holder">
+        <ul class="anchor-links--inner">
+          <li class="anchor-link">
+            <a href="/corpus/{{ corpus_id }}/about/#introduction">{% include 'svg/icon_arrow.svg' %}Introduction</a>
+          </li>
+          <li class="anchor-link">
+            <a href="/corpus/{{ corpus_id }}/about/#history">{% include 'svg/icon_arrow.svg' %}History</a>
+          </li>
+        </ul>
+      </div>
+      <div>
+        <h1>About</h1>
+        <h2 class="anchor" id="introduction">Introduction</h2>
+        <p>The New Variorum Shakespeare, which began collating previous editions of Romeo and Juliet in 1871, is
+          now published open-access in digital form, beginning with two editions in 2021, and then extending
+          forward (new editors are under contract) and backward to eventually include all the volumes in the
+          series. The digital edition has been designed with three main goals: 1) to teach students and early
+          career researchers the concepts behind variorum editing through interface design as well as tutorials;
+          2) to enable searching across and within volumes and variants using Modern English and major
+          Act-Scene-Line numbers, returning not only exportable lists, text, and bibliographical citations, but
+          also visualizations demonstrating everything from when characters speak in plays to the evolution of
+          variant histories; and 3) to be interoperable with, and allow access to, other major Shakespeare digital
+          resources including bibliographies of criticism, digital copies of editions published since
+          Shakespeare’s time, images, and videos. Following the practice of state-of-the-art digital humanities
+          projects, we aim to render Shakespeare’s texts and international criticism available world-wide.</p>
+        <h2 class="anchor" id="history">History</h2>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam imperdiet tellus urna, in vestibulum dui
+          suscipit at. Sed in tristique lacus. Aliquam augue diam, consectetur rutrum sagittis at, finibus nec
+          ipsum. Praesent tincidunt tellus et ipsum commodo molestie. Aliquam erat volutpat. Proin dignissim
+          viverra turpis, vel scelerisque lacus. Donec dapibus, lorem et faucibus facilisis, lacus urna viverra
+          nibh, quis hendrerit odio est nec lacus. Integer quis pretium odio. Nullam pretium luctus ex ac
+          eleifend. Etiam et sodales leo. Fusce non nisl blandit, porta nunc eget, interdum felis.</p>
+        <p>Nam ac diam tortor. In et efficitur libero. Suspendisse feugiat sapien vitae orci vulputate, quis
+          pellentesque nisl egestas. Mauris malesuada neque lorem. In porttitor quam quam, in lobortis tortor
+          rhoncus ac. Vivamus non sapien non dolor tincidunt viverra. Mauris convallis eros id pretium viverra.
+          Nunc vel sem a quam blandit bibendum vel at nulla. Praesent et scelerisque massa. Quisque sollicitudin
+          semper metus, quis condimentum velit mattis at.</p>
+        <p>Aenean ornare porttitor venenatis. Aenean efficitur tempus diam quis ornare. Aenean iaculis gravida
+          dignissim. Nullam vitae maximus ex, quis molestie mi. Proin vitae purus massa. Nullam id sem tellus.
+          Nunc feugiat orci gravida dictum sollicitudin. Nullam suscipit nunc sit amet lacinia pellentesque. Nam
+          molestie scelerisque enim quis gravida. Praesent in neque non odio lacinia iaculis. Aenean libero
+          libero, lobortis sit amet eleifend vel, ultrices et diam. Sed sed elit in elit consectetur auctor.
+          Mauris et fringilla ante, vitae hendrerit diam. Morbi sit amet tristique lorem.</p>
+        <p>Curabitur suscipit nunc quis risus dignissim, eu ultricies arcu accumsan. Aenean ac nulla erat. Fusce
+          at finibus lorem. Sed dui diam, hendrerit at tortor eu, faucibus vulputate tellus. Vivamus nibh arcu,
+          pretium a sem in, pulvinar convallis tellus. Cras et pretium mauris. Duis id luctus turpis, quis aliquet
+          quam.</p>
+        <p>Proin facilisis leo sit amet dignissim auctor. Aenean sagittis leo eu sodales euismod. Pellentesque
+          euismod, lacus ac varius cursus, sem nunc cursus est, in pellentesque arcu tortor sit amet nunc. Fusce
+          placerat quam nulla, eu blandit mauris tincidunt non. Morbi eleifend vestibulum risus, quis convallis
+          quam venenatis non. Nunc porttitor purus non aliquet imperdiet. Maecenas pellentesque tellus quis nulla
+          accumsan sagittis. Nulla fermentum gravida volutpat. Suspendisse aliquet leo sed neque sagittis, id
+          pellentesque turpis rutrum. Donec at neque ex.</p>
+        <p>Praesent dui eros, condimentum sed consectetur at, eleifend cursus nisl. Sed dapibus leo id dui
+          molestie, eu gravida nisi euismod. Sed tincidunt elementum mi eget gravida. Vestibulum aliquam pharetra
+          orci, sed pellentesque dolor venenatis non. Nam elit felis, condimentum nec lobortis et, semper et odio.
+          Mauris elementum augue nec urna accumsan tristique. Donec feugiat, tellus nec pellentesque volutpat,
+          ligula ante condimentum ante, ut vehicula justo elit rhoncus arcu. Integer condimentum eros urna, eu
+          vestibulum magna laoreet eget. Proin eu ante in dui ultrices pulvinar. Donec rutrum tempus nisi vel
+          sodales. Vestibulum at lobortis mi. Suspendisse potenti. Praesent ac ex enim. Mauris at tristique
+          turpis. Interdum et malesuada fames ac ante ipsum primis in faucibus. Phasellus sapien mi, iaculis a
+          sollicitudin nec, interdum quis nunc. Interdum et malesuada fames ac ante ipsum primis in.</p>
+      </div>
+    </div>
+  </div>
+</div>
 
-    {% if content %}
-        {{ content|safe }}
-    {% endif %}
+{% if content %}
+{{ content|safe }}
+{% endif %}
 {% endblock %}
 
 {% block js %}
-    <!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+<!-- If you wanted this particular page to have a javascript library referenced, put it here -->
 {% endblock %}

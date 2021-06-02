@@ -2,17 +2,184 @@
 {% load static %}
 
 {% block headrefs %}
-    <!-- This goes inside the head tag specific for this page -->
+<!-- This goes inside the head tag specific for this page -->
 {% endblock %}
 
 {% block main %}
-    <h2>Info: FAQ's</h2>
+<div class="page-holder is-blue">
+  <div class="container">
+    <div class="page-holder--inner has-max-width">
+      <div class="anchor-links--holder">
+        <ul class="anchor-links--inner">
+          <li class="anchor-link">
+            <a href="/corpus/{{ corpus_id }}/faqs/#frequently-asked-questions">
+              {% include 'svg/icon_arrow.svg' %}Frequently Asked Questions</a>
+          </li>
+          <li class="anchor-link">
+            <a href="/corpus/{{ corpus_id }}/faqs/#nvs-terms-and-definitions">
+              {% include 'svg/icon_arrow.svg' %}NVS
+              Terms and Definitions</a>
+          </li>
+        </ul>
+      </div>
+      <div>
+        <h1>FAQs and Lexicon</h1>
+        <p>Below you&#x27;ll find answers to commonly asked questions as well as a list of frequently used NVs
+          terms and definitions. If you can&#x27;t find the answer to your question, feel free to contact us. If
+          you are new to this site, we encourage you to visit How to Digital NVS.</p>
+        <h2 class="anchor" id="frequently-asked-questions">Frequently Asked Questions</h2>
+        <p><strong>Q: How can I see more information about the editions in the Textual Notes?</strong><br/>
+          A: Here is the answer to the first question.</p>
+        <p><strong>Q: How do the links in the commentary notes function?</strong><br/>
+          A: Here is the answer to the second question</p>
+        <p><strong>Q: Can I use modern spelling to search for words even though words were spelled differently in
+          the early modern period?</strong><br/>
+          A: Here is the answer to the third question</p>
+        <p><strong>Q: How can I download a citation?</strong><br/>
+          A: Here is the answer to the fourth question</p>
+        <h2 class="anchor" id="nvs-terms-and-definitions">NVS Terms and Definitions</h2>
+        <p><strong>Accidentals:</strong> See Emended Accidentals.</p>
+        <p><strong>Act- and Scene-Headings:</strong> A numerical system making possible precise reference to any
+          scene in Shakespeare. The New Variorum volumes use the act- and scene-numbering of the Riverside edition
+          for the purposes of external reference (NVS Handbook 14).</p>
+        <p><strong>Appendix:</strong> Section of the New Variorum that follows the play text, textual notes, and
+          commentary notes and includes information about irregular, doubtful, and emended accidentals in the
+          volume’s copy-text, unadopted conjectures in the editions collated, authenticity of the text, printer’s
+          reliability, early editions, sources, criticism—themes, genre, characters, language and style, etc.--,
+          the history of performances, and music (NVS Handbook 2-3, 115).</p>
+        <p><strong>Bibliography:</strong> Alphabetical list by author’s last name of all scholarly and critical
+          works that are quoted from or referred to anywhere in the edition (NVS Handbook 148).</p>
+        <p><strong>Collation:</strong> The process of comparing the copy-text in hand to one or multiple other
+          editions line by line, word by word, letter by letter, and point by point in order to reveal differences
+          and establish completeness. All fully collated editions listed for each NVS play undergo this process.
+          (NVS Handbook 36; “Glossary of book history terms” in Folgerpedia).</p>
+        <p><strong>Commentary Notes:</strong> Commentary notes provide, as in previous New Variorum editions, a
+          condensed historical survey of significant attempts (including those of the present editor) to
+          establish, elucidate, and interpret particular words, phrases, lines, and passages. Like the surveys of
+          opinion in the appendices, the commentary should provide a comprehensive, historical perspective. This
+          means that much commentary that seems to the editor mistaken will be included along with that which
+          seems to him or her correct (mere nonsense of course to be excluded), and that wherever possible, credit
+          will be given to the first editor, scholar, or critic to provide each explanation (NVS Handbook 106).
+        </p>
+        <p><strong>Conjectural Emendation:</strong> Process that involves restoring the original reading of an
+          extant text that appears to be corrupt. Unadopted conjectural emendations are excluded from historical
+          collation recorded in the notes and listed in the appendix only. Conjectural emendations that have been
+          adopted will be “recorded in the historical collation, and credit will there be given to the original
+          proposer of the conjecture” (NVS Handbook 3).</p>
+        <p><strong>Copy-text:</strong> The first edition of a play against which all other subsequent editions of
+          the play are collated--or compared line by line, word by word, letter by letter, and point by point.
+          Most of the editions use The Shakespeare First Folio (1623) as the copy-text; however, the First Quarto
+          (1608) has also served as the copy-text for certain editions, including King Lear. The general and
+          edition editors decide which to use and which missing parts from other texts should be inserted into the
+          copy-text from earlier or later editions (NVS Handbook 6).</p>
+        <p><strong>Dramatis Personae:</strong> List of characters in each play. The list of characters appears in
+          the NVS before the head-title. When the Variorum’s copy-text prints the list after the play-text, as in
+          F1, the line numbers will reflect the character list’s position and line number in F1. For example, in
+          The Winter’s Tale, Emilia appears on line 3380 in the “The Names of the Actors List,” which is printed
+          at the very end of the First Folio volume (NVS Handbook 8-9).</p>
+        <p><strong>Emended Accidentals:</strong> Errors in a text’s spelling, punctuation, italicization,
+          capitalization, etc. that mainly affect its formal presentation, rather than the meaning of the text
+          itself are considered accidental. The New Variorum editions “will leave intact as much as possible of
+          the original accidental texture as might have any conceivable significance.” Any emendations of
+          accidentals are made silently and recorded in the appendix of emended accidentals, while substantive and
+          semi-substantive emendations are recorded in the textual notes (NVS Handbook 9-11).</p>
+        <p><strong>First Folio:</strong> A posthumous collected edition of Shakespeare’s dramatic works, published
+          in 1623 by Shakespeare’s friends John Heminges and Henry Condell. The First Folio has served as the
+          copy-text for most of the NVS editions. A notable exception in King Lear, which takes the 1608 First
+          Quarto as its primary copy-text.</p>
+        <p><strong>Folio:</strong> The size and shape of a book, as determined by the number of times the original
+          sheet of paper or parchment has been folded to form its constituent leaves. Folio (fol. or 2°) = folded
+          once (“Glossary of book history terms” in Folgerpedia).</p>
+        <p><strong>Headline:</strong> See Running Head</p>
+        <p><strong>Index:</strong> Lists names and topics in the New Variorum volume in alphabetical order.</p>
+        <p><strong>Lemma:</strong> A version of a line, word, character, or point in the copy-text against which
+          all variants are compared in a textual note.</p>
+        <p><strong>NVS Fully Collated Editions:</strong> Editions of such primary importance in the history of the
+          transmission of the text that they have been compared with the copy-text line by line, word by word,
+          letter by letter, and point by point (NVS Handbook 36).</p>
+        <p><strong>NVS Selectively or Occasionally Quoted Editions:</strong> Editions of secondary importance
+          (often because they derive from a parent edition from whose readings they seldom vary, or because their
+          texts are in general not very original or interesting), and readings from them are recorded only
+          occasionally when they are of special interest. Each Variorum editor must decide which editions deserve
+          full collation and which only occasional quotation (NVS Handbook 36-37).</p>
+        <p><strong>Play Text:</strong> The text of a variorum edition play. It includes the copy-text and variants
+          from fully and selectively collated witnesses. </p>
+        <p><strong>Quarto:</strong> The size and shape of a book, as determined by the number of times the
+          original sheet of paper or parchment has been folded to form its constituent leaves. Quarto (4 to or 4°)
+          = folded twice (“Glossary of book history terms” in Folgerpedia).</p>
+        <p><strong>Recto:</strong> The front of a leaf, the right hand side of an opening of a bound volume. cf.
+          verso (“Glossary of book history terms” in Folgerpedia).</p>
+        <p><strong>Running Head:</strong> Sometimes also called a headline or running-title, the line of type at
+          the top of the page of text which contains the title of a book or section (“Glossary of book history
+          terms” in Folgerpedia).</p>
+        <p><strong>Semi-substantive variants:</strong> Changes of accidental details, including punctuation,
+          spelling, typography, and spacing and/or hyphenation that affect meaning; spelling or punctuation that
+          significantly affects meter in verse; spelling that affects rhyme in verse, such as shrew/shrow;
+          relining of verse as prose, prose as verse, or verse as different verse; Diacritical marks added by
+          editors to indicate the number of pronounced syllables (i.e., marks which affect meter); variants in
+          names of characters when there has been editorial disagreement about which character is involved or
+          question about identification of an originally unnamed character (NVS Handbook 37-40).</p>
+        <p><strong>Sigla:</strong> Abbreviations used for NVS Variorum editions. They are limited to a total of
+          five characters. According to the NVS Handbook, “in order to avoid exceeding a total of five characters,
+          the basic sigla for most editions have been limited to four characters so as to permit the addition of a
+          number distinguishing the original from a later edition (THEO1, THEO2): and the basic sigla for most
+          modern editions have been limited to three characters so as to permit the addition of a number
+          distinguishing the original from a ‘new’ edition bearing the same name (ARD1, ARD2) and a letter
+          distinguishing the original from a revised edition of a particular play within a “new” series (CAM3a,
+          CAM3b). Each title is preceded by the siglum that identifies the edition in the textual notes and other
+          textual apparatus” (NVS Handbook 142).</p>
+        <p><strong>Substantive variants:</strong> All verbal changes that affect meaning---i.e., all changes,
+          substitutions, omissions, additions, and re-ordering of words, phrases, lines, or scenes (NVS Handbook
+          35).</p>
+        <p><strong>Textual Notes:</strong> Notes that inlclude two kinds of information: a record of significant
+          emendations (if any) of the copy-text made by the Variorum editor; and a record of the historical
+          collation of substantive and semi-substantive variants in major editions other than the copy-text, down
+          to the present day (NVS Handbook 28).</p>
+        <p><strong>Through Line Numbers (TLN):</strong> New Variorum texts use the Through Line Numbers (TLN) of
+          Charlton Hinman&#x27;s First Folio published by Norton Press, that is, numbers straight through the play
+          including stage directions rather than line numbers starting afresh at the beginning of scenes. The
+          through line numbers are “used for all internal reference to the play within its own edition--that is,
+          for all reference to the play in the textual and commentary notes and in the appendices. These Folio
+          numberings will be used even when the copy-text is a quarto (NVS Handbook 22).</p>
+        <p><strong>Turnunders and Turnovers:</strong> Words at the very end of a line that are printed just above
+          or below the line and inherit the number of the line. In the New Variorum editions, “Any note on a
+          turnover or turnunder, therefore, will refer to it by the through line number (TLN) of the verse line it
+          completes, and not by the number of the typographic line to the right of which it was printed in the
+          copy-text” (NVS Handbook 24).</p>
+        <p><strong>Variorum Edition:</strong> A typical page of the edition proper will, as before, have three
+          sections--text, textual notes (including historical collation), and commentary notes--as well as page
+          numbers, the Riverside edition’s act-scene-line cross-reference numbers in the running heads (see ch.
+          IV), and Quarto and/or Folio signature and column numbers in the margins of the play text. After text,
+          textual notes, and commentary, follows the appendix (which includes irregular, doubtful, and emended
+          accidentals in FI, unadopted conjectures in the editions collated, authenticity of the text, printer’s
+          reliability, early editions, sources, criticism—themes, genre, characters, language and style, etc.--,
+          historical performances, music), bibliography, and index (NVS Handbook 2-3).</p>
+        <p><strong>Variorum Edition of Copy-text:</strong> The Variorum Edition is “a modified diplomatic reprint
+          of the copy-text which is a literam reprint, according to (or adjusted to) Folio lineation, and with
+          minimal editing” (NVS Handbook 5).</p>
+        <p><strong>Variant:</strong> A form or version of something that differs in some respect from the lemma in
+          the copy text. In an attempt to keep the textual notes manageable and focused on important information,
+          there are four different ways of recording data collected in the historical collation of editions: (1)
+          only substantive and semi-substantive variants will be recorded in the notes, and variants of accidental
+          details that do not affect meaning will be ignored; (2) all substantive and semi-substantive variants
+          from fully collated editions will be recorded in the notes; (3) variants in the accessories--stage
+          directions, speech prefixes, act-and-scene headings, and place headings--will be listed more selectively
+          than variants in the text proper; and (4) only those conjectural readings adopted in one of the texts
+          collated will be recorded in the textual notes (NVS Handbook 35).</p>
+        <p><strong>Verso:</strong> The back or reverse of a leaf, the left hand side of a bound volume. cf. recto
+          (“Glossary of book history terms” in Folgerpedia).</p>
+        <p><strong>Witness:</strong> A single material instance of a given text (“Glossary of book history terms”
+          in Folgerpedia).</p>
+      </div>
+    </div>
+  </div>
+</div>
 
-    {% if content %}
-        {{ content|safe }}
-    {% endif %}
+{% if content %}
+{{ content|safe }}
+{% endif %}
 {% endblock %}
 
 {% block js %}
-    <!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+<!-- If you wanted this particular page to have a javascript library referenced, put it here -->
 {% endblock %}

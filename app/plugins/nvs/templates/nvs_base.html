@@ -2,42 +2,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>New Variorum Shakespeare</title>
-    <style>
-        html, body {
-            background-color: #1E1E1E;
-            color: whitesmoke;
-        }
-    </style>
-    {% block headrefs %}
-    {% endblock %}
+  <meta charset="UTF-8">
+  <title>New Variorum Shakespeare</title>
+  <link rel="stylesheet" href="{% static 'css/nvs.css' %}">
+  <style>
+    .nvs_base--main { margin-top: 4rem; }
+    @media ( min-width: 576px ) {
+      .nvs_base--main { margin-top: 3.5rem; }
+    }
+  </style>
+  {% block headrefs %}
+  {% endblock %}
 </head>
-<body>
-    <h1>This is on every page.</h1>
+<body class="{% block body_class %}{% endblock %}">
 
-    <!-- Here is a reference to a file living in the "static" folder of the NVS plugin: -->
-    <img src="{% static 'img/nvs-logo.png' %}" style="height: 100px; width: auto;" />
+{% include 'blocks/organisms/small-header.html' %}
+{% include 'blocks/organisms/large-header.html' %}
 
-    <h4>Page Links</h4>
-    <ul>
-        <li><a href="/corpus/{{ corpus_id }}/about/">Info About</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/contributors/">Info Contributors</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/print/">Info Print Editions</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/how-to/">Info How To</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/faqs/">Info FAQ's</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/tools/">Tools About</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/search/">Tools Search</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/data/">Tools Data</a></li>
-    </ul>
+<main class="nvs_base--main">
+  {% block main %}
+  {% endblock %}
 
-    {% block main %}
-    {% endblock %}
+  <!-- Here could be some javascript libraries referenced by every page -->
 
-    <!-- Here could be some javascript libraries referenced by every page -->
-
-    <!-- Here is a block for child pages to have their own specific javascript libraries: -->
-    {% block js %}
-    {% endblock %}
+  <!-- Here is a block for child pages to have their own specific javascript libraries: -->
+  {% block js %}
+  {% endblock %}
+</main>
+{% include 'blocks/organisms/footer.html' %}
 </body>
+
+<script type="text/javascript">
+  document.addEventListener('DOMContentLoaded', () => {
+    let holders = document.querySelectorAll('.navigation--holder');
+    holders.forEach(holder => {
+
+      let dropDowns = holder.querySelectorAll('.navigation--dropdown');
+      dropDowns.forEach(dropDown => {
+        let button = dropDown.firstElementChild;
+        button.addEventListener('click', () => {
+          if (dropDown.classList.contains('active')) {
+            dropDown.classList.remove('active');
+          } else {
+            let previouslyActive;
+            if (dropDown.classList.contains('nested')) {
+              previouslyActive = holder.querySelector('.navigation--dropdown.active.nested');
+            } else {
+              previouslyActive = holder.querySelector('.navigation--dropdown.active.parent');
+            }
+            if (previouslyActive) {
+              previouslyActive.classList.remove('active');
+            }
+            dropDown.classList.add('active');
+          }
+        });
+      })
+
+    })
+  })
+</script>
+
 </html>

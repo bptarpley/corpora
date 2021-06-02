@@ -1,0 +1,181 @@
+<style>
+    .navigation--dropdown-group {
+        margin: 0;
+        list-style: none;
+        padding-left: 0;
+        position: relative;
+    }
+    .navigation--dropdown-group a { text-decoration: none; }
+    .navigation--dropdown {
+        position: relative;
+        font-family: "Roboto Condensed", sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    @media ( min-width: 992px ) {
+        .navigation--dropdown { z-index: 1; }
+
+        .navigation--dropdown.active {
+            box-shadow: var(--boxShadow);
+            z-index: 2;
+        }
+        .navigation--dropdown.nested {
+            box-shadow: none;
+            font-weight: normal;
+        }
+        .navigation--dropdown.nested > button {
+            padding: 0 1rem;
+            height: auto;
+            font-weight: normal;
+            justify-content: space-between;
+        }
+        .navigation--dropdown.nested > button svg {
+            transform: none;
+        }
+        .navigation--dropdown.nested.active {
+            background-color: var(--grey4);
+        }
+        .navigation--dropdown.nested.active > button {
+            color: var(--blue);
+        }
+    }
+    @media ( min-width: 1400px ) {
+        .navigation--dropdown.nested {
+            width: 50%;
+        }
+    }
+
+    .navigation--dropdown > button {
+        display: flex;
+        align-items: start;
+        text-decoration: none;
+        text-transform: uppercase;
+        text-align: left;
+        font-weight: bold;
+        letter-spacing: 0.02em;
+    }
+    @media ( min-width: 992px ) {
+        .navigation--dropdown > button {
+            padding: 0.5rem 1rem 1.5rem 1rem;
+            height: 3.5rem;
+            width: 100%;
+        }
+    }
+    .navigation--dropdown > button:hover {
+        color: var(--blue);
+    }
+    .navigation--dropdown > button svg {
+        height: 0.5rem;
+        width: auto;
+        margin: 0.5rem 0 0 0.5rem;
+        transform: rotate(90deg);
+        transform-origin: center center;
+    }
+    .navigation--dropdown > button .beta {
+        font-weight: normal;
+        color: var(--grey1);
+        margin-left: 0.5rem;
+    }
+    .navigation--dropdown-inner {
+        margin: 0;
+        list-style: none;
+        padding-left: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.5s ease;
+    }
+    .navigation--dropdown.active > .navigation--dropdown-inner {
+        max-height: 20rem;
+    }
+    @media ( min-width: 992px ) {
+        .navigation--dropdown-inner {
+            display: none;
+            border-bottom: 1px solid var(--white);
+            border-right: 1px solid var(--white);
+            border-left: 1px solid var(--white);
+            position: absolute;
+            top: 100%;
+            left: -1px;
+            padding: 0 0 0.75rem 0;
+            max-height: none;
+            min-width: calc(100% + 2px);
+            background-color: inherit;
+            overflow: visible;
+        }
+        .navigation--dropdown.active > .navigation--dropdown-inner {
+            display: block;
+            box-shadow: var(--boxShadow);
+        }
+        .navigation--dropdown.nested .navigation--dropdown-inner {
+            top: 0;
+            left: 100%;
+            min-width: 15rem;
+            background-color: var(--white);
+            border-top: 1px solid var(--grey5);
+        }
+
+        .navigation--dropdown-inner a {
+            padding: 0 1rem;
+            display: inline-block;
+            width: 100%;
+        }
+        .navigation--dropdown-inner a:hover {
+            color: var(--blue);
+            background-color: var(--grey4);
+        }
+        @media ( min-width: 1400px ) {
+            .navigation--dropdown.nested .navigation--dropdown-inner {
+                width: 100%;
+                min-width: 0;
+            }
+        }
+    }
+</style>
+
+<nav class="navigation--holder">
+  <ul class="navigation--dropdown-group">
+    <li class="navigation--dropdown parent">
+      <button class="link">NVS Digital Editions <span class="beta">(BETA)</span> {% include 'svg/arrow.svg' %}</button>
+      <ul class="navigation--dropdown-inner">
+        <ul class="navigation--dropdown-group">
+          <li class="navigation--dropdown nested">
+            <button class="link">The Winter's Tale {% include 'svg/arrow.svg' %}</button>
+            <ul class="navigation--dropdown-inner">
+              <li><a href="/corpus/{{ corpus_id }}/play-viewer/wt/">Variorum Reader</a></li>
+              <li><a href="/corpus/{{ corpus_id }}/frontmatter/">Front matter</a></li>
+              <li><a href="/corpus/{{ corpus_id }}/bibliography/">Bibliography</a></li>
+              <li><a href="/corpus/{{ corpus_id }}/appendix/">Appendix</a></li>
+            </ul>
+          </li>
+          <li class="navigation--dropdown nested">
+            <button class="link">A Midsummer Night's Dream {% include 'svg/arrow.svg' %}</button>
+            <ul class="navigation--dropdown-inner">
+              <li><a href="#">Variorum Reader</a></li>
+              <li><a href="#">Front matter</a></li>
+              <li><a href="#">Bibliography</a></li>
+              <li><a href="#">Appendix</a></li>
+            </ul>
+          </li>
+        </ul>
+      </ul>
+    </li>
+    <li class="navigation--dropdown parent">
+      <button class="link">NVS Info {% include 'svg/arrow.svg' %}</button>
+      <ul class="navigation--dropdown-inner">
+        <li><a href="/corpus/{{ corpus_id }}/about/">About</a></li>
+        <li><a href="/corpus/{{ corpus_id }}/how-to/">How to Digital NVS</a></li>
+        <li><a href="/corpus/{{ corpus_id }}/faqs/">FAQs & Lexicon</a></li>
+        <li><a href="/corpus/{{ corpus_id }}/contributors/">Contributors</a></li>
+        <li><a href="/corpus/{{ corpus_id }}/print/">Print Editions</a></li>
+      </ul>
+    </li>
+    <li class="navigation--dropdown parent">
+      <button class="link">NVS Tools {% include 'svg/arrow.svg' %}</button>
+      <ul class="navigation--dropdown-inner">
+        <li><a href="/corpus/{{ corpus_id }}/tools/">About</a></li>
+        <li><a href="/corpus/{{ corpus_id }}/search/">Advanced Search</a></li>
+        <li><a href="/corpus/{{ corpus_id }}/data/">Data</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>

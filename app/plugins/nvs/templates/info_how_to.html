@@ -2,17 +2,119 @@
 {% load static %}
 
 {% block headrefs %}
-    <!-- This goes inside the head tag specific for this page -->
+<style>
+    .how-to--video-holder {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-gap: 2rem;
+        margin: 1.5rem 0;
+    }
+    @media ( min-width: 768px ) {
+        .how-to--video-holder {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+</style>
+
 {% endblock %}
 
 {% block main %}
-    <h2>Info: How To</h2>
+<div class="page-holder is-blue">
+  <div class="container">
+    <div class="page-holder--inner has-max-width">
+      <div class="anchor-links--holder">
+        <ul class="anchor-links--inner">
+          <li class="anchor-link">
+            <a href="/corpus/{{ corpus_id }}/how-to/#how-to-use">{% include 'svg/icon_arrow.svg' %}How to Use</a>
+          </li>
+          <li class="anchor-link">
+            <a href="/corpus/{{ corpus_id }}/how-to/#navigating-the-site">{% include 'svg/icon_arrow.svg' %}Navigating
+              the Site</a>
+          </li>
+          <li class="anchor-link is-level-2">
+            <a href="/corpus/{{ corpus_id }}/how-to/#simple-search">{% include 'svg/icon_arrow.svg' %}Simple Search</a>
+          </li>
+          <li class="anchor-link is-level-2">
+            <a href="/corpus/{{ corpus_id }}/how-to/#an-advanced-search">{% include 'svg/icon_arrow.svg' %}An Advanced
+              Search</a>
+          </li>
+        </ul>
+      </div>
+      <div>
+        <h1>How To Digital NVS</h1>
+        <h2 class="anchor" id="how-to-use">How to Use</h2>
+        <p>The Center of Digital Humanities Research, (CoDHR) is now the new home of the New Variorum Shakespeare
+          series (NVS), taking the project over from the Modern Language Association (MLA). Texas A&amp;M has now
+          made the NVS editions that were only previously published in print freely available online to scholars,
+          educators, students, and performers via a fully networked digital platform called Corpora. Visit the NVS
+          Info / About page to learn more about the history of the NVS and the scope of this project.</p>
+        <p>To navigate this site... will add content about links and different pages, including FAQs and
+          videos.</p>
+        <p>Information about the Variorum Reader (play text, textual notes, and commentary notes)</p>
+        <p>Brief explanation of the appendix, bibliography, and front matter</p>
+        <p>Currently, we have two NVS plays available for users: A Midsummer Night’s Dream and The Winter’s Tale.
+          We are currently working on making The Merry Wives of Windsor, A Comedy of Errors, Julius Caesar, The
+          Tempest, and Richard III available on this site.</p>
+        <p>Please visit our Contributors page to find out more about the designers, programmers, editors, and
+          board members who made this project possible.</p>
+        <p>Below you will find information about how to perform basic and advanced searches.</p>
+        <h2 class="anchor" id="navigating-the-site">Navigating the Site</h2>
+        <h3 class="anchor" id="simple-search">Simple Search</h3>
+        <div class="how-to--video-holder">
+          <div>
+            <div class="embed-container">
+              <iframe width="560" height="315" src="https://www.youtube.com/embed/X3fa-Y1M6eY"
+                      title="YouTube video player" frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowfullscreen=""></iframe>
+            </div>
+          </div>
+          <div><p>A simple search will return a wide range of results based on keyword searching. Results are
+            obtained by searching for terms or keywords across all fields. For example, if a user performs a
+            simple search for the keyword “heretic” by typing the word in the Simple Search box they will get
+            1,003 results as the simple search returns all instances of the word in the play text as well as in
+            the commentary notes.</p></div>
+        </div>
+        <h3 class="anchor" id="an-advanced-search">An Advanced Search</h3>
+        <div class="how-to--video-holder">
+          <div>
+            <div class="embed-container">
+              <iframe width="560" height="315" src="https://www.youtube.com/embed/X3fa-Y1M6eY"
+                      title="YouTube video player" frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowfullscreen=""></iframe>
+            </div>
+          </div>
+          <div><p>An advanced search allows for a more targeted query by limiting the search to a particular play
+            or to specific fields within and across plays on this site. Users may search by through line number,
+            act, scene, character, date, genre, content type, and keyword.</p></div>
+        </div>
+        <h4 id="description-of-advanced-search-fields">Description of Advanced Search fields</h4>
+        <div class="how-to--video-holder">
+          <div>
+            <div class="embed-container">
+              <iframe width="560" height="315" src="https://www.youtube.com/embed/X3fa-Y1M6eY"
+                      title="YouTube video player" frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowfullscreen=""></iframe>
+            </div>
+          </div>
+          <div><p>Through Line Number:
+            Date:
+            Genre:
+            Act and Scene
+            etc.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-    {% if content %}
-        {{ content|safe }}
-    {% endif %}
+{% if content %}
+{{ content|safe }}
+{% endif %}
 {% endblock %}
 
 {% block js %}
-    <!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+<!-- If you wanted this particular page to have a javascript library referenced, put it here -->
 {% endblock %}
