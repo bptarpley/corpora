@@ -106,7 +106,7 @@
   <div class="container">
     <div class="large-header--inner">
       <div class="large-header--logo-holder">
-        <a href="/corpus/{{ corpus_id }}/home/">
+        <a href="{% if site_request %}/{% else %}/corpus/{{ corpus_id }}/home/{% endif %}">
           {% include 'svg/logo-w-type.svg' %}
           {% include 'svg/logo.svg' %}
         </a>
