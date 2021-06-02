@@ -350,7 +350,7 @@ button.icon svg,
 .static-type td {
     vertical-align: top;
 }
-.static-type td:first-child{
+.static-type td:first-child {
     padding-right: 40px;
     white-space: nowrap;
 }
@@ -603,46 +603,22 @@ sub { top: 0.4em; }
     height: 100%;
 }
 
-.edition-header--holder {
-    width: 100%;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    margin-top: 0 !important;
+.edition-header {
+    color: var(--black);
 }
 @media ( min-width: 768px ) {
-    .edition-header--holder {
-        grid-template-columns: 15rem 1fr;
+    .edition-header {
+        margin-top: 1rem !important;
     }
-}
-.edition-header--holder .hyphen {
-    display: none;
 }
 
-.edition-header--edition {
-    display: flex;
-    align-items: start;
-    justify-content: space-between;
-    padding: 0.5rem 0.5rem 0 0;
-}
-.edition-header--edition svg {
+.edition-header svg {
     width: 1rem;
     height: auto;
-    display: block;
-    flex-shrink: 0;
-    margin-left: 2rem;
-}
-@media ( min-width: 768px ) {
-    .edition-header--edition svg {
-        margin-top: 0.5rem;
-    }
-}
-.edition-header--edition svg path {
-    stroke: var(--grey4);
+    display: inline-block;
+    margin: 0 0.5rem;
 }
 
 .edition-header--title {
-    color: var(--black);
-    padding: 0.5rem 0 0 0.5rem;
-    border-top: 1px solid var(--blue5);
-    border-left: 1px solid var(--blue5);
+    color: var(--blue);
 }
