@@ -3,69 +3,6 @@
 
 {% block headrefs %}
 
-<style>
-    .textural-note {
-        margin: 0.5rem 0 0.5rem 3rem;
-        display: grid;
-        grid-template-columns: 5rem 1fr;
-    }
-    .textural-note strong {
-        font-weight: normal;
-        text-transform: lowercase;
-        font-variant-caps: small-caps;
-        font-variant-numeric: oldstyle-nums;
-    }
-    .textural-note + p {
-        margin-top: 1.5rem;
-    }
-    .textural-note p {
-        margin: 0;
-    }
-
-    .appendix-entry {
-        margin: 0.5rem 0 0.5rem 3rem;
-        display: flex;
-    }
-    .appendix-entry .line {
-        margin-right: 0.5rem;
-        color: var(--blue);
-    }
-    .appendix-entry + p {
-        margin-top: 1.5rem;
-    }
-    .appendix-entry p { margin: 0; }
-
-    .bibliography-entry {
-        margin: 0.5rem 0 0.5rem 3rem;
-    }
-    .bibliography-entry p {
-        margin: 0;
-    }
-    .bibliography-entry p:first-child,
-    .bibliography-entry p:nth-child(2) {
-        display: inline;
-    }
-    .bibliography-entry p:first-child { margin-right: 0.5rem; }
-    .bibliography-entry p:nth-child(1n + 3) {
-        position: relative;
-        padding-left: 2rem;
-        text-indent: 2.5rem;
-    }
-    .bibliography-entry p:nth-child(1n + 3):before {
-        content: '';
-        position: absolute;
-        top: 0.75rem;
-        left: 0;
-        display: block;
-        width: 4rem;
-        border-bottom: 1px solid;
-    }
-
-    .bibliography-entry + p {
-        margin-top: 1.5rem;
-    }
-</style>
-
 {% endblock %}
 
 {% block main %}
