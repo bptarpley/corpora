@@ -574,16 +574,16 @@ sub { top: 0.4em; }
         color: var(--blue);
     }
 }
-.anchor-link a.active {
+.anchor-link.active a {
     color: var(--grey4);
     font-weight: bold;
 }
 @media ( min-width: 768px ) {
-    .anchor-link a.active {
+    .anchor-link.active a {
         color: var(--blue);
     }
 }
-.anchor-link a.active svg { opacity: 1; }
+.anchor-link.active a svg { opacity: 1; }
 
 .embed-container {
     position: relative;
