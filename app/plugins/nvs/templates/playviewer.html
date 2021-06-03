@@ -22,7 +22,7 @@
         <!--<link href="{% static 'css/nvs.css' %}" rel="stylesheet">-->
 
         <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-        <link href="https://fonts.googleapis.com/css2?family=Roboto:ital@0;1&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
         <style title="main-sheet">
             /* -----------------------------
             || MAIN CSS VARIABLES
@@ -43,6 +43,7 @@
                 --nvs-yellow-gray: #3b371c;
                 --nvs-dark-blue: #085294;
                 --nvs-light-blue: #6c9ecc;
+                --nvs-lightest-blue: rgb(235, 244, 252);
                 --nvs-primary-orange: #CC5F38;
                 --nvs-secondary-orange: #F1B06E;
                 --nvs-light-orange: #F9EFE4;
@@ -69,11 +70,84 @@
             || HEADERS AND CONTROLS
             || -------------------------- */
 
+            .nav {
+                font-family: 'Roboto Condensed', sans-serif;
+            }
+
+            .edition-menu {
+                min-width: 300px;
+            }
+
+            .info-menu, .tools-menu {
+                min-width: 220px;
+            }
+
+            .info-menu {
+                background-color: var(--nvs-lightest-blue);
+                border-right: solid 1px var(--nvs-background-color);
+            }
+
+            .tools-menu {
+                background-color: rgb(242, 242, 242);
+            }
+
+            .menu-shadow {
+                border: none;
+                border-radius: 0;
+                padding-top: 0px;
+                padding-bottom: 0px;
+            }
+
+            .menu-shadow.show {
+                box-shadow: rgba(99, 99, 99, 0.3) 4px 8px 8px 0;
+            }
+
+            li a {
+                padding: 0.5rem 1rem 1.5rem 1rem;
+                width: 100%;
+                display: block;
+                text-decoration: none;
+                color: rgb(55, 55, 55);
+            }
+
+            li a:hover {
+                color: var(--nvs-dark-blue);
+            }
+
+            a.
+
+            .dropdown-item {
+                padding: 0px;
+            }
+
+            .dropdown-item:active {
+                background-color: inherit;
+            }
+
+            .dropdown-item a {
+                padding-bottom: 0px;
+            }
+
+            #play-title {
+                font-family: 'Roboto Condensed', sans-serif;
+                color: var(--nvs-light-blue);
+                text-transform: uppercase;
+                font-weight: bolder;
+                font-size: 25px;
+                padding-left: 1rem;
+                line-height: 1;
+            }
+
+            .search-div {
+                border-top: solid 1px var(--nvs-lightest-blue);
+                border-left: solid 1px var(--nvs-lightest-blue);
+            }
+
+
             .heading-label {
-                font-family: 'Roboto', sans-serif;
+                font-family: 'Roboto Condensed', sans-serif;
                 color: var(--nvs-mid-gray);
                 font-size: 14px;
-                font-weight: bold;
             }
 
             .view-col {
@@ -325,7 +399,7 @@
                 color: var(--nvs-mid-gray);
                 border: none;
                 border-left: solid 1px var(--nvs-mid-gray);
-                font-family: 'Roboto', sans-serif;
+                font-family: 'Roboto Condensed', sans-serif;
                 font-size: 14px;
             }
 
@@ -399,7 +473,7 @@
             .witness-formula {
                 color: #f99b4e;
                 background-color: var(--nvs-light-orange);
-                font-family: 'Roboto', sans-serif;
+                font-family: 'Roboto Condensed', sans-serif;
                 font-size: 12px;
                 text-transform: uppercase;
             }
@@ -554,7 +628,7 @@
             }
 
             .ref-modal-header {
-                font-family: 'Roboto', sans-serif;
+                font-family: 'Roboto Condensed', sans-serif;
                 color: #000000;
                 padding: 10px;
                 cursor: move;
@@ -596,137 +670,87 @@
         </div>
 
         <div id="main-container" class="container-fluid h-100">
-
             <!-- MAIN HEADER -->
             <div id="main-header" class="row">
-
-                <!-- NVS LOGO -->
-                <div class="d-none d-lg-flex justify-content-center col-lg-1 pt-4 px-1">
-                    <figure>
-                    <img src="{% static 'img/nvs-logo.png'%}" class="img-fluid" style="max-height: 85px;">
-                    </figure>
+                <!-- LOGO -->
+                <div class="col-sm-2 pt-2">
+                    <img src="{% static 'img/nvs-logo.png'%}" class="img-fluid m-0" style="max-height: 90px;">
                 </div>
 
-                <!-- TEXT SETTINGS -->
-                <div class="col-sm-12 col-md-5 col-lg-4">
-                    <div class="heading-section-label">Text</div>
-                    <div class="row p-1">
-                        <div class="col-sm-12 bg-nvs-lightest-gray p-0 p-sm-2">
-                            <div class="heading-label">PLAY</div>
-                            <div class="nvs-selection">
-                                <select id="play-selector" class="font-weight-bold">
-                                    <option value="wt">{{ play.title }}</option>
-                                </select>
+                <!-- NAV -->
+                <div class="col-sm-10">
+                    <div class="row">
+                        <div class="col-sm-12">
+                            <ul class="nav">
+                                <li class="dropdown menu-shadow">
+                                    <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false"><b>NVS DIGITAL EDITIONS</b> (BETA)</a>
+                                    <ul class="dropdown-menu menu-shadow">
+                                        <li class="dropdown-item">
+                                            <div class="dropright">
+                                                <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">THE WINTER'S TALE</a>
+                                                <ul class="dropdown-menu menu-shadow">
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/edition/wt/{% else %}/corpus/{{ corpus_id }}/play-viewer/wt/{% endif %}">VARIORUM READER</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/frontmatter/{% else %}/corpus/{{ corpus_id }}/frontmatter/{% endif %}">FRONT MATTER</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/bibliography/{% else %}/corpus/{{ corpus_id }}/bibliography/{% endif %}">BIBLIOGRAPHY</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/appendix/{% else %}/corpus/{{ corpus_id }}/appendix/{% endif %}">APPENDIX</a></li>
+                                                </ul>
+                                            </div>
+                                        </li>
+                                        <li class="dropdown-item">
+                                            <div class="dropright">
+                                                <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">A MIDSUMMER NIGHT'S DREAM</a>
+                                                <ul class="dropdown-menu menu-shadow">
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/edition/mnd/{% else %}/corpus/{{ corpus_id }}/play-viewer/mnd/{% endif %}">VARIORUM READER</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/frontmatter/{% else %}/corpus/{{ corpus_id }}/frontmatter/{% endif %}">FRONT MATTER</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/bibliography/{% else %}/corpus/{{ corpus_id }}/bibliography/{% endif %}">BIBLIOGRAPHY</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/appendix/{% else %}/corpus/{{ corpus_id }}/appendix/{% endif %}">APPENDIX</a></li>
+                                                </ul>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </li>
+                                <li class="dropdown menu-shadow ml-auto">
+                                    <a class="dropdown-toggle info-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false"><b>NVS INFO</b></a>
+                                    <ul class="dropdown-menu info-menu menu-shadow">
+                                        <li class="dropdown-item"><a href="{% if site_request %}/about/{% else %}/corpus/{{ corpus_id }}/about/{% endif %}">ABOUT</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/how-to/{% else %}/corpus/{{ corpus_id }}/how-to/{% endif %}">HOW TO DIGITAL NVS</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/faqs/{% else %}/corpus/{{ corpus_id }}/faqs/{% endif %}">FAQS & LEXICON</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/contributors/{% else %}/corpus/{{ corpus_id }}/contributors/{% endif %}">CONTRIBUTORS</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/print-editions/{% else %}/corpus/{{ corpus_id }}/print/{% endif %}">PRINT EDITIONS</a></li>
+                                    </ul>
+                                </li>
+                                <li class="dropdown menu-shadow">
+                                    <a class="dropdown-toggle tools-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false"><b>NVS TOOLS</b></a>
+                                    <ul class="dropdown-menu tools-menu menu-shadow">
+                                        <li class="dropdown-item"><a href="{% if site_request %}/tools/{% else %}/corpus/{{ corpus_id }}/tools/{% endif %}">ABOUT</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/advanced-search/{% else %}/corpus/{{ corpus_id }}/search/{% endif %}">ADVANCED SEARCH</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/data/{% else %}/corpus/{{ corpus_id }}/data/{% endif %}">DATA</a></li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="row no-gutters">
+                        <div class="col-sm-3">
+                            <div id="play-title" class="align-self-baseline">
+                                {{ play.title }}
                             </div>
+                        </div>
+                        <div class="col-sm-9 search-div">
                             <div class="row">
-                                <!-- search play box -->
-                                <div class="col-sm-6 pr-sm-1">
+                                <div class="col-sm-6 offset-6">
                                     <div id="hdr-quick-search-box" class="nvs-search" placeholder="SEARCH THIS PLAY" contentEditable="plaintext-only"></div>
                                 </div>
-
-                                <!-- play line no box -->
-                                <div class="col-sm-4 p-sm-0">
-                                    <input id="hdr-line-no-box" type="text" placeholder="ENTER LINE#" />
-                                </div>
-
-                                <!-- play go button -->
-                                <div class="col-sm-2 pl-sm-1">
-                                    <input type="button" value="GO">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FILTER SETTINGS -->
-                <div class="col-sm-6 col-md-4">
-                    <div class="heading-section-label">Filter</div>
-                    <div class="row p-1">
-                        <div class="col-sm-12 bg-nvs-lightest-gray p-0 p-sm-2">
-                            <div class="row align-items-end">
-                                <!-- act/scene -->
-                                <div class="col-sm-5 pr-sm-1">
-                                    <div class="heading-label">ACT, SCENE</div>
-                                    <div class="nvs-selection">
-                                        <select id="hdr-act-scene-selector">
-                                            <option value="all">ALL</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <!-- character -->
-                                <div class="col-sm-5 p-sm-0">
-                                    <div class="heading-label">CHARACTER</div>
-                                    <div class="nvs-selection">
-                                        <select id="hdr-character-selector">
-                                            <option value="all">ALL</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <!-- filter go button -->
-                                <div class="col-sm-2 pl-sm-1">
-                                    <input type="button" value="GO">
-                                </div>
-                            </div>
-
-                            <div class="row">
-                                <!-- advanced search -->
-                                <div class="col-sm-12">
-                                    <div class="nvs-search" placeholder="ADVANCED SEARCH" contentEditable="true"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- VIEW SETTINGS -->
-                <div class="col-sm-6 col-md-3" style="border-right: solid 5px var(--nvs-background-color);">
-                    <div class="heading-section-label">View</div>
-                    <div class="row p-1">
-                        <div class="col-sm-12 bg-nvs-lightest-gray p-0 p-sm-2">
-                            <div class="row">
-                                <div class="col-sm-7">
-                                    <!-- reader view -->
-                                    <label class="toggle-control">
-                                        <input type="checkbox" checked="checked">
-                                        <span class="control"></span>
-                                        <span class="heading-label">READER</span>
-                                    </label>
-
-                                    <!-- list view -->
-                                    <label class="toggle-control">
-                                        <input type="checkbox">
-                                        <span class="control"></span>
-                                        <span class="heading-label">LIST</span>
-                                    </label>
-
-                                    <!-- chart view -->
-                                    <label class="toggle-control">
-                                        <input type="checkbox">
-                                        <span class="control"></span>
-                                        <span class="heading-label">CHART</span>
-                                    </label>
-                                </div>
-                                <div class="col-sm-5">
-                                    <input type="button" id="hdr-reset-button" class="nvs-secondary-button" value="RESET">
-                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- QUANTITATIVE VIEW -->
-            {% if nvs_session.preferences.show_quantitative_view %}
-            <div id="quantitative-view" class="row no-gutters">
-            </div>
-            {% endif %}
 
             <!-- READER VIEW -->
             {% if nvs_session.preferences.show_reader_view %}
             <div id="reader-view" class="row flex-grow-1">
-                <div id="main-col" class="col-md-12 col-lg-12 mt-2 p-1 view-col">
+                <div id="main-col" class="col-md-12 col-lg-12 p-1 view-col">
 
                     <!-- header row -->
                     <div class="row">
@@ -743,7 +767,7 @@
                                     </div>
                                 </div>
                                 <div class="col-sm-1 m-0 p-0">
-                                    &nbsp;
+                                    <input id="hdr-line-no-box" type="text" placeholder="ENTER LINE#" />
                                 </div>
                             </div>
                         </div>
@@ -1103,12 +1127,38 @@
     }
 
     function configure_controls() {
+        // HEADER: NESTED DROPDOWN
+        $('.dropdown-menu a.dropdown-toggle').on('click', function(e) {
+            if (!$(this).next().hasClass('show')) {
+                $(this).parents('.dropdown-menu').first().find('.show').removeClass("show");
+            }
+            let subMenu = $(this).next(".dropdown-menu");
+            subMenu.toggleClass('show');
+            let parentMenu = $(this).parents('.dropdown-menu').first()[0];
+            subMenu.css('position', 'absolute');
+            subMenu.css('top', `${this.offsetTop}px`);
+            subMenu.css('left', `${this.offsetLeft + this.offsetWidth}px`);
+
+            $(this).parents('li.nav-item.dropdown.show').on('hidden.bs.dropdown', function(e) {
+                $('.dropdown-submenu .show').removeClass("show");
+            });
+
+            return false;
+        });
+
         // HEADER: LINE# BOX
         $('#hdr-line-no-box').keypress(function(e) {
             if (e.which === 13) {
                 let line_no = $('#hdr-line-no-box').val();
                 if (`tln_${line_no}` in lines) {
                     $(`#tln_${line_no}-row`)[0].scrollIntoView({behavior: 'smooth'});
+                } else {
+                    while (line_no.length < 4) {
+                        line_no = '0' + line_no;
+                    }
+                    if (`tln_${line_no}` in lines) {
+                        $(`#tln_${line_no}-row`)[0].scrollIntoView({behavior: 'smooth'});
+                    }
                 }
             }
         });
@@ -1545,7 +1595,7 @@
         let light_orange = get_nvs_var('nvs-light-orange');
         let delimiter_color = get_nvs_var('nvs-background-color');
         let font_size = 12;
-        header_context.font = `${font_size}px Roboto`;
+        header_context.font = `${font_size}px Roboto Condensed`;
         header_context.textAlign = "left";
         header_context.textBaseline = "bottom";
 
