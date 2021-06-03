@@ -1974,48 +1974,55 @@ def handle_paratext_tag(tag, pt, pt_data):
 
     simple_conversions = {
         'p': 'p',
-        'hi': 'span',
-        'title': 'i',
-        'quote': 'i',
+        'hi': 'span:hi',
+        'title': 'span:title',
+        'quote': 'span:quote',
         'table': 'table',
         'row': 'tr',
         'cell': 'td',
-        'list': 'ul',
-        'item': 'li',
-        'front': 'div',
-        'floatingText': 'div',
-        'titlePage': 'span',
-        'docTitle': 'span',
-        'figDesc': 'p',
-        'docImprint': 'p',
-        'byline': 'p',
-        'docAuthor': 'span',
+        'list': 'ul:list',
+        'item': 'li:item',
+        'front': 'div:front',
+        'floatingText': 'div:floating-text',
+        'titlePage': 'div:title-page',
+        'docTitle': 'p:doc-title',
+        'figDesc': 'p:fig-desc',
+        'docImprint': 'p:doc-imprint',
+        'byline': 'p:byline',
+        'docAuthor': 'span:doc-author',
         'lb': 'br',
         'div': 'div',
-        'signed': 'div',
-        'lg': 'i:mt-2',
-        'l': 'div',
-        'milestone': 'div:float-right',
-        'sp': 'div:mx-auto',
-        'speaker': 'span',
-        'trailer': 'div:mt-2',
-        'label': 'b',
-        'figure': 'div',
-        'salute': 'span',
-        'abbr': 'dt',
-        'expan': 'dd',
-        'listBibl': 'div:bibl-list',
-        'bibl': 'span:bibl',
-        'listWit': 'div:witness-list',
-        'witness': 'span:witness',
-        'edition': 'q'
+        'signed': 'p:signed',
+        'lg': 'span:lg',
+        'l': 'span:l',
+        'milestone': 'span:milestone',
+        'sp': 'span:sp',
+        'speaker': 'span:speaker',
+        'trailer': 'p:trailer',
+        'label': 'span:label',
+        'figure': 'div:figure',
+        'closer': 'p:closer',
+        'salute': 'span:salute',
+        'abbr': 'span:abbr',
+        'expan': 'span:expan',
+        'listBibl': 'ul:list-bibl',
+        'bibl': 'li:bibl',
+        'listWit': 'ul:witness-list',
+        'witness': 'li:witness',
+        'edition': 'span:edition',
+        'app': 'span:app',
+        'name': 'span:name',
+        'epigraph': 'div:epigraph',
+        'foreign': 'span:foreign',
+        'stage': 'span:stage',
+        'date': 'span:date',
+        'docDate': 'span:docDate'
     }
 
     silent = [
-        'app', 'appPart', 'lem', 'wit', 'rdgDesc',
-        'rdg', 'name', 'rs', 'epigraph',
-        'body', 'foreign', 'cit', 'stage',
-        'docDate', 'date'
+        'appPart', 'lem', 'wit', 'rdgDesc',
+        'rdg', 'rs',
+        'body', 'cit'
     ]
 
     if tag.name:
@@ -2062,9 +2069,9 @@ def handle_paratext_tag(tag, pt, pt_data):
         elif tag.name == 'siglum':
             siglum_label = "".join([handle_paratext_tag(child, pt, pt_data) for child in tag.children])
             if 'rend' in tag.attrs and tag['rend'] == 'smcaps':
-                siglum_label = '''<span style="font-variant: small-caps;">{0}</span>'''.format(siglum_label)
+                siglum_label = '''<span class="siglum smcaps">{0}</span>'''.format(siglum_label)
 
-            html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
+            html += '''<a class="siglum" href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                 'siglum',
                 strip_tags(siglum_label)
             )
@@ -2075,7 +2082,7 @@ def handle_paratext_tag(tag, pt, pt_data):
             target = tag['target'].replace('#', '')
             if 'targetEnd' in tag.attrs:
                 target += " " + tag['targetEnd']
-            html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">here</a>'''.format(
+            html += '''<a class="ptr" href="#" onClick="navigate_to('{0}', '{1}', this); return false;">here</a>'''.format(
                 tag['targType'],
                 target
             )
@@ -2087,7 +2094,7 @@ def handle_paratext_tag(tag, pt, pt_data):
             if targ_type == 'lb' and 'targetEnd' in tag.attrs:
                 xml_id += ' ' + tag['targetEnd'].replace("#", '').strip()
 
-            html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
+            html += '''<a class="ref" href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                 targ_type,
                 xml_id
             )
@@ -2105,14 +2112,14 @@ def handle_paratext_tag(tag, pt, pt_data):
 
             pt_data['current_note'] = curr_note
 
-            html += "<div{0} class='pt_textual_note'>".format(attributes)
+            html += "<p{0} class='pt_textual_note'>".format(attributes)
             for child in tag.children:
                 html += handle_paratext_tag(child, pt, pt_data)
-            html += "</div>"
+            html += "</p>"
             pt_data['current_note'] = None
 
         elif tag.name == "label" and pt_data['current_note']:
-            html += '''<a href="#" onClick="navigate_to('lb', '{0}', this); return false;">'''.format(
+            html += '''<a href="#" class="label" onClick="navigate_to('lb', '{0}', this); return false;">'''.format(
                 pt_data['current_note']['target_tln']
             )
             for child in tag.children:
@@ -2120,26 +2127,17 @@ def handle_paratext_tag(tag, pt, pt_data):
             html += "</a>"
 
         elif tag.name == "quote" and 'rend' in tag and tag['rend'] == 'block':
-            html += "<blockquote{0}>".format(attributes)
+            html += '<span{0} class="quote">'.format(attributes)
             for child in tag.children:
                 html += handle_paratext_tag(child, pt, pt_data)
-            html += "</blockquote>"
+            html += "</span>"
 
         elif tag.name == "anchor" and 'xml:id' in tag.attrs:
-            html += "<a name='{0}'></a>".format(tag['xml:id'])
-
-        elif tag.name == "closer":
-            html += '''
-                <div class="row">
-                    <div{0} class="col-sm-6 offset-sm-6">
-            '''.format(attributes)
-            for child in tag.children:
-                html += handle_paratext_tag(child, pt, pt_data)
-            html += "</div></div>"
+            html += '<a class="anchor" name="{0}"></a>'.format(tag['xml:id'])
 
         elif tag.name == "space" and 'extent' in tag.attrs:
             unit = tag['extent'].replace("indent(", '').replace(")", '')
-            html += '<span style="margin-left: {0};">'.format(unit)
+            html += '<span class="space indent-{0};">'.format(unit)
             for child in tag.children:
                 html += handle_paratext_tag(child, pt, pt_data)
             html += '</span>'
@@ -2152,7 +2150,7 @@ def handle_paratext_tag(tag, pt, pt_data):
                     img_url = file.get_url(pt_data['corpus'].uri)
 
             if img_url:
-                html += "<img{0} src='{1}' width='90%' class='d-block mx-auto' />".format(
+                html += "<img{0} src='{1}' class='graphic' />".format(
                     attributes,
                     img_url
                 )
