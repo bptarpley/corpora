@@ -317,6 +317,7 @@ Delete Existing:    {4}
 
                     render_lines_html(corpus, play)
 
+
         time_stop = timer()
         job.report("\n\nPlay TEI ingestion completed in {0} seconds.".format(time_stop - time_start))
         job.complete(status='complete')
@@ -377,6 +378,7 @@ def ensure_nvs_content_types(corpus):
         if not doc_schema_ensured:
             corpus.delete_content_type('Document')
             corpus.save_content_type(nvs_doc_schema)
+
 
 
 def delete_play_data(corpus, play_prefix):
@@ -875,7 +877,7 @@ def handle_playtext_tag(corpus, play, tag, line_info):
                             if char.id == char_id:
                                 if line_info['text'] not in char.speaker_abbreviations:
                                     char.speaker_abbreviations.append(line_info['text'])
-                                    char.save(do_linking=False)
+                                    char.save()
 
                     line_info['text'] += ' ' # <- adding a space after speaker abbrevs (not present in TEI)
 
@@ -1030,7 +1032,7 @@ TEXTUAL NOTES INGESTION
                     if child.name == 'siglum':
                         siglum_label = strip_tags(tei_to_html(child))
                         textual_variant.witness_formula += '''
-                            <a href="#" onClick="navigate_to('siglum', '{0}', this); return false;" class="variant-siglum">{0}</a>
+                            <a href="#" class="ref-siglum" onClick="navigate_to('siglum', '{0}', this); return false;" class="variant-siglum">{0}</a>
                         '''.format(siglum_label)
                         if siglum_label not in all_sigla: # and siglum_label not in missing_sigla:
                             references_selectively_quoted_witness = True
@@ -1577,7 +1579,7 @@ def extract_bibl_components(tag, doc_data, inside_note=False):
                 extract_bibl_components(element, doc_data, inside_note=True)
 
             elif element.name == 'ref' and _contains(element.attrs, ['targType', 'target']):
-                doc_data['bibliographic_entry'] += '''<a ref="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
+                doc_data['bibliographic_entry'] += '''<a ref="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                     element['targType'],
                     element['target']
                 )
@@ -1667,7 +1669,9 @@ COMMENTARY NOTE INGESTION
                 report += "Error finding lines for commentary note w/ XML ID {0}\n\n".format(note.xml_id)
 
             note.contents = ""
-            note_data = {}
+            note_data = {
+                'wit_xml_ids': [pw.siglum for pw in play.primary_witnesses]
+            }
             for child in note_tag.children:
                 note.contents += handle_commentary_tag(child, note_data)
 
@@ -1721,7 +1725,11 @@ def handle_commentary_tag(tag, data={}):
             if targ_type == 'lb' and 'targetEnd' in tag.attrs:
                 xml_id += ' ' + tag['targetEnd'].replace("#", '').strip()
 
-            html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
+            if targ_type == 'bibl':
+                if xml_id in data['wit_xml_ids']:
+                    targ_type = 'siglum'
+
+            html += '''<a href="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                 targ_type,
                 xml_id
             )
@@ -1783,7 +1791,7 @@ def handle_commentary_tag(tag, data={}):
             if 'targetEnd' in tag.attrs:
                 target += " " + tag['targetEnd']
 
-            html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">here</a>'''.format(
+            html += '''<a href="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">here</a>'''.format(
                 tag['targType'],
                 target
             )
@@ -1793,7 +1801,7 @@ def handle_commentary_tag(tag, data={}):
             if 'rend' in tag.attrs and tag['rend'] == 'smcaps':
                 siglum_label = '''<span style="font-variant: small-caps;">{0}</span>'''.format(siglum_label)
 
-            html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
+            html += '''<a href="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                 'siglum',
                 strip_tags(siglum_label)
             )
@@ -2093,7 +2101,7 @@ def handle_paratext_tag(tag, pt, pt_data):
             if 'rend' in tag.attrs and tag['rend'] == 'smcaps':
                 siglum_label = '''<span style="font-variant: small-caps;">{0}</span>'''.format(siglum_label)
 
-            html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
+            html += '''<a href="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                 'siglum',
                 strip_tags(siglum_label)
             )
@@ -2104,7 +2112,7 @@ def handle_paratext_tag(tag, pt, pt_data):
             target = tag['target'].replace('#', '')
             if 'targetEnd' in tag.attrs:
                 target += " " + tag['targetEnd']
-            html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">here</a>'''.format(
+            html += '''<a href="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">here</a>'''.format(
                 tag['targType'],
                 target
             )
@@ -2116,7 +2124,7 @@ def handle_paratext_tag(tag, pt, pt_data):
             if targ_type == 'lb' and 'targetEnd' in tag.attrs:
                 xml_id += ' ' + tag['targetEnd'].replace("#", '').strip()
 
-            html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
+            html += '''<a href="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                 targ_type,
                 xml_id
             )
@@ -2141,7 +2149,7 @@ def handle_paratext_tag(tag, pt, pt_data):
             pt_data['current_note'] = None
 
         elif tag.name == "label" and pt_data['current_note']:
-            html += '''<a href="#" onClick="navigate_to('lb', '{0}', this); return false;">'''.format(
+            html += '''<a href="#" class="ref-lb" onClick="navigate_to('lb', '{0}', this); return false;">'''.format(
                 pt_data['current_note']['target_tln']
             )
             for child in tag.children:
@@ -2472,7 +2480,7 @@ def tei_to_html(tag):
                 if 'rend' in tag.attrs and tag['rend'] == 'smcaps':
                     siglum_label = '''<span style="font-variant: small-caps;">{0}</span>'''.format(siglum_label)
 
-                html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
+                html += '''<a href="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                     'siglum',
                     strip_tags(siglum_label)
                 )
@@ -2483,7 +2491,7 @@ def tei_to_html(tag):
                 target = tag['target'].replace('#', '')
                 if 'targetEnd' in tag.attrs:
                     target += " " + tag['targetEnd']
-                html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">here</a>'''.format(
+                html += '''<a href="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">here</a>'''.format(
                     tag['targType'],
                     target
                 )
@@ -2495,7 +2503,7 @@ def tei_to_html(tag):
                 if targ_type == 'lb' and 'targetEnd' in tag.attrs:
                     xml_id += ' ' + tag['targetEnd'].replace("#", '').strip()
 
-                html += '''<a href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
+                html += '''<a href="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                     targ_type,
                     xml_id
                 )
@@ -2563,20 +2571,13 @@ def process_link(reffed, pointer=False):
             text = match.group(3)
 
     if link_type and target and text:
-        return '''<a ref="#" onClick="navigate_to('{0}', '{1}', this); return false;">{2}</a>'''.format(
+        return '''<a ref="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">{2}</a>'''.format(
             link_type,
             target,
             text
         )
     else:
         return reffed
-
-
-def save_content(content):
-    try:
-        content.save()
-    except:
-        print("{0} already exists!".format(content.content_type.name))
 
 
 def render_lines_html(corpus, play, starting_line_no=None, ending_line_no=None):

@@ -390,6 +390,8 @@ def adjust_content(job_id):
     content_types.insert(0, primary_content_type)
     content_types = [ct for ct in content_types if ct]
 
+    completion_percentage = 0
+    ct_completion_percentage = 100 / len(content_types)
     content_types_adjusted = 0
     for content_type in content_types:
         content_count = job.corpus.get_content(content_type, all=True).count()
@@ -401,6 +403,7 @@ def adjust_content(job_id):
             relink = False
 
         num_slices = math.ceil(content_count / 500)
+        slice_completion_percentage = ct_completion_percentage / num_slices
         for slice in range(0, num_slices):
             start = slice * 500
             end = start + 500
@@ -415,6 +418,10 @@ def adjust_content(job_id):
                 resave,
                 relink
             )
+
+            completion_percentage += slice_completion_percentage
+            completion_percentage = int(completion_percentage)
+            job.set_status('running', percent_complete=completion_percentage)
 
         content_types_adjusted += 1
 

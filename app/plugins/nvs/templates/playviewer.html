@@ -38,7 +38,7 @@
                 --nvs-form-control-font-size: 12px;
                 --nvs-background-color: #FFFFFF;
                 --nvs-lightest-gray: #F2F2F2;
-                --nvs-lighter-gray: #C4C4C4;
+                --nvs-lighter-gray: #cfcfcf;
                 --nvs-mid-gray: #828282;
                 --nvs-yellow-gray: #3b371c;
                 --nvs-dark-blue: #085294;
@@ -46,6 +46,7 @@
                 --nvs-lightest-blue: rgb(235, 244, 252);
                 --nvs-primary-orange: #CC5F38;
                 --nvs-secondary-orange: #F1B06E;
+                --nvs-burnt-orange: #d87448;
                 --nvs-light-orange: #F9EFE4;
                 --nvs-dark-yellow: #F0E438;
                 --nvs-light-yellow: #f9f1d9;
@@ -363,6 +364,7 @@
                 position: relative;
                 transform: rotate(-90deg);
                 transform-origin: 45% 70%;
+                line-height: 1;
             }
 
             #witness-header {
@@ -396,6 +398,10 @@
                 background-color: var(--nvs-lightest-gray);
             }
 
+            #playtext-col, #playtext-header-col, #act-scene-header-col, #act-scene-frame {
+                border-right: solid 1px var(--nvs-lighter-gray);
+            }
+
             #act-scene-frame {
                 background-color: var(--nvs-lightest-gray);
                 overflow-x: hidden;
@@ -416,7 +422,8 @@
                 background-color: var(--nvs-background-color);
                 color: var(--nvs-mid-gray);
                 border: none;
-                border-left: solid 1px var(--nvs-mid-gray);
+                border-left: solid 1px var(--nvs-lighter-gray);
+                border-right: solid 1px var(--nvs-lighter-gray);
                 font-family: 'Roboto Condensed', sans-serif;
                 font-size: 14px;
             }
@@ -667,6 +674,19 @@
                 max-height: calc(40vh);
                 overflow-y: scroll;
             }
+
+            /* -----------------------------
+            || REF LINKS
+            || -------------------------- */
+            .ref-bibl {
+                font-family: "HalyardTextMedium";
+            }
+
+            .ref-siglum {
+                font-family: "HalyardTextSemiBold";
+                color: var(--nvs-burnt-orange);
+                font-variant: small-caps;
+            }
         </style>
 
         <title>{{ play.title }}</title>
@@ -832,9 +852,9 @@
                         </div>
                         <div class="col-sm-4">
                             <div class="row header-block">
-                                <div class="col-sm-1 bg-nvs-lightest-gray">
+                                <div id="act-scene-header-col" class="col-sm-1 bg-nvs-lightest-gray">
                                     <div class="heading-label vertical d-flex h-100 align-items-end">
-                                        ACT<br>SCENE
+                                        ACT<br>SCN
                                     </div>
                                 </div>
                                 <div class="col-sm-11 bg-nvs-light-yellow">
