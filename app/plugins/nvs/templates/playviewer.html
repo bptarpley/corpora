@@ -47,18 +47,28 @@
                 --nvs-primary-orange: #CC5F38;
                 --nvs-secondary-orange: #F1B06E;
                 --nvs-light-orange: #F9EFE4;
-                --nvs-dark-yellow: #f4e383;
+                --nvs-dark-yellow: #F0E438;
                 --nvs-light-yellow: #f9f1d9;
                 --nvs-light-beige: #FBF5F1;
                 --nvs-dark-beige: #EBE4DD;
             }
 
-            body {
-                background-color: #FFFFFF;
+            /* -----------------------------
+            || FONTS
+            || -------------------------- */
+            @font-face {
+                font-family: "HalyardTextBook";
+                src: url("/static/proprietary/font/HalyardTextBook.woff2") format('woff2'), url("/static/proprietary/font/HalyardTextBook.woff") format('woff');
             }
 
-            canvas {
-                display: block;
+            @font-face {
+                font-family: "HalyardTextSemiBold";
+                src: url("/static/proprietary/font/HalyardTextSemBd.woff2") format('woff2'), url("/static/proprietary/font/HalyardTextSemBd.woff") format('woff');
+            }
+
+            @font-face {
+                font-family: "HalyardTextMedium";
+                src: url("/static/proprietary/font/HalyardTextMed.woff2") format('woff2'), url("/static/proprietary/font/HalyardTextMed.woff") format('woff');
             }
 
             @font-face {
@@ -67,9 +77,19 @@
             }
 
             /* -----------------------------
-            || HEADERS AND CONTROLS
+            || MAIN STRUCTURE
             || -------------------------- */
+            body {
+                background-color: #FFFFFF;
+            }
 
+            canvas {
+                display: block;
+            }
+
+            /* -----------------------------
+            || TEMPORARY HEADER NAV
+            || -------------------------- */
             .nav {
                 font-family: 'Roboto Condensed', sans-serif;
             }
@@ -113,8 +133,6 @@
             li a:hover {
                 color: var(--nvs-dark-blue);
             }
-
-            a.
 
             .dropdown-item {
                 padding: 0px;
@@ -408,7 +426,7 @@
                 padding-bottom: 5px;
                 padding-left: 0px;
                 font-family: 'Libre Baskerville', serif;
-                font-size: 1.1vw;
+                font-size: clamp(18px, 1.2vw, 24px);
                 color: #070707;
                 background-color: var(--nvs-background-color);
                 -webkit-box-align: center!important;
@@ -484,7 +502,7 @@
 
             .variant-words {
                 font-family: 'Libre Baskerville', serif;
-                font-size: 1.1vw;
+                font-size: clamp(18px, 1.2vw, 30px);
                 color: #949494;
                 padding-left: 41px !important;
                 padding-top: 10px;
@@ -506,7 +524,7 @@
             }
 
             comspan {
-                background-color: rgba(249, 241, 217, .5);
+                background-color: rgba(249, 240, 175, .52);
                 border-bottom: solid 1px var(--nvs-dark-yellow);
                 cursor: pointer;
             }
@@ -515,13 +533,18 @@
                 background-color: var(--nvs-dark-yellow);
                 font-family: 'Libre Baskerville', serif;
                 cursor: pointer;
-                color: var(--nvs-yellow-gray);
+                color: #000000;
             }
 
             .comm-block {
                 color: #000000;
-                font-family: 'FormulaSerial';
+                font-family: 'HalyardTextBook';
+                font-size: clamp(13px,1.2vw,16px);
                 margin-bottom: 20px;
+            }
+
+            .comm-block a {
+
             }
 
             .actscene-indicator {
