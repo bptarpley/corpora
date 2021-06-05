@@ -9,6 +9,8 @@ from manager.utilities import _contains, _contains_any
 from bs4 import BeautifulSoup
 from django.utils.html import strip_tags
 from string import punctuation
+from mongoengine.queryset.visitor import Q
+
 
 REGISTRY = {
     "Import NVS Data from TEI": {
@@ -243,10 +245,8 @@ Delete Existing:    {4}
 
             if include_files_exist:
                 # retrieve/make play using play prefix
-                play = None
-                try:
-                    play = corpus.get_content('Play', {'prefix': play_prefix})[0]
-                except:
+                play = corpus.get_content('Play', {'prefix': play_prefix}, single_result=True)
+                if not play:
                     play = corpus.get_content('Play')
                     play.title = play_title
                     play.prefix = play_prefix
@@ -315,7 +315,12 @@ Delete Existing:    {4}
                     )
                     job.set_status('running', percent_complete=85)
 
-                    render_lines_html(corpus, play)
+                    line_count = corpus.get_content('PlayLine', all=True).count()
+                    line_cursor = 0
+                    line_chunk_size = 200
+                    while line_cursor < line_count:
+                        render_lines_html(corpus, play, starting_line_no=line_cursor, ending_line_no=line_cursor + line_chunk_size)
+                        line_cursor += line_chunk_size + 1
 
 
         time_stop = timer()
@@ -421,13 +426,13 @@ FRONT MATTER INGESTION
         for text, replacement in text_replacements.items():
             tei_text = tei_text.replace(text, replacement)
 
-        tei = BeautifulSoup(tei_text, "xml")
+        front_tei = BeautifulSoup(tei_text, "xml")
 
     # list for tracking unhandled tags:
     unhandled = []
 
     # extract preface
-    preface = tei.find('div', type='preface')
+    preface = front_tei.find('div', type='preface')
     pt = corpus.get_content('ParaText')
     pt.play = play.id
     pt.xml_id = preface['xml:id']
@@ -449,7 +454,7 @@ FRONT MATTER INGESTION
     pt.save()
 
     # extract plan of work
-    plan_of_work = tei.find('div', type='potw')
+    plan_of_work = front_tei.find('div', type='potw')
     pt = corpus.get_content('ParaText')
     pt.play = play.id
     pt.xml_id = plan_of_work['xml:id']
@@ -566,6 +571,7 @@ FRONT MATTER INGESTION
     except:
         report += "A error occurred preventing the full ingestion of the front matter:\n{0}\n\n".format(traceback.format_exc())
 
+    del front_tei
     return report
 
 
@@ -583,7 +589,7 @@ PLAY TEXT INGESTION
         for text, replacement in text_replacements.items():
             tei_text = tei_text.replace(text, replacement)
 
-        tei = BeautifulSoup(tei_text, "xml")
+        lines_tei = BeautifulSoup(tei_text, "xml")
 
     # retrieve basetext document
     basetext = corpus.get_content("Document", {'siglum': basetext_siglum})[0]
@@ -613,7 +619,7 @@ PLAY TEXT INGESTION
         }
 
         # extract dramatis personae, add to context info
-        cast_list = tei.find("castList")
+        cast_list = lines_tei.find("castList")
         for cast_item in cast_list.find_all("castItem"):
             current_role = None
             if hasattr(cast_item, 'roleDesc'):
@@ -638,7 +644,7 @@ PLAY TEXT INGESTION
         )
 
         # gather virtual line info
-        links = tei.find_all('link')
+        links = lines_tei.find_all('link')
         for link in links:
             if _contains(link.attrs, ['xml:id', 'type', 'target']) and link['type'] == 'join':
                 tln = link['xml:id']
@@ -647,7 +653,7 @@ PLAY TEXT INGESTION
                     line_info['virtual_lines'][targets[t_index]] = tln
 
         # recursively parse the playtext
-        for child in tei.find('div', attrs={'type': 'playtext', 'xml:id': 'div_playtext'}).children:
+        for child in lines_tei.find('div', attrs={'type': 'playtext', 'xml:id': 'div_playtext'}).children:
             handle_playtext_tag(corpus, play, child, line_info)
 
         fakeline = BeautifulSoup('<lb xml:id="xxxx" n="xxxx"/>', 'xml')
@@ -660,9 +666,11 @@ PLAY TEXT INGESTION
                 ", ".join(line_info['unhandled_tags'])
             )
 
+        del line_info
     except:
         report += "An error prevented full ingestion of the play text:\n\n{0}".format(traceback.format_exc())
 
+    del lines_tei
     return report
 
 
@@ -946,7 +954,7 @@ TEXTUAL NOTES INGESTION
             for text, replacement in text_replacements.items():
                 tei_text = tei_text.replace(text, replacement)
 
-            tei = BeautifulSoup(tei_text, "xml")
+            notes_tei = BeautifulSoup(tei_text, "xml")
 
         all_sigla = []
         missing_sigla = []
@@ -976,8 +984,7 @@ TEXTUAL NOTES INGESTION
         # get all "note" tags, corresponding to TexualNote content
         # type so we can iterate over and build them
         note_counter = 0
-        notes = tei.find_all("note", attrs={'type': 'textual'})
-        note_id_map = {}
+        notes = notes_tei.find_all("note", attrs={'type': 'textual'})
         for note in notes:
 
             # create instance of TextualNote
@@ -1032,7 +1039,7 @@ TEXTUAL NOTES INGESTION
                     if child.name == 'siglum':
                         siglum_label = strip_tags(tei_to_html(child))
                         textual_variant.witness_formula += '''
-                            <a href="#" class="ref-siglum" onClick="navigate_to('siglum', '{0}', this); return false;" class="variant-siglum">{0}</a>
+                            <a href="#" class="ref-siglum variant-siglum" onClick="navigate_to('siglum', '{0}', this); return false;">{0}</a>
                         '''.format(siglum_label)
                         if siglum_label not in all_sigla: # and siglum_label not in missing_sigla:
                             references_selectively_quoted_witness = True
@@ -1130,7 +1137,6 @@ TEXTUAL NOTES INGESTION
                 textual_note.variants.append(textual_variant.id)
 
             textual_note.save()
-            note_id_map[str(textual_note.id)] = textual_note
             note_counter += 1
 
         report += "{0} textual notes ingested.\n\n".format(note_counter)
@@ -1153,7 +1159,7 @@ TEXTUAL NOTES INGESTION
 
                 for note_dict in line._exploration['haslines']:
                     note_id = note_dict['id']
-                    note = note_id_map[note_id]
+                    note = corpus.get_content('TextualNote', note_id)
 
                     if color_offset > 0 and note_id not in recolored_notes:
                         note.witness_meter = "0" * (len(witnesses) + 1)
@@ -1173,10 +1179,12 @@ TEXTUAL NOTES INGESTION
                     color_offset += max(note_indicators) + 1
 
                 line.save()
+        del lines
 
     except:
         "An error prevented full ingestion of textual notes:\n{0}\n\n".format(traceback.format_exc())
 
+    del notes_tei
     return report
 
 
@@ -1480,11 +1488,11 @@ BIBLIOGRAPHY INGESTION
         for text, replacement in text_replacements.items():
             tei_text = tei_text.replace(text, replacement)
 
-        tei = BeautifulSoup(tei_text, "xml")
+        bib_tei = BeautifulSoup(tei_text, "xml")
 
     unhandled = []
     doc_count = 0
-    bibls = tei.find_all('bibl')
+    bibls = bib_tei.find_all('bibl')
     for bibl in bibls:
         doc = handle_bibl_tag(corpus, bibl, unhandled)
         if doc:
@@ -1500,6 +1508,7 @@ BIBLIOGRAPHY INGESTION
         report += "The following tags were not properly converted from TEI to HTML: {0}\n\n".format(', '.join(unhandled))
 
     report += "{0} bibliographic entries created.\n\n".format(doc_count)
+    del bib_tei
     return report
 
 
@@ -1648,7 +1657,7 @@ COMMENTARY NOTE INGESTION
             for text, replacement in text_replacements.items():
                 tei_text = tei_text.replace(text, replacement)
 
-            tei = BeautifulSoup(tei_text, "xml")
+            comm_tei = BeautifulSoup(tei_text, "xml")
 
         line_id_map = {}
         lines = corpus.get_content('PlayLine', {'play': play.id}, only=['id', 'xml_id'])
@@ -1656,7 +1665,7 @@ COMMENTARY NOTE INGESTION
         for line in lines:
             line_id_map[line.xml_id] = line.id
 
-        note_tags = tei.find_all('note', attrs={'type': 'commentary'})
+        note_tags = comm_tei.find_all('note', attrs={'type': 'commentary'})
         unhandled = []
 
         for note_tag in note_tags:
@@ -1704,6 +1713,7 @@ COMMENTARY NOTE INGESTION
     except:
         report += "An error prevented full ingestion of commentary notes: {0}\n\n".format(traceback.format_exc())
 
+    del comm_tei
     return report
 
 
@@ -1953,10 +1963,10 @@ APPENDIX INGESTION
             for text, replacement in text_replacements.items():
                 tei_text = tei_text.replace(text, replacement)
 
-            tei = BeautifulSoup(tei_text, "xml")
+            app_tei = BeautifulSoup(tei_text, "xml")
 
         unhandled = []
-        unhandled += create_appendix_divs(corpus, play, tei, None, 1)
+        unhandled += create_appendix_divs(corpus, play, app_tei, None, 1)
         unhandled = list(set(unhandled))
         if unhandled:
             report += "The following TEI tags were not properly converted to HTML: {0}\n\n".format(
@@ -1968,6 +1978,7 @@ APPENDIX INGESTION
             traceback.format_exc()
         )
 
+    del app_tei
     return report
 
 
@@ -2581,11 +2592,11 @@ def process_link(reffed, pointer=False):
 
 
 def render_lines_html(corpus, play, starting_line_no=None, ending_line_no=None):
-    lines = None
-    tags = corpus.get_content('PlayTag', {'play': play.id})
+    lines = corpus.get_content('PlayLine', {'play': play.id}, exclude=['play'])
+    tags = corpus.get_content('PlayTag', {'play': play.id}, exclude=['play'])
 
-    if starting_line_no:
-        lines = corpus.get_content('PlayLine', {'line_number__gte': starting_line_no, 'line_number__lte': ending_line_no})
+    if not starting_line_no is None:
+        lines = lines.filter(Q(line_number__gte=starting_line_no) & Q(line_number__lte=ending_line_no))
         tags = tags.filter(
             (
                 (Q(start_location__gte=starting_line_no) & Q(start_location__lte=ending_line_no)) |
@@ -2593,17 +2604,12 @@ def render_lines_html(corpus, play, starting_line_no=None, ending_line_no=None):
             ) |
             (
                 Q(start_location__lt=starting_line_no) &
-                Q(ending_location__gt=ending_line_no)
+                Q(end_location__gt=ending_line_no)
             )
         )
-    else:
-        lines = corpus.get_content('PlayLine', {'play': play.id})
 
     lines = lines.order_by('line_number')
-    lines = list(lines)
-
     tags = tags.order_by('+start_location', '-end_location')
-    tags = list(tags)
 
     taggings = {}
     for tag in tags:
@@ -2633,6 +2639,7 @@ def render_lines_html(corpus, play, starting_line_no=None, ending_line_no=None):
                 'id': str(tag.id)
             })
 
+    del tags
     open_tags = []
 
     for line in lines:
@@ -2692,5 +2699,6 @@ def render_lines_html(corpus, play, starting_line_no=None, ending_line_no=None):
             line.rendered_html += close_html
 
         line.save()
-
+    del lines
+    taggings.clear()
 

@@ -375,7 +375,7 @@
             #playtext-col, #playtext-header-col, #act-scene-frame, #commentary-frame {
                 overflow-y: scroll;
                 overflow-x: hidden;
-                max-height: calc(100vh - 60px);
+                max-height: calc(100vh - 80px);
                 background-repeat: no-repeat;
             }
 
@@ -685,7 +685,6 @@
             .ref-siglum {
                 font-family: "HalyardTextSemiBold";
                 color: var(--nvs-burnt-orange);
-                font-variant: small-caps;
             }
         </style>
 
@@ -1803,7 +1802,8 @@
             }
         } else {
             if (nav_type === 'siglum'){
-                xml_id = `s_${xml_id.toLowerCase()}`;
+                if (!xml_id.startsWith('s_')) xml_id = `s_${xml_id.toLowerCase()}`;
+
                 if (xml_id in witnesses) {
                     let title = 'Collated Edition';
                     if (witnesses[xml_id].bibliographic_entry.includes('<br /><br />')) title += 's';
