@@ -38,7 +38,7 @@
                 --nvs-form-control-font-size: 12px;
                 --nvs-background-color: #FFFFFF;
                 --nvs-lightest-gray: #F2F2F2;
-                --nvs-lighter-gray: #C4C4C4;
+                --nvs-lighter-gray: #cfcfcf;
                 --nvs-mid-gray: #828282;
                 --nvs-yellow-gray: #3b371c;
                 --nvs-dark-blue: #085294;
@@ -46,19 +46,30 @@
                 --nvs-lightest-blue: rgb(235, 244, 252);
                 --nvs-primary-orange: #CC5F38;
                 --nvs-secondary-orange: #F1B06E;
+                --nvs-burnt-orange: #d87448;
                 --nvs-light-orange: #F9EFE4;
-                --nvs-dark-yellow: #f4e383;
+                --nvs-dark-yellow: #F0E438;
                 --nvs-light-yellow: #f9f1d9;
                 --nvs-light-beige: #FBF5F1;
                 --nvs-dark-beige: #EBE4DD;
             }
 
-            body {
-                background-color: #FFFFFF;
+            /* -----------------------------
+            || FONTS
+            || -------------------------- */
+            @font-face {
+                font-family: "HalyardTextBook";
+                src: url("/static/proprietary/font/HalyardTextBook.woff2") format('woff2'), url("/static/proprietary/font/HalyardTextBook.woff") format('woff');
             }
 
-            canvas {
-                display: block;
+            @font-face {
+                font-family: "HalyardTextSemiBold";
+                src: url("/static/proprietary/font/HalyardTextSemBd.woff2") format('woff2'), url("/static/proprietary/font/HalyardTextSemBd.woff") format('woff');
+            }
+
+            @font-face {
+                font-family: "HalyardTextMedium";
+                src: url("/static/proprietary/font/HalyardTextMed.woff2") format('woff2'), url("/static/proprietary/font/HalyardTextMed.woff") format('woff');
             }
 
             @font-face {
@@ -67,9 +78,19 @@
             }
 
             /* -----------------------------
-            || HEADERS AND CONTROLS
+            || MAIN STRUCTURE
             || -------------------------- */
+            body {
+                background-color: #FFFFFF;
+            }
 
+            canvas {
+                display: block;
+            }
+
+            /* -----------------------------
+            || TEMPORARY HEADER NAV
+            || -------------------------- */
             .nav {
                 font-family: 'Roboto Condensed', sans-serif;
             }
@@ -113,8 +134,6 @@
             li a:hover {
                 color: var(--nvs-dark-blue);
             }
-
-            a.
 
             .dropdown-item {
                 padding: 0px;
@@ -345,6 +364,7 @@
                 position: relative;
                 transform: rotate(-90deg);
                 transform-origin: 45% 70%;
+                line-height: 1;
             }
 
             #witness-header {
@@ -355,7 +375,7 @@
             #playtext-col, #playtext-header-col, #act-scene-frame, #commentary-frame {
                 overflow-y: scroll;
                 overflow-x: hidden;
-                max-height: calc(100vh - 60px);
+                max-height: calc(100vh - 80px);
                 background-repeat: no-repeat;
             }
 
@@ -378,6 +398,10 @@
                 background-color: var(--nvs-lightest-gray);
             }
 
+            #playtext-col, #playtext-header-col, #act-scene-header-col, #act-scene-frame {
+                border-right: solid 1px var(--nvs-lighter-gray);
+            }
+
             #act-scene-frame {
                 background-color: var(--nvs-lightest-gray);
                 overflow-x: hidden;
@@ -398,7 +422,8 @@
                 background-color: var(--nvs-background-color);
                 color: var(--nvs-mid-gray);
                 border: none;
-                border-left: solid 1px var(--nvs-mid-gray);
+                border-left: solid 1px var(--nvs-lighter-gray);
+                border-right: solid 1px var(--nvs-lighter-gray);
                 font-family: 'Roboto Condensed', sans-serif;
                 font-size: 14px;
             }
@@ -408,7 +433,7 @@
                 padding-bottom: 5px;
                 padding-left: 0px;
                 font-family: 'Libre Baskerville', serif;
-                font-size: 1.1vw;
+                font-size: clamp(18px, 1.2vw, 24px);
                 color: #070707;
                 background-color: var(--nvs-background-color);
                 -webkit-box-align: center!important;
@@ -484,7 +509,7 @@
 
             .variant-words {
                 font-family: 'Libre Baskerville', serif;
-                font-size: 1.1vw;
+                font-size: clamp(18px, 1.2vw, 30px);
                 color: #949494;
                 padding-left: 41px !important;
                 padding-top: 10px;
@@ -506,7 +531,7 @@
             }
 
             comspan {
-                background-color: rgba(249, 241, 217, .5);
+                background-color: rgba(249, 240, 175, .52);
                 border-bottom: solid 1px var(--nvs-dark-yellow);
                 cursor: pointer;
             }
@@ -515,13 +540,18 @@
                 background-color: var(--nvs-dark-yellow);
                 font-family: 'Libre Baskerville', serif;
                 cursor: pointer;
-                color: var(--nvs-yellow-gray);
+                color: #000000;
             }
 
             .comm-block {
                 color: #000000;
-                font-family: 'FormulaSerial';
+                font-family: 'HalyardTextBook';
+                font-size: clamp(13px,1.2vw,16px);
                 margin-bottom: 20px;
+            }
+
+            .comm-block a {
+
             }
 
             .actscene-indicator {
@@ -643,6 +673,18 @@
                 font-family: 'FormulaSerial';
                 max-height: calc(40vh);
                 overflow-y: scroll;
+            }
+
+            /* -----------------------------
+            || REF LINKS
+            || -------------------------- */
+            .ref-bibl {
+                font-family: "HalyardTextMedium";
+            }
+
+            .ref-siglum {
+                font-family: "HalyardTextSemiBold";
+                color: var(--nvs-burnt-orange);
             }
         </style>
 
@@ -809,9 +851,9 @@
                         </div>
                         <div class="col-sm-4">
                             <div class="row header-block">
-                                <div class="col-sm-1 bg-nvs-lightest-gray">
+                                <div id="act-scene-header-col" class="col-sm-1 bg-nvs-lightest-gray">
                                     <div class="heading-label vertical d-flex h-100 align-items-end">
-                                        ACT<br>SCENE
+                                        ACT<br>SCN
                                     </div>
                                 </div>
                                 <div class="col-sm-11 bg-nvs-light-yellow">
@@ -1760,7 +1802,8 @@
             }
         } else {
             if (nav_type === 'siglum'){
-                xml_id = `s_${xml_id.toLowerCase()}`;
+                if (!xml_id.startsWith('s_')) xml_id = `s_${xml_id.toLowerCase()}`;
+
                 if (xml_id in witnesses) {
                     let title = 'Collated Edition';
                     if (witnesses[xml_id].bibliographic_entry.includes('<br /><br />')) title += 's';
