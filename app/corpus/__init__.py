@@ -1158,7 +1158,7 @@ class Corpus(mongoengine.Document):
         self.modify(**{'set__files__{0}'.format(file.key): file})
         file._do_linking(content_type='Corpus', content_uri=self.uri)
 
-    def get_content(self, content_type, content_id_or_query={}, only=[], all=False, single_result=False):
+    def get_content(self, content_type, content_id_or_query={}, only=[], exclude=[], all=False, single_result=False):
         content = None
 
         if content_type in self.content_types:
@@ -1173,6 +1173,8 @@ class Corpus(mongoengine.Document):
                     content = content_obj.objects(**content_id_or_query)
                     if only:
                         content = content.only(*only)
+                    if exclude:
+                        content = content.exclude(*exclude)
                     if single_result:
                         content = content[0]
                 except:

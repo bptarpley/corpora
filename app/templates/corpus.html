@@ -170,7 +170,7 @@
                     <pre id="job-report-div">Loading...</pre>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button id="job-report-close-button" type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -635,6 +635,7 @@
         let selected_content = {};
         let import_editor;
         let template_editor;
+        let job_report_timer = null;
 
         // VARS FOR FILE UPLOADS/IMPORTS
         let file_upload_path = '';
@@ -1884,6 +1885,9 @@
 
         function view_job_report(job_id) {
             $('#job-report-modal').modal();
+            $('#job-report-close-button').click(function() {
+                clearTimeout(job_report_timer);
+            });
             load_job_report(job_id);
         }
 
@@ -1896,7 +1900,7 @@
                 report_div.scrollTop(report_div[0].scrollHeight);
 
                 if (!report_div.html().includes('CORPORA JOB COMPLETE')) {
-                    setTimeout(load_job_report.bind(null, job_id), 10000);
+                    job_report_timer = setTimeout(load_job_report.bind(null, job_id), 10000);
                 }
             });
         }

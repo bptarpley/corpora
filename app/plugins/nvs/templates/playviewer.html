@@ -22,7 +22,7 @@
         <!--<link href="{% static 'css/nvs.css' %}" rel="stylesheet">-->
 
         <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-        <link href="https://fonts.googleapis.com/css2?family=Roboto:ital@0;1&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
         <style title="main-sheet">
             /* -----------------------------
             || MAIN CSS VARIABLES
@@ -34,30 +34,42 @@
                 --scrollbarURL: url("/corpus/{{ corpus_id }}/play-minimap/{{ play.prefix }}/?width=40&height=1000");
                 {% endif %}
                 --nvs-form-control-height: 35px;
-                --nvs-play-row-min-height: 40px;
+                --nvs-play-row-min-height: 39px;
                 --nvs-form-control-font-size: 12px;
                 --nvs-background-color: #FFFFFF;
                 --nvs-lightest-gray: #F2F2F2;
-                --nvs-lighter-gray: #C4C4C4;
+                --nvs-lighter-gray: #cfcfcf;
                 --nvs-mid-gray: #828282;
                 --nvs-yellow-gray: #3b371c;
                 --nvs-dark-blue: #085294;
                 --nvs-light-blue: #6c9ecc;
+                --nvs-lightest-blue: rgb(235, 244, 252);
                 --nvs-primary-orange: #CC5F38;
                 --nvs-secondary-orange: #F1B06E;
+                --nvs-burnt-orange: #d87448;
                 --nvs-light-orange: #F9EFE4;
-                --nvs-dark-yellow: #f4e383;
+                --nvs-dark-yellow: #F0E438;
                 --nvs-light-yellow: #f9f1d9;
                 --nvs-light-beige: #FBF5F1;
                 --nvs-dark-beige: #EBE4DD;
             }
 
-            body {
-                background-color: #FFFFFF;
+            /* -----------------------------
+            || FONTS
+            || -------------------------- */
+            @font-face {
+                font-family: "HalyardTextBook";
+                src: url("/static/proprietary/font/HalyardTextBook.woff2") format('woff2'), url("/static/proprietary/font/HalyardTextBook.woff") format('woff');
             }
 
-            canvas {
-                display: block;
+            @font-face {
+                font-family: "HalyardTextSemiBold";
+                src: url("/static/proprietary/font/HalyardTextSemBd.woff2") format('woff2'), url("/static/proprietary/font/HalyardTextSemBd.woff") format('woff');
+            }
+
+            @font-face {
+                font-family: "HalyardTextMedium";
+                src: url("/static/proprietary/font/HalyardTextMed.woff2") format('woff2'), url("/static/proprietary/font/HalyardTextMed.woff") format('woff');
             }
 
             @font-face {
@@ -66,21 +78,95 @@
             }
 
             /* -----------------------------
-            || HEADERS AND CONTROLS
+            || MAIN STRUCTURE
             || -------------------------- */
-
-            .heading-section-label {
-                font-family: 'Roboto', sans-serif;
-                color: #FFFFFF;
-                font-size: 14px;
-                font-weight: bold;
+            body {
+                background-color: #FFFFFF;
             }
 
+            canvas {
+                display: block;
+            }
+
+            /* -----------------------------
+            || TEMPORARY HEADER NAV
+            || -------------------------- */
+            .nav {
+                font-family: 'Roboto Condensed', sans-serif;
+            }
+
+            .edition-menu {
+                min-width: 300px;
+            }
+
+            .info-menu, .tools-menu {
+                min-width: 220px;
+            }
+
+            .info-menu {
+                background-color: var(--nvs-lightest-blue);
+                border-right: solid 1px var(--nvs-background-color);
+            }
+
+            .tools-menu {
+                background-color: rgb(242, 242, 242);
+            }
+
+            .menu-shadow {
+                border: none;
+                border-radius: 0;
+                padding-top: 0px;
+                padding-bottom: 0px;
+            }
+
+            .menu-shadow.show {
+                box-shadow: rgba(99, 99, 99, 0.3) 4px 8px 8px 0;
+            }
+
+            li a {
+                padding: 0.5rem 1rem 1.5rem 1rem;
+                width: 100%;
+                display: block;
+                text-decoration: none;
+                color: rgb(55, 55, 55);
+            }
+
+            li a:hover {
+                color: var(--nvs-dark-blue);
+            }
+
+            .dropdown-item {
+                padding: 0px;
+            }
+
+            .dropdown-item:active {
+                background-color: inherit;
+            }
+
+            .dropdown-item a {
+                padding-bottom: 0px;
+            }
+
+            #play-title {
+                font-family: 'Roboto Condensed', sans-serif;
+                color: var(--nvs-light-blue);
+                text-transform: uppercase;
+                font-weight: bolder;
+                font-size: 25px;
+                padding-left: 1rem;
+                line-height: 1;
+            }
+
+            .search-div {
+                border-top: solid 1px var(--nvs-lightest-blue);
+                border-left: solid 1px var(--nvs-lightest-blue);
+            }
+
+
             .heading-label {
-                font-family: 'Roboto', sans-serif;
+                font-family: 'Roboto Condensed', sans-serif;
                 color: var(--nvs-mid-gray);
                 font-size: 14px;
-                font-weight: bold;
             }
 
             .view-col {
@@ -269,6 +355,18 @@
                 background-color: var(--nvs-lightest-gray);
             }
 
+            .text-white {
+                color: #FFFFFF;
+            }
+
+            .vertical {
+                font-size: 12px;
+                position: relative;
+                transform: rotate(-90deg);
+                transform-origin: 45% 70%;
+                line-height: 1;
+            }
+
             #witness-header {
                 height: var(--nvs-form-control-height);
                 width: 100%;
@@ -277,7 +375,7 @@
             #playtext-col, #playtext-header-col, #act-scene-frame, #commentary-frame {
                 overflow-y: scroll;
                 overflow-x: hidden;
-                max-height: calc(100vh - 60px);
+                max-height: calc(100vh - 80px);
                 background-repeat: no-repeat;
             }
 
@@ -300,8 +398,13 @@
                 background-color: var(--nvs-lightest-gray);
             }
 
+            #playtext-col, #playtext-header-col, #act-scene-header-col, #act-scene-frame {
+                border-right: solid 1px var(--nvs-lighter-gray);
+            }
+
             #act-scene-frame {
                 background-color: var(--nvs-lightest-gray);
+                overflow-x: hidden;
             }
 
             #commentary-frame {
@@ -319,16 +422,18 @@
                 background-color: var(--nvs-background-color);
                 color: var(--nvs-mid-gray);
                 border: none;
-                border-left: solid 1px var(--nvs-light-blue);
-                font-family: 'Roboto', sans-serif;
-                font-size: 1.2vw;
+                border-left: solid 1px var(--nvs-lighter-gray);
+                border-right: solid 1px var(--nvs-lighter-gray);
+                font-family: 'Roboto Condensed', sans-serif;
+                font-size: 14px;
             }
 
-            .play-words, .play-words-seen {
+            .play-words {
                 padding-top: 10px;
                 padding-bottom: 5px;
+                padding-left: 0px;
                 font-family: 'Libre Baskerville', serif;
-                font-size: 1.1vw;
+                font-size: clamp(18px, 1.2vw, 24px);
                 color: #070707;
                 background-color: var(--nvs-background-color);
                 -webkit-box-align: center!important;
@@ -337,6 +442,10 @@
                 display: -webkit-box!important;
                 display: -ms-flexbox!important;
                 display: flex!important;
+            }
+
+            .play-words.no-variants {
+                padding-left: 41px !important;
             }
 
             span.castgroup {
@@ -377,19 +486,19 @@
                 display: flex!important;
             }
 
-            .variant-toggler, .variant-toggler:hover {
-                text-decoration: none;
-                color: #f99b4e;
+            .variant-toggler {
+                margin: 0px;
+                margin-right: 8px;
             }
 
             .variant-row {
-                background-color: var(--nvs-light-orange);
                 border-bottom: solid 1px var(--nvs-light-blue);
             }
 
             .witness-formula {
                 color: #f99b4e;
-                font-family: 'Roboto', sans-serif;
+                background-color: var(--nvs-light-orange);
+                font-family: 'Roboto Condensed', sans-serif;
                 font-size: 12px;
                 text-transform: uppercase;
             }
@@ -400,8 +509,9 @@
 
             .variant-words {
                 font-family: 'Libre Baskerville', serif;
+                font-size: clamp(18px, 1.2vw, 30px);
                 color: #949494;
-                padding-left: 37px;
+                padding-left: 41px !important;
                 padding-top: 10px;
                 padding-bottom: 5px;
             }
@@ -421,7 +531,7 @@
             }
 
             comspan {
-                background-color: rgba(249, 241, 217, .5);
+                background-color: rgba(249, 240, 175, .52);
                 border-bottom: solid 1px var(--nvs-dark-yellow);
                 cursor: pointer;
             }
@@ -430,17 +540,24 @@
                 background-color: var(--nvs-dark-yellow);
                 font-family: 'Libre Baskerville', serif;
                 cursor: pointer;
-                color: var(--nvs-yellow-gray);
+                color: #000000;
             }
 
             .comm-block {
                 color: #000000;
-                font-family: 'FormulaSerial';
+                font-family: 'HalyardTextBook';
+                font-size: clamp(13px,1.2vw,16px);
                 margin-bottom: 20px;
+            }
+
+            .comm-block a {
+
             }
 
             .actscene-indicator {
                 color: var(--nvs-mid-gray);
+                font-size: 12px;
+                cursor: pointer;
             }
 
             .actscene-indicator.active {
@@ -476,30 +593,98 @@
             }
 
             .ref-modal {
-                font-family: 'FormulaSerial';
-                width: 300px;
+                position: absolute;
+                max-width: calc(33vw);
+            }
+
+            .arrow-right, .arrow-left {
+                background-color: #FFFFFF;
+                position: relative;
+                box-sizing: border-box;
+                border: 1px solid var(--nvs-mid-gray);
+                box-shadow: 0px 3px 3px 0 rgba(0, 0, 0, 0.4);
             }
 
             .arrow-right {
-                background-color: #FFFFFF;
-                position: relative;
                 float: left;
             }
 
-            .arrow-right:after {
+            .arrow-left {
+                float: right;
+            }
+
+            .arrow-right:after, .arrow-right:before, .arrow-left:after, .arrow-left:before {
                 content: " ";
+                width: 0;
+                height: 0;
                 position: absolute;
-                right: -15px;
-                top: 15px;
+                left: -15px;
+                top: 10%;
+            }
+
+            .arrow-right:after, .arrow-right:before {
+                left: 100%;
+            }
+
+            .arrow-right:after {
                 border-top: 15px solid transparent;
                 border-right: none;
                 border-left: 15px solid white;
                 border-bottom: 15px solid transparent;
             }
 
+            .arrow-right:before {
+                border-top: 17px solid transparent;
+                border-right: none;
+                border-left: 16px solid var(--nvs-mid-gray);
+                border-bottom: 16px solid transparent;
+                margin-top: -2px;
+            }
+
+            .arrow-left:after {
+                border-top: 15px solid transparent;
+                border-left: none;
+                border-right: 15px solid white;
+                border-bottom: 15px solid transparent;
+            }
+
+            .arrow-left:before {
+                border-top: 17px solid transparent;
+                border-left: none;
+                border-right: 16px solid var(--nvs-mid-gray);
+                border-bottom: 16px solid transparent;
+                margin-top: -2px;
+                margin-left: -1px;
+            }
+
+            .ref-modal-header {
+                font-family: 'Roboto Condensed', sans-serif;
+                color: #000000;
+                padding: 10px;
+                cursor: move;
+            }
+
+            .ref-modal-close {
+                cursor: pointer;
+            }
+
             .ref-modal-content {
+                padding: 10px;
+                font-family: 'FormulaSerial';
                 max-height: calc(40vh);
                 overflow-y: scroll;
+            }
+
+            /* -----------------------------
+            || REF LINKS
+            || -------------------------- */
+            .ref-bibl {
+                font-family: "HalyardTextMedium";
+            }
+
+            .ref-siglum {
+                font-family: "HalyardTextSemiBold";
+                color: var(--nvs-burnt-orange);
             }
         </style>
 
@@ -527,154 +712,104 @@
         </div>
 
         <div id="main-container" class="container-fluid h-100">
-
             <!-- MAIN HEADER -->
             <div id="main-header" class="row">
-
-                <!-- NVS LOGO -->
-                <div class="d-none d-lg-flex justify-content-center col-lg-1 pt-4 px-1">
-                    <figure>
-                    <img src="{% static 'img/nvs-logo.png'%}" class="img-fluid" style="max-height: 85px;">
-                    </figure>
+                <!-- LOGO -->
+                <div class="col-sm-2 pt-2">
+                    <img src="{% static 'img/nvs-logo.png'%}" class="img-fluid m-0" style="max-height: 90px;">
                 </div>
 
-                <!-- TEXT SETTINGS -->
-                <div class="col-sm-12 col-md-5 col-lg-4">
-                    <div class="heading-section-label">Text</div>
-                    <div class="row p-1">
-                        <div class="col-sm-12 bg-nvs-lightest-gray p-0 p-sm-2">
-                            <div class="heading-label">PLAY</div>
-                            <div class="nvs-selection">
-                                <select id="play-selector" class="font-weight-bold">
-                                    <option value="wt">{{ play.title }}</option>
-                                </select>
+                <!-- NAV -->
+                <div class="col-sm-10">
+                    <div class="row">
+                        <div class="col-sm-12">
+                            <ul class="nav">
+                                <li class="dropdown menu-shadow">
+                                    <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false"><b>NVS DIGITAL EDITIONS</b> (BETA)</a>
+                                    <ul class="dropdown-menu menu-shadow">
+                                        <li class="dropdown-item">
+                                            <div class="dropright">
+                                                <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">THE WINTER'S TALE</a>
+                                                <ul class="dropdown-menu menu-shadow">
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/edition/wt/{% else %}/corpus/{{ corpus_id }}/play-viewer/wt/{% endif %}">VARIORUM READER</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/frontmatter/{% else %}/corpus/{{ corpus_id }}/frontmatter/{% endif %}">FRONT MATTER</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/bibliography/{% else %}/corpus/{{ corpus_id }}/bibliography/{% endif %}">BIBLIOGRAPHY</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/appendix/{% else %}/corpus/{{ corpus_id }}/appendix/{% endif %}">APPENDIX</a></li>
+                                                </ul>
+                                            </div>
+                                        </li>
+                                        <li class="dropdown-item">
+                                            <div class="dropright">
+                                                <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">A MIDSUMMER NIGHT'S DREAM</a>
+                                                <ul class="dropdown-menu menu-shadow">
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/edition/mnd/{% else %}/corpus/{{ corpus_id }}/play-viewer/mnd/{% endif %}">VARIORUM READER</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/frontmatter/{% else %}/corpus/{{ corpus_id }}/frontmatter/{% endif %}">FRONT MATTER</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/bibliography/{% else %}/corpus/{{ corpus_id }}/bibliography/{% endif %}">BIBLIOGRAPHY</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/appendix/{% else %}/corpus/{{ corpus_id }}/appendix/{% endif %}">APPENDIX</a></li>
+                                                </ul>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </li>
+                                <li class="dropdown menu-shadow ml-auto">
+                                    <a class="dropdown-toggle info-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false"><b>NVS INFO</b></a>
+                                    <ul class="dropdown-menu info-menu menu-shadow">
+                                        <li class="dropdown-item"><a href="{% if site_request %}/about/{% else %}/corpus/{{ corpus_id }}/about/{% endif %}">ABOUT</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/how-to/{% else %}/corpus/{{ corpus_id }}/how-to/{% endif %}">HOW TO DIGITAL NVS</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/faqs/{% else %}/corpus/{{ corpus_id }}/faqs/{% endif %}">FAQS & LEXICON</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/contributors/{% else %}/corpus/{{ corpus_id }}/contributors/{% endif %}">CONTRIBUTORS</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/print-editions/{% else %}/corpus/{{ corpus_id }}/print/{% endif %}">PRINT EDITIONS</a></li>
+                                    </ul>
+                                </li>
+                                <li class="dropdown menu-shadow">
+                                    <a class="dropdown-toggle tools-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false"><b>NVS TOOLS</b></a>
+                                    <ul class="dropdown-menu tools-menu menu-shadow">
+                                        <li class="dropdown-item"><a href="{% if site_request %}/tools/{% else %}/corpus/{{ corpus_id }}/tools/{% endif %}">ABOUT</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/advanced-search/{% else %}/corpus/{{ corpus_id }}/search/{% endif %}">ADVANCED SEARCH</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/data/{% else %}/corpus/{{ corpus_id }}/data/{% endif %}">DATA</a></li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="row no-gutters">
+                        <div class="col-sm-3">
+                            <div id="play-title" class="align-self-baseline">
+                                {{ play.title }}
                             </div>
+                        </div>
+                        <div class="col-sm-9 search-div">
                             <div class="row">
-                                <!-- search play box -->
-                                <div class="col-sm-6 pr-sm-1">
+                                <div class="col-sm-6 offset-6">
                                     <div id="hdr-quick-search-box" class="nvs-search" placeholder="SEARCH THIS PLAY" contentEditable="plaintext-only"></div>
                                 </div>
-
-                                <!-- play line no box -->
-                                <div class="col-sm-4 p-sm-0">
-                                    <input id="hdr-line-no-box" type="text" placeholder="ENTER LINE#" />
-                                </div>
-
-                                <!-- play go button -->
-                                <div class="col-sm-2 pl-sm-1">
-                                    <input type="button" value="GO">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FILTER SETTINGS -->
-                <div class="col-sm-6 col-md-4">
-                    <div class="heading-section-label">Filter</div>
-                    <div class="row p-1">
-                        <div class="col-sm-12 bg-nvs-lightest-gray p-0 p-sm-2">
-                            <div class="row align-items-end">
-                                <!-- act/scene -->
-                                <div class="col-sm-5 pr-sm-1">
-                                    <div class="heading-label">ACT, SCENE</div>
-                                    <div class="nvs-selection">
-                                        <select id="hdr-act-scene-selector">
-                                            <option value="all">ALL</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <!-- character -->
-                                <div class="col-sm-5 p-sm-0">
-                                    <div class="heading-label">CHARACTER</div>
-                                    <div class="nvs-selection">
-                                        <select id="hdr-character-selector">
-                                            <option value="all">ALL</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <!-- filter go button -->
-                                <div class="col-sm-2 pl-sm-1">
-                                    <input type="button" value="GO">
-                                </div>
-                            </div>
-
-                            <div class="row">
-                                <!-- advanced search -->
-                                <div class="col-sm-12">
-                                    <div class="nvs-search" placeholder="ADVANCED SEARCH" contentEditable="true"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- VIEW SETTINGS -->
-                <div class="col-sm-6 col-md-3" style="border-right: solid 5px var(--nvs-background-color);">
-                    <div class="heading-section-label">View</div>
-                    <div class="row p-1">
-                        <div class="col-sm-12 bg-nvs-lightest-gray p-0 p-sm-2">
-                            <div class="row">
-                                <div class="col-sm-7">
-                                    <!-- reader view -->
-                                    <label class="toggle-control">
-                                        <input type="checkbox" checked="checked">
-                                        <span class="control"></span>
-                                        <span class="heading-label">READER</span>
-                                    </label>
-
-                                    <!-- list view -->
-                                    <label class="toggle-control">
-                                        <input type="checkbox">
-                                        <span class="control"></span>
-                                        <span class="heading-label">LIST</span>
-                                    </label>
-
-                                    <!-- chart view -->
-                                    <label class="toggle-control">
-                                        <input type="checkbox">
-                                        <span class="control"></span>
-                                        <span class="heading-label">CHART</span>
-                                    </label>
-                                </div>
-                                <div class="col-sm-5">
-                                    <input type="button" id="hdr-reset-button" class="nvs-secondary-button" value="RESET">
-                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- QUANTITATIVE VIEW -->
-            {% if nvs_session.preferences.show_quantitative_view %}
-            <div id="quantitative-view" class="row no-gutters">
-            </div>
-            {% endif %}
 
             <!-- READER VIEW -->
             {% if nvs_session.preferences.show_reader_view %}
             <div id="reader-view" class="row flex-grow-1">
-                <div id="main-col" class="col-md-12 col-lg-12 mt-2 p-1 view-col">
+                <div id="main-col" class="col-md-12 col-lg-12 p-1 view-col">
 
                     <!-- header row -->
                     <div class="row">
                         <div class="col-sm-8 pr-0 bg-nvs-light-blue">
                             <div class="row no-gutters header-block align-items-end">
                                 <div class="col-sm-4">
-                                    <div class="heading-section-label mt-auto">
+                                    <div class="heading-label text-white">
                                         TEXTUAL VARIANTS BY YEAR
                                     </div>
                                 </div>
                                 <div class="col-sm-7 m-0 p-0">
-                                    <div class="heading-section-label mt-auto">
+                                    <div class="heading-label text-white">
                                         PLAY TEXT
                                     </div>
                                 </div>
                                 <div class="col-sm-1 m-0 p-0">
-                                    &nbsp;
+                                    <input id="hdr-line-no-box" type="text" placeholder="ENTER LINE#" />
                                 </div>
                             </div>
                         </div>
@@ -684,7 +819,7 @@
                                     &nbsp;
                                 </div>
                                 <div class="col-sm-11 m-0 p-0">
-                                    <div class="heading-section-label mt-auto">
+                                    <div class="heading-label text-white">
                                         COMMENTARY NOTES BY LINE
                                     </div>
                                 </div>
@@ -694,26 +829,32 @@
 
                     <div class="row">
                         <div id="playtext-header-col" class="col-sm-8 pr-0 bg-nvs-light-orange">
-                            <div class="row no-gutters header-block align-items-end">
+                            <div class="row no-gutters header-block">
                                 <div id="witness-header" class="col-sm-4 m-0 p-0">
                                     &nbsp;
                                 </div>
                                 <div class="col-sm-7 bg-nvs">
-                                    <span class="heading-label">
+                                    <div class="heading-label mt-1 ml-2">
                                         SHOW VARS BY LINE | HIGHLIGHT
-                                    </span>
+                                    </div>
                                 </div>
                                 <div class="col-sm-1 bg-nvs">
-                                    <span class="heading-label">
-                                        TLN
-                                    </span>
+                                    <div class="row no-gutters h-100">
+                                        <div class="col-sm-8 offset-4 play-label">
+                                            <div class="heading-label vertical d-flex h-100 justify-content-center align-items-end">
+                                                TLN
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-sm-4">
                             <div class="row header-block">
-                                <div class="col-sm-1 bg-nvs-lightest-gray">
-                                    AS
+                                <div id="act-scene-header-col" class="col-sm-1 bg-nvs-lightest-gray">
+                                    <div class="heading-label vertical d-flex h-100 align-items-end">
+                                        ACT<br>SCN
+                                    </div>
                                 </div>
                                 <div class="col-sm-11 bg-nvs-light-yellow">
                                     &nbsp;
@@ -740,25 +881,27 @@
                                     <div id="{{ line.xml_id }}-witness-col" class="col-sm-4 m-0 p-0 witness-meter">
                                         <img id="{{ line.xml_id }}-witness-meter" height="30" width="100%" src="{% static 'img/blank-meter.png'%}" />
                                     </div>
-                                    <div id="{{ line.xml_id }}-text-col" class="col-sm-7 m-0 p-0 play-words offscreen">
+                                    <div id="{{ line.xml_id }}-text-col" class="col-sm-7 m-0 p-0 play-words {% if line.witness_meter|to_int == 0 %}no-variants{% endif %}">
                                         {% if line.witness_meter|to_int > 0 %}
                                             <a id="{{ line.xml_id }}-variant-toggler"
-                                                   class="variant-toggler mx-1"
+                                                   class="variant-toggler"
                                                    data-toggle="collapse"
                                                    href="#{{ line.xml_id }}-variant-div"
                                                    role="button"
                                                    aria-expanded="false"
                                                    aria-controls="{{ line.xml_id }}-variant-div"
                                                 >
-                                                <i id="{{ line.xml_id }}-variant-toggle" class="fas fa-chevron-circle-right"></i>
+                                                <img id="{{ line.xml_id }}-variant-toggle" src="{% static 'img/nvs-variants-expand.png' %}" />
                                             </a>
-                                        {% else %}
-                                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                         {% endif %}
                                         {{ line.rendered_html|safe }}
                                     </div>
-                                    <div id="{{ line.xml_id }}-number-col" class="col-sm-1 m-0 p-0 d-flex justify-content-center play-label">
-                                        {{ line.line_label }}
+                                    <div id="{{ line.xml_id }}-number-col" class="col-sm-1 m-0 p-0">
+                                        <div class="row no-gutters h-100 bg-nvs">
+                                            <div class="col-sm-8 offset-4 play-label d-flex justify-content-center align-items-center">
+                                                {{ line.line_label }}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 {% if line.witness_meter|to_int > 0 %}
@@ -864,6 +1007,7 @@
     let corpus;
     let screen_size = 'large';
     let meter_height = () => Math.round(window.innerHeight / (100 / 3)) + 'px';
+    let last_century_buffer = 0;
 
     let witnesses = {{ witnesses|safe }};
     let witness_centuries = {{ witness_centuries|safe }};
@@ -890,8 +1034,8 @@
             'content_type': 'PlayLine',
             'xml_id_field': 'xml_id',
             'content_field': 'rendered_html',
-            'title': 'Play Line',
-            'title_plural': 'Play Lines',
+            'title': 'LINE',
+            'title_plural': 'LINES',
             'scroll_anchor': false,
             'filter_play': true,
         },
@@ -899,8 +1043,8 @@
             'content_type': 'Document',
             'xml_id_field': 'siglum',
             'content_field': 'bibliographic_entry',
-            'title': "Bibliographic Entry",
-            'title_plural': "Bibliographic Entries",
+            'title': "BIBLIOGRAPHY",
+            'title_plural': "BIBLIOGRAPHY",
             'scroll_anchor': false,
             'filter_play': false,
         },
@@ -908,8 +1052,8 @@
             'content_type': 'Document',
             'xml_id_field': 'siglum',
             'content_field': 'bibliographic_entry',
-            'title': "Collated Edition",
-            'title_plural': "Collated Editions",
+            'title': "COLLATED EDITION",
+            'title_plural': "COLLATED EDITIONS",
             'scroll_anchor': false,
             'filter_play': false,
         },
@@ -917,8 +1061,8 @@
             'content_type': 'Commentary',
             'xml_id_field': 'xml_id',
             'content_field': 'contents',
-            'title': "Commentary Note",
-            'title_plural': "Commentary Notes",
+            'title': "COMMENTARY",
+            'title_plural': "COMMENTARY",
             'scroll_anchor': false,
             'filter_play': true,
         },
@@ -926,8 +1070,8 @@
             'content_type': 'ParaText',
             'xml_id_field': 'child_xml_ids',
             'content_field': 'html_content',
-            'title': "Appendix",
-            'title_plural': "Appendix",
+            'title': "APPENDIX",
+            'title_plural': "APPENDIX",
             'scroll_anchor': true,
             'filter_play': true,
         }
@@ -1025,12 +1169,38 @@
     }
 
     function configure_controls() {
+        // HEADER: NESTED DROPDOWN
+        $('.dropdown-menu a.dropdown-toggle').on('click', function(e) {
+            if (!$(this).next().hasClass('show')) {
+                $(this).parents('.dropdown-menu').first().find('.show').removeClass("show");
+            }
+            let subMenu = $(this).next(".dropdown-menu");
+            subMenu.toggleClass('show');
+            let parentMenu = $(this).parents('.dropdown-menu').first()[0];
+            subMenu.css('position', 'absolute');
+            subMenu.css('top', `${this.offsetTop}px`);
+            subMenu.css('left', `${this.offsetLeft + this.offsetWidth}px`);
+
+            $(this).parents('li.nav-item.dropdown.show').on('hidden.bs.dropdown', function(e) {
+                $('.dropdown-submenu .show').removeClass("show");
+            });
+
+            return false;
+        });
+
         // HEADER: LINE# BOX
         $('#hdr-line-no-box').keypress(function(e) {
             if (e.which === 13) {
                 let line_no = $('#hdr-line-no-box').val();
                 if (`tln_${line_no}` in lines) {
                     $(`#tln_${line_no}-row`)[0].scrollIntoView({behavior: 'smooth'});
+                } else {
+                    while (line_no.length < 4) {
+                        line_no = '0' + line_no;
+                    }
+                    if (`tln_${line_no}` in lines) {
+                        $(`#tln_${line_no}-row`)[0].scrollIntoView({behavior: 'smooth'});
+                    }
                 }
             }
         });
@@ -1088,19 +1258,24 @@
             $('.variant-siglum').off('mouseenter').on('mouseenter', function() {
                 let link = $(this);
                 let siglum = `s_${link.html().toLowerCase()}`;
+
+                let parent_div = link.parent();
+                let line_id = parent_div.data('line-id');
+                let variant_id = parent_div.data('variant-id');
+                let wit_meter = $(`#${line_id}-${variant_id}-witness-meter`);
+                let wit_indicators = wit_meter.data('witness_indicators');
+
                 if (siglum in witnesses) {
-                    let parent_div = link.parent();
-                    let line_id = parent_div.data('line-id');
-                    let variant_id = parent_div.data('variant-id');
-                    let wit_meter = $(`#${line_id}-${variant_id}-witness-meter`);
-                    let wit_indicators = wit_meter.data('witness_indicators');
                     witnesses[siglum].slots.map(slot => {
                         wit_indicators = wit_indicators.substr(0, slot) + 'x' + wit_indicators.substr(slot + 1);
                     });
-                    let url_parts = wit_meter.attr('src').split('/');
-                    url_parts[url_parts.length - 5] = wit_indicators;
-                    wit_meter.attr('src', url_parts.join('/'));
+                } else {
+                    wit_indicators = wit_indicators.slice(0, -1) + 'x';
                 }
+
+                let url_parts = wit_meter.attr('src').split('/');
+                url_parts[url_parts.length - 6] = wit_indicators;
+                wit_meter.attr('src', url_parts.join('/'));
             });
 
             $('.variant-witness-meter').off('click').on('click', function() {
@@ -1205,7 +1380,7 @@
                                     <div class="col-sm-4 p-0 m-0">
                                         <div class="row no-gutters">
                                             <div id="variant-${variant.id}" class="col-sm-12 p-0 m-0 variant-witness-meter">
-                                                <img id="${line.xml_id}-${variant.id}-witness-meter" height="20" width="100%" src="{% static 'img/blank-meter.png'%}" data-witness_indicators="${variant.witness_meter}" />
+                                                <img id="${line.xml_id}-${variant.id}-witness-meter" height="15" width="100%" src="{% static 'img/blank-meter.png'%}" data-witness_indicators="${variant.witness_meter}" />
                                             </div>
                                         </div>
                                         <div class="row no-gutters">
@@ -1214,20 +1389,18 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-sm-8 p-0 m-0 variant-words">${variant_words}</div>
+                                    <div class="col-sm-8 p-0 m-0 variant-words align-self-center">${variant_words}</div>
                                 </div>
                             `);
 
                             $(`#${line.xml_id}-variant-div`).on('shown.bs.collapse', function (event) {
                                 let indicator = $(`#${event.target.id.replace('-div', '-toggle')}`);
-                                indicator.removeClass('fa-chevron-circle-right');
-                                indicator.addClass('fa-chevron-circle-down');
+                                indicator.attr('src', "{% static 'img/nvs-variants-collapse.png' %}")
                             });
 
                             $(`#${line.xml_id}-variant-div`).on('hidden.bs.collapse', function (event) {
                                 let indicator = $(`#${event.target.id.replace('-div', '-toggle')}`);
-                                indicator.removeClass('fa-chevron-circle-down');
-                                indicator.addClass('fa-chevron-circle-right');
+                                indicator.attr('src', "{% static 'img/nvs-variants-expand.png' %}")
                             });
 
                             let variant_col = $(`#${line.xml_id}-witness-col`);
@@ -1444,7 +1617,16 @@
         let wit_header = $('#witness-header');
         let wit_header_col = $('#playtext-header-col');
         let width = wit_header.width();
-        let witness_width = width / witness_count;
+        let selectively_quoted_width = 20;
+        let witness_width = (width - selectively_quoted_width) / witness_count;
+        let centuries = Object.keys(witness_centuries);
+        let last_century = centuries[centuries.length - 1];
+
+        if (witness_centuries[last_century] * witness_width < 20) {
+            last_century_buffer = 20 - witness_centuries[last_century] * witness_width;
+            witness_width = (width - (last_century_buffer + selectively_quoted_width)) / witness_count;
+        }
+
         let header_height = wit_header.height();
 
         let header_canvas = document.createElement('canvas');
@@ -1455,7 +1637,7 @@
         let light_orange = get_nvs_var('nvs-light-orange');
         let delimiter_color = get_nvs_var('nvs-background-color');
         let font_size = 12;
-        header_context.font = `${font_size}px Roboto`;
+        header_context.font = `${font_size}px Roboto Condensed`;
         header_context.textAlign = "left";
         header_context.textBaseline = "bottom";
 
@@ -1477,8 +1659,9 @@
         let century_cursor = 0;
         let width_cursor = 0;
         let delimiter_width = 2;
+        let century_width = 0;
         for (let century in witness_centuries) {
-            let century_width = witness_centuries[century] * witness_width;
+            century_width = witness_centuries[century] * witness_width;
 
             header_context.beginPath();
             header_context.fillStyle = delimiter_color;
@@ -1499,8 +1682,27 @@
             width_cursor += century_width;
         }
 
+        if (century_width < 20) {
+            width_cursor += 20 - century_width;
+        }
+
+        header_context.beginPath();
+        header_context.fillStyle = delimiter_color;
+        header_context.fillRect(width_cursor, 0, delimiter_width, header_height);
+
+        background_context.beginPath();
+        background_context.fillStyle = delimiter_color;
+        background_context.fillRect(width_cursor, 0, delimiter_width, playtext_col.innerHeight());
+
+        header_context.save();
+        header_context.fillStyle = font_color;
+        header_context.translate(width_cursor + 5, header_height - 5);
+        header_context.rotate(-Math.PI / 2);
+        header_context.fillText("SEL.", 0, font_size);
+        header_context.restore();
+
         wit_header_col.css('background-image', `url(${header_canvas.toDataURL()})`);
-        wit_header_col.css('background-position', `${wit_header.offset().left + 6}px 6px`);
+        wit_header_col.css('background-position', `${wit_header.offset().left + 6}px 5px`);
 
         playtext_col.css('background-image', `url(${background_canvas.toDataURL()})`);
         playtext_col.css('background-position', `${wit_header.offset().left + 6}px 0px`);
@@ -1508,7 +1710,7 @@
     }
 
     function draw_witness_meter(witness_meter, canvas_element, width, height, inactive_color="#CFCFCF") {
-        canvas_element.src = `${witness_meter_prefix}${witness_meter}/${Math.floor(height)}/${Math.floor(width)}/${inactive_color.replace('#', '')}/`;
+        canvas_element.src = `${witness_meter_prefix}${witness_meter}/${Math.floor(height)}/${Math.floor(width)}/${inactive_color.replace('#', '')}/${Math.floor(last_century_buffer)}/`;
     }
 
     function get_param(param) {
@@ -1600,7 +1802,8 @@
             }
         } else {
             if (nav_type === 'siglum'){
-                xml_id = `s_${xml_id.toLowerCase()}`;
+                if (!xml_id.startsWith('s_')) xml_id = `s_${xml_id.toLowerCase()}`;
+
                 if (xml_id in witnesses) {
                     let title = 'Collated Edition';
                     if (witnesses[xml_id].bibliographic_entry.includes('<br /><br />')) title += 's';
@@ -1682,6 +1885,7 @@
 
     function display_nav_modal(title, content, link) {
         let modal_id = '';
+        let modal_el = null;
         let title_html = '';
         if (nav_history_cursor - 1 >= 0) title_html += `<i class="fa fa-chevron-circle-left" aria-hidden="true" onClick="javascript: view_nav_history();" style="cursor: pointer;"></i>`;
         if (nav_history_cursor + 1 <= nav_history.length - 1) title_html += `<i class="fa fa-chevron-circle-right" aria-hidden="true" onClick="javascript: view_nav_history(true);" style="cursor: pointer;"></i>`;
@@ -1691,23 +1895,33 @@
         if (link) {
             modal_id = `ref-modal-${ref_modal_counter}`;
             let link_rect = link.getBoundingClientRect();
+            let arrow_side = 'right';
+            if (link_rect.x <= window.innerWidth / 2) {
+                arrow_side = 'left'
+            }
             $('body').append(`
                 <div
                     id="${modal_id}"
                     class="ref-modal"
-                    style="position: absolute; top: ${link_rect.top + window.pageYOffset - 20}px; left: ${link_rect.left - 310}px;"
                 >
-                    <div class="arrow-right">
-                        <div id="${modal_id}-header" class="ref-modal-header">
+                    <div class="arrow-${arrow_side}">
+                        <div id="${modal_id}-header" class="ref-modal-header d-flex ${arrow_side === 'left' ? 'flex-row-reverse' : ''} justify-content-between">
                             ${title}
-                            <button id="${modal_id}-close-button" data-modal-id="${modal_id}" type="button" aria-label="Close">
-                                <span aria-hidden="true">×</span>
-                            </button>
+                            <i id="${modal_id}-close-button" class="fas fa-times ref-modal-close" data-modal-id="${modal_id}" aria-label="Close"></i>
                         </div>
                         <div class="ref-modal-content">${content}</div>
                     </div>
                 </div>
             `);
+            modal_el = $(`#${modal_id}`);
+            if (arrow_side === 'right') {
+                modal_el.css('top', `${link_rect.top + window.pageYOffset - 20}px`);
+                modal_el.css('left', `${link_rect.left - (modal_el.width() + 20)}px`);
+            } else {
+                modal_el.css('top', `${link_rect.top + window.pageYOffset - 20}px`);
+                modal_el.css('left', `${link_rect.right + 20}px`);
+            }
+
             $(`#${modal_id}-close-button`).click(function() {
                 let close_modal_id = $(this).data('modal-id');
                 $(`#${close_modal_id}`).remove();

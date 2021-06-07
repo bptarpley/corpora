@@ -3,11 +3,23 @@ from . import views as nvs_views
 
 
 urlpatterns = [
-    path('', nvs_views.splash),
-    path('play/<str:play_prefix>/', nvs_views.playviewer),
+    path('', nvs_views.home),
+    path('about/', nvs_views.info_about),
+    path('contributors/', nvs_views.info_contributors),
+    path('print-editions/', nvs_views.info_print_editions),
+    path('how-to/', nvs_views.info_how_to),
+    path('faqs/', nvs_views.info_faqs),
+    path('tools/', nvs_views.tools_about),
+    path('advanced-search/', nvs_views.tools_advanced_search),
+    path('data/', nvs_views.tools_data_extraction),
+    path('edition/<str:play_prefix>/', nvs_views.playviewer),
     path('minimap/<str:play_prefix>/', nvs_views.play_minimap),
-    path('paratext/<str:play_prefix>/<str:section>/', nvs_views.paratext),
-    path('witnessmeter/<str:witness_flags>/<str:height>/<str:width>/<str:inactive_color_hex>/', nvs_views.witness_meter),
+    #path('appendix/<str:play_prefix>/', nvs_views.paratext, {'section': 'Appendix'}),
+    #path('front/<str:play_prefix>/', nvs_views.paratext, {'section': 'Front Matter'}),
+    path('frontmatter/', nvs_views.frontmatter),
+    path('appendix/', nvs_views.appendix),
+    path('bibliography/', nvs_views.bibliography),
+    path('witnessmeter/<str:witness_flags>/<str:height>/<str:width>/<str:inactive_color_hex>/<str:label_buffer>/', nvs_views.witness_meter),
     path('search/<str:play_prefix>/', nvs_views.api_search),
     path('search/', nvs_views.api_search),
 ]

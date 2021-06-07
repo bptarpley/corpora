@@ -1,0 +1,13 @@
+stages:
+  - dev
+
+dev:
+  stage: dev
+  only:
+    - dev
+  tags:
+    - corpora
+    - dev
+  script:
+    - sudo rsync -r --delete --exclude 'docker-compose.yml' --exclude 'nginx.conf' --exclude 'ssl' --exclude 'proprietary' ./ /apps/corpora
+    - cd /apps/corpora && sudo docker-compose restart corpora

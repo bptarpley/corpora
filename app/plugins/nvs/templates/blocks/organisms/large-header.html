@@ -13,10 +13,15 @@
       background-color: var(--white);
     }
   }
+
+  .large-header--holder .container {
+      padding: 0 0 0 1rem;
+  }
+
   .large-header--inner {
     width: 100%;
     display: grid;
-    grid-template-columns: var(--sideBar) 1fr var(--searchWidth);
+    grid-template-columns: var(--sideBar) 1fr;
     align-items: start;
   }
   .large-header--logo-holder {
@@ -42,7 +47,7 @@
       width: 12rem;
   }
   .large-header--logo-holder a svg:last-child {
-      width: 6.7rem;
+      width: 4rem;
   }
 
   .home .large-header--logo-holder a svg:first-child {
@@ -53,7 +58,7 @@
   }
 
   .large-header--nav-holder {
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    font-size: 16px;
   }
   .large-header--nav-holder nav > ul {
     display: grid;
@@ -76,46 +81,19 @@
     background-color: var(--grey5);
   }
 
-  .large-header--search-holder {
-    width: 100%;
-  }
-  .large-header--search-holder a {
-    padding: 0.5rem;
-    display: flex;
-    align-items: center;
-    --minScaled: calc(var(--min) / var(--minScale) / var(--minScale) / var(--minScale));
-    --maxScaled: calc(var(--max) / var(--maxScale) / var(--minScale) / var(--minScale));
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-    font-family: "Roboto Condensed", sans-serif;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--blue);
-    text-decoration: none;
-  }
-  .large-header--search-holder a svg {
-    width: 1.5rem;
-    height: auto;
-    display: block;
-    margin-right: 0.5rem;
-    flex-shrink: 0;
-  }
-
 </style>
 
 <div class="large-header--holder">
   <div class="container">
     <div class="large-header--inner">
       <div class="large-header--logo-holder">
-        <a href="/corpus/{{ corpus_id }}/home/">
+        <a href="{% if site_request %}/{% else %}/corpus/{{ corpus_id }}/home/{% endif %}">
           {% include 'svg/logo-w-type.svg' %}
           {% include 'svg/logo.svg' %}
         </a>
       </div>
       <div class="large-header--nav-holder">
         {% include 'blocks/atoms/navigation.html' %}
-      </div>
-      <div class="large-header--search-holder">
-        <a href="#">{% include 'svg/icon_search.svg' %}Search <br/>All Plays</a>
       </div>
     </div>
   </div>

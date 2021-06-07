@@ -4,6 +4,7 @@
 {% block headrefs %}
 
 <style>
+<<<<<<< HEAD
   .static-type p.pt_textual_note {
       margin-left: 30px;
       font-size: 15px;
@@ -32,6 +33,59 @@
       font-family: "Halyard Text", sans-serif;
       font-weight: 500;
   }
+=======
+    .static-type p {
+        font-size: 16px;
+        margin-top: 5px;
+        margin-bottom: 5px;
+        line-height: 1.33;
+        text-align: justify;
+        hyphens: auto;
+    }
+    .static-type p.pt_textual_note {
+        margin-left: 30px;
+        font-size: 15px;
+        text-align: left;
+        display: grid;
+        grid-template-columns: 80px 1fr;
+        grid-column-gap: 20px;
+        grid-row-gap: 10px;
+    }
+    .static-type p.pt_textual_note .app {
+        grid-column: 2/3
+    }
+    .static-type .label,
+    .static-type .ref {
+        color: var(--blue);
+        text-decoration: underline;
+        font-family: "Roboto Condensed", sans-serif;
+        font-weight: 700;
+    }
+    .static-type .siglum {
+        color: var(--orange);
+        text-decoration: underline;
+        font-weight: 500;
+        font-variant-numeric: normal;
+    }
+
+    .static-type .name {
+        font-family: "Halyard Text", sans-serif;
+        font-weight: 500;
+    }
+    .static-type .list {
+        list-style: none;
+        padding-left: 30px;
+        margin: 20px 0;
+    }
+    .static-type .list .item {
+        margin: 5px 0 20px 0;
+    }
+    .static-type .list .item .ref:first-child {
+        margin-right: 30px;
+        min-width: 20px;
+        display: inline-block;
+    }
+>>>>>>> will-dev
 </style>
 
 {% endblock %}
@@ -39,6 +93,7 @@
 {% block main %}
 
 <div class="page-holder is-white">
+<<<<<<< HEAD
   <div class="container">
     <div class="page-holder--inner has-max-width">
       <div class="anchor-links--holder">
@@ -57,6 +112,25 @@
     </div>
   </div>
 </div>
+=======
+    <div class="container">
+        <div class="page-holder--inner has-max-width">
+            <div class="anchor-links--holder">
+                <ul class="anchor-links--inner">
+                    {{ toc|safe }}
+                </ul>
+            </div>
+            <div>
+                <h1 class="edition-header">
+                    The Winter's Tale {% include 'svg/arrow.svg' %} <span class="edition-header--title">{{ section }}</span>
+                </h1>
+                <div class="static-type">
+                    {{ html|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+>>>>>>> will-dev
 </div>
 
 {% if content %}
@@ -66,4 +140,8 @@
 
 {% block js %}
 <!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+<<<<<<< HEAD
 {% endblock %}
+=======
+{% endblock %}
+>>>>>>> will-dev

@@ -6,6 +6,11 @@
   <title>New Variorum Shakespeare</title>
   <link rel="stylesheet" href="{% static 'css/nvs.css' %}">
   <style>
+    @font-face {
+        font-family: "Halyard Text";
+        src: url("/static/proprietary/font/HalyardText-Reg.woff2") format('woff2'), url("/static/proprietary/font/HalyardText-Reg.woff") format('woff');
+    }
+
     .nvs_base--main { margin-top: 4rem; }
     @media ( min-width: 576px ) {
       .nvs_base--main { margin-top: 3.5rem; }
@@ -33,7 +38,8 @@
 </body>
 
 <script type="text/javascript">
-  document.addEventListener('DOMContentLoaded', () => {
+
+  function navInit() {
     let holders = document.querySelectorAll('.navigation--holder');
     holders.forEach(holder => {
 
@@ -59,6 +65,53 @@
       })
 
     })
+  }
+
+  function anchorInit() {
+    let anchorLinks = document.querySelectorAll('.anchor-link');
+    if(anchorLinks) {
+      anchorLinks.forEach(link => {
+        let id = link.getElementsByTagName("a")[0].getAttribute('href');
+        let element = document.querySelector(id);
+
+        let activeHandler = function(linkEl) {
+          let previousActive = document.querySelectorAll('.anchor-link.active');
+          if ( previousActive ) {
+            previousActive.forEach(link => link.classList.remove('active'));
+          }
+          linkEl.classList.add('active');
+        }
+
+        if (element) {
+          let options = {
+            root: null,
+            rootMargin: '0px',
+            threshold: 1.0
+          }
+          let callback = (entries, observer) => {
+            entries.forEach(entry => {
+              if( entry.isIntersecting ) {
+                activeHandler(link)
+              }
+            });
+          };
+
+          let observer = new IntersectionObserver(callback, options);
+          observer.observe(element);
+        }
+
+        link.addEventListener('click', () => {
+          activeHandler(link);
+        })
+
+      })
+    }
+
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    navInit();
+    anchorInit();
   })
 </script>
 
