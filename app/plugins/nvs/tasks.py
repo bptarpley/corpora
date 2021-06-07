@@ -536,11 +536,12 @@ FRONT MATTER INGESTION
             witness_collection.siglum_label = witness_collection_info['siglum_label']
             witness_tag = witness_collection_info['tag']
 
+            current_sigla = [w.siglum for w in witness_collection.referenced_documents]
             referenced_witnesses = witness_tag['corresp'].split(' ')
             for reffed in referenced_witnesses:
                 reffed_siglum = reffed.replace('#', '')
-                reffed_doc = corpus.get_content('Document', {'siglum': reffed_siglum}, single_result=True)
-                if reffed_doc not in witness_collection.referenced_documents:
+                if reffed_siglum not in current_sigla:
+                    reffed_doc = corpus.get_content('Document', {'siglum': reffed_siglum}, single_result=True)
                     witness_collection.referenced_documents.append(reffed_doc.id)
 
             witness_collection.save()
@@ -968,10 +969,7 @@ TEXTUAL NOTES INGESTION
 
         # get list of witnesses ordered by publication date so as
         # to handle witness ranges
-        primary_witness_ids = [wit.id for wit in play.primary_witnesses]
-        witnesses = corpus.get_content('Document', {'id__in': primary_witness_ids})
-        witnesses = list(witnesses.order_by('published'))
-
+        witnesses = [wit for wit in play.primary_witnesses]
         for witness in witnesses:
             all_sigla.append(strip_tags(witness.siglum_label))
 
@@ -1043,7 +1041,6 @@ TEXTUAL NOTES INGESTION
                         '''.format(siglum_label)
                         if siglum_label not in all_sigla: # and siglum_label not in missing_sigla:
                             references_selectively_quoted_witness = True
-                            # missing_sigla.append(siglum_label)
 
                         if not starting_siglum:
                             starting_siglum = siglum_label
@@ -1308,7 +1305,7 @@ def perform_variant_transform(corpus, note, variant):
         original_text = stitch_lines(note.lines, embed_pipes=embed_pipes)
 
     if original_text:
-        ellipsis = ' . . . '
+        ellipsis = ' . . . '
         swung_dash = ' ~ '
         under_carrot = '‸'
         double_under_carrot = '‸ ‸'
@@ -1910,7 +1907,7 @@ def mark_commentary_lemma(corpus, play, note):
         starting_location = None
         ending_location = None
 
-        ellipsis = ' . . . '
+        ellipsis = ' . . . '
         if ellipsis in lemma:
             start_and_end = lemma.split(ellipsis)
             starting_char_index = all_words.find(start_and_end[0])
@@ -2022,57 +2019,49 @@ def handle_paratext_tag(tag, pt, pt_data):
 
     simple_conversions = {
         'p': 'p',
-        'hi': 'span:hi',
-        'title': 'span:title',
-        'quote': 'span:quote',
+        'hi': 'span',
+        'title': 'i',
+        'quote': 'i',
         'table': 'table',
         'row': 'tr',
         'cell': 'td',
-        'list': 'span:list',
-        'item': 'span:item',
-        'front': 'div:front',
-        'floatingText': 'div:floating-text',
-        'titlePage': 'div:title-page',
-        'docTitle': 'p:doc-title',
-        'figDesc': 'p:fig-desc',
-        'docImprint': 'p:doc-imprint',
-        'byline': 'p:byline',
-        'docAuthor': 'span:doc-author',
+        'list': 'ul',
+        'item': 'li',
+        'front': 'div',
+        'floatingText': 'div',
+        'titlePage': 'span',
+        'docTitle': 'span',
+        'figDesc': 'p',
+        'docImprint': 'p',
+        'byline': 'p',
+        'docAuthor': 'span',
         'lb': 'br',
         'div': 'div',
-        'signed': 'p:signed',
-        'lg': 'span:lg',
-        'l': 'span:l',
-        'milestone': 'span:milestone',
-        'sp': 'span:sp',
-        'speaker': 'span:speaker',
-        'trailer': 'p:trailer',
-        'label': 'span:label',
-        'figure': 'div:figure',
-        'closer': 'p:closer',
-        'salute': 'span:salute',
-        'abbr': 'span:abbr',
-        'expan': 'span:expan',
-        'listBibl': 'ul:list-bibl',
-        'bibl': 'li:bibl',
-        'listWit': 'ul:witness-list',
-        'witness': 'li:witness',
-        'edition': 'span:edition',
-        'app': 'span:app',
-        'name': 'span:name',
-        'epigraph': 'div:epigraph',
-        'foreign': 'span:foreign',
-        'stage': 'span:stage',
-        'date': 'span:date',
-        'docDate': 'span:docDate'
+        'signed': 'div',
+        'lg': 'i:mt-2',
+        'l': 'div',
+        'milestone': 'div:float-right',
+        'sp': 'div:mx-auto',
+        'speaker': 'span',
+        'trailer': 'div:mt-2',
+        'label': 'b',
+        'figure': 'div',
+        'salute': 'span',
+        'abbr': 'dt',
+        'expan': 'dd',
+        'listBibl': 'div:bibl-list',
+        'bibl': 'span:bibl',
+        'listWit': 'div:witness-list',
+        'witness': 'span:witness',
+        'edition': 'q'
     }
 
     silent = [
-        'appPart', 'lem', 'wit', 'rdgDesc',
-        'rdg', 'rs',
-        'body', 'cit'
+        'app', 'appPart', 'lem', 'wit', 'rdgDesc',
+        'rdg', 'name', 'rs', 'epigraph',
+        'body', 'foreign', 'cit', 'stage',
+        'docDate', 'date'
     ]
-
 
     if tag.name:
         attributes = ""
@@ -2118,9 +2107,9 @@ def handle_paratext_tag(tag, pt, pt_data):
         elif tag.name == 'siglum':
             siglum_label = "".join([handle_paratext_tag(child, pt, pt_data) for child in tag.children])
             if 'rend' in tag.attrs and tag['rend'] == 'smcaps':
-                siglum_label = '''<span class="siglum smcaps">{0}</span>'''.format(siglum_label)
+                siglum_label = '''<span style="font-variant: small-caps;">{0}</span>'''.format(siglum_label)
 
-            html += '''<a class="siglum" href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
+            html += '''<a href="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                 'siglum',
                 strip_tags(siglum_label)
             )
@@ -2131,7 +2120,7 @@ def handle_paratext_tag(tag, pt, pt_data):
             target = tag['target'].replace('#', '')
             if 'targetEnd' in tag.attrs:
                 target += " " + tag['targetEnd']
-            html += '''<a class="ptr" href="#" onClick="navigate_to('{0}', '{1}', this); return false;">here</a>'''.format(
+            html += '''<a href="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">here</a>'''.format(
                 tag['targType'],
                 target
             )
@@ -2143,7 +2132,7 @@ def handle_paratext_tag(tag, pt, pt_data):
             if targ_type == 'lb' and 'targetEnd' in tag.attrs:
                 xml_id += ' ' + tag['targetEnd'].replace("#", '').strip()
 
-            html += '''<a class="ref" href="#" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
+            html += '''<a href="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                 targ_type,
                 xml_id
             )
@@ -2161,14 +2150,14 @@ def handle_paratext_tag(tag, pt, pt_data):
 
             pt_data['current_note'] = curr_note
 
-            html += "<p{0} class='pt_textual_note'>".format(attributes)
+            html += "<div{0} class='pt_textual_note'>".format(attributes)
             for child in tag.children:
                 html += handle_paratext_tag(child, pt, pt_data)
-            html += "</p>"
+            html += "</div>"
             pt_data['current_note'] = None
 
         elif tag.name == "label" and pt_data['current_note']:
-            html += '''<a href="#" class="label" onClick="navigate_to('lb', '{0}', this); return false;">'''.format(
+            html += '''<a href="#" class="ref-lb" onClick="navigate_to('lb', '{0}', this); return false;">'''.format(
                 pt_data['current_note']['target_tln']
             )
             for child in tag.children:
@@ -2176,17 +2165,26 @@ def handle_paratext_tag(tag, pt, pt_data):
             html += "</a>"
 
         elif tag.name == "quote" and 'rend' in tag and tag['rend'] == 'block':
-            html += '<span{0} class="quote">'.format(attributes)
+            html += "<blockquote{0}>".format(attributes)
             for child in tag.children:
                 html += handle_paratext_tag(child, pt, pt_data)
-            html += "</span>"
+            html += "</blockquote>"
 
         elif tag.name == "anchor" and 'xml:id' in tag.attrs:
-            html += '<a class="anchor" name="{0}"></a>'.format(tag['xml:id'])
+            html += "<a name='{0}'></a>".format(tag['xml:id'])
+
+        elif tag.name == "closer":
+            html += '''
+                <div class="row">
+                    <div{0} class="col-sm-6 offset-sm-6">
+            '''.format(attributes)
+            for child in tag.children:
+                html += handle_paratext_tag(child, pt, pt_data)
+            html += "</div></div>"
 
         elif tag.name == "space" and 'extent' in tag.attrs:
             unit = tag['extent'].replace("indent(", '').replace(")", '')
-            html += '<span class="space indent-{0};">'.format(unit)
+            html += '<span style="margin-left: {0};">'.format(unit)
             for child in tag.children:
                 html += handle_paratext_tag(child, pt, pt_data)
             html += '</span>'
@@ -2199,7 +2197,7 @@ def handle_paratext_tag(tag, pt, pt_data):
                     img_url = file.get_url(pt_data['corpus'].uri)
 
             if img_url:
-                html += "<img{0} src='{1}' class='graphic' />".format(
+                html += "<img{0} src='{1}' width='90%' class='d-block mx-auto' />".format(
                     attributes,
                     img_url
                 )
