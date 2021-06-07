@@ -1305,7 +1305,7 @@ def perform_variant_transform(corpus, note, variant):
         original_text = stitch_lines(note.lines, embed_pipes=embed_pipes)
 
     if original_text:
-        ellipsis = ' . . . '
+        ellipsis = ' . . . '
         swung_dash = ' ~ '
         under_carrot = '‸'
         double_under_carrot = '‸ ‸'
@@ -1907,7 +1907,7 @@ def mark_commentary_lemma(corpus, play, note):
         starting_location = None
         ending_location = None
 
-        ellipsis = ' . . . '
+        ellipsis = ' . . . '
         if ellipsis in lemma:
             start_and_end = lemma.split(ellipsis)
             starting_char_index = all_words.find(start_and_end[0])
