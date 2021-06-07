@@ -536,11 +536,12 @@ FRONT MATTER INGESTION
             witness_collection.siglum_label = witness_collection_info['siglum_label']
             witness_tag = witness_collection_info['tag']
 
+            current_sigla = [w.siglum for w in witness_collection.referenced_documents]
             referenced_witnesses = witness_tag['corresp'].split(' ')
             for reffed in referenced_witnesses:
                 reffed_siglum = reffed.replace('#', '')
-                reffed_doc = corpus.get_content('Document', {'siglum': reffed_siglum}, single_result=True)
-                if reffed_doc not in witness_collection.referenced_documents:
+                if reffed_siglum not in current_sigla:
+                    reffed_doc = corpus.get_content('Document', {'siglum': reffed_siglum}, single_result=True)
                     witness_collection.referenced_documents.append(reffed_doc.id)
 
             witness_collection.save()
@@ -968,10 +969,7 @@ TEXTUAL NOTES INGESTION
 
         # get list of witnesses ordered by publication date so as
         # to handle witness ranges
-        primary_witness_ids = [wit.id for wit in play.primary_witnesses]
-        witnesses = corpus.get_content('Document', {'id__in': primary_witness_ids})
-        witnesses = list(witnesses.order_by('published'))
-
+        witnesses = [wit for wit in play.primary_witnesses]
         for witness in witnesses:
             all_sigla.append(strip_tags(witness.siglum_label))
 
@@ -1043,7 +1041,6 @@ TEXTUAL NOTES INGESTION
                         '''.format(siglum_label)
                         if siglum_label not in all_sigla: # and siglum_label not in missing_sigla:
                             references_selectively_quoted_witness = True
-                            # missing_sigla.append(siglum_label)
 
                         if not starting_siglum:
                             starting_siglum = siglum_label

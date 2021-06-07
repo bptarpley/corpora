@@ -127,24 +127,30 @@ def playviewer(request, corpus_id=None, play_prefix=None):
         if 'Trailer|||0' in as_results['meta']['aggregations']['act_scenes']:
             act_scenes['TR'] = "Trailer.0"
 
-    play_wit_ids = [w.id for w in play.primary_witnesses]
-    witness_docs = corpus.get_content('Document', {'id__in': play_wit_ids}).order_by('pub_date')
     wit_counter = 0
-    for wit_doc in witness_docs:
-        if wit_doc.id in play_wit_ids:
-            witnesses[wit_doc.siglum] = {
-                'slots': [wit_counter],
-                'document_id': str(wit_doc.id),
-                'bibliographic_entry': wit_doc.bibliographic_entry
-            }
+    for wit_doc in play.primary_witnesses:
+        witnesses[wit_doc.siglum] = {
+            'slots': [wit_counter],
+            'document_id': str(wit_doc.id),
+            'bibliographic_entry': wit_doc.bibliographic_entry,
+            'occasional': False
+        }
 
-            century = wit_doc.pub_date[:2] + "00"
-            if century in witness_centuries:
-                witness_centuries[century] += 1
-            else:
-                witness_centuries[century] = 1
+        century = wit_doc.pub_date[:2] + "00"
+        if century in witness_centuries:
+            witness_centuries[century] += 1
+        else:
+            witness_centuries[century] = 1
 
-            wit_counter += 1
+        wit_counter += 1
+
+    for sel_doc in play.occasional_witnesses:
+        witnesses[sel_doc.siglum] = {
+            'slots': [wit_counter],
+            'document_id': str(sel_doc.id),
+            'bibliographic_entry': sel_doc.bibliographic_entry,
+            'occasional': True
+        }
 
     document_collections = corpus.get_content('DocumentCollection', all=True)
     for collection in document_collections:
@@ -160,7 +166,8 @@ def playviewer(request, corpus_id=None, play_prefix=None):
 
         witnesses[collection.siglum] = {
             'slots': slots,
-            'bibliographic_entry': bib_entry
+            'bibliographic_entry': bib_entry,
+            'occasional': False
         }
 
 
@@ -176,7 +183,7 @@ def playviewer(request, corpus_id=None, play_prefix=None):
             'notes': json.dumps(notes),
             'line_note_map': line_note_map,
             'play': play,
-            'witnesses': witnesses,
+            'witnesses': json.dumps(witnesses),
             'witness_centuries': witness_centuries,
             'witness_count': wit_counter,
             'nvs_session': nvs_session

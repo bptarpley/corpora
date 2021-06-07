@@ -852,14 +852,14 @@ class ContentTable {
                                 if (field.multiple) {
                                     let multi_value = '';
                                     for (let y in value) {
-                                        multi_value += `, <a href="${value[y].uri}" target="_blank">${value[y].label}</a>`;
+                                        multi_value += `, <a href="${value[y].uri}" target="_blank">${sender.strip_tags(value[y].label)}</a>`;
                                     }
                                     if (multi_value) {
                                         multi_value = multi_value.substring(2);
                                     }
                                     value = multi_value;
                                 } else {
-                                    value = `<a href="${value.uri}" target="_blank">${value.label}</a>`;
+                                    value = `<a href="${value.uri}" target="_blank">${sender.strip_tags(value.label)}</a>`;
                                 }
                             } else if (field.multiple) {
                                 if (field.type === 'text' || field.type === 'large_text' || field.type === 'keyword') {
@@ -946,6 +946,10 @@ class ContentTable {
 
                 this.corpora.list_content(this.corpus.id, this.content_type, this.search, function(content){ sender.load_content(content); });
             }
+    }
+
+    strip_tags(label) {
+        return label.replace(/(<([^>]+)>)/gi, "");
     }
 }
 

@@ -170,7 +170,7 @@
                     <pre id="job-report-div">Loading...</pre>
                 </div>
                 <div class="modal-footer">
-                    <button id="job-report-close-button" type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -1885,9 +1885,9 @@
 
         function view_job_report(job_id) {
             $('#job-report-modal').modal();
-            $('#job-report-close-button').click(function() {
+            $('#job-report-modal').on('hidden.bs.modal', function (e) {
                 clearTimeout(job_report_timer);
-            });
+            })
             load_job_report(job_id);
         }
 

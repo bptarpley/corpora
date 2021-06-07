@@ -41,7 +41,7 @@
                 --nvs-lighter-gray: #cfcfcf;
                 --nvs-mid-gray: #828282;
                 --nvs-yellow-gray: #3b371c;
-                --nvs-dark-blue: #085294;
+                --nvs-dark-blue: #2a69a1;
                 --nvs-light-blue: #6c9ecc;
                 --nvs-lightest-blue: rgb(235, 244, 252);
                 --nvs-primary-orange: #CC5F38;
@@ -149,7 +149,7 @@
 
             #play-title {
                 font-family: 'Roboto Condensed', sans-serif;
-                color: var(--nvs-light-blue);
+                color: var(--nvs-dark-blue);
                 text-transform: uppercase;
                 font-weight: bolder;
                 font-size: 25px;
@@ -391,7 +391,7 @@
             }
 
             #playtext-col::-webkit-scrollbar-thumb {
-                background-color: rgba(247, 155, 86, .5);
+                background-color: rgba(42, 105, 161, .5);
             }
 
             #playtext-header-col::-webkit-scrollbar-track {
@@ -486,6 +486,10 @@
                 display: flex!important;
             }
 
+            .clickable {
+                cursor: pointer;
+            }
+
             .variant-toggler {
                 margin: 0px;
                 margin-right: 8px;
@@ -551,7 +555,7 @@
             }
 
             .comm-block a {
-
+                color: var(--nvs-dark-blue);
             }
 
             .actscene-indicator {
@@ -570,12 +574,36 @@
                 width: 100%;
             }
 
+
+            /* -----------------------------
+            || SEARCH WIDGET
+            || -------------------------- */
+
             #search-widget {
                 position: fixed;
                 bottom: 0;
                 width: 100%;
                 z-index: 2000;
                 pointer-events: none;
+                font-family: "Roboto Condensed", sans-serif;
+                text-transform: uppercase;
+                font-size: 14px;
+            }
+
+            #search-results-div {
+                border: 1px solid var(--nvs-mid-gray);
+                border-bottom: none;
+                box-shadow: 0px 3px 3px 0 rgba(0, 0, 0, 0.4);
+            }
+
+            .nav-tabs .nav-link {
+                border-radius: 0px !important;
+            }
+
+            mark {
+                padding: .2em;
+                background-color: var(--nvs-light-blue);
+                color: white;
             }
 
             /* -----------------------------
@@ -680,11 +708,28 @@
             || -------------------------- */
             .ref-bibl {
                 font-family: "HalyardTextMedium";
+                color: var(--nvs-dark-blue);
             }
 
             .ref-siglum {
                 font-family: "HalyardTextSemiBold";
                 color: var(--nvs-burnt-orange);
+            }
+
+            .ref-lb, .ref-note_cn, .ref-anchor, .ref-p, .ref-text, .ref-item, .ref-quote, .ref-div {
+                font-family: "Roboto Condensed", sans-serif;
+                font-weight: bold;
+                color: var(--nvs-dark-blue);
+            }
+
+            .ref-lb:before, .ref-lb:hover:before {
+                content: "TLN ";
+                font-weight: normal;
+                text-decoration: none;
+            }
+
+            .ref-anchor, .ref-p, .ref-text, .ref-item, .ref-quote, .ref-div {
+                text-transform: uppercase;
             }
         </style>
 
@@ -878,7 +923,7 @@
                                      data-text-length="{{ line.text|length }}"
                                      data-witness_indicators="{{ line.witness_meter }}"
                                 >
-                                    <div id="{{ line.xml_id }}-witness-col" class="col-sm-4 m-0 p-0 witness-meter">
+                                    <div id="{{ line.xml_id }}-witness-col" class="col-sm-4 m-0 p-0 witness-meter {% if line.witness_meter|to_int > 0 %}clickable{% endif %}">
                                         <img id="{{ line.xml_id }}-witness-meter" height="30" width="100%" src="{% static 'img/blank-meter.png'%}" />
                                     </div>
                                     <div id="{{ line.xml_id }}-text-col" class="col-sm-7 m-0 p-0 play-words {% if line.witness_meter|to_int == 0 %}no-variants{% endif %}">
@@ -946,9 +991,9 @@
         </div>
         <div id="search-widget" class="d-none container-fluid">
             <div class="row">
-                <div class="col-sm-6 offset-sm-3">
-                    <div class="d-flex flex-row justify-content-between align-items-center bg-nvs-lightest-gray" style="pointer-events: auto;">
-                        <ul id="search-widget-tabs" class="nav nav-tabs" role="tablist">
+                <div class="col-sm-4 offset-sm-4">
+                    <div id="search-results-div" class="align-items-center bg-nvs-lightest-gray" style="pointer-events: auto;">
+                        <ul id="search-widget-tabs" class="nav nav-tabs nav-fill" role="tablist">
                             <li class="nav-item" role="presentation">
                                 <a class="nav-link active" id="search-widget-line-tab" data-toggle="tab" href="#search-widget-lines" role="tab" aria-controls="search-widget-lines" aria-selected="true">Lines (<span class="search-line-total">0</span>)</a>
                             </li>
@@ -958,8 +1003,11 @@
                             <li class="nav-item" role="presentation">
                                 <a class="nav-link" id="search-widget-commentary-tab" data-toggle="tab" href="#search-widget-commentary" role="tab" aria-controls="search-widget-commentary" aria-selected="false">Commentary (<span class="search-commentary-total">0</span>)</a>
                             </li>
+                            <li class="nav-item w-auto justify-content-end" role="presentation">
+                                <a class="nav-link" href="javascript: clear_search();">X</a>
+                            </li>
                         </ul>
-                        <div class="tab-content">
+                        <div class="tab-content p-3 bg-nvs">
                             <div class="tab-pane fade show active" id="search-widget-lines" role="tabpanel" aria-labelledby="search-widget-line-tab">
                                 <a id="search-line-prev" onClick="display_search_result('line', 'prev');"><i class="fas fa-chevron-left"></i></a>
                                 <span id="search-line-current">0</span> out of
@@ -1125,7 +1173,7 @@
         $('.witness-meter').click(function(){
             let line_id = this.id.replace('-witness-col', '');
             let witness_indicators = $(`#${line_id}-row`).data('witness_indicators');
-            display_variant_editions(witness_indicators);
+            display_variant_editions(witness_indicators, this);
         });
 
         $('comspan').mouseover(function(ev) {
@@ -1147,7 +1195,7 @@
         let nav_type = get_param('nav_type');
         let nav_xml_id = get_param('nav_xml_id');
         if (nav_type && nav_xml_id) {
-            show_nav_content(nav_type, nav_xml_id);
+            navigate_to(nav_type, nav_xml_id);
         }
 
         //setTimeout(wait_for_load, 1000);
@@ -1280,7 +1328,7 @@
 
             $('.variant-witness-meter').off('click').on('click', function() {
                 let witness_indicators = $(this).find('img').data('witness_indicators');
-                display_variant_editions(witness_indicators);
+                display_variant_editions(witness_indicators, this);
             });
         });
 
@@ -1379,7 +1427,7 @@
                                 <div class="row no-gutters variant-row">
                                     <div class="col-sm-4 p-0 m-0">
                                         <div class="row no-gutters">
-                                            <div id="variant-${variant.id}" class="col-sm-12 p-0 m-0 variant-witness-meter">
+                                            <div id="variant-${variant.id}" class="col-sm-12 p-0 m-0 variant-witness-meter clickable">
                                                 <img id="${line.xml_id}-${variant.id}-witness-meter" height="15" width="100%" src="{% static 'img/blank-meter.png'%}" data-witness_indicators="${variant.witness_meter}" />
                                             </div>
                                         </div>
@@ -1421,7 +1469,7 @@
         lines[line_id].populated = true;
     }
 
-    function display_variant_editions(witness_indicators) {
+    function display_variant_editions(witness_indicators, link) {
         let wit_sigla = Object.keys(witnesses);
         let sigla = [];
         for (let slot = 0; slot < witness_indicators.length; slot++) {
@@ -1441,7 +1489,7 @@
         sigla.map(siglum => {
             content += `<p><b>${siglum.replace('s_', '').toUpperCase()}</b> ${witnesses[siglum].bibliographic_entry}</p>`;
         });
-        display_nav_modal(title, content, null);
+        display_nav_modal(title, content, link);
     }
 
     function process_search_results(results) {
@@ -1454,7 +1502,6 @@
         if (!commentary_loaded){
             setTimeout(process_search_results.bind(null, results), 1000)
         } else {
-            console.log(results);
             $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())}&no-cache=${Math.floor(Date.now() / 1000)})`);
             if (nvs_search) {
                 $('#reader-view').unmark();
@@ -1544,6 +1591,11 @@
         } else {
             $(`#search-${type}-next`).removeClass('d-none');
         }
+    }
+
+    function clear_search() {
+        $('#reader-view').unmark();
+        $('#search-widget').addClass('d-none');
     }
 
     function load_commentary() {
@@ -1732,35 +1784,6 @@
     }
 
     function navigate_to(nav_type, xml_id, link=null) {
-        if (link) { console.log(link); }
-        show_nav_content(nav_type, xml_id, false, link);
-    }
-
-    function view_nav_history(forward=false) {
-        let valid_history_location = false;
-        if (forward && nav_history_cursor + 1 <= nav_history.length - 1) {
-            nav_history_cursor += 1;
-            valid_history_location = true;
-        } else if (nav_history_cursor - 1 >= 0) {
-            nav_history_cursor -= 1;
-            valid_history_location = true;
-        }
-
-        if (valid_history_location) {
-            let nav_parts = nav_history[nav_history_cursor].split('|');
-            let nav_type = nav_parts[0];
-            let xml_id = nav_parts[1];
-            show_nav_content(nav_type, xml_id, true);
-        }
-    }
-
-    function show_nav_content(nav_type, xml_id, historic=false, link=null) {
-        let history_key = `${nav_type}|${xml_id}`;
-        if (!historic && !nav_history.includes(history_key)) {
-            nav_history.push(history_key);
-            nav_history_cursor = nav_history.length - 1;
-        }
-
         xml_id = xml_id.replace(/#/g, '');
         if (nav_type === 'lb') {
             let start_id = xml_id;
@@ -1846,7 +1869,7 @@
                 ids.shift();
 
                 if (ids.length > 0) {
-                    populate_nav_contents(nav_type, ids, contents, first_xml_id);
+                    populate_nav_contents(nav_type, ids, contents, first_xml_id, link);
                 } else {
                     let nav_title = nav_map[nav_type]['title'];
                     if (contents.length > 1) { nav_title = nav_map[nav_type]['title_plural']; }
