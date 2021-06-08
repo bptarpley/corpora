@@ -133,7 +133,7 @@ def playviewer(request, corpus_id=None, play_prefix=None):
         witnesses[wit_doc.siglum] = {
             'slots': [wit_counter],
             'document_id': str(wit_doc.id),
-            'bibliographic_entry': wit_doc.bibliographic_entry,
+            'bibliographic_entry': "{0} {1}".format(wit_doc.siglum_label, wit_doc.bibliographic_entry),
             'occasional': False
         }
 
@@ -163,7 +163,7 @@ def playviewer(request, corpus_id=None, play_prefix=None):
                 slots += witnesses[reffed_doc.siglum]['slots']
                 if bib_entry:
                     bib_entry += "<br /><br />"
-                bib_entry += reffed_doc.bibliographic_entry
+                bib_entry += "{0} {1}".format(reffed_doc.siglum_label, reffed_doc.bibliographic_entry)
 
         witnesses[collection.siglum] = {
             'slots': slots,
@@ -267,7 +267,7 @@ def witness_meter(request, witness_flags, height, width, inactive_color_hex, lab
             '7': '#bd5822',
             '8': '#a84f1f',
             '9': '#8f2d13',
-            'x': '#c4dffc'
+            'x': '#2a69a1'
         }
         selectively_quoted_width = 20 + int(label_buffer)
         indicator_width = (width - selectively_quoted_width) / (len(witness_flags) - 1)

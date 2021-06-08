@@ -1546,7 +1546,7 @@
     function display_variant_editions(witness_indicators, link) {
         let wit_sigla = Object.keys(witnesses);
         let sigla = [];
-        for (let slot = 0; slot < witness_indicators.length; slot++) {
+        for (let slot = 0; slot < witness_indicators.length - 1; slot++) {
             let indicator = witness_indicators.charAt(slot);
             if (indicator !== '0') {
                 for (let sig_index = 0; sig_index < wit_sigla.length; sig_index++) {
@@ -1558,12 +1558,14 @@
             }
         }
 
-        let title = "Collated Editions for Variant";
-        let content = "";
-        sigla.map(siglum => {
-            content += `<p><b>${siglum.replace('s_', '').toUpperCase()}</b> ${witnesses[siglum].bibliographic_entry}</p>`;
-        });
-        display_nav_modal(title, content, link);
+        if (sigla.length) {
+            let title = "Collated Editions for Variant";
+            let content = "";
+            sigla.map(siglum => {
+                content += `<p>${witnesses[siglum].bibliographic_entry}</p>`;
+            });
+            display_nav_modal(title, content, link);
+        }
     }
 
     function process_search_results(results) {
