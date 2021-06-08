@@ -24,6 +24,7 @@ def splash(request):
 
 
 def playviewer(request, corpus_id=None, play_prefix=None):
+    nvs_page = "variorum-viewer"
     site_request = False
     corpora_url = 'https://' if settings.USE_SSL else 'http://'
     corpora_url += settings.ALLOWED_HOSTS[0]
@@ -186,7 +187,8 @@ def playviewer(request, corpus_id=None, play_prefix=None):
             'witnesses': json.dumps(witnesses),
             'witness_centuries': witness_centuries,
             'witness_count': wit_counter,
-            'nvs_session': nvs_session
+            'nvs_session': nvs_session,
+            'nvs_page': nvs_page
         }
     )
 
@@ -398,6 +400,7 @@ def play_minimap(request, corpus_id=None, play_prefix=None):
 
 
 def home(request, corpus_id=None):
+    nvs_page = "home"
     dynamic_content = "Some <i>dynamically</i> generated content!"
     site_request = False
 
@@ -417,6 +420,7 @@ def home(request, corpus_id=None):
             'corpus_id': corpus_id,
             'site_request': site_request,
             'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
@@ -494,6 +498,7 @@ def bibliography(request, corpus_id=None):
 
 
 def info_about(request, corpus_id=None):
+    nvs_page = "info-about"
     dynamic_content = "Some <i>dynamically</i> generated content!"
     site_request = False
 
@@ -512,12 +517,14 @@ def info_about(request, corpus_id=None):
         {
             'corpus_id': corpus_id,
             'site_request': site_request,
-            'content': dynamic_content
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
 
 def info_contributors(request, corpus_id=None):
+    nvs_page = "info-contributors"
     dynamic_content = "Some <i>dynamically</i> generated content!"
     site_request = False
 
@@ -536,12 +543,14 @@ def info_contributors(request, corpus_id=None):
         {
             'corpus_id': corpus_id,
             'site_request': site_request,
-            'content': dynamic_content
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
 
 def info_print_editions(request, corpus_id=None):
+    nvs_page = "info-print-editions"
     dynamic_content = "Some <i>dynamically</i> generated content!"
     site_request = False
 
@@ -560,12 +569,14 @@ def info_print_editions(request, corpus_id=None):
         {
             'corpus_id': corpus_id,
             'site_request': site_request,
-            'content': dynamic_content
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
 
 def info_how_to(request, corpus_id=None):
+    nvs_page = "info-how-to"
     dynamic_content = "Some <i>dynamically</i> generated content!"
     site_request = False
 
@@ -584,12 +595,14 @@ def info_how_to(request, corpus_id=None):
         {
             'corpus_id': corpus_id,
             'site_request': site_request,
-            'content': dynamic_content
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
 
 def info_faqs(request, corpus_id=None):
+    nvs_page = "info-faqs"
     dynamic_content = "Some <i>dynamically</i> generated content!"
     site_request = False
 
@@ -608,12 +621,14 @@ def info_faqs(request, corpus_id=None):
         {
             'corpus_id': corpus_id,
             'site_request': site_request,
-            'content': dynamic_content
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
 
 def tools_about(request, corpus_id=None):
+    nvs_page = "tools-about"
     dynamic_content = "Some <i>dynamically</i> generated content!"
     site_request = False
 
@@ -632,12 +647,14 @@ def tools_about(request, corpus_id=None):
         {
             'corpus_id': corpus_id,
             'site_request': site_request,
-            'content': dynamic_content
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
 
 def tools_advanced_search(request, corpus_id=None):
+    nvs_page = "tools-advanced-search"
     dynamic_content = "Some <i>dynamically</i> generated content!"
     site_request = False
 
@@ -656,12 +673,14 @@ def tools_advanced_search(request, corpus_id=None):
         {
             'corpus_id': corpus_id,
             'site_request': site_request,
-            'content': dynamic_content
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
 
 def tools_data_extraction(request, corpus_id=None):
+    nvs_page = "tools-data-extraction"
     dynamic_content = "Some <i>dynamically</i> generated content!"
     site_request = False
 
@@ -680,7 +699,8 @@ def tools_data_extraction(request, corpus_id=None):
         {
             'corpus_id': corpus_id,
             'site_request': site_request,
-            'content': dynamic_content
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
