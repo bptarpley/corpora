@@ -1489,7 +1489,7 @@ BIBLIOGRAPHY INGESTION
 
     unhandled = []
     doc_count = 0
-    bibls = bib_tei.find_all('bibl')
+    bibls = bib_tei.div.listBibl.find_all('bibl', recursive=False)
     for bibl in bibls:
         doc = handle_bibl_tag(corpus, bibl, unhandled)
         if doc:
