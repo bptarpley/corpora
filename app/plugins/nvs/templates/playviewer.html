@@ -286,14 +286,14 @@
                 background-color: var(--nvs-secondary-orange);
             }
 
-            input[type=checkbox] {
+            /*input[type=checkbox] {
                 height: 20px;
                 left: 0;
                 opacity: 0;
                 position: absolute;
                 top: 0;
                 width: 30px;
-            }
+            }*/
 
             .toggle-control {
                 display: block;
@@ -901,6 +901,50 @@
                             <div class="row">
                                 <div class="col-sm-6 offset-6">
                                     <div id="hdr-quick-search-box" class="nvs-search" placeholder="SEARCH THIS PLAY" contentEditable="plaintext-only"></div>
+                                    <div id="hdr-quick-search-drawer" class="collapse">
+                                        <div class="row">
+                                            <div class="col-sm-6">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="search-type" id="search-type-fuzzy" value="fuzzy" checked>
+                                                    <label class="form-check-label" for="search-type-fuzzy">
+                                                        Fuzzy Search
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="search-type" id="search-type-exact" value="exact">
+                                                    <label class="form-check-label" for="search-type-exact">
+                                                        Exact Search
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="search-type" id="search-type-wildcard" value="wildcard">
+                                                    <label class="form-check-label" for="search-type-wildcard">
+                                                        Wildcard Search (*)
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" value="" id="search-playtext" checked>
+                                                    <label class="form-check-label" for="search-playtext">
+                                                        Include Play Text
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" value="" id="search-variants" checked>
+                                                    <label class="form-check-label" for="search-variants">
+                                                        Include Variants
+                                                    </label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" value="" id="search-commentary" checked>
+                                                    <label class="form-check-label" for="search-commentary">
+                                                        Include Commentary
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1024,7 +1068,7 @@
                                     </div>
                                 </div>
                                 {% if line.witness_meter|to_int > 0 %}
-                                    <div class="collapse" class="variant-drawer" id="{{ line.xml_id }}-variant-div"></div>
+                                    <div class="collapse" id="{{ line.xml_id }}-variant-div"></div>
                                 {% endif %}
                             {% endfor %}
 
@@ -1327,6 +1371,11 @@
             }
         });
 
+        // HEADER: SEARCH DRAWER
+        $('#hdr-quick-search-drawer').collapse({
+            toggle: false
+        });
+
         // HEADER: QUICK SEARCH BOX
         $('#hdr-quick-search-box').keypress(function(e) {
             if (e.which === 13) {
@@ -1334,33 +1383,33 @@
                 let query = qs_box.text().trim();
                 qs_box.empty();
                 qs_box.html(query);
+
+                let search_type = $('input[name="search-type"]:checked').val();
+                let search_contents = [];
+                if($("#search-playtext").is(':checked')) search_contents.push('playtext');
+                if($("#search-variants").is(':checked')) search_contents.push('variants');
+                if($("#search-commentary").is(':checked')) search_contents.push('commentary');
+                search_contents = search_contents.join();
+
                 corpora.make_request(
                     search_endpoint,
                     'POST',
                     {
-                        quick_search: query
+                        quick_search: query,
+                        search_type: search_type,
+                        search_contents: search_contents
                     },
                     process_search_results
                 );
+
+                $('#hdr-quick-search-drawer').collapse('hide');
+
                 return false;
             }
         });
 
-        // HEADER: ACT, SCENE BOX
-        $('#hdr-act-scene-selector').change(function() {
-            let selection = $('#hdr-act-scene-selector').val();
-            window.location = `${playviewer_url}?act-scene=${selection}`;
-        });
-
-        // HEADER: CHARACTER BOX
-        $('#hdr-character-selector').change(function() {
-            let selection = $('#hdr-character-selector').val();
-            window.location = `${playviewer_url}?character=${selection}`;
-        });
-
-        // HEADER: RESET BUTTON
-        $('#hdr-reset-button').click(function() {
-            window.location = `?reset=true`;
+        $('#hdr-quick-search-box').focusin(function(e) {
+            $('#hdr-quick-search-drawer').collapse('show');
         });
 
         // COMMENTARY HIGHLIHT CLICK
@@ -1672,6 +1721,16 @@
     function clear_search() {
         $('#reader-view').unmark();
         $('#search-widget').addClass('d-none');
+        corpora.make_request(
+            search_endpoint,
+            'GET',
+            {
+                clear: true
+            },
+            function() {
+                $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())}&no-cache=${Math.floor(Date.now() / 1000)})`);
+            }
+        );
     }
 
     function load_commentary() {
