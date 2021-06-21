@@ -497,17 +497,20 @@ sub { top: 0.4em; }
     }
 }
 .anchor-link a {
+    position: relative;
     cursor: pointer;
-    display: flex;
-    align-items: start;
+    padding-left: 22px;
+    display: inline-block;
 }
 .anchor-link a:before {
     content: "";
     width: 11px;
     height: 11px;
-    display: inline-block;
+    display: block;
     opacity: 0;
-    margin: 3px 10px 0 0;
+    position: absolute;
+    top: 3px;
+    left: 0;
     background-color: var(--blue);
     border-radius: 2px;
 }
