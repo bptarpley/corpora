@@ -80,7 +80,7 @@
 <div class="small-header--holder">
   <div class="container">
     <div class="small-header--row">
-      <a class="logo" href="#">
+      <a class="logo" href="{% if site_request %}/{% else %}/corpus/{{ corpus_id }}/home/{% endif %}">
         {% include 'svg/logo.svg' %}
         {% include 'svg/type.svg' %}
         {% include 'svg/logo-long-type.svg' %}
