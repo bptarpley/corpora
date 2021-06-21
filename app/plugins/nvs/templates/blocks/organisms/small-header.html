@@ -14,7 +14,7 @@
     width: 100%;
     display: flex;
     align-items: center;
-    padding: 1rem 0;
+    padding: 10px 0;
   }
   .small-header--row a.logo {
     display: flex;
@@ -22,12 +22,12 @@
     margin-right: auto;
   }
   .small-header--row a.logo svg {
-    height: 2rem;
+    height: 20px;
     width: auto;
     display: block;
   }
   .small-header--row a.logo svg:last-child {
-    margin-left: 0.5rem;
+    margin-left: 5px;
   }
   .small-header--row .menu { margin-left: 1rem; }
   .small-header--row .menu svg:first-child{ display: block; }
@@ -46,7 +46,7 @@
     max-height: 100vh;
   }
   .small-header--nav-holder nav {
-    padding-top: 1rem;
+    padding-top: 10px;
   }
   .small-header--nav-holder ul {
     list-style: none;
@@ -54,13 +54,11 @@
     margin: 0;
   }
   .small-header--nav-holder ul ul {
-    margin: 0.5rem 0;
-    padding-left: 0.5rem;
+    margin: 5px 0;
+    padding-left: 5px;
   }
   .small-header--nav-holder ul li {
-    --minScaled: calc(var(--min) * var(--minScale) * var(--minScale));
-    --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale));
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    font-size: 14px;
   }
   .small-header--nav-holder ul a {
     text-decoration: none;

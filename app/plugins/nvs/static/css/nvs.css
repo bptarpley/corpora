@@ -22,8 +22,11 @@
 
     /*Misc*/
     --boxShadow: rgba(99, 99, 99, 0.3) 4px 8px 8px 0;
-    --sideBar: 16rem;
-    --searchWidth: 8rem;
+    --sideBar: 220px;
+    --searchWidth: 80px;
+    --logoHeight: 67px;
+    --logoPaddingTop: 5px;
+    --pageMarginTop: 65px;
 
     /*Type*/
     --min: 16;
@@ -74,14 +77,14 @@ ol, ul, li,
 code, kbd, pre, samp {
     line-height: 1.5;
     margin-top: 0;
-    margin-bottom: 1.5rem;
+    margin-bottom: 15px;
 }
 
 h1, h2, h3, h4, h5, h6,
 .h1, .h2, .h3, .h4, .h5, .h6 {
     line-height: 1.1;
     font-weight: bold;
-    margin-bottom: 0.25rem;
+    margin-bottom: 3px;
 }
 
 h1 a, h2 a, h3 a, h4 a, h5 a, h6 a,
@@ -99,77 +102,36 @@ h1, .h1 {
     color: var(--blue);
     font-family: "Roboto Condensed", sans-serif;
     text-transform: uppercase;
-    margin-top: 3rem;
-    margin-bottom: 3rem;
+    margin-top: 30px;
+    margin-bottom: 30px;
 }
 h2, .h2 {
-    margin-top: 3rem;
+    margin-top: 30px;
 }
 h3, .h3,
 h4, .h4 {
-    margin-top: 2rem;
+    margin-top: 20px;
 }
 h5, .h5,
 h6, .h6 {
-    margin-top: 1rem;
-}
-.fluid-type-4, h1, .h1 {
-    --minScaled: calc(var(--min) * var(--minScale) * var(--minScale) * var(--minScale) * var(--minScale));
-    --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale) * var(--maxScale) * var(--maxScale));
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-}
-.fluid-type-3, h2, .h2 {
-    --minScaled: calc(var(--min) * var(--minScale) * var(--minScale) * var(--minScale));
-    --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale) * var(--maxScale));
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-}
-.fluid-type-2, h3, .h3 {
-    --minScaled: calc(var(--min) * var(--minScale) * var(--minScale));
-    --maxScaled: calc(var(--max) * var(--maxScale) * var(--maxScale));
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    margin-top: 10px;
 }
 
-.fluid-type-1, h4, .h4 {
-    --minScaled: calc(var(--min) * var(--minScale));
-    --maxScaled: calc(var(--max) * var(--maxScale));
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-}
-
-.fluid-type-0, h5, .h5 {
-    --minScaled: var(--min);
-    --maxScaled: var(--max);
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-}
-
-.fluid-type--1, h6, .h6, small {
-    --minScaled: calc(var(--min) / var(--minScale));
-    --maxScaled: calc(var(--max) / var(--maxScale));
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-}
-
-.fluid-type--2 {
-    --minScaled: calc(var(--min) / var(--minScale) / var(--minScale));
-    --maxScaled: calc(var(--max) / var(--maxScale) / var(--maxScale));
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-}
-
-.fluid-type--3 {
-    --minScaled: calc(var(--min) / var(--minScale) / var(--minScale) / var(--minScale));
-    --maxScaled: calc(var(--max) / var(--maxScale) / var(--maxScale) / var(--maxScale));
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-}
-
-.fluid-type--4 {
-    --minScaled: calc(var(--min) / var(--minScale) / var(--minScale) / var(--minScale) / var(--minScale));
-    --maxScaled: calc(var(--max) / var(--maxScale) / var(--maxScale) / var(--maxScale) / var(--maxScale));
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-}
+.type-size-4, h1, .h1 { font-size : 24px; }
+.type-size-3, h2, .h2 { font-size: 20px; }
+.type-size-2, h3, .h3 { font-size: 18px; }
+.type-size-1, h4, .h4 { font-size: 17px; }
+.type-size-0, h5, .h5 { font-size: 16px; }
+.type-size--1, h6, .h6, small { font-size: 15px; }
+.type-size--2 { font-size: 14px; }
+.type-size--3 { font-size: 13px; }
+.type-size--4 { font-size: 12px; }
 
 .anchor:before {
     content: "";
     display: block;
-    padding-top: 8rem;
-    margin-top: -8rem;
+    padding-top: 80px;
+    margin-top: -80px;
 }
 
 li {
@@ -187,19 +149,19 @@ code, kbd, pre, samp {
 }
 
 ul {
-    padding-left: 1rem;
+    padding-left: 10px;
     list-style-type: disc;
 }
 
 ol {
-    padding-left: 1rem;
+    padding-left: 10px;
     list-style-type: decimal;
 }
 
 video {
     width: 100%;
     height: auto;
-    margin-bottom: 1rem;
+    margin-bottom: 10px;
 }
 
 em, i { font-style: italic; }
@@ -208,15 +170,13 @@ strong, b { font-weight: bold; }
 
 blockquote {
     font-weight: bold;
-    padding-left: 1rem;
+    padding-left: 10px;
 }
 
 a { color: inherit; }
 
 label {
-    --minScaled: calc(var(--min) / var(--minScale));
-    --maxScaled: calc(var(--max) / var(--maxScale));
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    font-size: 15px;
     line-height: 1.2;
     font-weight: normal;
 }
@@ -238,10 +198,10 @@ input[type="week"],
 textarea {
     display: block;
     font-family: inherit;
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
-    padding: 0.2rem 0.5rem;
-    margin-top: 1rem;
-    margin-bottom: 1rem;
+    font-size: 16px;
+    padding: 2px 5px;
+    margin-top: 10px;
+    margin-bottom: 10px;
     border: 1px solid;
     border-radius: 2px;
     line-height: 1.6;
@@ -266,10 +226,10 @@ input[type="button"],
 input[type="reset"] {
     display: inline-block;
 
-    padding: 0 1rem;
+    padding: 0 10px;
 
     font-family: inherit;
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    font-size: 16px;
     line-height: 2;
     text-decoration: none;
     white-space: nowrap;
@@ -300,7 +260,7 @@ button.icon,
 }
 button.icon svg,
 .button.icon svg {
-    height: 1.5rem;
+    height: 15px;
     width: auto;
     display: block;
 }
@@ -423,19 +383,19 @@ sub { top: 0.4em; }
 .container {
     max-width: var(--maxScreen) px;
     margin: 0 auto;
-    padding: 0 1rem;
+    padding: 0 10px;
 }
 .container > :first-child { margin-top: 0; }
 .container > :last-child { margin-bottom: 0; }
 
 .page-holder {
     background-color: var(--white);
-    padding: 2rem 0;
+    padding: 20px 0;
     min-height: 100vh;
 }
 @media ( min-width: 992px ) {
     .page-holder {
-        padding: 1rem 0 14rem 0;
+        padding: var(--pageMarginTop) 0 140px 0;
     }
 }
 .page-holder.is-grey {
@@ -448,12 +408,12 @@ sub { top: 0.4em; }
 .page-holder--inner {
     display: grid;
     grid-template-columns: 1fr;
-    grid-gap: 1rem;
+    grid-gap: 10px;
 }
 @media ( min-width: 992px ) {
     .page-holder--inner {
         grid-template-columns: var(--sideBar) 1fr;
-        grid-gap: 1rem;
+        grid-gap: 10px;
         position: relative;
     }
 }
@@ -462,7 +422,7 @@ sub { top: 0.4em; }
         grid-template-columns: var(--sideBar) 1fr var(--searchWidth);
     }
 }
-.page-holder--inner.has-max-width > :nth-child(2) { max-width: 50rem; }
+.page-holder--inner.has-max-width > :nth-child(2) { max-width: 800px; }
 
 .page-holder--inner h2 {
     margin-top: 0;
@@ -493,9 +453,9 @@ sub { top: 0.4em; }
     list-style: none;
     padding-left: 0;
     position: sticky;
-    top: 8.5rem;
+    top: calc( var(--logoHeight) + var(--pageMarginTop) );
     left: 0;
-    margin: 0.5rem 0;
+    margin: 5px 0;
 }
 @media ( min-width: 992px ) {
     .anchor-links--inner {
@@ -518,21 +478,19 @@ sub { top: 0.4em; }
     font-family: "Roboto Condensed", sans-serif;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    --minScaled: calc(var(--min) / var(--minScale));
-    --maxScaled: calc(var(--max) / var(--maxScale));
-    font-size: clamp(var(--minScaled) * 1px, calc(var(--minScaled) * 1px + (var(--maxScaled) - var(--minScaled)) * (100vw - var(--minScreen) * 1px) / (var(--maxScreen) - var(--minScreen))), var(--maxScaled) * 1px);
+    font-size: 15px;
     padding-left: 0;
     line-height: 1.3;
 }
 
 .anchor-link.is-level-2 {
     display: none;
-    padding-left: 1rem;
+    padding-left: 10px;
 }
 
 @media ( min-width: 992px ) {
     .anchor-link {
-        margin: 0.3rem 0;
+        margin: 3px 0;
     }
     .anchor-link.is-level-2 {
         display: block;
@@ -544,9 +502,9 @@ sub { top: 0.4em; }
     align-items: start;
 }
 .anchor-link a svg {
-    margin-top: 0.3rem;
-    margin-right: 0.5rem;
-    width: 0.7rem;
+    margin-top: 3px;
+    margin-right: 5px;
+    width: 7px;
     height: auto;
     display: block;
     opacity: 0;
@@ -596,14 +554,14 @@ sub { top: 0.4em; }
 
 .page-title {
     background-color: var(--white);
-    padding: 1rem;
+    padding: 10px;
 }
 
 @media ( min-width: 992px ) {
     .page-title {
-        padding: 0 1rem 0 calc(var(--sideBar) + 2rem);
+        padding: 14px 10px 0 110px;
         position: sticky;
-        top: 2.3rem;
+        top: 34px;
         left: 0;
         z-index: 10;
     }
@@ -622,7 +580,7 @@ sub { top: 0.4em; }
 
 @media ( min-width: 992px ) {
     .page-title h1 {
-        line-height: 4.8rem;
+        line-height: 1;
     }
 }
 
@@ -631,10 +589,10 @@ sub { top: 0.4em; }
 }
 
 .edition-header svg {
-    width: 1rem;
+    width: 10px;
     height: auto;
     display: inline-block;
-    margin: 0 0.5rem;
+    margin: 0 5px;
 }
 
 .edition-header--title {
