@@ -28,6 +28,12 @@
     --logoPaddingTop: 5px;
     --pageMarginTop: 65px;
 
+    /*Breaks*/
+    --breakSm: 576px;
+    --breakMd: 768px;
+    --breakLg: 992px;
+    --breakXl: 1400px;
+
     /*Type*/
     --min: 16;
     --max: 18;
