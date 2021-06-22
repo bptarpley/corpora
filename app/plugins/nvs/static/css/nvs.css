@@ -25,7 +25,7 @@
     --sideBar: 220px;
     --searchWidth: 80px;
     --logoHeight: 67px;
-    --logoPaddingTop: 5px;
+    --logoPaddingTop: 8px;
     --pageMarginTop: 65px;
 
     /*Breaks*/
@@ -141,6 +141,10 @@ p { font-variant-numeric: oldstyle-nums; }
     display: block;
     padding-top: 80px;
     margin-top: -80px;
+}
+.anchor#top:before {
+    padding-top: 180px;
+    margin-top: -180px;
 }
 
 li {
@@ -504,6 +508,9 @@ sub { top: 0.4em; }
     }
     .anchor-link.is-level-2 {
         display: block;
+    }
+    .anchor-link.mobile-only {
+        display: none;
     }
 }
 .anchor-link a {

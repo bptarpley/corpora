@@ -4,6 +4,8 @@
         background-color: var(--grey1);
         color: var(--white);
         padding: 10px 0;
+        position: relative;
+        z-index: 10;
     }
     @media ( min-width: 992px ) {
         .footer--holder {
@@ -11,7 +13,6 @@
             bottom: 0;
             left: 0;
             width: 100%;
-            z-index: 10;
         }
         .footer--holder:hover .footer--hidden-text {
             max-height: 300px;
@@ -24,9 +25,8 @@
         grid-gap: 20px;
     }
     @media ( min-width: 992px ) {
-        .footer--inner { grid-template-columns: 1fr 1fr 1fr; }
+        .footer--inner { grid-template-columns: 2fr 1fr 1fr; }
     }
-
 
     @media ( min-width: 992px ) {
         .footer--logo-row {
@@ -52,10 +52,12 @@
         margin-right: 5px;
     }
 
-    .footer--hidden-text {
-        transition: max-height 0.5s;
-        max-height: 0;
-        overflow: hidden;
+    @media ( min-width: 992px ) {
+        .footer--hidden-text {
+            transition: max-height 0.5s;
+            max-height: 0;
+            overflow: hidden;
+        }
     }
     .footer--hidden-text small {
         margin-top: 10px;
