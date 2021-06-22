@@ -5,9 +5,12 @@
 <style type="text/css">
 	.st0{fill:#F2F2F2;}
 	.st1{fill:#898989;}
-	.st2{font-family:'RobotoCondensed-Regular';}
-	.st3{font-size:10px;}
 </style>
 <rect class="st0" width="8" height="19"/>
-<text transform="matrix(0 -1 1 0 7.478 17.4648)" class="st1 st2 st3">NAV</text>
+<g>
+	<path class="st1" d="M7.48,12.05v0.9L2,15.8h5.48v0.9H0.37v-0.9l5.5-2.86h-5.5v-0.89H7.48z"/>
+	<path class="st1" d="M5.62,7.09v2.4l1.86,0.55v0.92L0.37,8.67V7.91l7.11-2.29v0.92L5.62,7.09z M4.85,9.26V7.32L1.62,8.29L4.85,9.26
+		z"/>
+	<path class="st1" d="M6.11,2.94L0.37,1.31V0.33l7.11,2.21v0.78L0.37,5.53V4.55L6.11,2.94z"/>
+</g>
 </svg>
