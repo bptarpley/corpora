@@ -791,7 +791,7 @@ def api_search(request, corpus_id=None, play_prefix=None):
 
                             if matches and search_type == 'exact':
                                 exact_terms = quick_search.lower().split()
-                                matches = [m for m in matches if _contains_any(m, exact_terms)]
+                                matches = [m for m in matches if _contains_any(m.lower(), exact_terms)]
 
                             if matches:
                                 line_xml_id = "tln_{0}".format(line[:line.index(' />')])
@@ -829,7 +829,7 @@ def api_search(request, corpus_id=None, play_prefix=None):
 
                                 if matches and search_type == 'exact':
                                     exact_terms = quick_search.lower().split()
-                                    matches = [m for m in matches if _contains_any(m, exact_terms)]
+                                    matches = [m for m in matches if _contains_any(m.lower(), exact_terms)]
 
                                 if matches:
                                     result['matches'] += matches
@@ -839,7 +839,7 @@ def api_search(request, corpus_id=None, play_prefix=None):
 
                                 if matches and search_type == 'exact':
                                     exact_terms = quick_search.lower().split()
-                                    matches = [m for m in matches if _contains_any(m, exact_terms)]
+                                    matches = [m for m in matches if _contains_any(m.lower(), exact_terms)]
 
                                 if matches:
                                     result['matches'] += matches
@@ -879,7 +879,7 @@ def api_search(request, corpus_id=None, play_prefix=None):
 
                                 if matches and search_type == 'exact':
                                     exact_terms = quick_search.lower().split()
-                                    matches = [m for m in matches if _contains_any(m, exact_terms)]
+                                    matches = [m for m in matches if _contains_any(m.lower(), exact_terms)]
 
                                 if matches:
                                     result['matches'] += matches
@@ -889,7 +889,7 @@ def api_search(request, corpus_id=None, play_prefix=None):
 
                                 if matches and search_type == 'exact':
                                     exact_terms = quick_search.lower().split()
-                                    matches = [m for m in matches if _contains_any(m, exact_terms)]
+                                    matches = [m for m in matches if _contains_any(m.lower(), exact_terms)]
 
                                 if matches:
                                     result['matches'] += matches
