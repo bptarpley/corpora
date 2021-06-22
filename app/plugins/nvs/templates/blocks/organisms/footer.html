@@ -3,7 +3,7 @@
     .footer--holder {
         background-color: var(--grey1);
         color: var(--white);
-        padding: 1rem 0;
+        padding: 10px 0;
     }
     @media ( min-width: 992px ) {
         .footer--holder {
@@ -14,14 +14,14 @@
             z-index: 10;
         }
         .footer--holder:hover .footer--hidden-text {
-            max-height: 30rem;
+            max-height: 300px;
         }
     }
 
     .footer--inner {
         display: grid;
         grid-template-columns: 1fr;
-        grid-gap: 2rem;
+        grid-gap: 20px;
     }
     @media ( min-width: 992px ) {
         .footer--inner { grid-template-columns: 1fr 1fr 1fr; }
@@ -35,21 +35,21 @@
         }
     }
     .footer--logo-row img {
-        height: 1.5rem;
+        height: 26px;
         width: auto;
         display: block;
-        margin-right: 1rem;
+        margin-right: 10px;
     }
     .footer--logo-row p {
         color: var(--yellow);
-        font-size: 1rem;
-        line-height: 1.5rem;
+        font-size: 20px;
+        line-height: 25px;
         margin: 0;
     }
     .footer--logo-row img.nvs {
-        height: 1rem;
-        margin-top: 0.25rem;
-        margin-right: 0.5rem;
+        height: 20px;
+        margin-top: 3px;
+        margin-right: 5px;
     }
 
     .footer--hidden-text {
@@ -58,7 +58,9 @@
         overflow: hidden;
     }
     .footer--hidden-text small {
-        margin-top: 1rem;
+        margin-top: 10px;
+        font-size: 10px;
+        max-width: 350px;
     }
 </style>
 <div class="footer--holder">

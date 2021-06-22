@@ -4,13 +4,13 @@
 {% block headrefs %}
 <style>
     .front-matter--edition-entry {
-        margin: 0.5rem 0;
+        margin: 5px 0;
     }
     @media ( min-width: 768px ) {
         .front-matter--edition-entry {
             display: grid;
-            grid-template-columns: 4rem 1fr 4rem;
-            grid-gap: 1rem;
+            grid-template-columns: 40px 1fr 40px;
+            grid-gap: 10px;
         }
     }
     .front-matter--edition-entry .siglum { font-weight: bold; }
@@ -19,7 +19,7 @@
     }
     .front-matter--edition-entry div,
     .front-matter--edition-entry p { display: inline; }
-    .front-matter--edition-entry + p { margin-top: 1.5rem; }
+    .front-matter--edition-entry + p { margin-top: 15px; }
 </style>
 {% endblock %}
 
@@ -36,25 +36,25 @@
       <div class="anchor-links--holder">
         <ul class="anchor-links--inner">
           <li class="anchor-link">
-            <a href="#preface">{% include 'svg/icon_arrow.svg' %}Preface</a>
+            <a href="#preface">Preface</a>
           </li>
           <li class="anchor-link">
-            <a href="#the-winters-tale-plan-of-work">{% include 'svg/icon_arrow.svg' %}The Winter's Tale Plan of Work</a>
+            <a href="#the-winters-tale-plan-of-work">The Winter's Tale Plan of Work</a>
           </li>
           <li class="anchor-link">
-            <a href="#fully-collated-editions">{% include 'svg/icon_arrow.svg' %}Fully Collated Editions</a>
+            <a href="#fully-collated-editions">Fully Collated Editions</a>
           </li>
           <li class="anchor-link">
-            <a href="#selectively-and-occasionally-quoted-editions">{% include 'svg/icon_arrow.svg' %}Selectively and Occasionally Quoted Editions</a>
+            <a href="#selectively-and-occasionally-quoted-editions">Selectively and Occasionally Quoted Editions</a>
           </li>
           <li class="anchor-link is-level-2">
-            <a href="#sources-occasionally-quoted-in-the-commentary-or-critical-discussion">{% include 'svg/icon_arrow.svg' %}Sources occasionally quoted in the commentary or critical discussion</a>
+            <a href="#sources-occasionally-quoted-in-the-commentary-or-critical-discussion">Sources occasionally quoted in the commentary or critical discussion</a>
           </li>
           <li class="anchor-link is-level-2">
-            <a href="#quotations-of-authors-other-than-shakespeare">{% include 'svg/icon_arrow.svg' %}Quotations of authors other than Shakespeare</a>
+            <a href="#quotations-of-authors-other-than-shakespeare">Quotations of authors other than Shakespeare</a>
           </li>
           <li class="anchor-link is-level-2">
-            <a href="#abbreviations">{% include 'svg/icon_arrow.svg' %}Abbreviations</a>
+            <a href="#abbreviations">Abbreviations</a>
           </li>
         </ul>
       </div>
@@ -833,9 +833,6 @@
   </div>
 </div>
 
-{% if content %}
-{{ content|safe }}
-{% endif %}
 {% endblock %}
 
 {% block js %}

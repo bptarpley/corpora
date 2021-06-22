@@ -24,7 +24,7 @@
             font-weight: normal;
         }
         .navigation--dropdown.nested > button {
-            padding: 0 1rem;
+            padding: 0 10px;
             height: auto;
             font-weight: normal;
             justify-content: space-between;
@@ -56,7 +56,7 @@
     }
     @media ( min-width: 992px ) {
         .navigation--dropdown > button {
-            padding: 0.5rem 1rem 0.5rem 1rem;
+            padding: 5px 10px;
             width: 100%;
         }
     }
@@ -64,16 +64,16 @@
         color: var(--blue);
     }
     .navigation--dropdown > button svg {
-        height: 0.5rem;
+        height: 9px;
         width: auto;
-        margin: 0.5rem 0 0 0.5rem;
+        margin: 6px 0 0 5px;
         transform: rotate(90deg);
         transform-origin: center center;
     }
     .navigation--dropdown > button .beta {
         font-weight: normal;
         color: var(--grey1);
-        margin-left: 0.5rem;
+        margin-left: 5px;
     }
     .navigation--dropdown-inner {
         margin: 0;
@@ -84,7 +84,7 @@
         transition: max-height 0.5s ease;
     }
     .navigation--dropdown.active > .navigation--dropdown-inner {
-        max-height: 20rem;
+        max-height: 200px;
     }
     @media ( min-width: 992px ) {
         .navigation--dropdown-inner {
@@ -95,7 +95,7 @@
             position: absolute;
             top: 100%;
             left: -1px;
-            padding: 0 0 0.75rem 0;
+            padding: 0 0 8px 0;
             max-height: none;
             min-width: calc(100% + 2px);
             background-color: inherit;
@@ -108,13 +108,13 @@
         .navigation--dropdown.nested .navigation--dropdown-inner {
             top: 0;
             left: 100%;
-            min-width: 15rem;
+            min-width: 150px;
             background-color: var(--white);
             border-top: 1px solid var(--grey5);
         }
 
         .navigation--dropdown-inner a {
-            padding: 0 1rem;
+            padding: 0 10px;
             display: inline-block;
             width: 100%;
         }
