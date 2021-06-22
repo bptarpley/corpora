@@ -15,6 +15,12 @@ from PIL import Image, ImageDraw
 from elasticsearch_dsl import A
 
 
+# TEMPORARY FIX FOR SOFT LAUNCH
+editors = {
+    'wt': "Judith M. Kennedy, Paul Werstine, with Susan May, Roberta Barker, David Nichol",
+    'mnd': "Judith M. Kennedy, Paul Werstine, with Susan May, Roberta Barker, David Nichol"
+}
+
 def splash(request):
     return render(
         request,
@@ -184,6 +190,7 @@ def playviewer(request, corpus_id=None, play_prefix=None):
             'notes': json.dumps(notes),
             'line_note_map': line_note_map,
             'play': play,
+            'editors': editors[play_prefix],
             'witnesses': json.dumps(witnesses),
             'witness_centuries': witness_centuries,
             'witness_count': wit_counter,

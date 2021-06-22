@@ -38,6 +38,7 @@
                 --nvs-form-control-font-size: 12px;
                 --nvs-background-color: #FFFFFF;
                 --nvs-lightest-gray: #F2F2F2;
+                --nvs-light-gray: #E6E6E6;
                 --nvs-lighter-gray: #cfcfcf;
                 --nvs-mid-gray: #828282;
                 --nvs-yellow-gray: #3b371c;
@@ -181,11 +182,16 @@
                 line-height: 1;
             }
 
-            .search-div {
+            .byline-div {
                 border-top: solid 1px var(--nvs-lightest-blue);
                 border-left: solid 1px var(--nvs-lightest-blue);
             }
 
+            .byline {
+                font-family: "Roboto Condensed", sans-serif;
+                font-size: 12px;
+                text-transform: uppercase;
+            }
 
             .heading-label {
                 font-family: 'Roboto Condensed', sans-serif;
@@ -199,156 +205,122 @@
                 border-right: solid 5px var(--nvs-background-color);
             }
 
-            .nvs-selection {
-                position: relative;
-            }
-
-            .nvs-selection:after {
-                content: '\f0d7';
-                font-family: "Font Awesome 5 Free";
-                font-weight: 900;
-                font-size: 25px;
-                color: var(--nvs-lighter-gray);
-                right: 10px;
-                top: 4px;
-                height: 35px;
-                position: absolute;
-                pointer-events: none;
-            }
-
-            select::-ms-expand {
-                display: none;
-            }
-
-            .nvs-search, .nvs-selection select, input[type=text], input[type=button] {
+            .nvs-search {
                 -webkit-appearance: none;
                 -moz-appearance: none;
                 appearance: none;
                 /* Add some styling */
 
                 display: block;
-                width: 100%;
-                height: var(--nvs-form-control-height);
+                width: 100px;
                 float: right;
                 margin: 2.5px 0px;
-                padding: 0px 10px;
                 font-size: var(--nvs-form-control-font-size);
                 line-height: 1;
                 color: #333;
                 background-color: #ffffff;
-                background-image: none;
-                border: 1px solid var(--nvs-lighter-gray);
+                background-image: url({% static 'img/controls/search_placeholder.svg' %});
+                background-repeat: no-repeat;
+                background-size: initial;
+                border: 2px solid var(--nvs-light-gray);
                 -ms-word-break: normal;
                 word-break: normal;
-            }
 
-            .nvs-selection select {
-                font-size: 16px;
-            }
-
-            .nvs-search {
                 position: relative;
-                height: unset;
-                min-height: var(--nvs-form-control-height);
+                height: var(--nvs-form-control-height);
                 padding: 10px;
-                max-height: 150px;
+                padding-left: 55px;
                 overflow-x: hidden;
                 overflow-y: auto;
             }
 
-            .nvs-search:empty:before{
-                content: attr(placeholder);
-                color: var(--nvs-mid-gray);
-                pointer-events: none;
+            .nvs-search:focus {
+                background-image: url({% static 'img/controls/VAR-bar-search-ROLL.svg' %});
+                background-size: 50px;
+                height: unset;
+                min-height: var(--nvs-form-control-height);
+                max-height: 150px;
+            }
+
+            .nvs-tln {
+                -webkit-appearance: none;
+                -moz-appearance: none;
+                appearance: none;
                 display: block;
+                width: 100px;
+                float: right;
+                margin: 2.5px 0px;
+                font-size: var(--nvs-form-control-font-size);
+                line-height: 1;
+                color: #333;
+                background-color: #ffffff;
+                background-image: url({% static 'img/controls/tln_placeholder.svg' %});
+                background-repeat: no-repeat;
+                border: 2px solid var(--nvs-light-gray);
+                position: relative;
+                height: var(--nvs-form-control-height);
+                padding: 10px;
+                padding-left: 38px;
             }
 
-            .nvs-search:empty:after {
-                content: '\f002';
-                font-family: "Font Awesome 5 Free";
-                font-weight: 900;
-                font-size: 18px;
-                color: var(--nvs-lighter-gray);
-                right: 10px;
-                top: 6px;
-                height: 35px;
-                position: absolute;
-                pointer-events: none;
+            .nvs-tln:focus {
+                background-image: url({% static 'img/controls/tln.svg' %});
+                background-size: 35px;
             }
 
-            input[type=button] {
-                cursor: pointer;
-                background-color: var(--nvs-primary-orange);
+            input[type=radio], input[type=checkbox] {
+                border: 0;
+                clip: rect(0, 0, 0, 0);
+                height: 1px;
+                overflow: hidden;
+                padding: 0;
+                position: absolute !important;
+                white-space: nowrap;
+                width: 1px;
+            }
+
+            .form-check-label {
+                font-family: "Roboto Condensed", sans-serif;
+                font-size: 12px;
+                font-weight: bold;
+                padding-left: 20px;
                 color: var(--nvs-background-color);
             }
 
-            input.nvs-secondary-button {
-                background-color: var(--nvs-secondary-orange);
+            label.checkbox-white {
+                color: var(--nvs-mid-gray);
             }
 
-            /*input[type=checkbox] {
-                height: 20px;
-                left: 0;
-                opacity: 0;
-                position: absolute;
-                top: 0;
-                width: 30px;
-            }*/
+            input[type=radio] + label.radio {
+                cursor: pointer;
+                background-image: url({% static 'img/controls/radio.svg' %});
+                background-size: 15px;
+                background-repeat: no-repeat;
+                background-position: left center;
+            }
 
-            .toggle-control {
-                display: block;
-                position: relative;
-                padding-left: 40px;
+            input[type=radio]:checked + label.radio {
+                background-image: url({% static 'img/controls/radio-selected.svg' %});
+            }
+
+            input[type=checkbox] + label.checkbox, input[type=checkbox] + label.checkbox-white {
                 cursor: pointer;
-                font-size: 22px;
-                -webkit-user-select: none;
-                -moz-user-select: none;
-                -ms-user-select: none;
-                user-select: none;
+                background-image: url({% static 'img/controls/checkbox.svg' %});
+                background-size: 15px;
+                background-repeat: no-repeat;
+                background-position: left center;
             }
-            .toggle-control input {
-                position: absolute;
-                opacity: 0;
-                cursor: pointer;
-                height: 0;
-                width: 0;
+
+            input[type=checkbox]:checked + label.checkbox {
+                background-image: url({% static 'img/controls/checkbox-selected.svg' %});
             }
-            .toggle-control input:checked ~ .control {
-                background-color: var(--nvs-primary-orange);
+
+            input[type=checkbox] + label.checkbox-white {
+                background-image: url({% static 'img/controls/checkbox-white.svg' %});
             }
-            .toggle-control input:checked ~ .control:after {
-                left: 22px;
-            }
-            .toggle-control .control {
-                position: absolute;
-                top: 0;
-                left: 0;
-                height: 20px;
-                width: 40px;
-                border-radius: 10px;
-                background-color: var(--nvs-mid-gray);
-                -webkit-transition: background-color 0.15s ease-in;
-                transition: background-color 0.15s ease-in;
-            }
-            .toggle-control .control:after {
-                content: "";
-                position: absolute;
-                left: 2px;
-                top: 2px;
-                width: 16px;
-                height: 16px;
-                border-radius: 10px;
-                background: var(--nvs-background-color);
-                -webkit-transition: left 0.15s ease-in;
-                transition: left 0.15s ease-in;
-            }
-            .toggle-control .heading-label {
-                position: relative;
-                top: -10px;
-                left: 10px;
-            }
-            label.toggle-control {
-                margin-bottom: 0px!important;
+
+            input[type=checkbox]:checked + label.checkbox-white {
+                background-image: url({% static 'img/controls/checkbox-white-selected.svg' %});
             }
 
             /* -----------------------------
@@ -428,6 +400,10 @@
 
             #playtext-header-col::-webkit-scrollbar-track {
                 background-color: var(--nvs-lightest-gray);
+                background-image: url({% static 'img/controls/nav.svg' %});
+                background-repeat: no-repeat;
+                background-position: bottom 4px center;
+                background-size: 9px;
             }
 
             #playtext-col, #playtext-header-col, #act-scene-header-col, #act-scene-frame {
@@ -580,12 +556,6 @@
             span.difference {
                 color: #e9702b;
                 background-color: #FFFFFF;
-            }
-
-            comspan {
-                background-color: rgba(249, 240, 175, .52);
-                border-bottom: solid 1px var(--nvs-dark-yellow);
-                cursor: pointer;
             }
 
             .comm-heading {
@@ -891,60 +861,16 @@
                             </ul>
                         </div>
                     </div>
-                    <div class="row no-gutters">
+                    <div class="row no-gutters pt-3">
                         <div class="col-sm-3">
                             <div id="play-title" class="align-self-baseline">
                                 {{ play.title }}
                             </div>
                         </div>
-                        <div class="col-sm-9 search-div">
+                        <div class="col-sm-9 byline-div">
                             <div class="row">
-                                <div class="col-sm-6 offset-6">
-                                    <div id="hdr-quick-search-box" class="nvs-search" placeholder="SEARCH THIS PLAY" contentEditable="plaintext-only"></div>
-                                    <div id="hdr-quick-search-drawer" class="collapse">
-                                        <div class="row">
-                                            <div class="col-sm-6">
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="search-type" id="search-type-fuzzy" value="fuzzy" checked>
-                                                    <label class="form-check-label" for="search-type-fuzzy">
-                                                        Fuzzy Search
-                                                    </label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="search-type" id="search-type-exact" value="exact">
-                                                    <label class="form-check-label" for="search-type-exact">
-                                                        Exact Search
-                                                    </label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="search-type" id="search-type-wildcard" value="wildcard">
-                                                    <label class="form-check-label" for="search-type-wildcard">
-                                                        Wildcard Search (*)
-                                                    </label>
-                                                </div>
-                                            </div>
-                                            <div class="col-sm-6">
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" value="" id="search-playtext" checked>
-                                                    <label class="form-check-label" for="search-playtext">
-                                                        Include Play Text
-                                                    </label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" value="" id="search-variants" checked>
-                                                    <label class="form-check-label" for="search-variants">
-                                                        Include Variants
-                                                    </label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" value="" id="search-commentary" checked>
-                                                    <label class="form-check-label" for="search-commentary">
-                                                        Include Commentary
-                                                    </label>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                <div class="col-sm-6 offset-6 byline d-flex align-content-end pb-2">
+                                    EDITORS: {{ editors }}
                                 </div>
                             </div>
                         </div>
@@ -959,29 +885,92 @@
 
                     <!-- header row -->
                     <div class="row">
-                        <div class="col-sm-8 pr-0 bg-nvs-light-blue">
-                            <div class="row no-gutters header-block align-items-end">
-                                <div class="col-sm-4">
+                        <div class="col-sm-8 pr-0 bg-nvs-light-blue var-playtext-col">
+                            <div class="row no-gutters header-block">
+                                <div class="col-sm-4 d-flex align-items-center justify-content-center">
                                     <div class="heading-label text-white">
                                         TEXTUAL VARIANTS BY YEAR
                                     </div>
                                 </div>
-                                <div class="col-sm-7 m-0 p-0">
-                                    <div class="heading-label text-white">
+                                <div id="playtext-search-tln-col" class="col-sm-8 m-0 p-0 d-flex align-items-center">
+                                    <div id="playtext-header-label" class="heading-label text-white mx-auto">
                                         PLAY TEXT
                                     </div>
-                                </div>
-                                <div class="col-sm-1 m-0 p-0">
-                                    <input id="hdr-line-no-box" type="text" placeholder="ENTER LINE#" />
+                                    <div id="playtext-search-div" class="d-flex flex-column mr-1">
+                                        <div id="hdr-quick-search-box" class="nvs-search" contentEditable="plaintext-only"></div>
+                                        <div id="hdr-quick-search-drawer" class="collapse">
+                                            <div class="row">
+                                                <div class="col-sm-12 heading-label text-white">
+                                                    SEARCH TYPE:
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-sm-12">
+                                                    <div class="form-inline ml-2 mb-2">
+                                                        <div class="form-check mr-3">
+                                                            <input class="form-check-input" type="radio" name="search-type" id="search-type-fuzzy" value="fuzzy" checked>
+                                                            <label class="form-check-label radio" for="search-type-fuzzy">
+                                                                FUZZY
+                                                            </label>
+                                                        </div>
+                                                        <div class="form-check mr-3">
+                                                            <input class="form-check-input" type="radio" name="search-type" id="search-type-exact" value="exact">
+                                                            <label class="form-check-label radio" for="search-type-exact">
+                                                                EXACT
+                                                            </label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="search-type" id="search-type-wildcard" value="wildcard">
+                                                            <label class="form-check-label radio" for="search-type-wildcard">
+                                                                WILDCARD (*)
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-sm-12 heading-label text-white">
+                                                    INCLUDE:
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-sm-12">
+                                                    <div class="form-inline ml-2 mb-2">
+                                                        <div class="form-check mr-3">
+                                                            <input class="form-check-input" type="checkbox" value="" id="search-playtext" checked>
+                                                            <label class="form-check-label checkbox" for="search-playtext">
+                                                                PLAY TEXT
+                                                            </label>
+                                                        </div>
+                                                        <div class="form-check mr-3">
+                                                            <input class="form-check-input" type="checkbox" value="" id="search-variants" checked>
+                                                            <label class="form-check-label checkbox" for="search-variants">
+                                                                VARIANTS
+                                                            </label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" value="" id="search-commentary" checked>
+                                                            <label class="form-check-label checkbox" for="search-commentary">
+                                                                COMMENTARY
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="playtext-tln-div">
+                                        <input id="hdr-line-no-box" class="nvs-tln" type="text" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-sm-4">
-                            <div class="row header-block bg-nvs-light-blue align-items-end">
-                                <div class="col-sm-1 m-0 p-0">
+                        <div class="col-sm-4 act-scene-comm-col bg-nvs-light-blue">
+                            <div class="row header-block bg-nvs-light-blue">
+                                <div class="col-sm-1 m-0 p-0 act-scene-col">
                                     &nbsp;
                                 </div>
-                                <div class="col-sm-11 m-0 p-0">
+                                <div class="col-sm-11 m-0 p-0 comm-col d-flex align-items-center justify-content-center">
                                     <div class="heading-label text-white">
                                         COMMENTARY NOTES BY LINE
                                     </div>
@@ -991,19 +980,32 @@
                     </div>
 
                     <div class="row">
-                        <div id="playtext-header-col" class="col-sm-8 pr-0 bg-nvs-light-orange">
+                        <div id="playtext-header-col" class="col-sm-8 pr-0 bg-nvs-light-orange var-playtext-col">
                             <div class="row no-gutters header-block">
                                 <div id="witness-header" class="col-sm-4 m-0 p-0">
                                     &nbsp;
                                 </div>
                                 <div class="col-sm-7 bg-nvs">
                                     <div class="heading-label mt-1 ml-2">
-                                        SHOW VARS BY LINE | HIGHLIGHT
+                                        <div class="form-inline">
+                                            <div class="form-check mr-3">
+                                                <input class="form-check-input" type="checkbox" value="" id="show-variants-by-line" checked>
+                                                <label class="form-check-label checkbox-white" for="show-variants-by-line">
+                                                    SHOW VARIANTS BY LINE
+                                                </label>
+                                            </div>
+                                            <div class="form-check mr-3">
+                                                <input class="form-check-input" type="checkbox" value="" id="show-commentary-referents" checked>
+                                                <label class="form-check-label checkbox-white" for="show-commentary-referents">
+                                                    HIGHLIGHT COMMENTARY REFERENTS
+                                                </label>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="col-sm-1 bg-nvs">
                                     <div class="row no-gutters h-100">
-                                        <div class="col-sm-8 offset-4 play-label">
+                                        <div id="tln-header-col" class="col-sm-8 offset-4 play-label">
                                             <div class="heading-label vertical d-flex h-100 justify-content-center align-items-end">
                                                 TLN
                                             </div>
@@ -1012,14 +1014,14 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-sm-4">
+                        <div class="col-sm-4 act-scene-comm-col">
                             <div class="row header-block">
-                                <div id="act-scene-header-col" class="col-sm-1 bg-nvs-lightest-gray">
+                                <div id="act-scene-header-col" class="col-sm-1 bg-nvs-lightest-gray act-scene-col">
                                     <div class="heading-label vertical d-flex h-100 align-items-end">
                                         ACT<br>SCN
                                     </div>
                                 </div>
-                                <div class="col-sm-11 bg-nvs-light-yellow">
+                                <div class="col-sm-11 bg-nvs-light-yellow comm-col">
                                     &nbsp;
                                 </div>
                             </div>
@@ -1028,7 +1030,7 @@
 
                     <div class="row">
                         <!-- PLAYTEXT -->
-                        <div id="playtext-col" class="col-sm-8 pr-0">
+                        <div id="playtext-col" class="col-sm-8 pr-0 var-playtext-col">
                             {% for line in lines %}
                                 <div id="{{ line.xml_id }}-row"
                                      class="row no-gutters play-row offscreen"
@@ -1075,9 +1077,9 @@
                         </div>
 
                         <!-- COMMENTARY -->
-                        <div id="act-scene-commentary-col" class="col-sm-4">
+                        <div id="act-scene-commentary-col" class="col-sm-4 act-scene-comm-col">
                             <div class="row">
-                                <div class="col-sm-1 p-0 m-0">
+                                <div class="col-sm-1 p-0 m-0 act-scene-col">
                                     <div id="act-scene-frame" class="d-flex flex-column h-100 align-self-center p-0 m-0">
                                         {% for label, actscene in act_scenes.items %}
                                             <div class="actscene-indicator{% if forloop.first %} active{% endif %} my-auto mx-0 px-0 align-self-center" data-actscene="{{ actscene }}">
@@ -1090,7 +1092,7 @@
                                         {% endfor %}
                                     </div>
                                 </div>
-                                <div class="col-sm-11 p-0 m-0">
+                                <div class="col-sm-11 p-0 m-0 comm-col">
                                     <div id="commentary-frame"></div>
                                 </div>
                             </div>
@@ -1166,6 +1168,12 @@
     let witness_meter_prefix = {% if site_request %}`/witnessmeter/`{% else %}`/nvs/witness-meter/`{% endif %};
     let paratext_prefix = {% if site_request %}`/paratext/${play_prefix}/`{% else %}`/corpus/${corpus_id}/paratext-viewer/${play_prefix}/`{% endif %};
     let minimap_url = {% if site_request %}`/minimap/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-minimap/${play_prefix}/`{% endif %};
+
+    let settings = {
+        comm_highlights: true,
+        comm_pane: true,
+        var_pane: true
+    };
 
     let style_sheet = null;
     let current_act_scene = "{{ nvs_session.filter.act_scene }}";
@@ -1287,6 +1295,8 @@
 
         setup_lines();
         configure_controls();
+        adjust_for_screensize();
+        enable_commentary_highlighting();
 
         $('.witness-meter').click(function(){
             let line_id = this.id.replace('-witness-col', '');
@@ -1294,30 +1304,11 @@
             display_variant_editions(witness_indicators, this);
         });
 
-        $('comspan').mouseover(function(ev) {
-            let selector = `comspan.${ev.target.className}`;
-            style_sheet.insertRule(`
-                ${selector} {
-                    border: solid 1px var(--nvs-primary-orange);
-                }
-            `);
-
-            setTimeout(delete_css_rule.bind(null, selector), 3000);
-        });
-
-        $('comspan').mouseleave(function(ev) {
-            let selector = `comspan.${ev.target.className}`;
-            delete_css_rule(selector);
-        });
-
         let nav_type = get_param('nav_type');
         let nav_xml_id = get_param('nav_xml_id');
         if (nav_type && nav_xml_id) {
             navigate_to(nav_type, nav_xml_id);
         }
-
-        //setTimeout(wait_for_load, 1000);
-
     });
 
     function delete_css_rule(selector) {
@@ -1371,18 +1362,31 @@
             }
         });
 
+        // TOGGLE COMMENTARY HIGHLIGHTS
+        $('#show-commentary-referents').change(function() {
+            toggle_commentary_highlighting();
+        });
+
+        // SEARCH CONTROLS
+        let playtext_search_col = $('#playtext-search-tln-col');
+        let quick_search_box = $('#hdr-quick-search-box');
+        let quick_search_drawer = $('#hdr-quick-search-drawer');
+        let playtext_header_label = $('#playtext-header-label');
+        let playtext_search_div = $('#playtext-search-div');
+
         // HEADER: SEARCH DRAWER
-        $('#hdr-quick-search-drawer').collapse({
+        quick_search_drawer.collapse({
             toggle: false
         });
 
         // HEADER: QUICK SEARCH BOX
-        $('#hdr-quick-search-box').keypress(function(e) {
+        quick_search_box.keydown(function(e) {
+            console.log(e.key);
+            let collapse_search = false;
             if (e.which === 13) {
-                let qs_box = $('#hdr-quick-search-box');
-                let query = qs_box.text().trim();
-                qs_box.empty();
-                qs_box.html(query);
+                let query = quick_search_box.text().trim();
+                quick_search_box.empty();
+                quick_search_box.html(query);
 
                 let search_type = $('input[name="search-type"]:checked').val();
                 let search_contents = [];
@@ -1402,22 +1406,30 @@
                     process_search_results
                 );
 
-                $('#hdr-quick-search-drawer').collapse('hide');
+                collapse_search = true;
+            } else if (e.key === "Escape") {
+                collapse_search = true;
+            }
+
+            if (collapse_search) {
+                playtext_header_label.removeClass('d-none');
+                playtext_search_div.removeClass('w-100');
+                quick_search_box.css('width', '100px');
+                playtext_search_col.addClass('align-items-center');
+                playtext_search_col.removeClass('align-items-top');
+                quick_search_drawer.collapse('hide');
 
                 return false;
             }
         });
 
-        $('#hdr-quick-search-box').focusin(function(e) {
-            $('#hdr-quick-search-drawer').collapse('show');
-        });
-
-        // COMMENTARY HIGHLIHT CLICK
-        $('comspan').click(function(e) {
-            let comm_id = this.className.replace('commentary-lemma-', '');
-            comm_id = `commentary-note-${comm_id}`;
-            setTimeout(delayed_scroll.bind(null, comm_id, false), 300);
-            e.stopPropagation();
+        quick_search_box.focusin(function(e) {
+            playtext_header_label.addClass('d-none');
+            playtext_search_div.addClass('w-100');
+            quick_search_box.css('width', '100%');
+            playtext_search_col.removeClass('align-items-center');
+            playtext_search_col.addClass('align-items-top');
+            quick_search_drawer.collapse('show');
         });
 
         // VARIANT TOGGLER CLICK
@@ -1497,13 +1509,89 @@
         // ACT/SCENE INDICATORS
         $('.actscene-indicator').click(function() {
             let actscene = $(this).data('actscene').toString();
-            console.log(actscene);
             let actscene_parts = actscene.split('.');
             let act = actscene_parts[0];
             let scene = actscene_parts[1];
 
             $(`.play-row[data-act="${act}"][data-scene="${scene}"]:first`)[0].scrollIntoView({behavior: 'smooth'});
         });
+    }
+
+    function adjust_for_screensize() {
+        let tln_width = $('#tln-header-col').width() + 40;
+        $('#hdr-line-no-box').css('width', tln_width);
+    }
+
+    function enable_commentary_highlighting() {
+        style_sheet.insertRule(`
+            comspan {
+                background-color: rgba(249, 240, 175, .52);
+                border-bottom: solid 1px var(--nvs-dark-yellow);
+                cursor: pointer;
+            }
+        `);
+
+        $('comspan').click(function(e) {
+            let comm_id = this.className.replace('commentary-lemma-', '');
+            comm_id = `commentary-note-${comm_id}`;
+            setTimeout(delayed_scroll.bind(null, comm_id, false), 300);
+            e.stopPropagation();
+        });
+
+        $('comspan').mouseover(function(ev) {
+            let selector = `comspan.${ev.target.className}`;
+            style_sheet.insertRule(`
+                ${selector} {
+                    border: solid 1px var(--nvs-primary-orange);
+                }
+            `);
+
+            setTimeout(delete_css_rule.bind(null, selector), 3000);
+        });
+
+        $('comspan').mouseleave(function(ev) {
+            let selector = `comspan.${ev.target.className}`;
+            delete_css_rule(selector);
+        });
+    }
+
+    function disable_commentary_highlighting() {
+        delete_css_rule('comspan');
+        let comspan = $('comspan');
+        comspan.off('click');
+        comspan.off('mouseover');
+        comspan.off('mouseleave');
+    }
+
+    function toggle_commentary_highlighting() {
+        if (settings.comm_highlights) {
+            disable_commentary_highlighting();
+            settings.comm_highlights = false;
+        } else {
+            enable_commentary_highlighting();
+            settings.comm_highlights = true;
+        }
+    }
+
+    function toggle_commentary_pane() {
+        if (settings.comm_pane) {
+            let var_playtext_col = $('var-playtext-col');
+            let act_scene_comm_col = $('act-scene-comm-col');
+            let act_scene_col = $('act-scene-col');
+            let comm_col = $('comm-col');
+
+            var_playtext_col.removeClass('col-sm-8');
+            var_playtext_col.addClass('col-sm-11');
+
+            act_scene_comm_col.removeClass('col-sm-4');
+            act_scene_comm_col.addClass('col-sm-1');
+
+            act_scene_col.removeClass('col-sm-1');
+            act_scene_col.removeClass('col-sm-12');
+
+            comm_col.removeClass('col-sm-11');
+            comm_col.addClass('d-none');
+        }
     }
 
     function get_nvs_var(variable_name) {
@@ -1739,7 +1827,6 @@
                 if (entries[0].isIntersecting) {
                     $(entries[0].target).remove();
                     if (remaining_commentaries) {
-                        console.log('loading more commentary...');
                         last_visible_line += 20;
                         load_commentary();
                     }
@@ -2161,9 +2248,6 @@
 
         let id_selector = `${parent ? '#' + parent + ' ' : ''}#${anchor}`;
         let anchor_selector = `${parent ? '#' + parent + ' ' : ''}a[name=${anchor}]`;
-
-        console.log(id_selector);
-        console.log(anchor_selector);
 
         if ($(id_selector).length) {
             $(id_selector)[0].scrollIntoView(scroll_opts);
