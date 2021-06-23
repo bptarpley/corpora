@@ -20,5 +20,7 @@ urlpatterns = [
     path('corpus/<str:corpus_id>/play-bibliography/<str:play_prefix>/', nvs_views.bibliography),
     path('corpus/<str:corpus_id>/paratext-viewer/<str:play_prefix>/<str:section>/', nvs_views.paratext),
     path('nvs/witness-meter/<str:witness_flags>/<str:height>/<str:width>/<str:inactive_color_hex>/<str:label_buffer>/', nvs_views.witness_meter),
-    path('api/corpus/<str:corpus_id>/nvs-search/<str:play_prefix>/', nvs_views.api_search)
+    path('api/corpus/<str:corpus_id>/nvs-search/<str:play_prefix>/', nvs_views.api_search),
+    path('api/corpus/<str:corpus_id>/nvs-lines/<str:play_prefix>/<str:starting_line_id>/', nvs_views.api_lines),
+    path('api/corpus/<str:corpus_id>/nvs-lines/<str:play_prefix>/<str:starting_line_id>/<str:ending_line_id>/', nvs_views.api_lines),
 ]

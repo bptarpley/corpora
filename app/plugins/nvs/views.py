@@ -239,6 +239,8 @@ def paratext(request, corpus_id=None, play_prefix=None, section=None):
 
     corpus = get_corpus(corpus_id)
     play = corpus.get_content('Play', {'prefix': play_prefix}, single_result=True)
+    nvs_page = ""
+
     section_toc = ""
     section_html = ""
 
@@ -253,6 +255,9 @@ def paratext(request, corpus_id=None, play_prefix=None, section=None):
             section_toc += pt.toc_html
             section_html += pt.full_html.replace('/file/uri/', "{0}/file/uri/".format(corpora_url))
 
+        nvs_page = "{0}-frontmatter".format(play_prefix)
+        if section == "Appendix":
+            nvs_page = "{0}-appendix".format(play_prefix)
     elif section == "Bibliography":
         marker_map = {
             'ABC': 'A-C',
@@ -288,12 +293,15 @@ def paratext(request, corpus_id=None, play_prefix=None, section=None):
 
             section_html += "<li>{0}</li>".format(bib.bibliographic_entry)
 
+        nvs_page = "{0}-bibliography".format(play_prefix)
+
     return render(
         request,
         'paratext.html',
         {
             'corpus_id': corpus_id,
             'site_request': site_request,
+            'nvs_page': nvs_page,
             'corpora_url': corpora_url,
             'play': play,
             'section': section,
@@ -756,17 +764,27 @@ def tools_data_extraction(request, corpus_id=None):
     )
 
 
-@api_view(['GET'])
-def api_lines(request, corpus_id, starting_line_no, ending_line_no):
-    context = _get_context(request)
+def api_lines(request, corpus_id, play_prefix, starting_line_id, ending_line_id=None):
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+    corpus = get_corpus(corpus_id)
+    play = corpus.get_content('Play', {'prefix': play_prefix})[0]
+
     lines = []
-
-    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
-
-    if corpus and 'PlayLine' in corpus.content_types:
-        lines = corpus.get_content('PlayLine', {'line_number__gte': starting_line_no, 'line_number__lte': ending_line_no})
-        lines = lines.order_by('line_number')
-        lines = [line.to_dict() for line in lines]
+    all_lines = corpus.get_content('PlayLine', {'play': play.id}).order_by('line_number')
+    started_collecting = False
+    for line in all_lines:
+        if line.xml_id == starting_line_id:
+            lines.append(line.to_dict())
+            if ending_line_id:
+                started_collecting = True
+            else:
+                break
+        elif line.xml_id == ending_line_id:
+            lines.append(line.to_dict())
+            break
+        elif started_collecting:
+            lines.append(line.to_dict())
 
     return HttpResponse(
         json.dumps(lines),

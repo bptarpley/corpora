@@ -26,6 +26,8 @@
         <div class="static-type">
             {{ html|safe }}
         </div>
+
+        <!-- OLD PLACEHOLDER CONTENT (delete before soft launch) -->
         <div class="static-type">
           <h2 class="anchor" id="sources">Sources</h2>
           <h3 class="anchor" id="primary-source">Primary Source</h3>
@@ -704,5 +706,325 @@
 {% endblock %}
 
 {% block js %}
-<!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+<script src="{% static 'js/jquery-3.3.1.min.js' %}"></script>
+<script src="{% static 'js/corpora.js' %}"></script>
+<script type="application/javascript">
+    let corpora;
+    let corpus_id = "{{ corpus_id }}";
+    let play_prefix = "{{ play.prefix }}";
+    let play_id = "{{ play.id }}";
+    let playviewer_url = {% if site_request %}`/play/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-viewer/${play_prefix}/`{% endif %};
+    let lines_endpoint = {% if site_request %}`/lines/${play_prefix}/`{% else %}`/api/corpus/${corpus_id}/lines/${play_prefix}/`{% endif %};
+    let ref_modal_counter = 0;
+
+    let nav_map = {
+        'lb': {
+            'content_type': 'PlayLine',
+            'xml_id_field': 'xml_id',
+            'content_field': 'rendered_html',
+            'title': 'LINE',
+            'title_plural': 'LINES',
+            'scroll_anchor': false,
+            'filter_play': true,
+        },
+        'bibl': {
+            'content_type': 'Document',
+            'xml_id_field': 'siglum',
+            'content_field': 'bibliographic_entry',
+            'title': "BIBLIOGRAPHY",
+            'title_plural': "BIBLIOGRAPHY",
+            'scroll_anchor': false,
+            'filter_play': false,
+        },
+        'siglum': {
+            'content_type': 'Document',
+            'xml_id_field': 'siglum',
+            'content_field': 'bibliographic_entry',
+            'title': "COLLATED EDITION",
+            'title_plural': "COLLATED EDITIONS",
+            'scroll_anchor': false,
+            'filter_play': false,
+        },
+        'note_cn': {
+            'content_type': 'Commentary',
+            'xml_id_field': 'xml_id',
+            'content_field': 'contents',
+            'title': "COMMENTARY",
+            'title_plural': "COMMENTARY",
+            'scroll_anchor': false,
+            'filter_play': true,
+        },
+        'anchor': {
+            'content_type': 'ParaText',
+            'xml_id_field': 'child_xml_ids',
+            'content_field': 'html_content',
+            'title': "APPENDIX",
+            'title_plural': "APPENDIX",
+            'scroll_anchor': true,
+            'filter_play': true,
+        }
+    };
+
+    $(document).ready(function() {
+        corpora = new Corpora({'csrf_token': "{{ csrf_token }}"{% if site_request %},'host': '{{ corpora_url }}'{% endif %}});
+    })
+
+    function navigate_to(nav_type, xml_id, link=null) {
+        xml_id = xml_id.replace(/#/g, '');
+        if (nav_type === 'lb') {
+            let start_id = xml_id;
+            let end_id = null;
+            if (start_id.includes(' ')) {
+                let id_parts = start_id.split(' ');
+                start_id = id_parts[0];
+                end_id = id_parts[1];
+            }
+
+            let line_endpoint_suffix = `${start_id}/`;
+            if (end_id) { line_endpoint_suffix += `${end_id}/` }
+
+            corpora.make_request(
+                lines_endpoint + line_endpoint_suffix,
+                'GET',
+                {},
+                function(data) {
+                    console.log(data);
+                }
+            );
+
+            if (start_id in lines) {
+                let line_template = () =>
+                    `<div class="row no-gutters ref-row">
+                        <div class="col-sm-10 m-0 p-0 play-words">
+                            ${line_row.data('text')}
+                        </div>
+                        <div class="col-sm-1 m-0 p-1 play-label d-flex justify-content-center">
+                            ${line_row.data('line_label')}
+                        </div>
+                        <div class="col-sm-1 m-0 p-1 bg-nvs-lightest-gray actscene-indicator d-flex justify-content-center">
+                            ${romanize(line_row.data('act'))},${line_row.data('scene')}
+                        </div>
+                    </div>`;
+
+                let lines_label = 'Line';
+                let line_row = $(lines[start_id].row);
+                let lines_html = line_template();
+
+                if (end_id) {
+                    lines_label += `s ${line_row.data('line_label')}-`;
+                    let collecting = true;
+                    while (collecting) {
+                        line_row = line_row.next();
+                        if (line_row.hasClass('play-row')) {
+                            lines_html += line_template();
+                            if (line_row.data('xml_id') === end_id) {
+                                collecting = false;
+                                lines_label += line_row.data('line_label');
+                            }
+                        }
+                    }
+                } else lines_label += ' ' + line_row.data('line_label');
+
+                let controls = `
+                    <a href="${playviewer_url}#${line_row.attr('id')}" target="_blank"><img src="{% static 'img/nav-external.png' %}"
+                        class="ref-modal-control"
+                        border="0"
+                    ></a>
+                `;
+                display_nav_modal(lines_label, lines_html, link, controls);
+            }
+        } else {
+            if (nav_type === 'siglum'){
+                if (!xml_id.startsWith('s_')) xml_id = `s_${xml_id.toLowerCase()}`;
+
+                if (xml_id in witnesses) {
+                    let title = 'Collated Edition';
+                    if (witnesses[xml_id].bibliographic_entry.includes('<br /><br />')) title += 's';
+                    display_nav_modal(title, witnesses[xml_id].bibliographic_entry, link);
+                }
+            } else {
+                if (!nav_map.hasOwnProperty(nav_type)) nav_type = 'anchor';
+
+                let xml_ids = xml_id.split(' ');
+                let search_params = {
+                    page: 1,
+                    'page-size': xml_ids.length,
+                    only: 'id',
+                    operator: xml_ids.length > 1 ? 'or' : 'and'
+                };
+
+                if (nav_map[nav_type]['filter_play']) {
+                    search_params['f_play.id'] = play_id;
+                }
+
+                let content_type = nav_map[nav_type]['content_type'];
+                let search_field = nav_map[nav_type]['xml_id_field'];
+                search_params[`t_${search_field}`] = xml_ids.join('__');
+                corpora.list_content(corpus_id, content_type, search_params, function (search_data) {
+                    if (search_data.hasOwnProperty('records') && search_data.records.length === xml_ids.length) {
+                        let ids = search_data.records.map(record => record.id);
+                        populate_nav_contents(nav_type, ids, [], xml_ids[0], link);
+                    }
+                });
+            }
+        }
+    }
+
+    function populate_nav_contents(nav_type, ids, contents=[], first_xml_id=null, link=null) {
+        if (ids.length > 0) {
+            let content_type = nav_map[nav_type]['content_type'];
+
+            corpora.get_content(corpus_id, content_type, ids[0], function(content_data) {
+                contents.push(content_data);
+                ids.shift();
+
+                if (ids.length > 0) {
+                    populate_nav_contents(nav_type, ids, contents, first_xml_id, link);
+                } else {
+                    let nav_title = nav_map[nav_type]['title'];
+                    let controls = '';
+                    if (contents.length > 1) { nav_title = nav_map[nav_type]['title_plural']; }
+
+                    let nav_content = '';
+                    contents.map(content => {
+                        if (nav_content === '') nav_content += '<a name="nav-content-start"></a>';
+                        else nav_content += '<br><br>';
+
+                        if (nav_type === 'note_cn') {
+                            nav_content += `
+                                <div class="comm-heading">
+                                    n. ${content.line_label}: ${content.subject_matter}
+                                </div>
+                            `;
+                        } else if (nav_type === 'anchor') {
+                            nav_title = `<span>${content.section}<br/><div class="ref-subtitle-marker">&nbsp;</div><span class="text-nvs-dark-blue">${content.title}</span></span>`;
+                            controls = `
+                                <a href="${paratext_prefix}${content.section}/#paratext-${content.id}" target="_blank">
+                                    <img src="{% static 'img/nav-external.png' %}"
+                                        class="ref-modal-control"
+                                        border="0">
+                                </a>
+                            `;
+                        }
+
+                        nav_content += content[nav_map[nav_type]['content_field']];
+                    });
+
+                    let modal_id = display_nav_modal(nav_title, nav_content, link, controls);
+                    if (nav_map[nav_type].scroll_anchor) {
+                        setTimeout(delayed_scroll.bind(null, first_xml_id, true, modal_id), 2000)
+                    }
+                }
+            });
+        }
+    }
+
+    function display_nav_modal(title, content, link, controls='') {
+        let modal_id = '';
+        let modal_el = null;
+
+        if (link) {
+            modal_id = `ref-modal-${ref_modal_counter}`;
+            let link_rect = link.getBoundingClientRect();
+            let arrow_side = 'right';
+            if (link_rect.x <= window.innerWidth / 2) {
+                arrow_side = 'left'
+            }
+            $('body').append(`
+                <div
+                    id="${modal_id}"
+                    class="ref-modal"
+                >
+                    <div class="arrow-${arrow_side}">
+                        <div id="${modal_id}-header" class="ref-modal-header d-flex justify-content-between">
+                            ${title}
+                            <span>
+                            ${controls}
+                            <i id="${modal_id}-close-button" class="fas fa-times ref-modal-control" data-modal-id="${modal_id}" aria-label="Close"></i>
+                            </span>
+                        </div>
+                        <div class="ref-modal-content">${content}</div>
+                    </div>
+                </div>
+            `);
+            modal_el = $(`#${modal_id}`);
+            if (arrow_side === 'right') {
+                modal_el.css('top', `${link_rect.top + window.pageYOffset - 20}px`);
+                modal_el.css('left', `${link_rect.left - (modal_el.width() + 20)}px`);
+            } else {
+                modal_el.css('top', `${link_rect.top + window.pageYOffset - 20}px`);
+                modal_el.css('left', `${link_rect.right + 20}px`);
+            }
+
+            $(`#${modal_id}-close-button`).click(function() {
+                let close_modal_id = $(this).data('modal-id');
+                $(`#${close_modal_id}`).remove();
+            });
+            let ref_modal = $(`#${modal_id}`);
+            make_draggable(ref_modal[0]);
+            ref_modal_counter += 1;
+        }
+        else {
+            $('#nav-modal-label').html(title);
+            $('#nav-modal-body').html(content);
+            $('#nav-modal').modal();
+        }
+
+        return modal_id;
+    }
+
+    function make_draggable(elmnt) {
+        var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        if (document.getElementById(elmnt.id + "-header")) {
+            // if present, the header is where you move the DIV from:
+            document.getElementById(elmnt.id + "-header").onmousedown = dragMouseDown;
+        } else {
+            // otherwise, move the DIV from anywhere inside the DIV:
+            elmnt.onmousedown = dragMouseDown;
+        }
+
+        function dragMouseDown(e) {
+            e = e || window.event;
+            e.preventDefault();
+            // get the mouse cursor position at startup:
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            document.onmouseup = closeDragElement;
+            // call a function whenever the cursor moves:
+            document.onmousemove = elementDrag;
+        }
+
+        function elementDrag(e) {
+            e = e || window.event;
+            e.preventDefault();
+            // calculate the new cursor position:
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            // set the element's new position:
+            elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+            elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+        }
+
+        function closeDragElement() {
+            // stop moving when mouse button is released:
+            document.onmouseup = null;
+            document.onmousemove = null;
+        }
+    }
+
+    function delayed_scroll(anchor, smooth=true, parent=null) {
+        let scroll_opts = {behavior: 'smooth'};
+        if (!smooth) scroll_opts = null;
+
+        let id_selector = `${parent ? '#' + parent + ' ' : ''}#${anchor}`;
+        let anchor_selector = `${parent ? '#' + parent + ' ' : ''}a[name=${anchor}]`;
+
+        if ($(id_selector).length) {
+            $(id_selector)[0].scrollIntoView(scroll_opts);
+        }
+        else $(anchor_selector)[0].scrollIntoView(scroll_opts);
+    }
+</script>
 {% endblock %}

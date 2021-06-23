@@ -20,4 +20,6 @@ urlpatterns = [
     path('witnessmeter/<str:witness_flags>/<str:height>/<str:width>/<str:inactive_color_hex>/<str:label_buffer>/', nvs_views.witness_meter),
     path('search/<str:play_prefix>/', nvs_views.api_search),
     path('search/', nvs_views.api_search),
+    path('lines/<str:play_prefix>/<str:starting_line_id>/', nvs_views.api_lines),
+    path('lines/<str:play_prefix>/<str:starting_line_id>/<str:ending_line_id>/', nvs_views.api_lines),
 ]
