@@ -232,8 +232,10 @@ def get_session_lines(corpus, session, only_ids=False):
 def paratext(request, corpus_id=None, play_prefix=None, section=None):
     corpora_url = 'https://' if settings.USE_SSL else 'http://'
     corpora_url += settings.ALLOWED_HOSTS[0]
+    site_request = False
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     play = corpus.get_content('Play', {'prefix': play_prefix}, single_result=True)
@@ -291,6 +293,8 @@ def paratext(request, corpus_id=None, play_prefix=None, section=None):
         'paratext.html',
         {
             'corpus_id': corpus_id,
+            'site_request': site_request,
+            'corpora_url': corpora_url,
             'play': play,
             'section': section,
             'toc': section_toc,
