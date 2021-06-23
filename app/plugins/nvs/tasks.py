@@ -2021,46 +2021,48 @@ def handle_paratext_tag(tag, pt, pt_data):
         'p': 'p',
         'hi': 'span',
         'title': 'i',
-        'quote': 'i',
+        'quote': 'q',
         'table': 'table',
         'row': 'tr',
         'cell': 'td',
         'list': 'ul',
         'item': 'li',
-        'front': 'div',
-        'floatingText': 'div',
-        'titlePage': 'span',
-        'docTitle': 'span',
+        'front': 'div:front',
+        'floatingText': 'div:floating-text',
+        'titlePage': 'span:title-page',
+        'docTitle': 'span:doc-title',
         'figDesc': 'p',
-        'docImprint': 'p',
-        'byline': 'p',
-        'docAuthor': 'span',
+        'docImprint': 'p:doc-imprint',
+        'byline': 'p:byline',
+        'docAuthor': 'span:doc-author',
         'lb': 'br',
         'div': 'div',
-        'signed': 'div',
+        'signed': 'div:signed',
         'lg': 'i:mt-2',
         'l': 'div',
-        'milestone': 'div:float-right',
-        'sp': 'div:mx-auto',
-        'speaker': 'span',
-        'trailer': 'div:mt-2',
-        'label': 'b',
-        'figure': 'div',
-        'salute': 'span',
-        'abbr': 'dt',
-        'expan': 'dd',
+        'milestone': 'div:milestone',
+        'sp': 'div:speech',
+        'speaker': 'span:speaker',
+        'trailer': 'div:trailer',
+        'label': 'b:label',
+        'figure': 'div:figure',
+        'salute': 'span:salute',
+        'abbr': 'dt:abbr',
+        'expan': 'dd:expan',
         'listBibl': 'div:bibl-list',
         'bibl': 'span:bibl',
         'listWit': 'div:witness-list',
         'witness': 'span:witness',
-        'edition': 'q'
+        'edition': 'q:edition',
+        'date': 'span:date',
+        'docDate': 'span:doc-date',
+        'stage': 'span:stage',
     }
 
     silent = [
         'app', 'appPart', 'lem', 'wit', 'rdgDesc',
-        'rdg', 'name', 'rs', 'epigraph',
-        'body', 'foreign', 'cit', 'stage',
-        'docDate', 'date'
+        'rdg', 'rs', 'epigraph',
+        'body', 'foreign', 'cit',
     ]
 
     if tag.name:
@@ -2070,7 +2072,11 @@ def handle_paratext_tag(tag, pt, pt_data):
             pt.child_xml_ids.append(tag['xml:id'])
             attributes += " id='{0}'".format(tag['xml:id'])
         if 'rend' in tag.attrs:
-            classes = get_rend_classes(tag['rend'])
+            classes += get_attr_classes('rend', tag['rend'])
+        if 'display' in tag.attrs:
+            classes += get_attr_classes('display', tag['display'])
+        if 'type' in tag.attrs:
+            classes += get_attr_classes('type', tag['type'])
 
         if tag.name == 'head':
             if not pt.title:
@@ -2080,7 +2086,7 @@ def handle_paratext_tag(tag, pt, pt_data):
                 pt.title = pt_title
 
             else:
-                html += "<h2{0}>".format(attributes)
+                html += "<h{0}{1}>".format(pt.level, attributes)
                 for child in tag.children:
                     html += handle_paratext_tag(child, pt, pt_data)
                 html += "</h2>"
@@ -2203,6 +2209,18 @@ def handle_paratext_tag(tag, pt, pt_data):
                     img_url
                 )
 
+        elif tag.name == "name":
+            classes.append("name")
+
+            attributes += ' class="{0}"'.format(
+                " ".join(classes)
+            )
+
+            html += '<span{0}>'.format(attributes)
+            for child in tag.children:
+                html += handle_paratext_tag(child, pt, pt_data)
+            html += '</span>'
+
         # tags to ignore (but keep content inside)
         elif tag.name in silent:
             for child in tag.children:
@@ -2216,7 +2234,7 @@ def handle_paratext_tag(tag, pt, pt_data):
                 classes.append(simple_conversions[tag.name].split(':')[1])
 
             if classes:
-                attributes += " class='{0}'".format(
+                attributes += ' class="{0}"'.format(
                     " ".join(classes)
                 )
 
@@ -2241,8 +2259,8 @@ def handle_paratext_tag(tag, pt, pt_data):
     return html
 
 
-def get_rend_classes(rend):
-    return [slugify(r) for r in rend.split() if r]
+def get_attr_classes(attr, rend):
+    return ["{0}-{1}".format(attr, slugify(r)) for r in rend.split() if r]
 
 
 def get_line_ids(line_id_map, xml_id_start, xml_id_end=None):
@@ -2345,40 +2363,43 @@ def tei_to_html(tag):
         'cell': 'td',
         'list': 'ul',
         'item': 'li',
-        'front': 'div',
-        'floatingText': 'div',
-        'titlePage': 'span',
-        'docTitle': 'span',
+        'front': 'div:front',
+        'floatingText': 'div:floating-text',
+        'titlePage': 'span:title-page',
+        'docTitle': 'span:doc-title',
         'figDesc': 'p',
-        'docImprint': 'p',
-        'byline': 'p',
-        'docAuthor': 'span',
+        'docImprint': 'p:doc-imprint',
+        'byline': 'p:byline',
+        'docAuthor': 'span:doc-author',
         'lb': 'br',
         'div': 'div',
-        'signed': 'div',
+        'signed': 'div:signed',
         'lg': 'i:mt-2',
         'l': 'div',
-        'milestone': 'div:float-right',
-        'sp': 'div:mx-auto',
-        'speaker': 'span',
-        'trailer': 'div:mt-2',
-        'label': 'b',
-        'figure': 'div',
-        'salute': 'span',
-        'abbr': 'dt',
-        'expan': 'dd',
+        'milestone': 'div:milestone',
+        'sp': 'div:speech',
+        'speaker': 'span:speaker',
+        'trailer': 'div:trailer',
+        'label': 'b:label',
+        'figure': 'div:figure',
+        'salute': 'span:salute',
+        'abbr': 'dt:abbr',
+        'expan': 'dd:expan',
         'listBibl': 'div:bibl-list',
         'bibl': 'span:bibl',
         'listWit': 'div:witness-list',
         'witness': 'span:witness',
-        'edition': 'q'
+        'edition': 'q:edition',
+        'date': 'span:date',
+        'docDate': 'span:doc-date',
+        'stage': 'span:stage',
     }
 
     silent = [
         'app', 'appPart', 'lem', 'wit', 'rdgDesc',
         'rdg', 'name', 'rs', 'epigraph',
-        'body', 'foreign', 'cit', 'stage',
-        'docDate', 'date', 'closer'
+        'body', 'foreign', 'cit',
+        'closer'
     ]
 
     if tag.name:
@@ -2391,7 +2412,7 @@ def tei_to_html(tag):
             if 'xml:id' in tag.attrs:
                 attributes += " id='{0}'".format(tag['xml:id'])
             if 'rend' in tag.attrs:
-                classes = get_rend_classes(tag['rend'])
+                classes += get_attr_classes('rend', tag['rend'])
 
             if tag.name == 'lb' and attributes:
                 html += '<br /><span{0}>&nbsp;</span>'
@@ -2444,7 +2465,7 @@ def tei_to_html(tag):
                     classes.append(simple_conversions[tag.name].split(':')[1])
 
                 if classes:
-                    attributes += " class='{0}'".format(
+                    attributes += ' class="{0}"'.format(
                         " ".join(classes)
                     )
 
@@ -2455,6 +2476,11 @@ def tei_to_html(tag):
                 for child in tag.children:
                     html += tei_to_html(child)
                 html += "</{0}>".format(html_tag)
+
+            # tags to ignore (but keep content inside)
+            elif tag.name in silent:
+                for child in tag.children:
+                    html += tei_to_html(child)
 
     else:
         html += str(tag)

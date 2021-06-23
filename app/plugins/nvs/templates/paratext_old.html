@@ -1,0 +1,332 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link href="{% static 'css/fontawesome.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/regular.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/solid.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        @font-face {
+            font-family: "FormulaSerial";
+            src: url("{% static 'font/FormulaSerial.woff2' %}") format('woff2'), url("{% static 'font/FormulaSerial.woff' %}") format('woff');
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+            background-color: #f2f2f2;
+        }
+
+        .comm-heading {
+            background-color: #c4dffc;
+            font-family: 'Libre Baskerville', serif;
+            cursor: pointer;
+            color: #525e69;
+        }
+
+        .comm-block {
+            color: #0e0e0e;
+            font-family: 'FormulaSerial';
+            margin-bottom: 20px;
+        }
+
+        #toc-column, #content-column {
+            overflow-y: scroll;
+            max-height: calc(100vh);
+        }
+
+        #nav-modal-label {
+            font-family: 'Libre Baskerville', serif;
+        }
+
+        #nav-modal-body {
+            font-family: 'FormulaSerial';
+            overflow-y: scroll;
+            max-height: calc(80vh);
+        }
+
+        div.bibl-list, div.witness-list {
+            margin-left: 20px;
+        }
+
+        .bibl-list span.bibl, .witness-list span.witness {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .pt_textual_note {
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+<!-- Navigation Modal -->
+<div class="modal fade" id="nav-modal" tabindex="-1" role="dialog" aria-labelledby="nav-modal-label" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="nav-modal-label"></h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div id="nav-modal-body" class="modal-body">
+
+            </div>
+            <!--<div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>-->
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="row">
+        <div id="toc-column" class="col-sm-4">
+            <h2>Table of Contents</h2>
+            {{ toc|safe }}
+        </div>
+        <div id="content-column" class="col-sm-8">
+            <div class="display-1 mb-4">
+                {{ section }}
+            </div>
+
+            {{ html|safe }}
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/jquery-3.3.1.min.js' %}"></script>
+<script src="{% static 'js/popper.min.js' %}"></script>
+<script src="{% static 'js/bootstrap.min.js' %}"></script>
+<script src="{% static 'js/corpora.js' %}"></script>
+<script type="application/javascript">
+    let corpora;
+    let corpus_id = "{{ corpus_id }}";
+    let play_prefix = "{{ play.prefix }}";
+    let nav_map = {
+        'lb': {
+            'content_type': 'PlayLine',
+            'xml_id_field': 'xml_id',
+            'content_field': 'rendered_html',
+            'title': 'Play Line',
+            'title_plural': 'Play Lines',
+            'scroll_anchor': false
+        },
+        'bibl': {
+            'content_type': 'Document',
+            'xml_id_field': 'siglum',
+            'content_field': 'bibliographic_entry',
+            'title': "Bibliographic Entry",
+            'title_plural': "Bibliographic Entries",
+            'scroll_anchor': false
+        },
+        'siglum': {
+            'content_type': 'Document',
+            'xml_id_field': 'siglum',
+            'content_field': 'bibliographic_entry',
+            'title': "Collated Edition",
+            'title_plural': "Collated Editions",
+            'scroll_anchor': false
+        },
+        'note_cn': {
+            'content_type': 'Commentary',
+            'xml_id_field': 'xml_id',
+            'content_field': 'contents',
+            'title': "Commentary Note",
+            'title_plural': "Commentary Notes",
+            'scroll_anchor': false
+        },
+        'anchor': {
+            'content_type': 'ParaText',
+            'xml_id_field': 'child_xml_ids',
+            'content_field': 'html_content',
+            'title': "Appendix",
+            'title_plural': "Appendix",
+            'scroll_anchor': true
+        }
+    };
+    let nav_history = [];
+    let nav_history_cursor = 0;
+
+    $(document).ready(function() {
+        corpora = new Corpora({'csrf_token': "{{ csrf_token }}"});
+    });
+
+    function navigate_to(nav_type, xml_id) {
+        show_nav_content(nav_type, xml_id);
+    }
+
+    function view_nav_history(forward=false) {
+        let valid_history_location = false;
+        if (forward && nav_history_cursor + 1 <= nav_history.length - 1) {
+            nav_history_cursor += 1;
+            valid_history_location = true;
+        } else if (nav_history_cursor - 1 >= 0) {
+            nav_history_cursor -= 1;
+            valid_history_location = true;
+        }
+
+        if (valid_history_location) {
+            let nav_parts = nav_history[nav_history_cursor].split('|');
+            let nav_type = nav_parts[0];
+            let xml_id = nav_parts[1];
+            show_nav_content(nav_type, xml_id, true);
+        }
+    }
+
+    function show_nav_content(nav_type, xml_id, historic=false) {
+        let history_key = `${nav_type}|${xml_id}`;
+        if (!historic && !nav_history.includes(history_key)) {
+            nav_history.push(history_key);
+            nav_history_cursor = nav_history.length - 1;
+        }
+
+        xml_id = xml_id.replaceAll('#', '');
+        if (nav_type === 'lb') {
+            let start_id = xml_id;
+            let end_id = null;
+            if (start_id.includes(' ')) {
+                let id_parts = start_id.split(' ');
+                start_id = id_parts[0];
+                end_id = id_parts[1];
+            }
+
+            if (start_id in lines) {
+                let lines_label = 'Line';
+                let line_row = $(lines[start_id].row);
+                let lines_html = `<div class="play-words">${line_row.data('text')}<br/>`;
+
+                if (end_id) {
+                    lines_label += `s ${line_row.data('line_label')}-`;
+                    let collecting = true;
+                    while (collecting) {
+                        line_row = line_row.next();
+                        if (line_row.hasClass('play-row')) {
+                            lines_html += `${line_row.data('text')}<br/>`;
+                            if (line_row.data('xml_id') === end_id) {
+                                collecting = false;
+                                lines_label += line_row.data('line_label');
+                            }
+                        }
+                    }
+                } else lines_label += ' ' + line_row.data('line_label');
+
+                lines_label += `
+                            <i class="fas fa-external-link-square-alt ml-2"
+                                style="cursor: pointer;"
+                                onClick="javascript: $('#nav-modal').modal('hide'); $('#${start_id}-row')[0].scrollIntoView({behavior: 'smooth'});"
+                            ></i>
+                    `;
+                lines_html += "</div>";
+                display_nav_modal(lines_label, lines_html);
+            }
+        } else {
+            if (nav_type === 'siglum'){ xml_id = `s_${xml_id.toLowerCase()}`; }
+            else if (!nav_map.hasOwnProperty(nav_type)) nav_type = 'anchor';
+
+            let xml_ids = xml_id.split(' ');
+
+            /*if (nav_type === 'anchor' && $(`#${xml_ids[0]}`).length) {
+                $(`#${xml_ids[0]}`)[0].scrollIntoView();
+                return;
+            }
+            else if (nav_type === 'anchor' && $(`a[name=${xml_ids[0]}]`).length) {
+                $(`a[name=${xml_ids[0]}]`)[0].scrollIntoView();
+                return;
+            }*/
+
+            let search_params = {
+                page: 1,
+                'page-size': xml_ids.length,
+                only: 'id',
+                operator: xml_ids.length > 1 ? 'or' : 'and'
+            };
+            let content_type = nav_map[nav_type]['content_type'];
+            let search_field = nav_map[nav_type]['xml_id_field'];
+            search_params[`t_${search_field}`] = xml_ids.join('__');
+            corpora.list_content(corpus_id, content_type, search_params, function (search_data) {
+                if (search_data.hasOwnProperty('records') && search_data.records.length === xml_ids.length) {
+                    let ids = search_data.records.map(record => record.id);
+                    populate_nav_contents(nav_type, ids, [], xml_ids[0]);
+                }
+            });
+        }
+    }
+
+    function populate_nav_contents(nav_type, ids, contents=[], first_xml_id=null) {
+        if (ids.length > 0) {
+            let content_type = nav_map[nav_type]['content_type'];
+
+            corpora.get_content(corpus_id, content_type, ids[0], function(content_data) {
+                contents.push(content_data);
+                ids.shift();
+
+                if (ids.length > 0) {
+                    populate_nav_contents(nav_type, ids, contents, first_xml_id);
+                } else {
+                    let nav_title = nav_map[nav_type]['title'];
+                    if (contents.length > 1) { nav_title = nav_map[nav_type]['title_plural']; }
+
+                    let nav_content = '';
+                    contents.map(content => {
+                        if (nav_content === '') nav_content += '<a name="nav-content-start"></a>';
+                        else nav_content += '<br><br>';
+
+                        if (nav_type === 'note_cn') {
+                            nav_content += `
+                                    <div class="comm-heading">
+                                        ${content.line_label}: ${content.subject_matter}
+                                    </div>
+                                `;
+                        } else if (nav_type === 'anchor') {
+                            nav_title = `${content.section} | ${content.title}`;
+                            nav_title += `
+                                    <a href="/corpus/${corpus_id}/paratext-viewer/${play_prefix}/${content.section}/#paratext-${content.id}" target="_blank">
+                                        <i class="fas fa-external-link-square-alt ml-2"></i>
+                                    </a>
+                                `;
+                        }
+
+                        nav_content += content[nav_map[nav_type]['content_field']];
+                    });
+
+                    display_nav_modal(nav_title, nav_content);
+                    if (nav_map[nav_type].scroll_anchor) {
+                        console.log(first_xml_id);
+                        setTimeout(delayed_scroll.bind(null, first_xml_id), 2000)
+                    }/* else {
+                            setTimeout(delayed_scroll.bind(null, 'nav-content-start'), 2000)
+                        }*/
+                }
+            });
+        }
+    }
+
+    function display_nav_modal(title, content) {
+        let title_html = '';
+        if (nav_history_cursor - 1 >= 0) title_html += `<i class="fa fa-chevron-circle-left" aria-hidden="true" onClick="javascript: view_nav_history();" style="cursor: pointer;"></i>`;
+        if (nav_history_cursor + 1 <= nav_history.length - 1) title_html += `<i class="fa fa-chevron-circle-right" aria-hidden="true" onClick="javascript: view_nav_history(true);" style="cursor: pointer;"></i>`;
+        if (title_html === '') title_html += title;
+        else title_html += `<span class="ml-2">${title}</span>`;
+
+        $('#nav-modal-label').html(title_html);
+        $('#nav-modal-body').html(content);
+        $('#nav-modal').modal();
+    }
+
+    function delayed_scroll(anchor) {
+        if ($(`#${anchor}`).length) {
+            $(`#${anchor}`)[0].scrollIntoView({behavior: 'smooth'});
+        }
+        else $(`a[name=${anchor}]`)[0].scrollIntoView({behavior: 'smooth'});
+    }
+</script>
+</body>
+</html>

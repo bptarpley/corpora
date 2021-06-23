@@ -237,24 +237,58 @@ def paratext(request, corpus_id=None, play_prefix=None, section=None):
 
     corpus = get_corpus(corpus_id)
     play = corpus.get_content('Play', {'prefix': play_prefix}, single_result=True)
-    section_toc = "<ul>"
+    section_toc = ""
     section_html = ""
 
-    top_paratexts = corpus.get_content('ParaText', {
-        'play': play.id,
-        'section': section,
-        'level': 1
-    }).order_by('order')
+    if section in ['Appendix', 'Front Matter']:
+        top_paratexts = corpus.get_content('ParaText', {
+            'play': play.id,
+            'section': section,
+            'level': 1
+        }).order_by('order')
 
-    for pt in top_paratexts:
-        section_toc += pt.toc_html
-        section_html += pt.full_html.replace('/file/uri/', "{0}/file/uri/".format(corpora_url))
+        for pt in top_paratexts:
+            section_toc += pt.toc_html
+            section_html += pt.full_html.replace('/file/uri/', "{0}/file/uri/".format(corpora_url))
 
-    section_toc += "</ul>"
+    elif section == "Bibliography":
+        marker_map = {
+            'ABC': 'A-C',
+            'DEF': 'D-F',
+            'GHI': 'G-I',
+            'JKL': 'J-L',
+            'MNO': 'M-O',
+            'PQR': 'P-R',
+            'STU': 'S-U',
+            'VWX': 'V-X',
+            'YZ': 'Y-Z'
+        }
+
+        for letters in marker_map.keys():
+            section_toc += '<li class="anchor-link is-level-1"><a href="#{0}">{0}</a></li>'.format(
+                marker_map[letters]
+            )
+
+        last_marker = ""
+        for bib in play.bibliographic_sources:
+            marker = last_marker
+            if bib.bibliographic_entry_text:
+                for letters in marker_map.keys():
+                    if _contains_any(bib.bibliographic_entry_text[0], letters):
+                        marker = marker_map[letters]
+                        break
+
+            if marker != last_marker:
+                if section_html:
+                    section_html += '</ul>'
+                section_html += '<ul id="{0}">'.format(marker)
+                last_marker = marker
+
+            section_html += "<li>{0}</li>".format(bib.bibliographic_entry)
 
     return render(
         request,
-        'nvs_appendix.html',
+        'paratext.html',
         {
             'corpus_id': corpus_id,
             'play': play,
