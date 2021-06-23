@@ -38,6 +38,11 @@ def playviewer(request, corpus_id=None, play_prefix=None):
         corpus_id = request.corpus_id
         site_request = True
 
+    on_mobile = False
+    user_agent = request.META['HTTP_USER_AGENT']
+    if _contains_any(user_agent, ['Mobile', 'Opera Mini', 'Android']):
+        on_mobile = True
+
     corpus = get_corpus(corpus_id)
     play = corpus.get_content('Play', {'prefix': play_prefix})[0]
     nvs_session = get_nvs_session(request, play_prefix, reset='reset' in request.GET)
@@ -183,6 +188,7 @@ def playviewer(request, corpus_id=None, play_prefix=None):
         'playviewer.html',
         {
             'site_request': site_request,
+            'on_mobile': on_mobile,
             'corpora_url': corpora_url,
             'corpus_id': corpus_id,
             'lines': lines,
@@ -248,7 +254,7 @@ def paratext(request, corpus_id=None, play_prefix=None, section=None):
 
     return render(
         request,
-        'paratext.html',
+        'nvs_appendix.html',
         {
             'corpus_id': corpus_id,
             'play': play,

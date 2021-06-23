@@ -1753,19 +1753,19 @@ class ParaText(Content):
     @property
     def toc_html(self):
         if not hasattr(self, '_toc_html'):
-            title = self.title
-            if self.level == 1:
-                title = title.upper()
-
             html = '''
-                <li><a href="#paratext-{0}">{1}</li>
-            '''.format(self.id, title)
+                <li class="anchor-link is-level-{0}">
+                    <a href="#paratext-{1}">{2}</a>
+                </li>
+            '''.format(
+                self.level,
+                self.id,
+                self.title
+            )
 
             if self.children:
-                html += "<ul>"
                 for child in self.children:
                     html += child.toc_html
-                html += "</ul>"
 
             setattr(self, '_toc_html', html)
         return self._toc_html

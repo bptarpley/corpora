@@ -9,7 +9,7 @@
 
 <div class="page-title">
   <h1 class="edition-header">
-    The Winter's Tale {% include 'svg/arrow.svg' %} <span class="edition-header--title">Appendix</span>
+    {{ play.title }} {% include 'svg/arrow.svg' %} <span class="edition-header--title">{{ section }}</span>
   </h1>
 </div>
 
@@ -18,45 +18,14 @@
     <div class="page-holder--inner has-max-width">
       <div class="anchor-links--holder">
         <ul class="anchor-links--inner">
-          <li class="anchor-link">
-            <a href="#sources">Sources</a>
-          </li>
-          <li class="anchor-link is-level-2">
-            <a href="#primary-source">Primary
-              Source</a>
-          </li>
-          <li class="anchor-link">
-            <a href="#other-sources">Other
-              Sources</a>
-          </li>
-          <li class="anchor-link is-level-2">
-            <a href="#screen-and-sound-recordings">
-              Screen and sound recordings</a>
-          </li>
-          <li class="anchor-link is-level-2">
-            <a href="#time">Time</a>
-          </li>
-          <li class="anchor-link is-level-2">
-            <a href="#whoop-doe-mee-no-harme-good-man">
-              5. “Whoop, doe mee no harme good man” 2023–5
-              (4.4.198–200)</a>
-          </li>
-          <li class="anchor-link">
-            <a href="#title-level-1-with-title-level-m">
-              Title Level 1 with Title Level M</a>
-          </li>
-          <li class="anchor-link is-level-2">
-            <a href="#title-level-2-with-title-level-m">
-              Title Level 2 with Title Level M</a>
-          </li>
-          <li class="anchor-link is-level-2">
-            <a href="#title-level-3-with-title-level-m">
-              Title Level 3 with Title Level M</a>
-          </li>
+            {{ toc|safe }}
         </ul>
       </div>
       <div>
 
+        <div class="static-type">
+            {{ html|safe }}
+        </div>
         <div class="static-type">
           <h2 class="anchor" id="sources">Sources</h2>
           <h3 class="anchor" id="primary-source">Primary Source</h3>

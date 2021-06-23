@@ -8,6 +8,7 @@ from corpus import *
 from manager.utilities import _contains, _contains_any
 from bs4 import BeautifulSoup
 from django.utils.html import strip_tags
+from django.utils.text import slugify
 from string import punctuation
 from mongoengine.queryset.visitor import Q
 
@@ -383,7 +384,6 @@ def ensure_nvs_content_types(corpus):
         if not doc_schema_ensured:
             corpus.delete_content_type('Document')
             corpus.save_content_type(nvs_doc_schema)
-
 
 
 def delete_play_data(corpus, play_prefix):
@@ -2065,11 +2065,12 @@ def handle_paratext_tag(tag, pt, pt_data):
 
     if tag.name:
         attributes = ""
+        classes = []
         if 'xml:id' in tag.attrs:
             pt.child_xml_ids.append(tag['xml:id'])
             attributes += " id='{0}'".format(tag['xml:id'])
         if 'rend' in tag.attrs:
-            attributes += " style='{0}'".format(get_rend_style(tag['rend']))
+            classes = get_rend_classes(tag['rend'])
 
         if tag.name == 'head':
             if not pt.title:
@@ -2212,8 +2213,11 @@ def handle_paratext_tag(tag, pt, pt_data):
             html_tag = simple_conversions[tag.name]
             if ':' in html_tag:
                 html_tag = html_tag.split(':')[0]
+                classes.append(simple_conversions[tag.name].split(':')[1])
+
+            if classes:
                 attributes += " class='{0}'".format(
-                    simple_conversions[tag.name].split(':')[1]
+                    " ".join(classes)
                 )
 
             html += "<{0}{1}>".format(
@@ -2237,31 +2241,8 @@ def handle_paratext_tag(tag, pt, pt_data):
     return html
 
 
-def get_rend_style(rend):
-    style = ''
-
-    if 'allcaps' in rend:
-        style += 'text-transform: uppercase; '
-    if 'smcaps' in rend or 'lscaps' in rend:
-        style += 'font-variant: small-caps; '
-    if 'align(left)' in rend:
-        style += 'text-align: left; '
-    if 'align(center)' in rend:
-        style += 'text-align: center; '
-    if 'align(right)' in rend:
-        style += 'text-align: right; '
-    if 'italic' in rend:
-        style += 'font-style: italic; '
-    if 'superscript' in rend:
-        style += 'vertical-align: super; font-size: smaller; '
-    if 'indent(' in rend:
-        match = re.match(r'indent\(([^)]*)\)', rend)
-        if match:
-            indent_size = match.group(1)
-            style += 'margin-left: {0}; '.format(indent_size)
-
-
-    return style.strip()
+def get_rend_classes(rend):
+    return [slugify(r) for r in rend.split() if r]
 
 
 def get_line_ids(line_id_map, xml_id_start, xml_id_end=None):
@@ -2350,69 +2331,6 @@ def _str(val):
         return val
     return ''
 
-'''
-def tei_to_html(tei):
-    html = ""
-
-    tei_conversions = [
-        (r"<lb/>", "<br>"),
-        (r"<name>", "<span class='name'>"),
-        (r"</name>", "</span>"),
-        (r"<date>", "<span class='date'>"),
-        (r"</date>", "</span>"),
-        (r"<editor[^>]*>", "<span class='name'>"),
-        (r"</editor>", "</span>"),
-        (r"<head>", "<h2>"),
-        (r"</head>", "</h2>"),
-        (r"<title level=\"m\">", "<i>"),
-        (r"</title>", "</i>"),
-        (r"<closer>", ""),
-        (r"</closer>", "")
-    ]
-
-    tei_transforms = [
-        (r'<name[^>]*>([^<]*)</name>', lambda name: register_person(name)),
-        (r'<hi rend="smcaps">(.*?)</hi>', lambda text: "<span style='font-variant: small-caps;'>{0}</span>".format(text)),
-        (r'<hi rend="italic">(.*?)</hi>', lambda text: "<i>{0}</i>".format(text)),
-        (r'<lb rend="indent\(([^)]*)\)"\/>', lambda indentation: "<br><span style='width: {0}; display: inline-block;'>&nbsp;</span>".format(indentation)),
-        (r'<space extent="([^"]*)"\/>', lambda space: "<span style='width: {0}; display: inline-block;'>&nbsp;</span>".format(space)),
-        (r'<signed>([^<]*)<\/signed>', lambda name: "<div style='text-align: right; margin-top: 8px; margin-bottom: 8px;'>{0}</div>".format(name)),
-        (r'<siglum>([^<]*)<\/siglum>', lambda siglum: reference_document(siglum, 'siglum')),
-        (r'<anchor type="xref" xml:id="([^"]*)"\/>', lambda anchor: register_anchor(anchor)),
-        (r'(<ref [^>]*>.*?<\/ref>)', lambda reffed: process_link(reffed)),
-        (r'(<ptr targType="[^"]*" target="#[^"]*"\/>)', lambda reffed: process_link(reffed, pointer=True)),
-        (r'<quote rend="block">(.*?)<\/quote>', lambda quoted: "<div style='margin: 20px 0px 20px 20px;'>{0}</div>".format(quoted)),
-    ]
-
-    for child in tei.children:
-        child_html = str(child)
-
-        #for text, replacement in text_replacements.items():
-        #    child_html = child_html.replace(text, replacement)
-
-        for tei_conversion in tei_conversions:
-            child_html = re.sub(tei_conversion[0], tei_conversion[1], child_html)
-
-        for tei_transform in tei_transforms:
-            match = re.search(tei_transform[0], child_html, flags=re.S)
-            match_counter = 0
-            while match:
-                full_match = match.group(0)
-                transform_match = match.group(1)
-                transformed = tei_transform[1](transform_match)
-                child_html = child_html.replace(full_match, transformed)
-                match = re.search(tei_transform[0], child_html)
-                match_counter += 1
-                if match_counter > 2:
-                    print(child_html)
-                    print(full_match)
-                    print(transformed)
-
-        html += child_html
-
-    return html
-'''
-
 
 def tei_to_html(tag):
     html = ""
@@ -2469,10 +2387,11 @@ def tei_to_html(tag):
                 html += tei_to_html(child)
         else:
             attributes = ""
+            classes = []
             if 'xml:id' in tag.attrs:
                 attributes += " id='{0}'".format(tag['xml:id'])
             if 'rend' in tag.attrs:
-                attributes += " style='{0}'".format(get_rend_style(tag['rend']))
+                classes = get_rend_classes(tag['rend'])
 
             if tag.name == 'lb' and attributes:
                 html += '<br /><span{0}>&nbsp;</span>'
@@ -2522,8 +2441,11 @@ def tei_to_html(tag):
                 html_tag = simple_conversions[tag.name]
                 if ':' in html_tag:
                     html_tag = html_tag.split(':')[0]
+                    classes.append(simple_conversions[tag.name].split(':')[1])
+
+                if classes:
                     attributes += " class='{0}'".format(
-                        simple_conversions[tag.name].split(':')[1]
+                        " ".join(classes)
                     )
 
                 html += "<{0}{1}>".format(

@@ -205,6 +205,9 @@
                 border-right: solid 5px var(--nvs-background-color);
             }
 
+            /* -----------------------------
+            || CONTROLS
+            || -------------------------- */
             .nvs-search {
                 -webkit-appearance: none;
                 -moz-appearance: none;
@@ -222,7 +225,6 @@
                 background-image: url({% static 'img/controls/search_placeholder.svg' %});
                 background-repeat: no-repeat;
                 background-size: initial;
-                /*background-size: auto var(--nvs-form-control-height);*/
                 border: 2px solid var(--nvs-light-gray);
                 -ms-word-break: normal;
                 word-break: normal;
@@ -241,6 +243,14 @@
                 height: unset;
                 min-height: var(--nvs-form-control-height);
                 max-height: 150px;
+            }
+
+            #playtext-search-close-button {
+                position: relative;
+                left: -30px;
+                top: 13px;
+                cursor: pointer;
+                color: var(--nvs-mid-gray);
             }
 
             .nvs-tln {
@@ -888,7 +898,7 @@
                     <div class="row">
                         <div class="col-sm-8 pr-0 bg-nvs-light-blue var-playtext-col">
                             <div class="row no-gutters header-block">
-                                <div class="col-sm-4 d-flex align-items-center justify-content-center">
+                                <div id="variant-header-col" class="col-sm-4 d-flex align-items-center justify-content-center">
                                     <div class="heading-label text-white">
                                         TEXTUAL VARIANTS BY YEAR
                                     </div>
@@ -898,7 +908,7 @@
                                         PLAY TEXT
                                     </div>
                                     <div id="playtext-search-div" class="d-flex flex-column mr-1">
-                                        <div id="hdr-quick-search-box" class="nvs-search" contentEditable="plaintext-only"></div>
+                                        <div id="hdr-quick-search-box" class="nvs-search" contentEditable="true"></div>
                                         <div id="hdr-quick-search-drawer" class="collapse">
                                             <div class="row">
                                                 <div class="col-sm-12 heading-label text-white">
@@ -960,6 +970,7 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <i id="playtext-search-close-button" class="fas fa-times d-none" aria-label="Close"></i>
                                     <div id="playtext-tln-div">
                                         <input id="hdr-line-no-box" class="nvs-tln" type="text" />
                                     </div>
@@ -982,7 +993,7 @@
 
                     <div class="row">
                         <div id="playtext-header-col" class="col-sm-8 pr-0 bg-nvs-light-orange var-playtext-col">
-                            <div class="row no-gutters header-block">
+                            <div class="row no-gutters header-block h-100">
                                 <div id="witness-header" class="col-sm-4 m-0 p-0">
                                     &nbsp;
                                 </div>
@@ -1017,12 +1028,12 @@
                         </div>
                         <div class="col-sm-4 act-scene-comm-col">
                             <div class="row header-block">
-                                <div id="act-scene-header-col" class="col-sm-1 bg-nvs-lightest-gray act-scene-col">
+                                <div id="act-scene-header-col" class="col-sm-1 bg-nvs-lightest-gray act-scene-col p-0 m-0">
                                     <div class="heading-label vertical d-flex h-100 align-items-end">
                                         ACT<br>SCN
                                     </div>
                                 </div>
-                                <div class="col-sm-11 bg-nvs-light-yellow comm-col">
+                                <div class="col-sm-11 bg-nvs-light-yellow comm-col p-0 m-0">
                                     &nbsp;
                                 </div>
                             </div>
@@ -1163,6 +1174,7 @@
     let corpus_id = "{{ corpus_id }}";
     let play_prefix = "{{ play.prefix }}";
     let play_id = "{{ play.id }}";
+    let on_mobile = {% if on_mobile %}true{% else %}false{% endif %};
 
     let playviewer_url = {% if site_request %}`/play/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-viewer/${play_prefix}/`{% endif %};
     let search_endpoint = {% if site_request %}`${window.location.protocol}//${window.location.host}/search/${play_prefix}/`{% else %}`/api/corpus/${corpus_id}/nvs-search/${play_prefix}/`{% endif %};
@@ -1201,6 +1213,7 @@
     let commentaries = {};
     let commentary_loaded = false, characters_loaded = false;
     let comm_timer = null;
+    let resize_timer = null;
     let nvs_search = null;
     let ref_modal_counter = 0;
 
@@ -1258,8 +1271,6 @@
         corpora = new Corpora({'csrf_token': "{{ csrf_token }}"{% if site_request %}, 'host': '{{ corpora_url }}'{% endif %}});
         screen_size = determine_screen_size(window.innerWidth);
         style_sheet = document.styleSheets[0];
-        $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())})`);
-        draw_witness_header_and_background();
 
         // GET CHARACTER NAMES; POSSIBLY FILTERED BY ACT/SCENE
         let speech_params = {
@@ -1327,7 +1338,13 @@
     }
 
     function configure_controls() {
-        // HEADER: NESTED DROPDOWN
+        // WINDOW RESIZE
+        $(window).resize(function() {
+            clearTimeout(resize_timer);
+            resize_timer = setTimeout(adjust_for_screensize, 2000);
+        });
+
+        // NAV DROPDOWNS
         $('.dropdown-menu a.dropdown-toggle').on('click', function(e) {
             if (!$(this).next().hasClass('show')) {
                 $(this).parents('.dropdown-menu').first().find('.show').removeClass("show");
@@ -1349,7 +1366,10 @@
         // HEADER: LINE# BOX
         $('#hdr-line-no-box').keypress(function(e) {
             if (e.which === 13) {
-                let line_no = $('#hdr-line-no-box').val();
+                let line_box = $('#hdr-line-no-box');
+                let line_no = line_box.val();
+                line_box.val('');
+                line_box.blur();
                 if (`tln_${line_no}` in lines) {
                     $(`#tln_${line_no}-row`)[0].scrollIntoView({behavior: 'smooth'});
                 } else {
@@ -1370,7 +1390,9 @@
 
         // SEARCH CONTROLS
         let playtext_search_col = $('#playtext-search-tln-col');
+        let variant_header_col = $('#variant-header-col');
         let quick_search_box = $('#hdr-quick-search-box');
+        let playtext_search_close_button = $('#playtext-search-close-button');
         let quick_search_drawer = $('#hdr-quick-search-drawer');
         let playtext_header_label = $('#playtext-header-label');
         let playtext_search_div = $('#playtext-search-div');
@@ -1382,10 +1404,9 @@
 
         // HEADER: QUICK SEARCH BOX
         quick_search_box.keydown(function(e) {
-            console.log(e.key);
-            let collapse_search = false;
             if (e.which === 13) {
-                let query = quick_search_box.text().trim();
+                let query = quick_search_box.html().trim().replace(/(<([^>]+)>)/gi, " ");
+                console.log(query);
                 quick_search_box.empty();
                 quick_search_box.html(query);
 
@@ -1407,19 +1428,10 @@
                     process_search_results
                 );
 
-                collapse_search = true;
+                collapse_search();
+                return false;
             } else if (e.key === "Escape") {
-                collapse_search = true;
-            }
-
-            if (collapse_search) {
-                playtext_header_label.removeClass('d-none');
-                playtext_search_div.removeClass('w-100');
-                quick_search_box.css('width', '100px');
-                playtext_search_col.addClass('align-items-center');
-                playtext_search_col.removeClass('align-items-top');
-                quick_search_drawer.collapse('hide');
-
+                collapse_search();
                 return false;
             }
         });
@@ -1430,7 +1442,15 @@
             quick_search_box.css('width', '100%');
             playtext_search_col.removeClass('align-items-center');
             playtext_search_col.addClass('align-items-top');
+            variant_header_col.removeClass('align-items-center');
+            variant_header_col.addClass('align-items-top');
+            variant_header_col.addClass('pt-2');
             quick_search_drawer.collapse('show');
+            playtext_search_close_button.removeClass('d-none');
+        });
+
+        playtext_search_close_button.click(function() {
+            collapse_search();
         });
 
         // VARIANT TOGGLER CLICK
@@ -1518,9 +1538,58 @@
         });
     }
 
+    function collapse_search() {
+        let playtext_search_col = $('#playtext-search-tln-col');
+        let variant_header_col = $('#variant-header-col');
+        let quick_search_box = $('#hdr-quick-search-box');
+
+        $('#playtext-header-label').removeClass('d-none');
+        $('#playtext-search-div').removeClass('w-100');
+        $('#playtext-search-close-button').addClass('d-none');
+        quick_search_box.css('width', '100px');
+        quick_search_box.empty();
+        quick_search_box[0].blur();
+        playtext_search_col.addClass('align-items-center');
+        playtext_search_col.removeClass('align-items-top');
+        variant_header_col.addClass('align-items-center');
+        variant_header_col.removeClass('align-items-top');
+        variant_header_col.removeClass('pt-2');
+        $('#hdr-quick-search-drawer').collapse('hide');
+    }
+
     function adjust_for_screensize() {
+        // FIX WIDTH OF "GO TO TLN" BOX
         let tln_width = $('#tln-header-col').width() + 40;
         $('#hdr-line-no-box').css('width', tln_width);
+
+        // FIX TEXTUAL VARIANT HEADER
+        draw_witness_header_and_background();
+
+        // FIX MINIMAP
+        $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())})`);
+
+        // REDRAW LINE WITNESS METERS
+        $('.play-row').each(function() {
+            let xml_id = $(this).data('xml_id');
+            draw_witness_meter(
+                lines[xml_id].witness_indicators,
+                lines[xml_id].witness_meter,
+                lines[xml_id].witness_column.clientWidth,
+                lines[xml_id].witness_column.clientHeight - 8
+            );
+        });
+
+        // REDRAW VARIANT WITNESS METERS
+        let variant_col_width = $(`.witness-meter`)[0].offsetWidth;
+        $('.variant-witness-meter > img').each(function() {
+            draw_witness_meter(
+                $(this).data('witness_indicators'),
+                this,
+                variant_col_width,
+                25,
+                "#FFFFFF"
+            );
+        });
     }
 
     function enable_commentary_highlighting() {
@@ -1539,29 +1608,33 @@
             e.stopPropagation();
         });
 
-        $('comspan').mouseover(function(ev) {
-            let selector = `comspan.${ev.target.className}`;
-            style_sheet.insertRule(`
-                ${selector} {
-                    border: solid 1px var(--nvs-primary-orange);
-                }
-            `);
+        if (!on_mobile) {
+            $('comspan').mouseover(function (ev) {
+                let selector = `comspan.${ev.target.className}`;
+                style_sheet.insertRule(`
+                    ${selector} {
+                        border: solid 1px var(--nvs-primary-orange);
+                    }
+                `);
 
-            setTimeout(delete_css_rule.bind(null, selector), 3000);
-        });
+                setTimeout(delete_css_rule.bind(null, selector), 3000);
+            });
 
-        $('comspan').mouseleave(function(ev) {
-            let selector = `comspan.${ev.target.className}`;
-            delete_css_rule(selector);
-        });
+            $('comspan').mouseleave(function (ev) {
+                let selector = `comspan.${ev.target.className}`;
+                delete_css_rule(selector);
+            });
+        }
     }
 
     function disable_commentary_highlighting() {
         delete_css_rule('comspan');
         let comspan = $('comspan');
         comspan.off('click');
-        comspan.off('mouseover');
-        comspan.off('mouseleave');
+        if (!on_mobile) {
+            comspan.off('mouseover');
+            comspan.off('mouseleave');
+        }
     }
 
     function toggle_commentary_highlighting() {
@@ -1663,11 +1736,11 @@
                                 indicator.attr('src', "{% static 'img/nvs-variants-expand.png' %}")
                             });
 
-                            let variant_col = $(`#${line.xml_id}-witness-col`);
+                            let variant_col_width = $(`#${line.xml_id}-witness-col`).outerWidth();
                             draw_witness_meter(
                                 variant.witness_meter,
                                 document.getElementById(`${line.xml_id}-${variant.id}-witness-meter`),
-                                variant_col.outerWidth(),
+                                variant_col_width,
                                 25,
                                 "#FFFFFF"
                             );
