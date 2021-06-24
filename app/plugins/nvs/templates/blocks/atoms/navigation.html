@@ -149,7 +149,7 @@
       <button class="link">NVS Digital Editions <span class="beta">(BETA)</span> {% include 'svg/arrow.svg' %}</button>
       <ul class="navigation--dropdown-inner">
         <ul class="navigation--dropdown-group">
-          <li class="navigation--dropdown nested">
+          <li class="navigation--dropdown nested{% if 'wt' in nvs_page %} active {% endif %}">
             <button class="link">The Winter's Tale {% include 'svg/arrow.svg' %}</button>
             <ul class="navigation--dropdown-inner">
               <li><a href="{% if site_request %}/edition/wt/{% else %}/corpus/{{ corpus_id }}/play-viewer/wt/{% endif %}">Variorum Reader</a></li>
