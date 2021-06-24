@@ -52,9 +52,6 @@ def playviewer(request, corpus_id=None, play_prefix=None):
     character = request.GET.get('character', nvs_session['filter']['character'])
 
     lines = []
-    witnesses = {}
-    witness_centuries = {}
-
     session_changed = False
 
     if 'play_id' not in nvs_session or nvs_session['play_id'] != str(play.id):
@@ -139,49 +136,7 @@ def playviewer(request, corpus_id=None, play_prefix=None):
         if 'Trailer|||0' in as_results['meta']['aggregations']['act_scenes']:
             act_scenes['TR'] = "Trailer.0"
 
-    wit_counter = 0
-    for wit_doc in play.primary_witnesses:
-        witnesses[wit_doc.siglum] = {
-            'slots': [wit_counter],
-            'document_id': str(wit_doc.id),
-            'bibliographic_entry': "{0} {1}".format(wit_doc.siglum_label, wit_doc.bibliographic_entry),
-            'occasional': False
-        }
-
-        century = wit_doc.pub_date[:2] + "00"
-        if century in witness_centuries:
-            witness_centuries[century] += 1
-        else:
-            witness_centuries[century] = 1
-
-        wit_counter += 1
-
-    for sel_doc in play.occasional_witnesses:
-        witnesses[sel_doc.siglum] = {
-            'slots': [wit_counter],
-            'document_id': str(sel_doc.id),
-            'bibliographic_entry': sel_doc.bibliographic_entry,
-            'occasional': True
-        }
-
-    document_collections = corpus.get_content('DocumentCollection', all=True)
-    for collection in document_collections:
-        slots = []
-        bib_entry = ""
-
-        for reffed_doc in collection.referenced_documents:
-            if reffed_doc.siglum in witnesses:
-                slots += witnesses[reffed_doc.siglum]['slots']
-                if bib_entry:
-                    bib_entry += "<br /><br />"
-                bib_entry += "{0} {1}".format(reffed_doc.siglum_label, reffed_doc.bibliographic_entry)
-
-        witnesses[collection.siglum] = {
-            'slots': slots,
-            'bibliographic_entry': bib_entry,
-            'occasional': False
-        }
-
+    witnesses, wit_counter, witness_centuries = get_nvs_witnesses(corpus, play)
 
     return render(
         request,
@@ -295,6 +250,8 @@ def paratext(request, corpus_id=None, play_prefix=None, section=None):
 
         nvs_page = "{0}-bibliography".format(play_prefix)
 
+    witnesses, wit_counter, witness_centuries = get_nvs_witnesses(corpus, play)
+
     return render(
         request,
         'paratext.html',
@@ -304,6 +261,7 @@ def paratext(request, corpus_id=None, play_prefix=None, section=None):
             'nvs_page': nvs_page,
             'corpora_url': corpora_url,
             'play': play,
+            'witnesses': json.dumps(witnesses),
             'section': section,
             'toc': section_toc,
             'html': section_html
@@ -1048,6 +1006,56 @@ def get_nvs_session(request, play_prefix, deserialize=True, reset=False):
         if deserialize:
             return default_session
         return json.dumps(default_session)
+
+
+def get_nvs_witnesses(corpus, play):
+    witnesses = {}
+    witness_centuries = {}
+
+    wit_counter = 0
+    for wit_doc in play.primary_witnesses:
+        witnesses[wit_doc.siglum] = {
+            'slots': [wit_counter],
+            'document_id': str(wit_doc.id),
+            'bibliographic_entry': "{0} {1}".format(wit_doc.siglum_label, wit_doc.bibliographic_entry),
+            'occasional': False
+        }
+
+        century = wit_doc.pub_date[:2] + "00"
+        if century in witness_centuries:
+            witness_centuries[century] += 1
+        else:
+            witness_centuries[century] = 1
+
+        wit_counter += 1
+
+    for sel_doc in play.occasional_witnesses:
+        witnesses[sel_doc.siglum] = {
+            'slots': [wit_counter],
+            'document_id': str(sel_doc.id),
+            'bibliographic_entry': sel_doc.bibliographic_entry,
+            'occasional': True
+        }
+
+    document_collections = corpus.get_content('DocumentCollection', all=True)
+    for collection in document_collections:
+        slots = []
+        bib_entry = ""
+
+        for reffed_doc in collection.referenced_documents:
+            if reffed_doc.siglum in witnesses:
+                slots += witnesses[reffed_doc.siglum]['slots']
+                if bib_entry:
+                    bib_entry += "<br /><br />"
+                bib_entry += "{0} {1}".format(reffed_doc.siglum_label, reffed_doc.bibliographic_entry)
+
+        witnesses[collection.siglum] = {
+            'slots': slots,
+            'bibliographic_entry': bib_entry,
+            'occasional': False
+        }
+
+    return witnesses, wit_counter, witness_centuries
 
 
 def api_nvs_session(request, play_prefix):

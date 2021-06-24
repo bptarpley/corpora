@@ -738,7 +738,7 @@
 
             .ref-modal-control {
                 cursor: pointer;
-                max-height: 13px;
+                height: 20px;
                 margin-left: 5px;
             }
 
@@ -2124,11 +2124,11 @@
                 } else lines_label += ' ' + line_row.data('line_label');
 
                 let controls = `
-                        <img src="{% static 'img/nav-internal.png' %}"
+                        <img src="{% static 'img/controls/Modal-GOTO.svg' %}"
                             class="ref-modal-control"
                             onClick="javascript: $('#${start_id}-row')[0].scrollIntoView({behavior: 'smooth'});"
                         >
-                        <a href="${playviewer_url}#${line_row.attr('id')}" target="_blank"><img src="{% static 'img/nav-external.png' %}"
+                        <a href="${playviewer_url}#${line_row.attr('id')}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}"
                             class="ref-modal-control"
                             border="0"
                         ></a>

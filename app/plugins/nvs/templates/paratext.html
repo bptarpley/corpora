@@ -215,6 +215,282 @@
         top: 0;
         left: 0;
     }
+
+    /* -----------------------------
+    || STYLES IMPORTED FROM PLAYVIEWER TO SUPPORT REF MODALS
+    || -------------------------- */
+
+    @font-face {
+        font-family: "HalyardTextBook";
+        src: url("/static/proprietary/font/HalyardTextBook.woff2") format('woff2'), url("/static/proprietary/font/HalyardTextBook.woff") format('woff');
+    }
+
+    @font-face {
+        font-family: "HalyardTextSemiBold";
+        src: url("/static/proprietary/font/HalyardTextSemBd.woff2") format('woff2'), url("/static/proprietary/font/HalyardTextSemBd.woff") format('woff');
+    }
+
+    @font-face {
+        font-family: "HalyardTextMedium";
+        src: url("/static/proprietary/font/HalyardTextMed.woff2") format('woff2'), url("/static/proprietary/font/HalyardTextMed.woff") format('woff');
+    }
+
+    @font-face {
+        font-family: "Baskerville";
+        src: url("/static/proprietary/font/Baskerville10Pro.woff") format('woff');
+    }
+
+    @font-face {
+        font-family: "Baskerville";
+        src: url("/static/proprietary/font/Baskerville10Pro-Bold.woff") format('woff');
+        font-weight: bold;
+    }
+
+    @font-face {
+        font-family: "Baskerville";
+        src: url("/static/proprietary/font/Baskerville10Pro-Italic.woff") format('woff');
+        font-style: italic;
+    }
+
+    @font-face {
+        font-family: "Baskerville";
+        src: url("/static/proprietary/font/Baskerville10Pro-BoldItalic.woff") format('woff');
+        font-weight: bold;
+        font-style: italic;
+    }
+
+    .d-flex {
+        display: flex !important;
+    }
+
+    .justify-content-between {
+        -webkit-box-pack: justify!important;
+        -ms-flex-pack: justify!important;
+        justify-content: space-between!important;
+    }
+
+    .justify-content-center {
+        -webkit-box-pack: center!important;
+        -ms-flex-pack: center!important;
+        justify-content: center!important;
+    }
+
+    .row {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        -ms-flex-wrap: wrap;
+        flex-wrap: wrap;
+        margin-right: -15px;
+        margin-left: -15px;
+    }
+
+    .no-gutters {
+        margin-right: 0;
+        margin-left: 0;
+    }
+
+    .p-0 {
+        padding: 0!important;
+    }
+    .m-0 {
+        margin: 0!important;
+    }
+
+    .col-sm-10 {
+        position: relative;
+        width: 100%;
+        min-height: 1px;
+        -webkit-box-flex: 0;
+        -ms-flex: 0 0 83.333333%;
+        flex: 0 0 83.333333%;
+        max-width: 83.333333%;
+    }
+
+    .col-sm-1 {
+        -webkit-box-flex: 0;
+        -ms-flex: 0 0 8.333333%;
+        flex: 0 0 8.333333%;
+        max-width: 8.333333%;
+    }
+
+    .ref-modal {
+        position: absolute;
+        max-width: calc(40vw);
+        z-index: 500;
+    }
+
+    .arrow-right, .arrow-left {
+        background-color: #FFFFFF;
+        position: relative;
+        box-sizing: border-box;
+        border: 1px solid #828282;
+        box-shadow: 0px 3px 3px 0 rgba(0, 0, 0, 0.4);
+    }
+
+    .arrow-right {
+        float: left;
+    }
+
+    .arrow-left {
+        float: right;
+    }
+
+    .arrow-right:after, .arrow-right:before, .arrow-left:after, .arrow-left:before {
+        content: " ";
+        width: 0;
+        height: 0;
+        position: absolute;
+        left: -15px;
+        top: 10%;
+    }
+
+    .arrow-right:after, .arrow-right:before {
+        left: 100%;
+    }
+
+    .arrow-right:after {
+        border-top: 15px solid transparent;
+        border-right: none;
+        border-left: 15px solid white;
+        border-bottom: 15px solid transparent;
+    }
+
+    .arrow-right:before {
+        border-top: 17px solid transparent;
+        border-right: none;
+        border-left: 16px solid #828282;
+        border-bottom: 16px solid transparent;
+        margin-top: -2px;
+    }
+
+    .arrow-left:after {
+        border-top: 15px solid transparent;
+        border-left: none;
+        border-right: 15px solid white;
+        border-bottom: 15px solid transparent;
+    }
+
+    .arrow-left:before {
+        border-top: 17px solid transparent;
+        border-left: none;
+        border-right: 16px solid #828282;
+        border-bottom: 16px solid transparent;
+        margin-top: -2px;
+        margin-left: -1px;
+    }
+
+    .ref-modal-header {
+        font-family: 'Roboto Condensed', sans-serif;
+        font-weight: bold;
+        text-transform: uppercase;
+        color: #000000;
+        padding: 10px;
+        cursor: move;
+    }
+
+    .ref-subtitle-marker {
+        background-color: #2a69a1;
+        width: 13px;
+        height: 13px;
+        display: inline-block;
+        margin-right: 3px;
+        position: relative;
+        top: 5px;
+    }
+
+    .ref-modal-control {
+        cursor: pointer;
+        height: 20px;
+        margin-left: 5px;
+    }
+
+    .ref-modal-content {
+        padding: 10px;
+        font-family: 'HalyardTextBook';
+        max-height: calc(40vh);
+        overflow-y: scroll;
+    }
+
+    .ref-row {
+        width: calc(40vw);
+        border-top: solid 1px #cfcfcf;
+    }
+
+    .ref-row:last-child {
+        border-bottom: solid 1px #cfcfcf;
+    }
+
+    .play-words {
+        padding-top: 10px;
+        padding-bottom: 5px;
+        padding-left: 0px;
+        font-family: 'Baskerville', serif;
+        font-variant-numeric: oldstyle-nums;
+        font-size: clamp(1.125rem, 1.2vw, 1.5rem);
+        color: #070707;
+        background-color: white;
+        -webkit-box-align: center!important;
+        -ms-flex-align: center!important;
+        align-items: center!important;
+        display: -webkit-box!important;
+        display: -ms-flexbox!important;
+        display: flex!important;
+    }
+
+    .play-label {
+        background-color: white;
+        color: #828282;
+        border: none;
+        border-left: solid 1px #cfcfcf;
+        border-right: solid 1px #cfcfcf;
+        font-family: 'Roboto Condensed', sans-serif;
+        font-size: 12px;
+        -webkit-box-align: center!important;
+        -ms-flex-align: center!important;
+        align-items: center!important;
+        display: -webkit-box!important;
+        display: -ms-flexbox!important;
+    }
+
+    .actscene-indicator {
+        color: #828282;
+        font-size: 12px;
+        cursor: pointer;
+        background-color: #F2F2F2;
+        -webkit-box-align: center!important;
+        -ms-flex-align: center!important;
+        align-items: center!important;
+        display: -webkit-box!important;
+        display: -ms-flexbox!important;
+    }
+
+    .comm-heading {
+        background-color: #F0E438;
+        font-family: 'Baskerville', serif;
+        font-variant-numeric: oldstyle-nums;
+        cursor: pointer;
+        color: #000000;
+    }
+
+    .comm-block {
+        color: #000000;
+        font-family: 'HalyardTextBook';
+        font-size: clamp(13px,1.2vw,16px);
+        margin-bottom: 20px;
+        font-variant-numeric: oldstyle-nums;
+    }
+
+    .comm-block a {
+        color: #2a69a1;
+    }
+
+    .graphic {
+        display: block;
+        width: 90%;
+        margin-left: auto;
+        margin-right: auto;
+    }
 </style>
 
 {% endblock %}
@@ -251,10 +527,12 @@
 <script type="application/javascript">
     let corpora;
     let corpus_id = "{{ corpus_id }}";
+    let corpora_url = "{{ corpus_url }}";
     let play_prefix = "{{ play.prefix }}";
     let play_id = "{{ play.id }}";
+    let witnesses = {{ witnesses|safe }};
     let playviewer_url = {% if site_request %}`/play/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-viewer/${play_prefix}/`{% endif %};
-    let lines_endpoint = {% if site_request %}`/lines/${play_prefix}/`{% else %}`/api/corpus/${corpus_id}/lines/${play_prefix}/`{% endif %};
+    let lines_endpoint = {% if site_request %}`/lines/${play_prefix}/`{% else %}`/api/corpus/${corpus_id}/nvs-lines/${play_prefix}/`{% endif %};
     let ref_modal_counter = 0;
 
     let nav_map = {
@@ -307,7 +585,29 @@
 
     $(document).ready(function() {
         corpora = new Corpora({'csrf_token': "{{ csrf_token }}"{% if site_request %},'host': '{{ corpora_url }}'{% endif %}});
+
+        $('img.graphic').each(function() {
+            let graphic = $(this);
+            let repo_name = graphic.data('repo-name');
+            let path = graphic.data('path');
+            let src = `${corpora_url}/repo-file/${corpus_id}/${repo_name}/?path=${path}`;
+            graphic.attr('src', src);
+        });
     })
+
+    function romanize (num) {
+        if (isNaN(num))
+            return num;
+        let digits = String(+num).split(""),
+            key = ["","C","CC","CCC","CD","D","DC","DCC","DCCC","CM",
+                "","X","XX","XXX","XL","L","LX","LXX","LXXX","XC",
+                "","I","II","III","IV","V","VI","VII","VIII","IX"],
+            roman = "",
+            i = 3;
+        while (i--)
+            roman = (key[+digits.pop() + (i * 10)] || "") + roman;
+        return Array(+digits.join("") + 1).join("M") + roman;
+    }
 
     function navigate_to(nav_type, xml_id, link=null) {
         xml_id = xml_id.replace(/#/g, '');
@@ -328,51 +628,32 @@
                 'GET',
                 {},
                 function(data) {
-                    console.log(data);
+                    if (data.length) {
+                        let lines_label = data.length === 1 ? `Line ${data[0].line_label}` : `Lines ${data[0].line_label}-${data[data.length - 1].line_label}`;
+                        let lines_html = '';
+                        let line_template = (line) =>
+                            `<div class="row no-gutters ref-row">
+                                <div class="col-sm-10 m-0 p-0 play-words">
+                                    ${line.text}
+                                </div>
+                                <div class="col-sm-1 m-0 p-1 play-label d-flex justify-content-center">
+                                    ${line.line_label}
+                                </div>
+                                <div class="col-sm-1 m-0 p-1 bg-nvs-lightest-gray actscene-indicator d-flex justify-content-center">
+                                    ${romanize(line.act)},${line.scene}
+                                </div>
+                            </div>`;
+                        data.map(line => { lines_html += line_template(line); });
+
+                        let controls = `
+                            <a href="${playviewer_url}#${start_id}-row" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}"
+                                class="ref-modal-control"
+                                border="0"
+                            ></a>`;
+                        display_nav_modal(lines_label, lines_html, link, controls);
+                    }
                 }
             );
-
-            if (start_id in lines) {
-                let line_template = () =>
-                    `<div class="row no-gutters ref-row">
-                        <div class="col-sm-10 m-0 p-0 play-words">
-                            ${line_row.data('text')}
-                        </div>
-                        <div class="col-sm-1 m-0 p-1 play-label d-flex justify-content-center">
-                            ${line_row.data('line_label')}
-                        </div>
-                        <div class="col-sm-1 m-0 p-1 bg-nvs-lightest-gray actscene-indicator d-flex justify-content-center">
-                            ${romanize(line_row.data('act'))},${line_row.data('scene')}
-                        </div>
-                    </div>`;
-
-                let lines_label = 'Line';
-                let line_row = $(lines[start_id].row);
-                let lines_html = line_template();
-
-                if (end_id) {
-                    lines_label += `s ${line_row.data('line_label')}-`;
-                    let collecting = true;
-                    while (collecting) {
-                        line_row = line_row.next();
-                        if (line_row.hasClass('play-row')) {
-                            lines_html += line_template();
-                            if (line_row.data('xml_id') === end_id) {
-                                collecting = false;
-                                lines_label += line_row.data('line_label');
-                            }
-                        }
-                    }
-                } else lines_label += ' ' + line_row.data('line_label');
-
-                let controls = `
-                    <a href="${playviewer_url}#${line_row.attr('id')}" target="_blank"><img src="{% static 'img/nav-external.png' %}"
-                        class="ref-modal-control"
-                        border="0"
-                    ></a>
-                `;
-                display_nav_modal(lines_label, lines_html, link, controls);
-            }
         } else {
             if (nav_type === 'siglum'){
                 if (!xml_id.startsWith('s_')) xml_id = `s_${xml_id.toLowerCase()}`;
@@ -480,7 +761,7 @@
                             ${title}
                             <span>
                             ${controls}
-                            <i id="${modal_id}-close-button" class="fas fa-times ref-modal-control" data-modal-id="${modal_id}" aria-label="Close"></i>
+                            <img src="{% static 'img/controls/Modal-CLOSE.svg' %}" id="${modal_id}-close-button" class="ref-modal-control" data-modal-id="${modal_id}" aria-label="Close" />
                             </span>
                         </div>
                         <div class="ref-modal-content">${content}</div>

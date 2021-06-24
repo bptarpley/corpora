@@ -311,6 +311,7 @@ Delete Existing:    {4}
                         parse_appendix(
                             corpus,
                             play,
+                            play_repo_name,
                             include_file_paths['appendix']
                         )
                     )
@@ -336,32 +337,30 @@ Delete Existing:    {4}
 
 
 def reset_nvs_content_types(corpus):
-    if 'Document' in corpus.content_types:
-        corpus.delete_content_type('Document')
+    deletion_order = [
+        'ParaText',
+        'Speech',
+        'Character',
+        'Commentary',
+        'TextualNote',
+        'TextualVariant',
+        'PlayTag',
+        'PlayLine',
+        'WitnessLocation',
+        'DocumentCollection',
+        'ContentBlock',
+        'Play',
+        'Document'
+    ]
 
-    nvs_doc_schema = None
-    for schema in DOCUMENT_REGISTRY:
-        if schema['name'] == "Document":
-            nvs_doc_schema = deepcopy(schema)
-            break
+    for nvs_content_type in deletion_order:
+        if nvs_content_type in corpus.content_types:
+            corpus.delete_content_type(nvs_content_type)
 
-    if nvs_doc_schema:
-        nvs_doc_schema['fields'] += nvs_document_fields
-        nvs_doc_schema['templates']['Label']['template'] = "{{ Document.siglum_label|safe }}"
-        corpus.save_content_type(nvs_doc_schema)
-
-    for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
-        if nvs_content_type['name'] in corpus.content_types:
-            corpus.delete_content_type(nvs_content_type['name'])
-
-        corpus.save_content_type(nvs_content_type)
+    ensure_nvs_content_types(corpus)
 
 
 def ensure_nvs_content_types(corpus):
-    for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
-        if nvs_content_type['name'] not in corpus.content_types:
-            corpus.save_content_type(nvs_content_type)
-
     nvs_doc_schema = None
     for schema in DOCUMENT_REGISTRY:
         if schema['name'] == "Document":
@@ -384,6 +383,10 @@ def ensure_nvs_content_types(corpus):
         if not doc_schema_ensured:
             corpus.delete_content_type('Document')
             corpus.save_content_type(nvs_doc_schema)
+
+    for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:
+        if nvs_content_type['name'] not in corpus.content_types:
+            corpus.save_content_type(nvs_content_type)
 
 
 def delete_play_data(corpus, play_prefix):
@@ -1943,7 +1946,7 @@ def mark_commentary_lemma(corpus, play, note):
     return report
 
 
-def parse_appendix(corpus, play, appendix_file_path):
+def parse_appendix(corpus, play, repo_name, appendix_file_path):
     report = '''
 ##########################################################
 APPENDIX INGESTION
@@ -1963,7 +1966,7 @@ APPENDIX INGESTION
             app_tei = BeautifulSoup(tei_text, "xml")
 
         unhandled = []
-        unhandled += create_appendix_divs(corpus, play, app_tei, None, 1)
+        unhandled += create_appendix_divs(corpus, play, repo_name, app_tei, None, 1)
         unhandled = list(set(unhandled))
         if unhandled:
             report += "The following TEI tags were not properly converted to HTML: {0}\n\n".format(
@@ -1979,7 +1982,7 @@ APPENDIX INGESTION
     return report
 
 
-def create_appendix_divs(corpus, play, container, parent, level):
+def create_appendix_divs(corpus, play, repo_name, container, parent, level):
     level_attr = "level" + str(level)
     divs = container.findAll('div', type=level_attr)
     level_counter = 0
@@ -2000,6 +2003,7 @@ def create_appendix_divs(corpus, play, container, parent, level):
             'current_note': None,
             'unhandled': [],
             'corpus': corpus,
+            'repo_name': repo_name
         }
 
         for child in div.children:
@@ -2009,7 +2013,7 @@ def create_appendix_divs(corpus, play, container, parent, level):
 
         pt.save()
 
-        unhandled += list(set(create_appendix_divs(corpus, play, div, pt, level + 1)))
+        unhandled += list(set(create_appendix_divs(corpus, play, repo_name, div, pt, level + 1)))
 
     return unhandled
 
@@ -2086,22 +2090,26 @@ def handle_paratext_tag(tag, pt, pt_data):
                 pt.title = pt_title
 
             else:
-                html += "<h{0}{1}>".format(pt.level, attributes)
+                if classes:
+                    attributes += ' class="{0}"'.format(
+                        " ".join(classes)
+                    )
+
+                h_level = pt.level + 1
+                if h_level > 5:
+                    h_level = 5
+                html += "<h{0}{1}>".format(h_level, attributes)
                 for child in tag.children:
                     html += handle_paratext_tag(child, pt, pt_data)
                 html += "</h2>"
 
         elif tag.name == 'titlePart':
-            html_tag = 'h'
-            if 'type' in tag.attrs:
-                if tag['type'] == 'main':
-                    html_tag += '2'
-                elif tag['type'] == 'sub':
-                    html_tag += '3'
-                elif tag['type'] == 'desc':
-                    html_tag += '4'
-            else:
-                html_tag += '2'
+            html_tag = 'h3'
+
+            if classes:
+                attributes += ' class="{0}"'.format(
+                    " ".join(classes)
+                )
 
             html += "<{0}{1}>".format(html_tag, attributes)
             for child in tag.children:
@@ -2157,6 +2165,11 @@ def handle_paratext_tag(tag, pt, pt_data):
 
             pt_data['current_note'] = curr_note
 
+            if classes:
+                attributes += ' class="{0}"'.format(
+                    " ".join(classes)
+                )
+
             html += "<div{0} class='pt_textual_note'>".format(attributes)
             for child in tag.children:
                 html += handle_paratext_tag(child, pt, pt_data)
@@ -2172,15 +2185,25 @@ def handle_paratext_tag(tag, pt, pt_data):
             html += "</a>"
 
         elif tag.name == "quote" and 'rend' in tag and tag['rend'] == 'block':
+            if classes:
+                attributes += ' class="{0}"'.format(
+                    " ".join(classes)
+                )
+
             html += "<blockquote{0}>".format(attributes)
             for child in tag.children:
                 html += handle_paratext_tag(child, pt, pt_data)
             html += "</blockquote>"
 
         elif tag.name == "anchor" and 'xml:id' in tag.attrs:
-            html += "<a name='{0}'></a>".format(tag['xml:id'])
+            html += "<a name='{0}' class='anchor'></a>".format(tag['xml:id'])
 
         elif tag.name == "closer":
+            if classes:
+                attributes += ' class="{0}"'.format(
+                    " ".join(classes)
+                )
+
             html += '''
                 <div class="row">
                     <div{0} class="col-sm-6 offset-sm-6">
@@ -2198,16 +2221,16 @@ def handle_paratext_tag(tag, pt, pt_data):
 
         elif tag.name == "graphic" and 'url' in tag.attrs:
             img_path = tag['url']
-            img_url = ''
-            for file_key, file in pt_data['corpus'].files.items():
-                if file.path.endswith(img_path):
-                    img_url = file.get_url(pt_data['corpus'].uri)
-
-            if img_url:
-                html += "<img{0} src='{1}' width='90%' class='d-block mx-auto' />".format(
-                    attributes,
-                    img_url
+            if classes:
+                attributes += ' class="{0}"'.format(
+                    " ".join(classes)
                 )
+
+            html += "<img{0} data-repo-name='{1}' data-path='{2}' class='graphic' />".format(
+                attributes,
+                pt_data['repo_name'],
+                img_path
+            )
 
         elif tag.name == "name":
             classes.append("name")

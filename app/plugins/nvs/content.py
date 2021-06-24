@@ -1746,29 +1746,27 @@ class ParaText(Content):
             }).order_by('order'))
         return self._children
 
-    meta = {
-        'abstract': True
-    }
-
     @property
     def toc_html(self):
-        if not hasattr(self, '_toc_html'):
-            html = '''
-                <li class="anchor-link is-level-{0}">
-                    <a href="#paratext-{1}">{2}</a>
-                </li>
-            '''.format(
-                self.level,
-                self.id,
-                self.title
-            )
+        if self.level <= 3:
+            if not hasattr(self, '_toc_html'):
+                html = '''
+                    <li class="anchor-link is-level-{0}">
+                        <a href="#paratext-{1}">{2}</a>
+                    </li>
+                '''.format(
+                    self.level,
+                    self.id,
+                    self.title
+                )
 
-            if self.children:
-                for child in self.children:
-                    html += child.toc_html
+                if self.children:
+                    for child in self.children:
+                        html += child.toc_html
 
-            setattr(self, '_toc_html', html)
-        return self._toc_html
+                setattr(self, '_toc_html', html)
+            return self._toc_html
+        return ''
 
     @property
     def full_html(self):
@@ -1782,4 +1780,6 @@ class ParaText(Content):
             setattr(self, '_full_html', html)
         return self._full_html
 
-
+    meta = {
+        'abstract': True
+    }
