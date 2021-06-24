@@ -51,8 +51,9 @@
         text-decoration: none;
         text-transform: uppercase;
         text-align: left;
-        font-weight: bold;
+        font-weight: normal;
         letter-spacing: 0.02em;
+        color: var(--grey1);
     }
     @media ( min-width: 992px ) {
         .navigation--dropdown > button {
@@ -61,7 +62,18 @@
         }
     }
     .navigation--dropdown > button:hover {
-        color: var(--blue);
+        color: var(--black);
+    }
+
+    .navigation--dropdown.active > button,
+    .navigation--holder[class*="info"] .navigation--dropdown.info > button,
+    .navigation--holder[class*="tools"] .navigation--dropdown.tools > button,
+    .navigation--holder[class*="frontmatter"] .navigation--dropdown.play > button,
+    .navigation--holder[class*="appendix"] .navigation--dropdown.play > button,
+    .navigation--holder[class*="bibliography"] .navigation--dropdown.play > button,
+    .navigation--holder[class*="wt"] .navigation--dropdown.play > button {
+        font-weight: bold;
+        color: var(--black);
     }
     .navigation--dropdown > button svg {
         height: 9px;
@@ -131,9 +143,9 @@
     }
 </style>
 
-<nav class="navigation--holder">
+<nav class="navigation--holder {{ nvs_page }}">
   <ul class="navigation--dropdown-group">
-    <li class="navigation--dropdown parent">
+    <li class="navigation--dropdown parent play">
       <button class="link">NVS Digital Editions <span class="beta">(BETA)</span> {% include 'svg/arrow.svg' %}</button>
       <ul class="navigation--dropdown-inner">
         <ul class="navigation--dropdown-group">
@@ -158,7 +170,7 @@
         </ul>
       </ul>
     </li>
-    <li class="navigation--dropdown parent">
+    <li class="navigation--dropdown parent info">
       <button class="link">NVS Info {% include 'svg/arrow.svg' %}</button>
       <ul class="navigation--dropdown-inner">
         <li><a href="{% if site_request %}/about/{% else %}/corpus/{{ corpus_id }}/about/{% endif %}">About</a></li>
@@ -168,7 +180,7 @@
         <li><a href="{% if site_request %}/print-editions/{% else %}/corpus/{{ corpus_id }}/print/{% endif %}">Print Editions</a></li>
       </ul>
     </li>
-    <li class="navigation--dropdown parent">
+    <li class="navigation--dropdown parent tools">
       <button class="link">NVS Tools {% include 'svg/arrow.svg' %}</button>
       <ul class="navigation--dropdown-inner">
         <li><a href="{% if site_request %}/tools/{% else %}/corpus/{{ corpus_id }}/tools/{% endif %}">About</a></li>
