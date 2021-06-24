@@ -724,7 +724,7 @@ def tools_data_extraction(request, corpus_id=None):
 
 def api_lines(request, corpus_id=None, play_prefix=None, starting_line_id=None, ending_line_id=None):
     lines = []
-    
+
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
 

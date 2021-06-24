@@ -1176,10 +1176,10 @@
     let play_id = "{{ play.id }}";
     let on_mobile = {% if on_mobile %}true{% else %}false{% endif %};
 
-    let playviewer_url = {% if site_request %}`/play/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-viewer/${play_prefix}/`{% endif %};
+    let playviewer_url = {% if site_request %}`/edition/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-viewer/${play_prefix}/`{% endif %};
     let search_endpoint = {% if site_request %}`${window.location.protocol}//${window.location.host}/search/${play_prefix}/`{% else %}`/api/corpus/${corpus_id}/nvs-search/${play_prefix}/`{% endif %};
     let witness_meter_prefix = {% if site_request %}`/witnessmeter/`{% else %}`/nvs/witness-meter/`{% endif %};
-    let paratext_prefix = {% if site_request %}`/paratext/${play_prefix}/`{% else %}`/corpus/${corpus_id}/paratext-viewer/${play_prefix}/`{% endif %};
+    let paratext_prefix = {% if site_request %}''{% else %}`/corpus/${corpus_id}/paratext-viewer/${play_prefix}/`{% endif %};
     let minimap_url = {% if site_request %}`/minimap/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-minimap/${play_prefix}/`{% endif %};
 
     let settings = {
@@ -2200,9 +2200,24 @@
                             `;
                         } else if (nav_type === 'anchor') {
                             nav_title = `<span>${content.section}<br/><div class="ref-subtitle-marker">&nbsp;</div><span class="text-nvs-dark-blue">${content.title}</span></span>`;
+
+                            let paratext_url = ''
+                            let paratext_section_map = {
+                                'Front Matter': 'front',
+                                'Appendix': 'appendix',
+                                'Bibliography': 'bibliography'
+                            }
+
+                            if (paratext_prefix.length) {
+                                paratext_url = `${paratext_prefix}${content.section}/`;
+                            } else {
+                                paratext_url = `${paratext_section_map[content.section]}/${play_prefix}/`;
+                            }
+                            paratext_url += `#paratext-${content.id}`;
+
                             controls = `
-                                <a href="${paratext_prefix}${content.section}/#paratext-${content.id}" target="_blank">
-                                    <img src="{% static 'img/nav-external.png' %}"
+                                <a href="${paratext_url}" target="_blank">
+                                    <img src="{% static 'img/controls/Modal-NEWTAB.svg' %}"
                                         class="ref-modal-control"
                                         border="0">
                                 </a>
