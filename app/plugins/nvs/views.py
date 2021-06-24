@@ -722,32 +722,36 @@ def tools_data_extraction(request, corpus_id=None):
     )
 
 
-def api_lines(request, corpus_id, play_prefix, starting_line_id, ending_line_id=None):
+def api_lines(request, corpus_id=None, play_prefix=None, starting_line_id=None, ending_line_id=None):
+    lines = []
+    
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
-    corpus = get_corpus(corpus_id)
-    play = corpus.get_content('Play', {'prefix': play_prefix})[0]
 
-    lines = []
-    all_lines = corpus.get_content('PlayLine', {'play': play.id}).order_by('line_number')
-    started_collecting = False
-    for line in all_lines:
-        if line.xml_id == starting_line_id:
-            lines.append(line.to_dict())
-            if ending_line_id:
-                started_collecting = True
-            else:
+    if corpus_id and play_prefix and starting_line_id:
+        corpus = get_corpus(corpus_id)
+        play = corpus.get_content('Play', {'prefix': play_prefix})[0]
+
+        all_lines = corpus.get_content('PlayLine', {'play': play.id}).order_by('line_number')
+        started_collecting = False
+        for line in all_lines:
+            if line.xml_id == starting_line_id:
+                lines.append(line.to_dict())
+                if ending_line_id:
+                    started_collecting = True
+                else:
+                    break
+            elif line.xml_id == ending_line_id:
+                lines.append(line.to_dict())
                 break
-        elif line.xml_id == ending_line_id:
-            lines.append(line.to_dict())
-            break
-        elif started_collecting:
-            lines.append(line.to_dict())
+            elif started_collecting:
+                lines.append(line.to_dict())
 
     return HttpResponse(
         json.dumps(lines),
         content_type='application/json'
     )
+
 
 
 def api_search(request, corpus_id=None, play_prefix=None):
