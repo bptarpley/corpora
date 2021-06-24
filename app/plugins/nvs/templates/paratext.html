@@ -527,12 +527,12 @@
 <script type="application/javascript">
     let corpora;
     let corpus_id = "{{ corpus_id }}";
-    let corpora_url = "{{ corpus_url }}";
+    let corpora_url = "{{ corpora_url }}";
     let play_prefix = "{{ play.prefix }}";
     let play_id = "{{ play.id }}";
     let witnesses = {{ witnesses|safe }};
     let playviewer_url = {% if site_request %}`/play/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-viewer/${play_prefix}/`{% endif %};
-    let lines_endpoint = {% if site_request %}`/lines/${play_prefix}/`{% else %}`/api/corpus/${corpus_id}/nvs-lines/${play_prefix}/`{% endif %};
+    let lines_endpoint = {% if site_request %}`${window.location.protocol}//${window.location.host}/lines/${play_prefix}/`{% else %}`/api/corpus/${corpus_id}/nvs-lines/${play_prefix}/`{% endif %};
     let ref_modal_counter = 0;
 
     let nav_map = {
