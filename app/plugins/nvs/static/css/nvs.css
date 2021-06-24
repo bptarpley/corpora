@@ -285,7 +285,7 @@ button.icon svg,
 
 /* Atoms -------------------------- */
 
-sup, sub {
+sup, sub, .rend-superscript {
     vertical-align: baseline;
     position: relative;
     top: -0.4em;

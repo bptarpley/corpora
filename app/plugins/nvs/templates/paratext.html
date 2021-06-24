@@ -59,27 +59,32 @@
     }
     .paratext td {
         vertical-align: top;
-    }
-    .paratext td:first-child {
-        padding-right: 40px;
-        white-space: nowrap;
+        padding: 5px;
     }
 
     .pt_textual_note {
-        margin-left: 30px;
+        margin: 10px 0 10px 30px;
         font-size: 15px;
+        line-height: 20px;
         text-align: left;
+        padding-left: 120px;
+        position: relative;
     }
-    .pt_textual_note .ref-lb:first-child {
-        min-width: 80px;
-        display: inline-block;
-        margin-right: 30px;
+    .pt_textual_note > .ref-lb:first-child {
+        position: absolute;
+        top: 0;
+        left: 0;
     }
     .ref-lb,
     .ref {
         color: var(--blue);
         text-decoration: underline;
         font-family: "Roboto Condensed", sans-serif;
+        font-weight: 700;
+    }
+    .ref-bibl {
+        color: var(--blue);
+        text-decoration: underline;
         font-weight: 700;
     }
     .ref-siglum {
@@ -141,6 +146,9 @@
         padding-left: 40px;
         margin: 10px 0;
     }
+    .paratext li {
+        margin: 10px 0;
+    }
     dt, dd {
         display: inline-block;
         margin: 0;
@@ -149,28 +157,63 @@
       min-width: 100px;
     }
 
-    /*Indents*/
+    .speech {
+        margin-left: 40px;
+    }
+    .speaker {
+        font-style: italic;
+    }
+    .figure {
+        margin-left: 40px;
+    }
+
+    q.rend-block {
+        display: block;
+        margin: 10px 0 10px 40px;
+    }
+    q.rend-no_qmarks:before { display: none; }
+    q.rend-no_qmarks:after { display: none; }
+
+    /* Rend styles */
     .rend-indent1em { margin-left: 10px; }
     .rend-indent2em { margin-left: 20px; }
     .rend-indent7em { margin-left: 70px; }
     .rend-indent8em { margin-left: 80px; }
     .rend-indent10em { margin-left: 100px; }
     .rend-indent15em { margin-left: 150px; }
-
-    .rend-italic {
-        font-style: italic;
-    }
-
-    .rend-aligncenter,
-    .rend-aligncenter p {
-        text-align: center
-    }
+    .rend-italic { font-style: italic; }
+    .rend-bold { font-weight: 700; }
+    .rend-aligncenter, .rend-aligncenter p { text-align: center !important; }
+    .rend-alignleft, .rend-alignleft p { text-align: left !important; }
+    .rend-alignright, .rend-alignright p { text-align: right !important; }
 
     .floating-text,
     .floating-text h4,
+    .floating-text p,
     .floating-text h5 {
         font-size: 15px;
         line-height: 20px;
+    }
+    .floating-text {
+        margin: 0 40px 80px 40px;
+    }
+    .floating-text p {
+        text-align: justify;
+    }
+
+    .paratext ul.type-ordered {
+        margin-top: 20px;
+        margin-bottom: 20px;
+        padding-left: 60px;
+    }
+    .paratext ul.type-ordered li {
+        padding-left: 60px;
+        position: relative;
+    }
+    .paratext ul.type-ordered li .label {
+        position: absolute;
+        top: 0;
+        left: 0;
     }
 
     .paratext .double-spacing { line-height: 2; }
@@ -202,27 +245,6 @@
     .paratext .tln-digits {
         font-weight: 700;
         text-decoration: underline;
-    }
-    .paratext ol {
-        margin-top: 20px;
-        margin-bottom: 20px;
-        padding-left: 60px;
-    }
-    .paratext ol li {
-        font-size: 16px;
-        padding-left: 60px;
-        margin-bottom: 20px;
-        text-indent: -60px;
-        list-style-type: none;
-        counter-increment: item;
-    }
-    .paratext ol li:before {
-        display: inline-block;
-        width: 20px;
-        padding-right: 40px;
-        font-weight: 500;
-        text-align: right;
-        content: counter(item) ".";
     }
 </style>
 
