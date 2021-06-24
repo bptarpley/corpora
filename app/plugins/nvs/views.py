@@ -17,7 +17,7 @@ from elasticsearch_dsl import A
 
 # TEMPORARY FIX FOR SOFT LAUNCH
 editors = {
-    'wt': "Judith M. Kennedy, Paul Werstine, with Susan May, Roberta Barker, David Nichol",
+    'wt': "ROBERT KEAN TURNER, VIRGINIA WESTLING HAAS, with ROBERT A. JONES, ANDREW J. SABOL, PATRICIA E. TATSPAUGH",
     'mnd': "Judith M. Kennedy, Paul Werstine, with Susan May, Roberta Barker, David Nichol"
 }
 
