@@ -2330,8 +2330,8 @@
                 let close_modal_id = $(this).data('modal-id');
                 $(`#${close_modal_id}`).remove();
             });
-            let ref_modal = $(`#${modal_id}`);
-            make_draggable(ref_modal[0]);
+
+            make_draggable(modal_el[0]);
             ref_modal_counter += 1;
         }
         else {
@@ -2352,11 +2352,14 @@
         } else {
             // otherwise, move the DIV from anywhere inside the DIV:
             elmnt.onmousedown = dragMouseDown;
+            elmnt.ontouchstart = dragMouseDown;
         }
 
         function dragMouseDown(e) {
             e = e || window.event;
-            e.preventDefault();
+            if(e.type !== "touchstart") {
+                e.preventDefault();
+            }
             // get the mouse cursor position at startup:
             pos3 = e.clientX;
             pos4 = e.clientY;
@@ -2369,12 +2372,20 @@
 
         function elementDrag(e) {
             e = e || window.event;
-            e.preventDefault();
-            // calculate the new cursor position:
-            pos1 = pos3 - e.clientX;
-            pos2 = pos4 - e.clientY;
-            pos3 = e.clientX;
-            pos4 = e.clientY;
+            if (e.type === "touchmove") {
+                pos1 = pos3 - e.touches[0].clientX;
+                pos2 = pos4 - e.touches[0].clientY;
+                pos3 = e.touches[0].clientX;
+                pos4 = e.touches[0].clientY;
+            } else {
+                e.preventDefault();
+                // calculate the new cursor position:
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+            }
+
             // set the element's new position:
             elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
             elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
@@ -2384,6 +2395,8 @@
             // stop moving when mouse button is released:
             document.onmouseup = null;
             document.onmousemove = null;
+            document.ontouchend = null;
+            document.ontouchmove = null;
         }
     }
 
