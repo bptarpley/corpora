@@ -2306,11 +2306,13 @@
                     class="ref-modal"
                 >
                     <div class="arrow-${arrow_side}">
-                        <div id="${modal_id}-header" class="ref-modal-header d-flex justify-content-between">
-                            ${title}
+                        <div class="ref-modal-header d-flex justify-content-between">
+                            <span id="${modal_id}-header" class="w-100">
+                                ${title}
+                            </span>
                             <span>
-                            ${controls}
-                            <i id="${modal_id}-close-button" class="fas fa-times ref-modal-control" data-modal-id="${modal_id}" aria-label="Close"></i>
+                                ${controls}
+                                <i id="${modal_id}-close-button" class="fas fa-times ref-modal-control" data-modal-id="${modal_id}" aria-label="Close"></i>
                             </span>
                         </div>
                         <div class="ref-modal-content">${content}</div>
@@ -2357,9 +2359,8 @@
 
         function dragMouseDown(e) {
             e = e || window.event;
-            if(e.type !== "touchstart") {
-                e.preventDefault();
-            }
+            e.preventDefault();
+
             // get the mouse cursor position at startup:
             pos3 = e.clientX;
             pos4 = e.clientY;
