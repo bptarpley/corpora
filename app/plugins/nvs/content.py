@@ -1772,7 +1772,10 @@ class ParaText(Content):
     def full_html(self):
         if not hasattr(self, '_full_html'):
             html = '<a name="paratext-{0}"></a>'.format(self.id)
-            html += '<h2>{0}</h2>'.format(self.title)
+            html += '<h2 class="section-heading level-{0}">{1}</h2>'.format(
+                self.level,
+                self.title
+            )
             html += self.html_content
             for child in self.children:
                 html += child.full_html
