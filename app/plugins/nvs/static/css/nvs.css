@@ -328,6 +328,12 @@ sub { top: 0.4em; }
     .page-holder--inner {
         margin-left: calc(var(--sideBar) + 10px);
     }
+    .home .page-holder--inner {
+        margin: 0;
+        display: grid;
+        grid-template-columns: var(--sideBar) 1fr;
+        grid-gap: 10px;
+    }
 }
 .page-holder--inner.has-max-width > :nth-child(2) { max-width: 800px; }
 

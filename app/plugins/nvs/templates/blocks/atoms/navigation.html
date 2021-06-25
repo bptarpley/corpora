@@ -55,6 +55,10 @@
         letter-spacing: 0.02em;
         color: var(--grey1);
     }
+
+    .home .navigation--dropdown > button {
+        color: var(--black);
+    }
     @media ( min-width: 992px ) {
         .navigation--dropdown > button {
             padding: 5px 10px;
@@ -71,6 +75,7 @@
     .navigation--holder[class*="frontmatter"] .navigation--dropdown.play > button,
     .navigation--holder[class*="appendix"] .navigation--dropdown.play > button,
     .navigation--holder[class*="bibliography"] .navigation--dropdown.play > button,
+    .navigation--holder[class*="mnd"] .navigation--dropdown.play > button,
     .navigation--holder[class*="wt"] .navigation--dropdown.play > button {
         font-weight: bold;
         color: var(--black);
@@ -158,7 +163,7 @@
               <li><a href="{% if site_request %}/appendix/wt/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/wt/Appendix/{% endif %}">Appendix</a></li>
             </ul>
           </li>
-          <li class="navigation--dropdown nested">
+          <li class="navigation--dropdown nested{% if 'mnd' in nvs_page %} active {% endif %}">
             <button class="link">A Midsummer Night's Dream {% include 'svg/arrow.svg' %}</button>
             <ul class="navigation--dropdown-inner">
               <li><a href="{% if site_request %}/edition/mnd/{% else %}/corpus/{{ corpus_id }}/play-viewer/mnd/{% endif %}">Variorum Reader</a></li>
