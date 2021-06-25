@@ -33,6 +33,12 @@
         font-size: 20px;
         margin-top: 40px;
     }
+    /*Stop the title at the top of the page from getting the margin top*/
+    .paratext h2:nth-child(2),
+    .paratext h3:nth-child(2) {
+        margin-top: 0;
+    }
+
     .paratext h4,
     .paratext .large {
         font-size: 18px;
@@ -507,6 +513,7 @@
   <div class="container">
     <div class="page-holder--inner has-max-width">
       <div class="anchor-links--holder">
+        <button class="anchor-links--toggle link roboto-uppercase">page navigation</button>
         <ul class="anchor-links--inner">
             {{ toc|safe }}
         </ul>

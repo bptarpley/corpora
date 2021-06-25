@@ -72,11 +72,23 @@
   }
 
   function anchorInit() {
-    let anchorLinks = document.querySelector('.anchor-links--holder .anchor-link a');
-    if ( anchorLinks ) {
-      let spy = new Gumshoe('.anchor-links--holder .anchor-link a', {
-        offset: 70,
-      });
+    let holder = document.querySelector('.anchor-links--holder');
+    if(holder) {
+      // Set up toggle button
+      let toggleButton = holder.querySelector('.anchor-links--holder .anchor-links--toggle');
+      if(toggleButton) {
+        toggleButton.addEventListener('click', () => {
+          holder.classList.toggle('active');
+        });
+      }
+
+      // Set up active states if content is in screen
+      let anchorLinks = holder.querySelector('.anchor-links--holder .anchor-link a');
+      if (anchorLinks) {
+        let spy = new Gumshoe('.anchor-links--holder .anchor-link a', {
+          offset: 70,
+        });
+      }
     }
   }
 
