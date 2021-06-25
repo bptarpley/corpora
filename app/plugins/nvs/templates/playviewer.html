@@ -113,6 +113,25 @@
                 display: block;
             }
 
+            #loading-overlay {
+                top: 0;
+                z-index: 5000;
+                position: fixed;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0, 0.5);
+            }
+
+            #loading-modal {
+                padding: 15px;
+                font-family: "Roboto Condensed";
+                font-weight: bold;
+                font-size: 12px;
+                background-color: var(--nvs-background-color);
+                box-shadow: 0px 3px 3px 0 rgba(0, 0, 0, 0.4);
+                min-height: 210px;
+            }
+
             /* -----------------------------
             || TEMPORARY HEADER NAV
             || -------------------------- */
@@ -791,6 +810,20 @@
         <title>{{ play.title }}</title>
     </head>
     <body>
+        <div id="loading-overlay" class="d-flex align-items-center justify-content-center">
+            <div id="loading-modal" class="w-25 h-25">
+                <div class="row no-gutters">
+                    <div class="col-sm-12">
+                        LOADING...
+                    </div>
+                </div>
+                <div class="row no-gutters">
+                    <div class="col-sm-12 d-flex align-items-center justify-content-center h-100">
+                        <img src="{% static 'img/nvs-logo-animated.gif' %}" class="loading-spinner img-responsive" />
+                    </div>
+                </div>
+            </div>
+        </div>
         <!-- Navigation Modal -->
         <div class="modal fade" id="nav-modal" tabindex="-1" role="dialog" aria-labelledby="nav-modal-label" aria-hidden="true">
             <div class="modal-dialog" role="document">
@@ -1267,12 +1300,15 @@
     let nav_history = [];
     let nav_history_cursor = 0;
 
+    let loading_overlay = $('#loading-overlay');
+
     $(document).ready(function() {
         corpora = new Corpora({'csrf_token': "{{ csrf_token }}"{% if site_request %}, 'host': '{{ corpora_url }}'{% endif %}});
         screen_size = determine_screen_size(window.innerWidth);
         style_sheet = document.styleSheets[0];
 
         // GET CHARACTER NAMES; POSSIBLY FILTERED BY ACT/SCENE
+        /*
         let speech_params = {
             'page-size': 0,
             'a_terms_characters': 'speaking.xml_id,speaking.name',
@@ -1304,24 +1340,31 @@
                 characters_loaded = true;
             }
         );
+        */
 
         setup_lines();
         configure_controls();
         adjust_for_screensize();
         enable_commentary_highlighting();
 
-        $('.witness-meter').click(function(){
-            let line_id = this.id.replace('-witness-col', '');
-            let witness_indicators = $(`#${line_id}-row`).data('witness_indicators');
-            display_variant_editions(witness_indicators, this);
-        });
-
         let nav_type = get_param('nav_type');
         let nav_xml_id = get_param('nav_xml_id');
         if (nav_type && nav_xml_id) {
             navigate_to(nav_type, nav_xml_id);
         }
+
+        stop_loading();
     });
+
+    function start_loading(){
+        loading_overlay.removeClass('d-none');
+        loading_overlay.addClass('d-flex');
+    }
+
+    function stop_loading(){
+        loading_overlay.addClass('d-none');
+        loading_overlay.removeClass('d-flex');
+    }
 
     function delete_css_rule(selector) {
         let rule_deletion_index = -1;
@@ -1405,6 +1448,7 @@
         // HEADER: QUICK SEARCH BOX
         quick_search_box.keydown(function(e) {
             if (e.which === 13) {
+                start_loading();
                 let query = quick_search_box.html().trim().replace(/(<([^>]+)>)/gi, " ");
                 console.log(query);
                 quick_search_box.empty();
@@ -1451,6 +1495,13 @@
 
         playtext_search_close_button.click(function() {
             collapse_search();
+        });
+
+        // WITNESS METER CLICK
+        $('.witness-meter').click(function(){
+            let line_id = this.id.replace('-witness-col', '');
+            let witness_indicators = $(`#${line_id}-row`).data('witness_indicators');
+            display_variant_editions(witness_indicators, this);
         });
 
         // VARIANT TOGGLER CLICK
@@ -1843,6 +1894,8 @@
             else if (nvs_search.variant_results.length) display_search_result('variant', 'next');
             else if (nvs_search.commentary_results.length) display_search_result('commentary', 'next');
             else display_nav_modal('No results.', 'No results for your search term were found.', null);
+
+            stop_loading();
         }
     }
 
