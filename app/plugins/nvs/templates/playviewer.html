@@ -36,6 +36,7 @@
                 --nvs-form-control-height: 35px;
                 --nvs-play-row-min-height: 39px;
                 --nvs-form-control-font-size: 12px;
+                --nvs-playtext-viewport-size: calc(100vh - 140px);
                 --nvs-background-color: #FFFFFF;
                 --nvs-lightest-gray: #F2F2F2;
                 --nvs-light-gray: #E6E6E6;
@@ -256,7 +257,7 @@
                 overflow-y: auto;
             }
 
-            .nvs-search:focus {
+            .nvs-search:focus, .nvs-search.not-empty {
                 background-image: url({% static 'img/controls/VAR-bar-search-ROLL.svg' %});
                 background-size: 50px;
                 height: unset;
@@ -270,6 +271,17 @@
                 top: 13px;
                 cursor: pointer;
                 color: var(--nvs-mid-gray);
+            }
+
+            .nav-pills .nav-link.active, .nav-pills .show>.nav-link {
+                color: #fff;
+                background-color: var(--nvs-dark-blue);
+            }
+
+            .nav-pills .nav-link {
+                color: var(--nvs-dark-blue);
+                font-family: "Roboto Condensed", sans-serif;
+                border-radius: 0;
             }
 
             .nvs-tln {
@@ -409,7 +421,7 @@
             #playtext-col, #playtext-header-col, #act-scene-frame, #commentary-frame {
                 overflow-y: scroll;
                 overflow-x: hidden;
-                max-height: calc(100vh - 80px);
+                max-height: var(--nvs-playtext-viewport-size);
                 background-repeat: no-repeat;
             }
 
@@ -629,15 +641,9 @@
             || SEARCH WIDGET
             || -------------------------- */
 
-            #search-widget {
-                position: fixed;
-                bottom: 0;
-                width: 100%;
-                z-index: 2000;
-                pointer-events: none;
+            #search-widget a, #search-widget .tab-pane {
                 font-family: "Roboto Condensed", sans-serif;
                 text-transform: uppercase;
-                font-size: 14px;
             }
 
             #search-results-div {
@@ -676,7 +682,7 @@
                 max-width: calc(40vw);
             }
 
-            .arrow-right, .arrow-left {
+            .arrow-right, .arrow-left, .arrow-top {
                 background-color: #FFFFFF;
                 position: relative;
                 box-sizing: border-box;
@@ -692,7 +698,7 @@
                 float: right;
             }
 
-            .arrow-right:after, .arrow-right:before, .arrow-left:after, .arrow-left:before {
+            .arrow-right:after, .arrow-right:before, .arrow-left:after, .arrow-left:before, .arrow-top:after, .arrow-top:before {
                 content: " ";
                 width: 0;
                 height: 0;
@@ -703,6 +709,11 @@
 
             .arrow-right:after, .arrow-right:before {
                 left: 100%;
+            }
+
+            .arrow-top:after, .arrow-top:before {
+                top: -15px;
+                left: 15px;
             }
 
             .arrow-right:after {
@@ -734,6 +745,22 @@
                 border-bottom: 16px solid transparent;
                 margin-top: -2px;
                 margin-left: -1px;
+            }
+
+            .arrow-top:after {
+                border-top: none;
+                border-right: 15px solid transparent;
+                border-left: 15px solid transparent;
+                border-bottom: 15px solid white;
+                margin-left: 1px;
+            }
+
+            .arrow-top:before {
+                border-top: none;
+                border-right: 16px solid transparent;
+                border-left: 16px solid transparent;
+                border-bottom: 16px solid var(--nvs-mid-gray);
+                top: -16px;
             }
 
             .ref-modal-header {
@@ -944,13 +971,11 @@
                                         <div id="hdr-quick-search-box" class="nvs-search" contentEditable="true"></div>
                                         <div id="hdr-quick-search-drawer" class="collapse">
                                             <div class="row">
-                                                <div class="col-sm-12 heading-label text-white">
-                                                    SEARCH TYPE:
-                                                </div>
-                                            </div>
-                                            <div class="row">
                                                 <div class="col-sm-12">
                                                     <div class="form-inline ml-2 mb-2">
+                                                        <span class="heading-label text-white mr-3">
+                                                            SEARCH TYPE:
+                                                        </span>
                                                         <div class="form-check mr-3">
                                                             <input class="form-check-input" type="radio" name="search-type" id="search-type-fuzzy" value="fuzzy" checked>
                                                             <label class="form-check-label radio" for="search-type-fuzzy">
@@ -973,13 +998,11 @@
                                                 </div>
                                             </div>
                                             <div class="row">
-                                                <div class="col-sm-12 heading-label text-white">
-                                                    INCLUDE:
-                                                </div>
-                                            </div>
-                                            <div class="row">
                                                 <div class="col-sm-12">
                                                     <div class="form-inline ml-2 mb-2">
+                                                        <span class="heading-label text-white mr-3">
+                                                            INCLUDE:
+                                                        </span>
                                                         <div class="form-check mr-3">
                                                             <input class="form-check-input" type="checkbox" value="" id="search-playtext" checked>
                                                             <label class="form-check-label checkbox" for="search-playtext">
@@ -1154,43 +1177,40 @@
             </div>
             {% endif %}
         </div>
-        <div id="search-widget" class="d-none container-fluid">
-            <div class="row">
-                <div class="col-sm-4 offset-sm-4">
-                    <div id="search-results-div" class="align-items-center bg-nvs-lightest-gray" style="pointer-events: auto;">
-                        <ul id="search-widget-tabs" class="nav nav-tabs nav-fill" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <a class="nav-link active" id="search-widget-line-tab" data-toggle="tab" href="#search-widget-lines" role="tab" aria-controls="search-widget-lines" aria-selected="true">Lines (<span class="search-line-total">0</span>)</a>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <a class="nav-link" id="search-widget-variant-tab" data-toggle="tab" href="#search-widget-variants" role="tab" aria-controls="explore" aria-selected="false">Variants (<span class="search-variant-total">0</span>)</a>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <a class="nav-link" id="search-widget-commentary-tab" data-toggle="tab" href="#search-widget-commentary" role="tab" aria-controls="search-widget-commentary" aria-selected="false">Commentary (<span class="search-commentary-total">0</span>)</a>
-                            </li>
-                            <li class="nav-item w-auto justify-content-end" role="presentation">
-                                <a class="nav-link" href="javascript: clear_search();">X</a>
-                            </li>
-                        </ul>
-                        <div class="tab-content p-3 bg-nvs">
-                            <div class="tab-pane fade show active" id="search-widget-lines" role="tabpanel" aria-labelledby="search-widget-line-tab">
-                                <a id="search-line-prev" onClick="display_search_result('line', 'prev');"><i class="fas fa-chevron-left"></i></a>
-                                <span id="search-line-current">0</span> out of
-                                <span class="search-line-total">0</span>
-                                <a id="search-line-next" onClick="display_search_result('line', 'next');"><i class="fas fa-chevron-right"></i></a>
-                            </div>
-                            <div class="tab-pane fade" id="search-widget-variants" role="tabpanel" aria-labelledby="search-widget-variant-tab">
-                                <a id="search-variant-prev" onClick="display_search_result('variant', 'prev');"><i class="fas fa-chevron-left"></i></a>
-                                <span id="search-variant-current">0</span> out of
-                                <span class="search-variant-total">0</span>
-                                <a id="search-variant-next" onClick="display_search_result('variant', 'next');"><i class="fas fa-chevron-right"></i></a>
-                            </div>
-                            <div class="tab-pane fade" id="search-widget-commentary" role="tabpanel" aria-labelledby="search-widget-commentary-tab">
-                                <a id="search-commentary-prev" onClick="display_search_result('commentary', 'prev');"><i class="fas fa-chevron-left"></i></a>
-                                <span id="search-commentary-current">0</span> out of
-                                <span class="search-commentary-total">0</span>
-                                <a id="search-commentary-next" onClick="display_search_result('commentary', 'next');"><i class="fas fa-chevron-right"></i></a>
-                            </div>
+        <div id="search-widget" class="d-none ref-modal">
+            <div id="search-results-div" class="arrow-top">
+                <div class="ref-modal-header d-flex justify-content-between">
+                    <span id="search-widget-header" class="w-100">
+                        SEARCH RESULTS
+                    </span>
+                    <span style="white-space: nowrap;">
+                        <i id="search-widget-close-button" class="fas fa-times ref-modal-control"></i>
+                    </span>
+                </div>
+                <div class="ref-modal-content d-flex">
+                    <div id="search-widget-tabs" class="nav flex-column nav-pills" role="tablist" aria-orientation="vertical">
+                        <a class="nav-link active" id="search-widget-line-tab" data-toggle="pill" href="#search-widget-lines" role="tab" aria-controls="search-widget-lines" aria-selected="true">Lines (<span class="search-line-total">0</span>)</a>
+                        <a class="nav-link" id="search-widget-variant-tab" data-toggle="pill" href="#search-widget-variants" role="tab" aria-controls="explore" aria-selected="false">Variants (<span class="search-variant-total">0</span>)</a>
+                        <a class="nav-link" id="search-widget-commentary-tab" data-toggle="pill" href="#search-widget-commentary" role="tab" aria-controls="search-widget-commentary" aria-selected="false">Commentary (<span class="search-commentary-total">0</span>)</a>
+                    </div>
+                    <div class="tab-content pl-3 bg-nvs">
+                        <div class="tab-pane fade show active" id="search-widget-lines" role="tabpanel" aria-labelledby="search-widget-line-tab">
+                            <a id="search-line-prev" onClick="display_search_result('line', 'prev');"><i class="fas fa-chevron-left"></i></a>
+                            <span id="search-line-current">0</span> out of
+                            <span class="search-line-total">0</span>
+                            <a id="search-line-next" onClick="display_search_result('line', 'next');"><i class="fas fa-chevron-right"></i></a>
+                        </div>
+                        <div class="tab-pane fade" id="search-widget-variants" role="tabpanel" aria-labelledby="search-widget-variant-tab">
+                            <a id="search-variant-prev" onClick="display_search_result('variant', 'prev');"><i class="fas fa-chevron-left"></i></a>
+                            <span id="search-variant-current">0</span> out of
+                            <span class="search-variant-total">0</span>
+                            <a id="search-variant-next" onClick="display_search_result('variant', 'next');"><i class="fas fa-chevron-right"></i></a>
+                        </div>
+                        <div class="tab-pane fade" id="search-widget-commentary" role="tabpanel" aria-labelledby="search-widget-commentary-tab">
+                            <a id="search-commentary-prev" onClick="display_search_result('commentary', 'prev');"><i class="fas fa-chevron-left"></i></a>
+                            <span id="search-commentary-current">0</span> out of
+                            <span class="search-commentary-total">0</span>
+                            <a id="search-commentary-next" onClick="display_search_result('commentary', 'next');"><i class="fas fa-chevron-right"></i></a>
                         </div>
                     </div>
                 </div>
@@ -1472,7 +1492,6 @@
                     process_search_results
                 );
 
-                collapse_search();
                 return false;
             } else if (e.key === "Escape") {
                 collapse_search();
@@ -1484,6 +1503,7 @@
             playtext_header_label.addClass('d-none');
             playtext_search_div.addClass('w-100');
             quick_search_box.css('width', '100%');
+            quick_search_box.addClass('not-empty');
             playtext_search_col.removeClass('align-items-center');
             playtext_search_col.addClass('align-items-top');
             variant_header_col.removeClass('align-items-center');
@@ -1494,6 +1514,10 @@
         });
 
         playtext_search_close_button.click(function() {
+            collapse_search();
+        });
+
+        $('#search-widget-close-button').click(function() {
             collapse_search();
         });
 
@@ -1598,6 +1622,7 @@
         $('#playtext-search-div').removeClass('w-100');
         $('#playtext-search-close-button').addClass('d-none');
         quick_search_box.css('width', '100px');
+        quick_search_box.removeClass('not-empty');
         quick_search_box.empty();
         quick_search_box[0].blur();
         playtext_search_col.addClass('align-items-center');
@@ -1606,6 +1631,18 @@
         variant_header_col.removeClass('align-items-top');
         variant_header_col.removeClass('pt-2');
         $('#hdr-quick-search-drawer').collapse('hide');
+        $('#reader-view').unmark();
+        $('#search-widget').addClass('d-none');
+        corpora.make_request(
+            search_endpoint,
+            'GET',
+            {
+                clear: true
+            },
+            function() {
+                $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())}&no-cache=${Math.floor(Date.now() / 1000)})`);
+            }
+        );
     }
 
     function adjust_for_screensize() {
@@ -1831,6 +1868,9 @@
     }
 
     function process_search_results(results) {
+        let search_widget = $('#search-widget');
+        search_widget.removeClass('d-none');
+
         if (results.last_commentary_line > last_commentary_line) {
             last_visible_line = results.last_commentary_line;
             commentary_loaded = false;
@@ -1867,7 +1907,11 @@
             $('#search-variant-next').removeClass('d-none');
             $('#search-commentary-prev').removeClass('d-none');
             $('#search-commentary-next').removeClass('d-none');
-            $('#search-widget').removeClass('d-none');
+
+            let box_rect = $('#hdr-quick-search-box')[0].getBoundingClientRect();
+            search_widget.css('top', `${box_rect.top + window.pageYOffset + 40}px`);
+            search_widget.css('left', `${box_rect.left + 40}px`);
+            make_draggable(search_widget[0]);
 
             nvs_search.line_results.map(result => {
                 let html_span = $(`#${result.xml_id}-text-col`);
@@ -1931,21 +1975,6 @@
         } else {
             $(`#search-${type}-next`).removeClass('d-none');
         }
-    }
-
-    function clear_search() {
-        $('#reader-view').unmark();
-        $('#search-widget').addClass('d-none');
-        corpora.make_request(
-            search_endpoint,
-            'GET',
-            {
-                clear: true
-            },
-            function() {
-                $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())}&no-cache=${Math.floor(Date.now() / 1000)})`);
-            }
-        );
     }
 
     function load_commentary() {
@@ -2310,7 +2339,7 @@
                             <span id="${modal_id}-header" class="w-100">
                                 ${title}
                             </span>
-                            <span>
+                            <span style="white-space: nowrap;">
                                 ${controls}
                                 <i id="${modal_id}-close-button" class="fas fa-times ref-modal-control" data-modal-id="${modal_id}" aria-label="Close"></i>
                             </span>
