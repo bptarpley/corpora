@@ -1748,7 +1748,7 @@ class ParaText(Content):
 
     @property
     def toc_html(self):
-        if self.level <= 3:
+        if self.level <= 2:
             if not hasattr(self, '_toc_html'):
                 html = '''
                     <li class="anchor-link is-level-{0}">
