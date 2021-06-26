@@ -36,7 +36,7 @@
                 --nvs-form-control-height: 35px;
                 --nvs-play-row-min-height: 39px;
                 --nvs-form-control-font-size: 12px;
-                --nvs-playtext-viewport-size: calc(100vh - 140px);
+                --nvs-playtext-viewport-size: calc(100vh - 90px);
                 --nvs-background-color: #FFFFFF;
                 --nvs-lightest-gray: #F2F2F2;
                 --nvs-light-gray: #E6E6E6;
@@ -138,14 +138,18 @@
             || -------------------------- */
             .nav {
                 font-family: 'Roboto Condensed', sans-serif;
+                font-weight: normal;
+                letter-spacing: 0.02em;
             }
 
-            .edition-menu {
-                min-width: 300px;
-            }
+            @media (min-width: 950px) {
+                .edition-menu {
+                    min-width: 300px;
+                }
 
-            .info-menu, .tools-menu {
-                min-width: 220px;
+                .info-menu, .tools-menu {
+                    min-width: 220px;
+                }
             }
 
             .info-menu {
@@ -168,6 +172,10 @@
                 box-shadow: rgba(99, 99, 99, 0.3) 4px 8px 8px 0;
             }
 
+            li.dropdown, li.dropdown a {
+                max-height: 35px;
+            }
+
             li a {
                 padding: 0.5rem 1rem 1.5rem 1rem;
                 width: 100%;
@@ -178,6 +186,11 @@
 
             li a:hover {
                 color: var(--nvs-dark-blue);
+                text-decoration: none;
+            }
+
+            span.beta {
+                color: #808080;
             }
 
             .dropdown-item {
@@ -885,7 +898,7 @@
                         <div class="col-sm-12">
                             <ul class="nav">
                                 <li class="dropdown menu-shadow">
-                                    <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false"><b>NVS DIGITAL EDITIONS</b> (BETA)</a>
+                                    <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">NVS DIGITAL EDITIONS <span class="beta">(BETA)</span></a>
                                     <ul class="dropdown-menu menu-shadow">
                                         <li class="dropdown-item">
                                             <div class="dropright">
@@ -912,7 +925,7 @@
                                     </ul>
                                 </li>
                                 <li class="dropdown menu-shadow ml-auto">
-                                    <a class="dropdown-toggle info-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false"><b>NVS INFO</b></a>
+                                    <a class="dropdown-toggle info-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">NVS INFO</a>
                                     <ul class="dropdown-menu info-menu menu-shadow">
                                         <li class="dropdown-item"><a href="{% if site_request %}/about/{% else %}/corpus/{{ corpus_id }}/about/{% endif %}">ABOUT</a></li>
                                         <li class="dropdown-item"><a href="{% if site_request %}/how-to/{% else %}/corpus/{{ corpus_id }}/how-to/{% endif %}">HOW TO DIGITAL NVS</a></li>
@@ -922,11 +935,9 @@
                                     </ul>
                                 </li>
                                 <li class="dropdown menu-shadow">
-                                    <a class="dropdown-toggle tools-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false"><b>NVS TOOLS</b></a>
+                                    <a class="dropdown-toggle tools-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">NVS TOOLS</a>
                                     <ul class="dropdown-menu tools-menu menu-shadow">
                                         <li class="dropdown-item"><a href="{% if site_request %}/tools/{% else %}/corpus/{{ corpus_id }}/tools/{% endif %}">ABOUT</a></li>
-                                        <li class="dropdown-item"><a href="{% if site_request %}/advanced-search/{% else %}/corpus/{{ corpus_id }}/search/{% endif %}">ADVANCED SEARCH</a></li>
-                                        <li class="dropdown-item"><a href="{% if site_request %}/data/{% else %}/corpus/{{ corpus_id }}/data/{% endif %}">DATA</a></li>
                                     </ul>
                                 </li>
                             </ul>
@@ -1317,8 +1328,6 @@
             'filter_play': true,
         }
     };
-    let nav_history = [];
-    let nav_history_cursor = 0;
 
     let loading_overlay = $('#loading-overlay');
 
@@ -1327,46 +1336,13 @@
         screen_size = determine_screen_size(window.innerWidth);
         style_sheet = document.styleSheets[0];
 
-        // GET CHARACTER NAMES; POSSIBLY FILTERED BY ACT/SCENE
-        /*
-        let speech_params = {
-            'page-size': 0,
-            'a_terms_characters': 'speaking.xml_id,speaking.name',
-        };
-        if (current_act_scene !== 'all') {
-            if (current_act_scene.includes('.')) {
-                let [current_act, current_scene] = current_act_scene.split('.');
-                speech_params['f_act'] = current_act;
-                speech_params['f_scene'] = current_scene;
-            } else {
-                speech_params['f_act'] = current_act_scene;
-            }
-        }
-        corpora.list_content(
-            corpus_id,
-            'Speech',
-            speech_params,
-            function(char_data) {
-                if (char_data.hasOwnProperty('meta') && char_data.meta.hasOwnProperty('aggregations') && char_data.meta.aggregations.hasOwnProperty('characters')) {
-                    let char_selector = $('#hdr-character-selector');
-                    Object.keys(char_data.meta.aggregations.characters).map(char_id_name => {
-                        let [char_xml_id, char_name] = char_id_name.split('|||');
-                        let selected = current_character === char_xml_id ? ' selected' : '';
-                        char_selector.append(`
-                            <option value="${char_xml_id}"${selected}>${char_name}</option>
-                        `);
-                    });
-                }
-                characters_loaded = true;
-            }
-        );
-        */
-
         setup_lines();
         configure_controls();
         adjust_for_screensize();
         enable_commentary_highlighting();
 
+        // IF THIS URL CONTAINS A REFERENCE TO A LINE,
+        // VARIANT, OR COMMENTARY NOTE, NAVIGATE TO IT
         let nav_type = get_param('nav_type');
         let nav_xml_id = get_param('nav_xml_id');
         if (nav_type && nav_xml_id) {
@@ -1511,6 +1487,7 @@
             variant_header_col.addClass('pt-2');
             quick_search_drawer.collapse('show');
             playtext_search_close_button.removeClass('d-none');
+            $(":root").css("--nvs-playtext-viewport-size", `calc(100vh - 150px)`);
         });
 
         playtext_search_close_button.click(function() {
@@ -1631,6 +1608,7 @@
         variant_header_col.removeClass('align-items-top');
         variant_header_col.removeClass('pt-2');
         $('#hdr-quick-search-drawer').collapse('hide');
+        $(":root").css("--nvs-playtext-viewport-size", `calc(100vh - 90px)`);
         $('#reader-view').unmark();
         $('#search-widget').addClass('d-none');
         corpora.make_request(
@@ -2266,10 +2244,10 @@
                     populate_nav_contents(nav_type, ids, contents, first_xml_id, link);
                 } else {
                     let nav_title = nav_map[nav_type]['title'];
-                    let controls = '';
                     if (contents.length > 1) { nav_title = nav_map[nav_type]['title_plural']; }
-
+                    let controls = '';
                     let nav_content = '';
+
                     contents.map(content => {
                         if (nav_content === '') nav_content += '<a name="nav-content-start"></a>';
                         else nav_content += '<br><br>';
@@ -2281,7 +2259,16 @@
                                 </div>
                             `;
                         } else if (nav_type === 'anchor') {
-                            nav_title = `<span>${content.section}<br/><div class="ref-subtitle-marker">&nbsp;</div><span class="text-nvs-dark-blue">${content.title}</span></span>`;
+                            nav_title = `
+                                <span>
+                                    ${content.section}
+                                    <br/>
+                                    <div class="ref-subtitle-marker">&nbsp;</div>
+                                    <span class="text-nvs-dark-blue">
+                                        ${content.title}
+                                    </span>
+                                </span>
+                            `;
 
                             let paratext_url = ''
                             let paratext_section_map = {
@@ -2297,7 +2284,7 @@
                             }
                             paratext_url += `#paratext-${content.id}`;
 
-                            controls = `
+                            controls += `
                                 <a href="${paratext_url}" target="_blank">
                                     <img src="{% static 'img/controls/Modal-NEWTAB.svg' %}"
                                         class="ref-modal-control"
@@ -2311,22 +2298,22 @@
 
                     let modal_id = display_nav_modal(nav_title, nav_content, link, controls);
                     if (nav_map[nav_type].scroll_anchor) {
-                        setTimeout(delayed_scroll.bind(null, first_xml_id, true, modal_id), 2000)
+                        setTimeout(delayed_scroll.bind(null, first_xml_id, true, modal_id), 2000);
                     }
                 }
             });
         }
     }
 
-    function display_nav_modal(title, content, link, controls='') {
+    function display_nav_modal(title, content, link, controls='', arrow_side='right') {
         let modal_id = '';
         let modal_el = null;
 
         if (link) {
             modal_id = `ref-modal-${ref_modal_counter}`;
             let link_rect = link.getBoundingClientRect();
-            let arrow_side = 'right';
-            if (link_rect.x <= window.innerWidth / 2) {
+
+            if (arrow_side !== 'top' && link_rect.x <= window.innerWidth / 2) {
                 arrow_side = 'left'
             }
             $('body').append(`
@@ -2349,10 +2336,11 @@
                 </div>
             `);
             modal_el = $(`#${modal_id}`);
+
             if (arrow_side === 'right') {
                 modal_el.css('top', `${link_rect.top + window.pageYOffset - 20}px`);
                 modal_el.css('left', `${link_rect.left - (modal_el.width() + 20)}px`);
-            } else {
+            } else if (arrow_side === 'left') {
                 modal_el.css('top', `${link_rect.top + window.pageYOffset - 20}px`);
                 modal_el.css('left', `${link_rect.right + 20}px`);
             }
