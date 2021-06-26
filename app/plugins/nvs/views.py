@@ -753,7 +753,6 @@ def api_lines(request, corpus_id=None, play_prefix=None, starting_line_id=None, 
     )
 
 
-
 def api_search(request, corpus_id=None, play_prefix=None):
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
@@ -780,6 +779,8 @@ def api_search(request, corpus_id=None, play_prefix=None):
 
         if quick_search:
             if 'playtext' in search_contents:
+                lines_found = {}
+
                 # SEARCH PLAY LINES VIA Speech CT
                 speech_query = {
                     'content_type': 'Speech',
@@ -819,10 +820,45 @@ def api_search(request, corpus_id=None, play_prefix=None):
 
                             if matches:
                                 line_xml_id = "tln_{0}".format(line[:line.index(' />')])
+                                lines_found[line_xml_id] = True
                                 results['lines'].append({
                                     'xml_id': line_xml_id,
                                     'matches': matches
                                 })
+
+                # SEARCH PLAY LINES VIA PlayLine CT
+                lines_query = {
+                    'content_type': 'PlayLine',
+                    'page': 1,
+                    'page_size': 1000,
+                    'fields_filter': {
+                        'play.id': str(play.id)
+                    },
+                    'only': ['act', 'scene', 'xml_id', 'text'],
+                    'fields_highlight': ['text'],
+                    'highlight_num_fragments': 0
+                }
+                print('LINES')
+                qs_results = progressive_search(corpus, lines_query, ['text'], quick_search, search_type)
+
+                for record in qs_results['records']:
+                    line_xml_id = record['xml_id']
+                    if line_xml_id not in lines_found:
+                        for hit in record['_search_highlights']['text']:
+                            matches = re.findall(r'<em>([^<]*)</em>', hit)
+
+                            if matches and search_type == 'exact':
+                                exact_terms = quick_search.lower().split()
+                                matches = [m for m in matches if _contains_any(m.lower(), exact_terms)]
+
+                            if matches:
+                                results['lines'].append({
+                                    'xml_id': line_xml_id,
+                                    'matches': matches
+                                })
+
+                if results['lines']:
+                    results['lines'] = sorted(results['lines'], key=lambda l: len(l['matches']), reverse=True)
 
             if 'variants' in search_contents:
                 # SEARCH VARIANTS VIA TextualNote CT

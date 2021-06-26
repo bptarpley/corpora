@@ -654,6 +654,10 @@
             || SEARCH WIDGET
             || -------------------------- */
 
+            #search-widget {
+                opacity: 0.8;
+            }
+
             #search-widget a, #search-widget .tab-pane {
                 font-family: "Roboto Condensed", sans-serif;
                 text-transform: uppercase;
@@ -1067,7 +1071,7 @@
                                 <div class="col-sm-7 bg-nvs">
                                     <div class="heading-label mt-1 ml-2">
                                         <div class="form-inline">
-                                            <div class="form-check mr-3">
+                                            <div class="form-check mr-3 d-none">
                                                 <input class="form-check-input" type="checkbox" value="" id="show-variants-by-line" checked>
                                                 <label class="form-check-label checkbox-white" for="show-variants-by-line">
                                                     SHOW VARIANTS BY LINE
@@ -1096,7 +1100,7 @@
                         <div class="col-sm-4 act-scene-comm-col">
                             <div class="row header-block">
                                 <div id="act-scene-header-col" class="col-sm-1 bg-nvs-lightest-gray act-scene-col p-0 m-0">
-                                    <div class="heading-label vertical d-flex h-100 align-items-end">
+                                    <div class="heading-label vertical d-flex h-100 align-items-end" style="top: -9px;">
                                         ACT<br>SCN
                                     </div>
                                 </div>
@@ -1887,30 +1891,10 @@
             $('#search-commentary-next').removeClass('d-none');
 
             let box_rect = $('#hdr-quick-search-box')[0].getBoundingClientRect();
-            search_widget.css('top', `${box_rect.top + window.pageYOffset + 40}px`);
-            search_widget.css('left', `${box_rect.left + 40}px`);
+            console.log(box_rect);
+            search_widget.css('top', `${box_rect.top + window.pageYOffset + 50}px`);
+            search_widget.css('left', `${box_rect.left + box_rect.width - 50}px`);
             make_draggable(search_widget[0]);
-
-            nvs_search.line_results.map(result => {
-                let html_span = $(`#${result.xml_id}-text-col`);
-                result.matches.map(match => html_span.mark(match));
-            });
-
-            nvs_search.variant_results.map(result => {
-                show_notes(result.xml_id);
-                $(`#${result.xml_id}-variant-div`).collapse('show');
-                let html_span = $(`#${result.xml_id}-variant-div .variant-words`);
-                result.matches.map(match => html_span.mark(match));
-            });
-
-            nvs_search.commentary_results.map((result, result_num) => {
-                let comm_header = $(`#commentary-note-${result.comm_id}`);
-                let comm_content = $(`#commentary-content-${result.comm_id}`);
-                result.matches.map(match => {
-                    comm_header.mark(match, {className: `search-commentary-result-${result_num}`});
-                    comm_content.mark(match, {className: `search-commentary-result-${result_num}`});
-                });
-            });
 
             if (nvs_search.line_results.length) display_search_result('line', 'next');
             else if (nvs_search.variant_results.length) display_search_result('variant', 'next');
@@ -1930,15 +1914,28 @@
             nvs_search[`current_${type}_result`] -= 1;
         }
 
-        if (type === 'commentary') {
-            let comm_result_num = nvs_search.current_commentary_result - 1;
-            document.getElementsByClassName(`search-commentary-result-${comm_result_num}`)[0].scrollIntoView({behavior: 'smooth'});
-        }
-        else {
+        let result = nvs_search[`${type}_results`][nvs_search[`current_${type}_result`] - 1];
+        if (type === 'line') {
+            let html_span = $(`#${result.xml_id}-text-col`);
+            result.matches.map(match => html_span.mark(match));
+            document.getElementById(`${result.xml_id}-text-col`).scrollIntoView({behavior: 'smooth'});
+        } else if (type === 'variant') {
             let result = nvs_search[`${type}_results`][nvs_search[`current_${type}_result`] - 1];
-            let id_suffix = '-text-col';
-            if (type === 'variant') id_suffix = '-variant-div';
-            document.getElementById(`${result.xml_id}${id_suffix}`).scrollIntoView({behavior: 'smooth'});
+            show_notes(result.xml_id);
+            $(`#${result.xml_id}-variant-div`).collapse('show');
+            let html_span = $(`#${result.xml_id}-variant-div .variant-words`);
+            result.matches.map(match => html_span.mark(match));
+            document.getElementById(`${result.xml_id}-variant-div`).scrollIntoView({behavior: 'smooth'});
+        }
+        if (type === 'commentary') {
+            let result_num = nvs_search.current_commentary_result - 1;
+            let comm_header = $(`#commentary-note-${result.comm_id}`);
+            let comm_content = $(`#commentary-content-${result.comm_id}`);
+            result.matches.map(match => {
+                comm_header.mark(match, {className: `search-commentary-result-${result_num}`});
+                comm_content.mark(match, {className: `search-commentary-result-${result_num}`});
+            });
+            document.getElementsByClassName(`search-commentary-result-${result_num}`)[0].scrollIntoView({behavior: 'smooth'});
         }
 
         $(`#search-${type}-current`).html(nvs_search[`current_${type}_result`]);
