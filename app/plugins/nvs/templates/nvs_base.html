@@ -82,6 +82,14 @@
         });
       }
 
+      // Close when link is clicked.
+      let inner = holder.querySelector('.anchor-links--inner');
+      if (inner) {
+        inner.addEventListener('click', () => {
+          holder.classList.remove('active');
+        });
+      }
+
       // Set up active states if content is in screen
       let anchorLinks = holder.querySelector('.anchor-links--holder .anchor-link a');
       if (anchorLinks) {
