@@ -11,6 +11,7 @@ This is a barebones readme that needs a lot of work :) Right now it just has qui
    * archive (this contains the MongoDB database files)
    * link (this contains the Neo4J database files)
    * search (this contains the ElasticSearch index files)
+   * conf (this contains the Django auth database)
    * static (this contains the Django web application's static files)
 4. Clone this repository somewhere other than your corpora basedir: `git clone -b dev http://gitlab.dh.tamu.edu/bptarpley/corpora.git`
 5. Copy the file "docker-compose.yml.example" and save a copy as "docker-compose.yml" in the same directory

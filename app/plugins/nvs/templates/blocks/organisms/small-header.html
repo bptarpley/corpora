@@ -1,0 +1,114 @@
+<style>
+    .small-header--holder {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        z-index: 10;
+        background-color: var(--white);
+    }
+    @media ( min-width: 992px ) {
+        .small-header--holder { display: none }
+    }
+    .small-header--row {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        padding: 10px 0;
+    }
+    .small-header--row a.logo {
+        display: flex;
+        align-items: center;
+        margin-right: auto;
+    }
+    .small-header--row a.logo svg {
+        height: 20px;
+        width: auto;
+        display: block;
+        margin-left: 5px;
+    }
+    .small-header--row a.logo svg:first-child { margin-left: 0; }
+    .small-header--row a.logo svg:last-child {
+        display: none;
+        height: 18px;
+    }
+
+    @media ( min-width: 576px ) {
+        .small-header--row a.logo svg:first-child { height: 24px; }
+        .small-header--row a.logo svg:nth-child( 2 ) { display: none; }
+        .small-header--row a.logo svg:last-child { display: block; }
+    }
+    .small-header--row .menu { margin-left: 10px; }
+    .small-header--row .menu svg:first-child { display: block; }
+    .small-header--row .menu svg:last-child { display: none; }
+    .active .small-header--row .menu svg:first-child { display: none; }
+    .active .small-header--row .menu svg:last-child { display: block; }
+
+    .small-header--nav-holder {
+        background-color: var(--blue5);
+        transition: max-height 0.75s;
+        max-height: 0;
+        overflow: hidden;
+    }
+
+    .active .small-header--nav-holder {
+        max-height: 100vh;
+    }
+    .small-header--nav-holder ul {
+        list-style: none;
+        padding-left: 0;
+        margin: 0;
+    }
+    .small-header--nav-holder ul ul {
+        margin: 0;
+        padding-left: 5px;
+    }
+    .small-header--nav-holder ul li {
+        font-size: 17px;
+        padding: 0 10px;
+        line-height: 1.5;
+    }
+    .small-header--nav-holder ul li.parent {
+        padding: 5px 10px;
+    }
+    .small-header--nav-holder .navigation--dropdown.parent:first-child {
+        background-color: var(--white);
+    }
+    .small-header--nav-holder .navigation--dropdown.parent:last-child {
+        background-color: var(--grey5);
+    }
+    .small-header--nav-holder ul a {
+        text-decoration: none;
+    }
+    .small-header--nav-holder ul a:hover {
+        text-decoration: underline;
+    }
+</style>
+
+<div class="small-header--holder">
+  <div class="container">
+    <div class="small-header--row">
+      <a class="logo" href="{% if site_request %}/{% else %}/corpus/{{ corpus_id }}/home/{% endif %}">
+        {% include 'svg/logo.svg' %}
+        {% include 'svg/type.svg' %}
+        {% include 'svg/logo-long-type.svg' %}
+      </a>
+      <button class="icon menu">
+        {% include 'svg/hamburger.svg' %}
+        {% include 'svg/cross.svg' %}
+      </button>
+    </div>
+  </div>
+  <div class="small-header--nav-holder">
+    {% include 'blocks/atoms/navigation.html' %}
+  </div>
+</div>
+
+<script type="text/javascript">
+  document.addEventListener('DOMContentLoaded', () => {
+    let holder = document.querySelector('.small-header--holder');
+    document.querySelector('button.menu').addEventListener("click", () => {
+      holder.classList.toggle("active");
+    })
+  })
+</script>

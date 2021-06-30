@@ -21,8 +21,8 @@
         <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
         <!--<link href="{% static 'css/nvs.css' %}" rel="stylesheet">-->
 
-        <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-        <link href="https://fonts.googleapis.com/css2?family=Roboto:ital@0;1&display=swap" rel="stylesheet">
+        <!--<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">-->
+        <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
         <style title="main-sheet">
             /* -----------------------------
             || MAIN CSS VARIABLES
@@ -34,24 +34,78 @@
                 --scrollbarURL: url("/corpus/{{ corpus_id }}/play-minimap/{{ play.prefix }}/?width=40&height=1000");
                 {% endif %}
                 --nvs-form-control-height: 35px;
-                --nvs-play-row-min-height: 40px;
+                --nvs-play-row-min-height: 39px;
                 --nvs-form-control-font-size: 12px;
+                --nvs-playtext-viewport-size: calc(100vh - 90px);
                 --nvs-background-color: #FFFFFF;
                 --nvs-lightest-gray: #F2F2F2;
-                --nvs-lighter-gray: #C4C4C4;
+                --nvs-light-gray: #E6E6E6;
+                --nvs-lighter-gray: #cfcfcf;
                 --nvs-mid-gray: #828282;
                 --nvs-yellow-gray: #3b371c;
-                --nvs-dark-blue: #085294;
+                --nvs-dark-blue: #2a69a1;
                 --nvs-light-blue: #6c9ecc;
+                --nvs-lightest-blue: rgb(235, 244, 252);
                 --nvs-primary-orange: #CC5F38;
                 --nvs-secondary-orange: #F1B06E;
+                --nvs-burnt-orange: #d87448;
                 --nvs-light-orange: #F9EFE4;
-                --nvs-dark-yellow: #f4e383;
+                --nvs-dark-yellow: #F0E438;
                 --nvs-light-yellow: #f9f1d9;
                 --nvs-light-beige: #FBF5F1;
                 --nvs-dark-beige: #EBE4DD;
             }
 
+            /* -----------------------------
+            || FONTS
+            || -------------------------- */
+            @font-face {
+                font-family: "HalyardTextBook";
+                src: url("/static/proprietary/font/HalyardTextBook.woff2") format('woff2'), url("/static/proprietary/font/HalyardTextBook.woff") format('woff');
+            }
+
+            @font-face {
+                font-family: "HalyardTextSemiBold";
+                src: url("/static/proprietary/font/HalyardTextSemBd.woff2") format('woff2'), url("/static/proprietary/font/HalyardTextSemBd.woff") format('woff');
+            }
+
+            @font-face {
+                font-family: "HalyardTextMedium";
+                src: url("/static/proprietary/font/HalyardTextMed.woff2") format('woff2'), url("/static/proprietary/font/HalyardTextMed.woff") format('woff');
+            }
+
+            @font-face {
+                font-family: "FormulaSerial";
+                src: url("{% static 'font/FormulaSerial.woff2' %}") format('woff2'), url("{% static 'font/FormulaSerial.woff' %}") format('woff');
+            }
+
+            @font-face {
+                font-family: "Baskerville";
+                src: url("/static/proprietary/font/Baskerville10Pro.woff") format('woff');
+            }
+
+            @font-face {
+                font-family: "Baskerville";
+                src: url("/static/proprietary/font/Baskerville10Pro-Bold.woff") format('woff');
+                font-weight: bold;
+            }
+
+            @font-face {
+                font-family: "Baskerville";
+                src: url("/static/proprietary/font/Baskerville10Pro-Italic.woff") format('woff');
+                font-style: italic;
+            }
+
+            @font-face {
+                font-family: "Baskerville";
+                src: url("/static/proprietary/font/Baskerville10Pro-BoldItalic.woff") format('woff');
+                font-weight: bold;
+                font-style: italic;
+            }
+
+            /* -----------------------------
+            || MAIN STRUCTURE
+            || -------------------------- */
             body {
                 background-color: #FFFFFF;
             }
@@ -60,27 +114,122 @@
                 display: block;
             }
 
-            @font-face {
-                font-family: "FormulaSerial";
-                src: url("{% static 'font/FormulaSerial.woff2' %}") format('woff2'), url("{% static 'font/FormulaSerial.woff' %}") format('woff');
+            #loading-overlay {
+                top: 0;
+                z-index: 5000;
+                position: fixed;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0, 0.5);
+            }
+
+            #loading-modal {
+                padding: 15px;
+                font-family: "Roboto Condensed";
+                font-weight: bold;
+                font-size: 12px;
+                background-color: var(--nvs-background-color);
+                box-shadow: 0px 3px 3px 0 rgba(0, 0, 0, 0.4);
+                min-height: 210px;
             }
 
             /* -----------------------------
-            || HEADERS AND CONTROLS
+            || TEMPORARY HEADER NAV
             || -------------------------- */
+            .nav {
+                font-family: 'Roboto Condensed', sans-serif;
+                font-weight: normal;
+                letter-spacing: 0.02em;
+            }
 
-            .heading-section-label {
-                font-family: 'Roboto', sans-serif;
-                color: #FFFFFF;
-                font-size: 14px;
-                font-weight: bold;
+            @media (min-width: 950px) {
+                .edition-menu {
+                    min-width: 300px;
+                }
+
+                .info-menu, .tools-menu {
+                    min-width: 220px;
+                }
+            }
+
+            .info-menu {
+                background-color: var(--nvs-lightest-blue);
+                border-right: solid 1px var(--nvs-background-color);
+            }
+
+            .tools-menu {
+                background-color: rgb(242, 242, 242);
+            }
+
+            .menu-shadow {
+                border: none;
+                border-radius: 0;
+                padding-top: 0px;
+                padding-bottom: 0px;
+            }
+
+            .menu-shadow.show {
+                box-shadow: rgba(99, 99, 99, 0.3) 4px 8px 8px 0;
+            }
+
+            li.dropdown, li.dropdown a {
+                max-height: 35px;
+            }
+
+            li a {
+                padding: 0.5rem 1rem 1.5rem 1rem;
+                width: 100%;
+                display: block;
+                text-decoration: none;
+                color: rgb(55, 55, 55);
+            }
+
+            li a:hover {
+                color: var(--nvs-dark-blue);
+                text-decoration: none;
+            }
+
+            span.beta {
+                color: #808080;
+            }
+
+            .dropdown-item {
+                padding: 0px;
+            }
+
+            .dropdown-item:active {
+                background-color: inherit;
+            }
+
+            .dropdown-item a {
+                padding-bottom: 0px;
+            }
+
+            #play-title {
+                font-family: 'Roboto Condensed', sans-serif;
+                color: var(--nvs-dark-blue);
+                text-transform: uppercase;
+                font-weight: bolder;
+                font-size: 25px;
+                padding-left: 1rem;
+                line-height: 1;
+            }
+
+            .byline-div {
+                border-top: solid 1px var(--nvs-lightest-blue);
+                border-left: solid 1px var(--nvs-lightest-blue);
+            }
+
+            .byline {
+                font-family: "Roboto Condensed", sans-serif;
+                font-size: 12px;
+                text-transform: uppercase;
             }
 
             .heading-label {
-                font-family: 'Roboto', sans-serif;
+                font-family: 'Roboto Condensed', sans-serif;
                 color: var(--nvs-mid-gray);
                 font-size: 14px;
-                font-weight: bold;
             }
 
             .view-col {
@@ -89,156 +238,144 @@
                 border-right: solid 5px var(--nvs-background-color);
             }
 
-            .nvs-selection {
-                position: relative;
-            }
-
-            .nvs-selection:after {
-                content: '\f0d7';
-                font-family: "Font Awesome 5 Free";
-                font-weight: 900;
-                font-size: 25px;
-                color: var(--nvs-lighter-gray);
-                right: 10px;
-                top: 4px;
-                height: 35px;
-                position: absolute;
-                pointer-events: none;
-            }
-
-            select::-ms-expand {
-                display: none;
-            }
-
-            .nvs-search, .nvs-selection select, input[type=text], input[type=button] {
+            /* -----------------------------
+            || CONTROLS
+            || -------------------------- */
+            .nvs-search {
                 -webkit-appearance: none;
                 -moz-appearance: none;
                 appearance: none;
                 /* Add some styling */
 
                 display: block;
-                width: 100%;
-                height: var(--nvs-form-control-height);
+                width: 100px;
                 float: right;
                 margin: 2.5px 0px;
-                padding: 0px 10px;
                 font-size: var(--nvs-form-control-font-size);
                 line-height: 1;
                 color: #333;
                 background-color: #ffffff;
-                background-image: none;
-                border: 1px solid var(--nvs-lighter-gray);
+                background-image: url({% static 'img/controls/search_placeholder.svg' %});
+                background-repeat: no-repeat;
+                background-size: initial;
+                border: 2px solid var(--nvs-light-gray);
                 -ms-word-break: normal;
                 word-break: normal;
-            }
 
-            .nvs-selection select {
-                font-size: 16px;
-            }
-
-            .nvs-search {
                 position: relative;
-                height: unset;
-                min-height: var(--nvs-form-control-height);
+                height: var(--nvs-form-control-height);
                 padding: 10px;
-                max-height: 150px;
+                padding-left: 55px;
                 overflow-x: hidden;
                 overflow-y: auto;
             }
 
-            .nvs-search:empty:before{
-                content: attr(placeholder);
-                color: var(--nvs-mid-gray);
-                pointer-events: none;
-                display: block;
+            .nvs-search:focus, .nvs-search.not-empty {
+                background-image: url({% static 'img/controls/VAR-bar-search-ROLL.svg' %});
+                background-size: 50px;
+                height: unset;
+                min-height: var(--nvs-form-control-height);
+                max-height: 150px;
             }
 
-            .nvs-search:empty:after {
-                content: '\f002';
-                font-family: "Font Awesome 5 Free";
-                font-weight: 900;
-                font-size: 18px;
-                color: var(--nvs-lighter-gray);
-                right: 10px;
-                top: 6px;
-                height: 35px;
-                position: absolute;
-                pointer-events: none;
-            }
-
-            input[type=button] {
+            #playtext-search-close-button {
+                position: relative;
+                left: -30px;
+                top: 13px;
                 cursor: pointer;
-                background-color: var(--nvs-primary-orange);
+                color: var(--nvs-mid-gray);
+            }
+
+            .nav-pills .nav-link.active, .nav-pills .show>.nav-link {
+                color: #fff;
+                background-color: var(--nvs-dark-blue);
+            }
+
+            .nav-pills .nav-link {
+                color: var(--nvs-dark-blue);
+                font-family: "Roboto Condensed", sans-serif;
+                border-radius: 0;
+            }
+
+            .nvs-tln {
+                -webkit-appearance: none;
+                -moz-appearance: none;
+                appearance: none;
+                display: block;
+                width: 100px;
+                float: right;
+                margin: 2.5px 0px;
+                font-size: var(--nvs-form-control-font-size);
+                line-height: 1;
+                color: #333;
+                background-color: #ffffff;
+                background-image: url({% static 'img/controls/tln_placeholder.svg' %});
+                background-repeat: no-repeat;
+                border: 2px solid var(--nvs-light-gray);
+                position: relative;
+                height: var(--nvs-form-control-height);
+                padding: 10px;
+                padding-left: 38px;
+            }
+
+            .nvs-tln:focus {
+                background-image: url({% static 'img/controls/tln.svg' %});
+                background-size: 35px;
+            }
+
+            input[type=radio], input[type=checkbox] {
+                border: 0;
+                clip: rect(0, 0, 0, 0);
+                height: 1px;
+                overflow: hidden;
+                padding: 0;
+                position: absolute !important;
+                white-space: nowrap;
+                width: 1px;
+            }
+
+            .form-check-label {
+                font-family: "Roboto Condensed", sans-serif;
+                font-size: 12px;
+                font-weight: bold;
+                padding-left: 20px;
                 color: var(--nvs-background-color);
             }
 
-            input.nvs-secondary-button {
-                background-color: var(--nvs-secondary-orange);
+            label.checkbox-white {
+                color: var(--nvs-mid-gray);
             }
 
-            input[type=checkbox] {
-                height: 20px;
-                left: 0;
-                opacity: 0;
-                position: absolute;
-                top: 0;
-                width: 30px;
+            input[type=radio] + label.radio {
+                cursor: pointer;
+                background-image: url({% static 'img/controls/radio.svg' %});
+                background-size: 15px;
+                background-repeat: no-repeat;
+                background-position: left center;
             }
 
-            .toggle-control {
-                display: block;
-                position: relative;
-                padding-left: 40px;
+            input[type=radio]:checked + label.radio {
+                background-image: url({% static 'img/controls/radio-selected.svg' %});
+            }
+
+            input[type=checkbox] + label.checkbox, input[type=checkbox] + label.checkbox-white {
                 cursor: pointer;
-                font-size: 22px;
-                -webkit-user-select: none;
-                -moz-user-select: none;
-                -ms-user-select: none;
-                user-select: none;
+                background-image: url({% static 'img/controls/checkbox.svg' %});
+                background-size: 15px;
+                background-repeat: no-repeat;
+                background-position: left center;
             }
-            .toggle-control input {
-                position: absolute;
-                opacity: 0;
-                cursor: pointer;
-                height: 0;
-                width: 0;
+
+            input[type=checkbox]:checked + label.checkbox {
+                background-image: url({% static 'img/controls/checkbox-selected.svg' %});
             }
-            .toggle-control input:checked ~ .control {
-                background-color: var(--nvs-primary-orange);
+
+            input[type=checkbox] + label.checkbox-white {
+                background-image: url({% static 'img/controls/checkbox-white.svg' %});
             }
-            .toggle-control input:checked ~ .control:after {
-                left: 22px;
-            }
-            .toggle-control .control {
-                position: absolute;
-                top: 0;
-                left: 0;
-                height: 20px;
-                width: 40px;
-                border-radius: 10px;
-                background-color: var(--nvs-mid-gray);
-                -webkit-transition: background-color 0.15s ease-in;
-                transition: background-color 0.15s ease-in;
-            }
-            .toggle-control .control:after {
-                content: "";
-                position: absolute;
-                left: 2px;
-                top: 2px;
-                width: 16px;
-                height: 16px;
-                border-radius: 10px;
-                background: var(--nvs-background-color);
-                -webkit-transition: left 0.15s ease-in;
-                transition: left 0.15s ease-in;
-            }
-            .toggle-control .heading-label {
-                position: relative;
-                top: -10px;
-                left: 10px;
-            }
-            label.toggle-control {
-                margin-bottom: 0px!important;
+
+            input[type=checkbox]:checked + label.checkbox-white {
+                background-image: url({% static 'img/controls/checkbox-white-selected.svg' %});
             }
 
             /* -----------------------------
@@ -249,8 +386,16 @@
                 min-height: var(--nvs-play-row-min-height);
             }
 
+            .bg-nvs {
+                background-color: var(--nvs-background-color);
+            }
+
             .bg-nvs-light-blue {
                 background-color: var(--nvs-light-blue);
+            }
+
+            .bg-nvs-dark-blue {
+                background-color: var(--nvs-dark-blue);
             }
 
             .bg-nvs-light-orange {
@@ -265,19 +410,64 @@
                 background-color: var(--nvs-lightest-gray);
             }
 
+            .text-nvs-dark-blue {
+                color: var(--nvs-dark-blue);
+            }
+
+            .text-white {
+                color: #FFFFFF;
+            }
+
+            .vertical {
+                font-size: 12px;
+                position: relative;
+                transform: rotate(-90deg);
+                transform-origin: 45% 70%;
+                line-height: 1;
+            }
+
             #witness-header {
                 height: var(--nvs-form-control-height);
                 width: 100%;
             }
 
-            #playtext-col, #act-scene-frame, #commentary-frame {
+            #playtext-col, #playtext-header-col, #act-scene-frame, #commentary-frame {
                 overflow-y: scroll;
-                max-height: calc(100vh - 60px);
+                overflow-x: hidden;
+                max-height: var(--nvs-playtext-viewport-size);
                 background-repeat: no-repeat;
+            }
+
+            #playtext-col::-webkit-scrollbar, #playtext-header-col::-webkit-scrollbar {
+                width: 40px;
+            }
+
+            #playtext-col::-webkit-scrollbar-track {
+                background-color: var(--nvs-lightest-gray);
+                background-image: var(--scrollbarURL);
+                background-size: contain;
+                background-repeat: no-repeat;
+            }
+
+            #playtext-col::-webkit-scrollbar-thumb {
+                background-color: rgba(42, 105, 161, .5);
+            }
+
+            #playtext-header-col::-webkit-scrollbar-track {
+                background-color: var(--nvs-lightest-gray);
+                background-image: url({% static 'img/controls/nav.svg' %});
+                background-repeat: no-repeat;
+                background-position: bottom 4px center;
+                background-size: 9px;
+            }
+
+            #playtext-col, #playtext-header-col, #act-scene-header-col, #act-scene-frame {
+                border-right: solid 1px var(--nvs-lighter-gray);
             }
 
             #act-scene-frame {
                 background-color: var(--nvs-lightest-gray);
+                overflow-x: hidden;
             }
 
             #commentary-frame {
@@ -286,22 +476,8 @@
                 padding-top: 0px;
             }
 
-            #playtext-col::-webkit-scrollbar {
-                width: 40px;
-            }
-
-            #playtext-col::-webkit-scrollbar-track {
-                background-image: var(--scrollbarURL);
-                background-size: contain;
-                background-repeat: no-repeat;
-            }
-
-            #playtext-col::-webkit-scrollbar-thumb {
-                background-color: rgba(247, 155, 86, .5);
-            }
-
             .play-row {
-                border-bottom: solid 1px var(--nvs-light-blue);
+                border-top: solid 1px var(--nvs-light-blue);
                 min-height: var(--nvs-play-row-min-height);
             }
 
@@ -309,16 +485,19 @@
                 background-color: var(--nvs-background-color);
                 color: var(--nvs-mid-gray);
                 border: none;
-                border-left: solid 1px var(--nvs-light-blue);
-                font-family: 'Roboto', sans-serif;
-                font-size: 1.2vw;
+                border-left: solid 1px var(--nvs-lighter-gray);
+                border-right: solid 1px var(--nvs-lighter-gray);
+                font-family: 'Roboto Condensed', sans-serif;
+                font-size: 12px;
             }
 
-            .play-words, .play-words-seen {
+            .play-words {
                 padding-top: 10px;
                 padding-bottom: 5px;
-                font-family: 'Libre Baskerville', serif;
-                font-size: 1.1vw;
+                padding-left: 0px;
+                font-family: 'Baskerville', serif;
+                font-variant-numeric: oldstyle-nums;
+                font-size: clamp(1.125rem, 1.2vw, 1.5rem);
                 color: #070707;
                 background-color: var(--nvs-background-color);
                 -webkit-box-align: center!important;
@@ -327,6 +506,27 @@
                 display: -webkit-box!important;
                 display: -ms-flexbox!important;
                 display: flex!important;
+            }
+
+            .play-words.no-variants {
+                padding-left: 41px !important;
+            }
+
+           /* -----------------------------
+           || PLAY TEXT STYLING
+           || -------------------------- */
+
+            span.castlist:not(:empty) {
+                width: 100%;
+            }
+            h3.heading {
+                font-size: 20px;
+                text-transform: uppercase;
+                margin-top: 0px;
+                margin-bottom: 0px;
+                margin-left: auto !important;
+                margin-right: auto !important;
+                text-align: center;
             }
 
             span.castgroup {
@@ -349,6 +549,8 @@
 
             span.stage {
                 font-style: italic;
+                margin-right: auto !important;
+                margin-left: auto !important;
             }
 
             span.speaker-abbreviation {
@@ -367,19 +569,23 @@
                 display: flex!important;
             }
 
-            .variant-toggler, .variant-toggler:hover {
-                text-decoration: none;
-                color: #f99b4e;
+            .clickable {
+                cursor: pointer;
+            }
+
+            .variant-toggler {
+                margin: 0px;
+                margin-right: 8px;
             }
 
             .variant-row {
-                background-color: var(--nvs-light-orange);
                 border-bottom: solid 1px var(--nvs-light-blue);
             }
 
             .witness-formula {
                 color: #f99b4e;
-                font-family: 'Roboto', sans-serif;
+                background-color: var(--nvs-light-orange);
+                font-family: 'Roboto Condensed', sans-serif;
                 font-size: 12px;
                 text-transform: uppercase;
             }
@@ -389,9 +595,11 @@
             }
 
             .variant-words {
-                font-family: 'Libre Baskerville', serif;
+                font-family: 'Baskerville', serif;
+                font-size: clamp(18px, 1.2vw, 30px);
+                font-variant-numeric: oldstyle-nums;
                 color: #949494;
-                padding-left: 37px;
+                padding-left: 41px !important;
                 padding-top: 10px;
                 padding-bottom: 5px;
             }
@@ -400,37 +608,35 @@
                 color: #070707;
             }
 
-            h3.heading {
-                margin-top: 0px;
-                margin-bottom: 0px;
-            }
-
             span.difference {
                 color: #e9702b;
                 background-color: #FFFFFF;
             }
 
-            comspan {
-                background-color: rgba(249, 241, 217, .5);
-                border-bottom: solid 1px var(--nvs-dark-yellow);
-                cursor: pointer;
-            }
-
             .comm-heading {
                 background-color: var(--nvs-dark-yellow);
-                font-family: 'Libre Baskerville', serif;
+                font-family: 'Baskerville', serif;
+                font-variant-numeric: oldstyle-nums;
                 cursor: pointer;
-                color: var(--nvs-yellow-gray);
+                color: #000000;
             }
 
             .comm-block {
                 color: #000000;
-                font-family: 'FormulaSerial';
+                font-family: 'HalyardTextBook';
+                font-size: clamp(13px,1.2vw,16px);
                 margin-bottom: 20px;
+                font-variant-numeric: oldstyle-nums;
+            }
+
+            .comm-block a {
+                color: var(--nvs-dark-blue);
             }
 
             .actscene-indicator {
                 color: var(--nvs-mid-gray);
+                font-size: 12px;
+                cursor: pointer;
             }
 
             .actscene-indicator.active {
@@ -443,12 +649,34 @@
                 width: 100%;
             }
 
+
+            /* -----------------------------
+            || SEARCH WIDGET
+            || -------------------------- */
+
             #search-widget {
-                position: fixed;
-                bottom: 0;
-                width: 100%;
-                z-index: 2000;
-                pointer-events: none;
+                opacity: 0.8;
+            }
+
+            #search-widget a, #search-widget .tab-pane {
+                font-family: "Roboto Condensed", sans-serif;
+                text-transform: uppercase;
+            }
+
+            #search-results-div {
+                border: 1px solid var(--nvs-mid-gray);
+                border-bottom: none;
+                box-shadow: 0px 3px 3px 0 rgba(0, 0, 0, 0.4);
+            }
+
+            .nav-tabs .nav-link {
+                border-radius: 0px !important;
+            }
+
+            mark {
+                padding: .2em;
+                background-color: var(--nvs-light-blue);
+                color: white;
             }
 
             /* -----------------------------
@@ -456,7 +684,8 @@
             || -------------------------- */
 
             #nav-modal-label {
-                font-family: 'Libre Baskerville', serif;
+                font-family: 'Baskerville', serif;
+                font-variant-numeric: oldstyle-nums;
             }
 
             #nav-modal-body {
@@ -466,36 +695,179 @@
             }
 
             .ref-modal {
-                font-family: 'FormulaSerial';
-                width: 300px;
+                position: absolute;
+                max-width: calc(40vw);
+            }
+
+            .arrow-right, .arrow-left, .arrow-top {
+                background-color: #FFFFFF;
+                position: relative;
+                box-sizing: border-box;
+                border: 1px solid var(--nvs-mid-gray);
+                box-shadow: 0px 3px 3px 0 rgba(0, 0, 0, 0.4);
             }
 
             .arrow-right {
-                background-color: #FFFFFF;
-                position: relative;
                 float: left;
             }
 
-            .arrow-right:after {
+            .arrow-left {
+                float: right;
+            }
+
+            .arrow-right:after, .arrow-right:before, .arrow-left:after, .arrow-left:before, .arrow-top:after, .arrow-top:before {
                 content: " ";
+                width: 0;
+                height: 0;
                 position: absolute;
-                right: -15px;
-                top: 15px;
+                left: -15px;
+                top: 10%;
+            }
+
+            .arrow-right:after, .arrow-right:before {
+                left: 100%;
+            }
+
+            .arrow-top:after, .arrow-top:before {
+                top: -15px;
+                left: 15px;
+            }
+
+            .arrow-right:after {
                 border-top: 15px solid transparent;
                 border-right: none;
                 border-left: 15px solid white;
                 border-bottom: 15px solid transparent;
             }
 
+            .arrow-right:before {
+                border-top: 17px solid transparent;
+                border-right: none;
+                border-left: 16px solid var(--nvs-mid-gray);
+                border-bottom: 16px solid transparent;
+                margin-top: -2px;
+            }
+
+            .arrow-left:after {
+                border-top: 15px solid transparent;
+                border-left: none;
+                border-right: 15px solid white;
+                border-bottom: 15px solid transparent;
+            }
+
+            .arrow-left:before {
+                border-top: 17px solid transparent;
+                border-left: none;
+                border-right: 16px solid var(--nvs-mid-gray);
+                border-bottom: 16px solid transparent;
+                margin-top: -2px;
+                margin-left: -1px;
+            }
+
+            .arrow-top:after {
+                border-top: none;
+                border-right: 15px solid transparent;
+                border-left: 15px solid transparent;
+                border-bottom: 15px solid white;
+                margin-left: 1px;
+            }
+
+            .arrow-top:before {
+                border-top: none;
+                border-right: 16px solid transparent;
+                border-left: 16px solid transparent;
+                border-bottom: 16px solid var(--nvs-mid-gray);
+                top: -16px;
+            }
+
+            .ref-modal-header {
+                font-family: 'Roboto Condensed', sans-serif;
+                font-weight: bold;
+                text-transform: uppercase;
+                color: #000000;
+                padding: 10px;
+                cursor: move;
+            }
+
+            .ref-subtitle-marker {
+                background-color: var(--nvs-dark-blue);
+                width: 13px;
+                height: 13px;
+                display: inline-block;
+                margin-right: 3px;
+                position: relative;
+                top: 5px;
+            }
+
+            .ref-modal-control {
+                cursor: pointer;
+                height: 20px;
+                margin-left: 5px;
+            }
+
             .ref-modal-content {
+                padding: 10px;
+                font-family: 'HalyardTextBook';
                 max-height: calc(40vh);
                 overflow-y: scroll;
+            }
+
+            .ref-row {
+                width: calc(40vw);
+                border-top: solid 1px var(--nvs-lighter-gray);
+            }
+
+            .ref-row:last-child {
+                border-bottom: solid 1px var(--nvs-lighter-gray);
+            }
+
+            /* -----------------------------
+            || REF LINKS
+            || -------------------------- */
+            .ref-bibl {
+                font-family: "HalyardTextMedium";
+                color: var(--nvs-dark-blue);
+            }
+
+            .ref-siglum {
+                font-family: "HalyardTextSemiBold";
+                color: var(--nvs-burnt-orange) !important;
+            }
+
+            .ref-lb, .ref-note_cn, .ref-anchor, .ref-p, .ref-text, .ref-item, .ref-quote, .ref-div, .ref-l {
+                font-family: "Roboto Condensed", sans-serif;
+                font-weight: bold;
+                color: var(--nvs-dark-blue);
+            }
+
+            .ref-lb:before, .ref-lb:hover:before {
+                content: "TLN ";
+                font-weight: normal;
+                text-decoration: none;
+            }
+
+            .ref-anchor, .ref-p, .ref-text, .ref-item, .ref-quote, .ref-div, .ref-l {
+                text-transform: uppercase;
             }
         </style>
 
         <title>{{ play.title }}</title>
     </head>
     <body>
+        <div id="loading-overlay" class="d-flex align-items-center justify-content-center">
+            <div id="loading-modal" class="w-25 h-25">
+                <div class="row no-gutters">
+                    <div class="col-sm-12">
+                        LOADING...
+                    </div>
+                </div>
+                <div class="row no-gutters">
+                    <div class="col-sm-12 d-flex align-items-center justify-content-center h-100">
+                        <img src="{% static 'img/nvs-logo-animated.gif' %}" class="loading-spinner img-responsive" />
+                    </div>
+                </div>
+            </div>
+        </div>
         <!-- Navigation Modal -->
         <div class="modal fade" id="nav-modal" tabindex="-1" role="dialog" aria-labelledby="nav-modal-label" aria-hidden="true">
             <div class="modal-dialog" role="document">
@@ -517,186 +889,222 @@
         </div>
 
         <div id="main-container" class="container-fluid h-100">
-
             <!-- MAIN HEADER -->
             <div id="main-header" class="row">
-
-                <!-- NVS LOGO -->
-                <div class="d-none d-lg-flex justify-content-center col-lg-1 pt-4 px-1">
-                    <figure>
-                    <img src="{% static 'img/nvs-logo.png'%}" class="img-fluid" style="max-height: 85px;">
-                    </figure>
+                <!-- LOGO -->
+                <div class="col-sm-2 pt-2">
+                    <a href="{% if site_request %}/{% else %}/corpus/{{ corpus_id }}/home/{% endif %}"><img src="{% static 'img/nvs-logo.png'%}" class="img-fluid m-0" style="max-height: 90px;"></a>
                 </div>
 
-                <!-- TEXT SETTINGS -->
-                <div class="col-sm-12 col-md-5 col-lg-4">
-                    <div class="heading-section-label">Text</div>
-                    <div class="row p-1">
-                        <div class="col-sm-12 bg-nvs-lightest-gray p-0 p-sm-2">
-                            <div class="heading-label">PLAY</div>
-                            <div class="nvs-selection">
-                                <select id="play-selector" class="font-weight-bold">
-                                    <option value="wt">{{ play.title }}</option>
-                                </select>
-                            </div>
-                            <div class="row">
-                                <!-- search play box -->
-                                <div class="col-sm-6 pr-sm-1">
-                                    <div id="hdr-quick-search-box" class="nvs-search" placeholder="SEARCH THIS PLAY" contentEditable="plaintext-only"></div>
-                                </div>
-
-                                <!-- play line no box -->
-                                <div class="col-sm-4 p-sm-0">
-                                    <input id="hdr-line-no-box" type="text" placeholder="ENTER LINE#" />
-                                </div>
-
-                                <!-- play go button -->
-                                <div class="col-sm-2 pl-sm-1">
-                                    <input type="button" value="GO">
-                                </div>
-                            </div>
+                <!-- NAV -->
+                <div class="col-sm-10">
+                    <div class="row">
+                        <div class="col-sm-12">
+                            <ul class="nav">
+                                <li class="dropdown menu-shadow">
+                                    <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">NVS DIGITAL EDITIONS <span class="beta">(BETA)</span></a>
+                                    <ul class="dropdown-menu menu-shadow">
+                                        <li class="dropdown-item">
+                                            <div class="dropright">
+                                                <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">THE WINTER'S TALE</a>
+                                                <ul class="dropdown-menu menu-shadow">
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/edition/wt/{% else %}/corpus/{{ corpus_id }}/play-viewer/wt/{% endif %}">VARIORUM READER</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/front/wt/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/wt/Front Matter/{% endif %}">FRONT MATTER</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/bibliography/wt/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/wt/Bibliography/{% endif %}">BIBLIOGRAPHY</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/appendix/wt/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/wt/Appendix/{% endif %}">APPENDIX</a></li>
+                                                </ul>
+                                            </div>
+                                        </li>
+                                        <li class="dropdown-item">
+                                            <div class="dropright">
+                                                <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">A MIDSUMMER NIGHT'S DREAM</a>
+                                                <ul class="dropdown-menu menu-shadow">
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/edition/mnd/{% else %}/corpus/{{ corpus_id }}/play-viewer/mnd/{% endif %}">VARIORUM READER</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/front/mnd/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/mnd/Front Matter/{% endif %}">FRONT MATTER</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/bibliography/mnd/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/mnd/Bibliography/{% endif %}">BIBLIOGRAPHY</a></li>
+                                                    <li class="dropdown-item"><a href="{% if site_request %}/appendix/mnd/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/mnd/Appendix/{% endif %}">APPENDIX</a></li>
+                                                </ul>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </li>
+                                <li class="dropdown menu-shadow ml-auto">
+                                    <a class="dropdown-toggle info-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">NVS INFO</a>
+                                    <ul class="dropdown-menu info-menu menu-shadow">
+                                        <li class="dropdown-item"><a href="{% if site_request %}/about/{% else %}/corpus/{{ corpus_id }}/about/{% endif %}">ABOUT</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/how-to/{% else %}/corpus/{{ corpus_id }}/how-to/{% endif %}">HOW TO DIGITAL NVS</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/faqs/{% else %}/corpus/{{ corpus_id }}/faqs/{% endif %}">FAQS & LEXICON</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/contributors/{% else %}/corpus/{{ corpus_id }}/contributors/{% endif %}">CONTRIBUTORS</a></li>
+                                        <li class="dropdown-item"><a href="{% if site_request %}/print-editions/{% else %}/corpus/{{ corpus_id }}/print/{% endif %}">PRINT EDITIONS</a></li>
+                                    </ul>
+                                </li>
+                                <li class="dropdown menu-shadow">
+                                    <a class="dropdown-toggle tools-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">NVS TOOLS</a>
+                                    <ul class="dropdown-menu tools-menu menu-shadow">
+                                        <li class="dropdown-item"><a href="{% if site_request %}/tools/{% else %}/corpus/{{ corpus_id }}/tools/{% endif %}">ABOUT</a></li>
+                                    </ul>
+                                </li>
+                            </ul>
                         </div>
                     </div>
-                </div>
-
-                <!-- FILTER SETTINGS -->
-                <div class="col-sm-6 col-md-4">
-                    <div class="heading-section-label">Filter</div>
-                    <div class="row p-1">
-                        <div class="col-sm-12 bg-nvs-lightest-gray p-0 p-sm-2">
-                            <div class="row align-items-end">
-                                <!-- act/scene -->
-                                <div class="col-sm-5 pr-sm-1">
-                                    <div class="heading-label">ACT, SCENE</div>
-                                    <div class="nvs-selection">
-                                        <select id="hdr-act-scene-selector">
-                                            <option value="all">ALL</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <!-- character -->
-                                <div class="col-sm-5 p-sm-0">
-                                    <div class="heading-label">CHARACTER</div>
-                                    <div class="nvs-selection">
-                                        <select id="hdr-character-selector">
-                                            <option value="all">ALL</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <!-- filter go button -->
-                                <div class="col-sm-2 pl-sm-1">
-                                    <input type="button" value="GO">
-                                </div>
-                            </div>
-
-                            <div class="row">
-                                <!-- advanced search -->
-                                <div class="col-sm-12">
-                                    <div class="nvs-search" placeholder="ADVANCED SEARCH" contentEditable="true"></div>
-                                </div>
+                    <div class="row no-gutters pt-3">
+                        <div class="col-sm-3">
+                            <div id="play-title" class="align-self-baseline">
+                                {{ play.title }}
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- VIEW SETTINGS -->
-                <div class="col-sm-6 col-md-3" style="border-right: solid 5px var(--nvs-background-color);">
-                    <div class="heading-section-label">View</div>
-                    <div class="row p-1">
-                        <div class="col-sm-12 bg-nvs-lightest-gray p-0 p-sm-2">
+                        <div class="col-sm-9 byline-div">
                             <div class="row">
-                                <div class="col-sm-7">
-                                    <!-- reader view -->
-                                    <label class="toggle-control">
-                                        <input type="checkbox" checked="checked">
-                                        <span class="control"></span>
-                                        <span class="heading-label">READER</span>
-                                    </label>
-
-                                    <!-- list view -->
-                                    <label class="toggle-control">
-                                        <input type="checkbox">
-                                        <span class="control"></span>
-                                        <span class="heading-label">LIST</span>
-                                    </label>
-
-                                    <!-- chart view -->
-                                    <label class="toggle-control">
-                                        <input type="checkbox">
-                                        <span class="control"></span>
-                                        <span class="heading-label">CHART</span>
-                                    </label>
-                                </div>
-                                <div class="col-sm-5">
-                                    <input type="button" id="hdr-reset-button" class="nvs-secondary-button" value="RESET">
+                                <div class="col-sm-6 offset-6 byline d-flex align-content-end pb-2">
+                                    EDITORS: {{ editors }}
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- QUANTITATIVE VIEW -->
-            {% if nvs_session.preferences.show_quantitative_view %}
-            <div id="quantitative-view" class="row no-gutters">
-            </div>
-            {% endif %}
 
             <!-- READER VIEW -->
             {% if nvs_session.preferences.show_reader_view %}
             <div id="reader-view" class="row flex-grow-1">
-                <div id="main-col" class="col-md-12 col-lg-12 mt-2 p-1 view-col">
+                <div id="main-col" class="col-md-12 col-lg-12 p-1 view-col">
 
                     <!-- header row -->
                     <div class="row">
-                        <div class="col-sm-8 pr-0">
-                            <div class="row header-block bg-nvs-light-blue">
-                                <div class="col-sm-4">
-                                    <div class="heading-section-label mt-auto">
+                        <div class="col-sm-8 pr-0 bg-nvs-light-blue var-playtext-col">
+                            <div class="row no-gutters header-block">
+                                <div id="variant-header-col" class="col-sm-4 d-flex align-items-center justify-content-center">
+                                    <div class="heading-label text-white">
                                         TEXTUAL VARIANTS BY YEAR
                                     </div>
                                 </div>
-                                <div class="col-sm-7">
-                                    <div class="heading-section-label mt-auto">
+                                <div id="playtext-search-tln-col" class="col-sm-8 m-0 p-0 d-flex align-items-center">
+                                    <div id="playtext-header-label" class="heading-label text-white mx-auto">
                                         PLAY TEXT
                                     </div>
-                                </div>
-                                <div class="col-sm-1">
-                                    &nbsp;
-                                </div>
-                            </div>
-                            <div class="row header-block">
-                                <div id="witness-header" class="col-sm-4 bg-nvs-light-orange">
-                                    <canvas id="witness-header-canvas"></canvas>
-                                </div>
-                                <div class="col-sm-7">
-                                    <span class="text-muted">SHOW VARS BY LINE | HIGHLIGHT</span>
-                                </div>
-                                <div class="col-sm-1" style="position: relative; left: -40px;">
-                                    <div class="heading-section-label mt-auto" style="color: var(--nvs-mid-gray);">
-                                        TLN
+                                    <div id="playtext-search-div" class="d-flex flex-column mr-1">
+                                        <div id="hdr-quick-search-box" class="nvs-search" contentEditable="true"></div>
+                                        <div id="hdr-quick-search-drawer" class="collapse">
+                                            <div class="row">
+                                                <div class="col-sm-12">
+                                                    <div class="form-inline ml-2 mb-2">
+                                                        <span class="heading-label text-white mr-3">
+                                                            SEARCH TYPE:
+                                                        </span>
+                                                        <div class="form-check mr-3">
+                                                            <input class="form-check-input" type="radio" name="search-type" id="search-type-fuzzy" value="fuzzy" checked>
+                                                            <label class="form-check-label radio" for="search-type-fuzzy">
+                                                                FUZZY
+                                                            </label>
+                                                        </div>
+                                                        <div class="form-check mr-3">
+                                                            <input class="form-check-input" type="radio" name="search-type" id="search-type-exact" value="exact">
+                                                            <label class="form-check-label radio" for="search-type-exact">
+                                                                EXACT
+                                                            </label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="radio" name="search-type" id="search-type-wildcard" value="wildcard">
+                                                            <label class="form-check-label radio" for="search-type-wildcard">
+                                                                WILDCARD (*)
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-sm-12">
+                                                    <div class="form-inline ml-2 mb-2">
+                                                        <span class="heading-label text-white mr-3">
+                                                            INCLUDE:
+                                                        </span>
+                                                        <div class="form-check mr-3">
+                                                            <input class="form-check-input" type="checkbox" value="" id="search-playtext" checked>
+                                                            <label class="form-check-label checkbox" for="search-playtext">
+                                                                PLAY TEXT
+                                                            </label>
+                                                        </div>
+                                                        <div class="form-check mr-3">
+                                                            <input class="form-check-input" type="checkbox" value="" id="search-variants" checked>
+                                                            <label class="form-check-label checkbox" for="search-variants">
+                                                                VARIANTS
+                                                            </label>
+                                                        </div>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" value="" id="search-commentary" checked>
+                                                            <label class="form-check-label checkbox" for="search-commentary">
+                                                                COMMENTARY
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <i id="playtext-search-close-button" class="fas fa-times d-none" aria-label="Close"></i>
+                                    <div id="playtext-tln-div">
+                                        <input id="hdr-line-no-box" class="nvs-tln" type="text" />
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-sm-4">
+                        <div class="col-sm-4 act-scene-comm-col bg-nvs-light-blue">
                             <div class="row header-block bg-nvs-light-blue">
-                                <div class="col-sm-1">
+                                <div class="col-sm-1 m-0 p-0 act-scene-col">
                                     &nbsp;
                                 </div>
-                                <div class="col-sm-11">
-                                    <div class="heading-section-label mt-auto">
+                                <div class="col-sm-11 m-0 p-0 comm-col d-flex align-items-center justify-content-center">
+                                    <div class="heading-label text-white">
                                         COMMENTARY NOTES BY LINE
                                     </div>
                                 </div>
                             </div>
-                            <div class="row header-block">
-                                <div class="col-sm-1 bg-nvs-lightest-gray">
-                                    AS
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div id="playtext-header-col" class="col-sm-8 pr-0 bg-nvs-light-orange var-playtext-col">
+                            <div class="row no-gutters header-block h-100">
+                                <div id="witness-header" class="col-sm-4 m-0 p-0">
+                                    &nbsp;
                                 </div>
-                                <div class="col-sm-11 bg-nvs-light-yellow">
+                                <div class="col-sm-7 bg-nvs">
+                                    <div class="heading-label mt-1 ml-2">
+                                        <div class="form-inline">
+                                            <div class="form-check mr-3 d-none">
+                                                <input class="form-check-input" type="checkbox" value="" id="show-variants-by-line" checked>
+                                                <label class="form-check-label checkbox-white" for="show-variants-by-line">
+                                                    SHOW VARIANTS BY LINE
+                                                </label>
+                                            </div>
+                                            <div class="form-check mr-3">
+                                                <input class="form-check-input" type="checkbox" value="" id="show-commentary-referents" checked>
+                                                <label class="form-check-label checkbox-white" for="show-commentary-referents">
+                                                    HIGHLIGHT COMMENTARY REFERENTS
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-1 bg-nvs">
+                                    <div class="row no-gutters h-100">
+                                        <div id="tln-header-col" class="col-sm-8 offset-4 play-label">
+                                            <div class="heading-label vertical d-flex h-100 justify-content-center align-items-end">
+                                                TLN
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-4 act-scene-comm-col">
+                            <div class="row header-block">
+                                <div id="act-scene-header-col" class="col-sm-1 bg-nvs-lightest-gray act-scene-col p-0 m-0">
+                                    <div class="heading-label vertical d-flex h-100 align-items-end" style="top: -9px;">
+                                        ACT<br>SCN
+                                    </div>
+                                </div>
+                                <div class="col-sm-11 bg-nvs-light-yellow comm-col p-0 m-0">
                                     &nbsp;
                                 </div>
                             </div>
@@ -705,7 +1113,7 @@
 
                     <div class="row">
                         <!-- PLAYTEXT -->
-                        <div id="playtext-col" class="col-sm-8 pr-0">
+                        <div id="playtext-col" class="col-sm-8 pr-0 var-playtext-col">
                             {% for line in lines %}
                                 <div id="{{ line.xml_id }}-row"
                                      class="row no-gutters play-row offscreen"
@@ -718,41 +1126,43 @@
                                      data-text-length="{{ line.text|length }}"
                                      data-witness_indicators="{{ line.witness_meter }}"
                                 >
-                                    <div id="{{ line.xml_id }}-witness-col" class="col-sm-4 m-0 p-0 witness-meter">
+                                    <div id="{{ line.xml_id }}-witness-col" class="col-sm-4 m-0 p-0 witness-meter {% if line.witness_meter|to_int > 0 %}clickable{% endif %}">
                                         <img id="{{ line.xml_id }}-witness-meter" height="30" width="100%" src="{% static 'img/blank-meter.png'%}" />
                                     </div>
-                                    <div id="{{ line.xml_id }}-text-col" class="col-sm-7 m-0 p-0 play-words offscreen">
+                                    <div id="{{ line.xml_id }}-text-col" class="col-sm-7 m-0 p-0 play-words {% if line.witness_meter|to_int == 0 %}no-variants{% endif %}">
                                         {% if line.witness_meter|to_int > 0 %}
                                             <a id="{{ line.xml_id }}-variant-toggler"
-                                                   class="variant-toggler mx-1"
+                                                   class="variant-toggler"
                                                    data-toggle="collapse"
                                                    href="#{{ line.xml_id }}-variant-div"
                                                    role="button"
                                                    aria-expanded="false"
                                                    aria-controls="{{ line.xml_id }}-variant-div"
                                                 >
-                                                <i id="{{ line.xml_id }}-variant-toggle" class="fas fa-chevron-circle-right"></i>
+                                                <img id="{{ line.xml_id }}-variant-toggle" src="{% static 'img/nvs-variants-expand.png' %}" />
                                             </a>
-                                        {% else %}
-                                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                         {% endif %}
                                         {{ line.rendered_html|safe }}
                                     </div>
-                                    <div id="{{ line.xml_id }}-number-col" class="col-sm-1 m-0 p-0 d-flex justify-content-center play-label">
-                                        {{ line.line_label }}
+                                    <div id="{{ line.xml_id }}-number-col" class="col-sm-1 m-0 p-0">
+                                        <div class="row no-gutters h-100 bg-nvs">
+                                            <div class="col-sm-8 offset-4 play-label d-flex justify-content-center align-items-center">
+                                                {{ line.line_label }}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 {% if line.witness_meter|to_int > 0 %}
-                                    <div class="collapse" class="variant-drawer" id="{{ line.xml_id }}-variant-div"></div>
+                                    <div class="collapse" id="{{ line.xml_id }}-variant-div"></div>
                                 {% endif %}
                             {% endfor %}
 
                         </div>
 
                         <!-- COMMENTARY -->
-                        <div id="act-scene-commentary-col" class="col-sm-4">
+                        <div id="act-scene-commentary-col" class="col-sm-4 act-scene-comm-col">
                             <div class="row">
-                                <div class="col-sm-1 p-0 m-0">
+                                <div class="col-sm-1 p-0 m-0 act-scene-col">
                                     <div id="act-scene-frame" class="d-flex flex-column h-100 align-self-center p-0 m-0">
                                         {% for label, actscene in act_scenes.items %}
                                             <div class="actscene-indicator{% if forloop.first %} active{% endif %} my-auto mx-0 px-0 align-self-center" data-actscene="{{ actscene }}">
@@ -765,7 +1175,7 @@
                                         {% endfor %}
                                     </div>
                                 </div>
-                                <div class="col-sm-11 p-0 m-0">
+                                <div class="col-sm-11 p-0 m-0 comm-col">
                                     <div id="commentary-frame"></div>
                                 </div>
                             </div>
@@ -782,40 +1192,40 @@
             </div>
             {% endif %}
         </div>
-        <div id="search-widget" class="d-none container-fluid">
-            <div class="row">
-                <div class="col-sm-6 offset-sm-3">
-                    <div class="d-flex flex-row justify-content-between align-items-center bg-nvs-lightest-gray" style="pointer-events: auto;">
-                        <ul id="search-widget-tabs" class="nav nav-tabs" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <a class="nav-link active" id="search-widget-line-tab" data-toggle="tab" href="#search-widget-lines" role="tab" aria-controls="search-widget-lines" aria-selected="true">Lines (<span class="search-line-total">0</span>)</a>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <a class="nav-link" id="search-widget-variant-tab" data-toggle="tab" href="#search-widget-variants" role="tab" aria-controls="explore" aria-selected="false">Variants (<span class="search-variant-total">0</span>)</a>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <a class="nav-link" id="search-widget-commentary-tab" data-toggle="tab" href="#search-widget-commentary" role="tab" aria-controls="search-widget-commentary" aria-selected="false">Commentary (<span class="search-commentary-total">0</span>)</a>
-                            </li>
-                        </ul>
-                        <div class="tab-content">
-                            <div class="tab-pane fade show active" id="search-widget-lines" role="tabpanel" aria-labelledby="search-widget-line-tab">
-                                <a id="search-line-prev" onClick="display_search_result('line', 'prev');"><i class="fas fa-chevron-left"></i></a>
-                                <span id="search-line-current">0</span> out of
-                                <span class="search-line-total">0</span>
-                                <a id="search-line-next" onClick="display_search_result('line', 'next');"><i class="fas fa-chevron-right"></i></a>
-                            </div>
-                            <div class="tab-pane fade" id="search-widget-variants" role="tabpanel" aria-labelledby="search-widget-variant-tab">
-                                <a id="search-variant-prev" onClick="display_search_result('variant', 'prev');"><i class="fas fa-chevron-left"></i></a>
-                                <span id="search-variant-current">0</span> out of
-                                <span class="search-variant-total">0</span>
-                                <a id="search-variant-next" onClick="display_search_result('variant', 'next');"><i class="fas fa-chevron-right"></i></a>
-                            </div>
-                            <div class="tab-pane fade" id="search-widget-commentary" role="tabpanel" aria-labelledby="search-widget-commentary-tab">
-                                <a id="search-commentary-prev" onClick="display_search_result('commentary', 'prev');"><i class="fas fa-chevron-left"></i></a>
-                                <span id="search-commentary-current">0</span> out of
-                                <span class="search-commentary-total">0</span>
-                                <a id="search-commentary-next" onClick="display_search_result('commentary', 'next');"><i class="fas fa-chevron-right"></i></a>
-                            </div>
+        <div id="search-widget" class="d-none ref-modal">
+            <div id="search-results-div" class="arrow-top">
+                <div class="ref-modal-header d-flex justify-content-between">
+                    <span id="search-widget-header" class="w-100">
+                        SEARCH RESULTS
+                    </span>
+                    <span style="white-space: nowrap;">
+                        <i id="search-widget-close-button" class="fas fa-times ref-modal-control"></i>
+                    </span>
+                </div>
+                <div class="ref-modal-content d-flex">
+                    <div id="search-widget-tabs" class="nav flex-column nav-pills" role="tablist" aria-orientation="vertical">
+                        <a class="nav-link active" id="search-widget-line-tab" data-toggle="pill" href="#search-widget-lines" role="tab" aria-controls="search-widget-lines" aria-selected="true">Lines (<span class="search-line-total">0</span>)</a>
+                        <a class="nav-link" id="search-widget-variant-tab" data-toggle="pill" href="#search-widget-variants" role="tab" aria-controls="explore" aria-selected="false">Variants (<span class="search-variant-total">0</span>)</a>
+                        <a class="nav-link" id="search-widget-commentary-tab" data-toggle="pill" href="#search-widget-commentary" role="tab" aria-controls="search-widget-commentary" aria-selected="false">Commentary (<span class="search-commentary-total">0</span>)</a>
+                    </div>
+                    <div class="tab-content pl-3 bg-nvs">
+                        <div class="tab-pane fade show active" id="search-widget-lines" role="tabpanel" aria-labelledby="search-widget-line-tab">
+                            <a id="search-line-prev" onClick="display_search_result('line', 'prev');"><i class="fas fa-chevron-left"></i></a>
+                            <span id="search-line-current">0</span> out of
+                            <span class="search-line-total">0</span>
+                            <a id="search-line-next" onClick="display_search_result('line', 'next');"><i class="fas fa-chevron-right"></i></a>
+                        </div>
+                        <div class="tab-pane fade" id="search-widget-variants" role="tabpanel" aria-labelledby="search-widget-variant-tab">
+                            <a id="search-variant-prev" onClick="display_search_result('variant', 'prev');"><i class="fas fa-chevron-left"></i></a>
+                            <span id="search-variant-current">0</span> out of
+                            <span class="search-variant-total">0</span>
+                            <a id="search-variant-next" onClick="display_search_result('variant', 'next');"><i class="fas fa-chevron-right"></i></a>
+                        </div>
+                        <div class="tab-pane fade" id="search-widget-commentary" role="tabpanel" aria-labelledby="search-widget-commentary-tab">
+                            <a id="search-commentary-prev" onClick="display_search_result('commentary', 'prev');"><i class="fas fa-chevron-left"></i></a>
+                            <span id="search-commentary-current">0</span> out of
+                            <span class="search-commentary-total">0</span>
+                            <a id="search-commentary-next" onClick="display_search_result('commentary', 'next');"><i class="fas fa-chevron-right"></i></a>
                         </div>
                     </div>
                 </div>
@@ -832,12 +1242,19 @@
     let corpus_id = "{{ corpus_id }}";
     let play_prefix = "{{ play.prefix }}";
     let play_id = "{{ play.id }}";
+    let on_mobile = {% if on_mobile %}true{% else %}false{% endif %};
 
-    let playviewer_url = {% if site_request %}`/play/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-viewer/${play_prefix}/`{% endif %};
+    let playviewer_url = {% if site_request %}`/edition/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-viewer/${play_prefix}/`{% endif %};
     let search_endpoint = {% if site_request %}`${window.location.protocol}//${window.location.host}/search/${play_prefix}/`{% else %}`/api/corpus/${corpus_id}/nvs-search/${play_prefix}/`{% endif %};
     let witness_meter_prefix = {% if site_request %}`/witnessmeter/`{% else %}`/nvs/witness-meter/`{% endif %};
-    let paratext_prefix = {% if site_request %}`/paratext/${play_prefix}/`{% else %}`/corpus/${corpus_id}/paratext-viewer/${play_prefix}/`{% endif %};
+    let paratext_prefix = {% if site_request %}''{% else %}`/corpus/${corpus_id}/paratext-viewer/${play_prefix}/`{% endif %};
     let minimap_url = {% if site_request %}`/minimap/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-minimap/${play_prefix}/`{% endif %};
+
+    let settings = {
+        comm_highlights: true,
+        comm_pane: true,
+        var_pane: true
+    };
 
     let style_sheet = null;
     let current_act_scene = "{{ nvs_session.filter.act_scene }}";
@@ -845,6 +1262,7 @@
     let corpus;
     let screen_size = 'large';
     let meter_height = () => Math.round(window.innerHeight / (100 / 3)) + 'px';
+    let last_century_buffer = 0;
 
     let witnesses = {{ witnesses|safe }};
     let witness_centuries = {{ witness_centuries|safe }};
@@ -863,6 +1281,7 @@
     let commentaries = {};
     let commentary_loaded = false, characters_loaded = false;
     let comm_timer = null;
+    let resize_timer = null;
     let nvs_search = null;
     let ref_modal_counter = 0;
 
@@ -871,8 +1290,8 @@
             'content_type': 'PlayLine',
             'xml_id_field': 'xml_id',
             'content_field': 'rendered_html',
-            'title': 'Play Line',
-            'title_plural': 'Play Lines',
+            'title': 'LINE',
+            'title_plural': 'LINES',
             'scroll_anchor': false,
             'filter_play': true,
         },
@@ -880,8 +1299,8 @@
             'content_type': 'Document',
             'xml_id_field': 'siglum',
             'content_field': 'bibliographic_entry',
-            'title': "Bibliographic Entry",
-            'title_plural': "Bibliographic Entries",
+            'title': "BIBLIOGRAPHY",
+            'title_plural': "BIBLIOGRAPHY",
             'scroll_anchor': false,
             'filter_play': false,
         },
@@ -889,8 +1308,8 @@
             'content_type': 'Document',
             'xml_id_field': 'siglum',
             'content_field': 'bibliographic_entry',
-            'title': "Collated Edition",
-            'title_plural': "Collated Editions",
+            'title': "COLLATED EDITION",
+            'title_plural': "COLLATED EDITIONS",
             'scroll_anchor': false,
             'filter_play': false,
         },
@@ -898,8 +1317,8 @@
             'content_type': 'Commentary',
             'xml_id_field': 'xml_id',
             'content_field': 'contents',
-            'title': "Commentary Note",
-            'title_plural': "Commentary Notes",
+            'title': "COMMENTARY",
+            'title_plural': "COMMENTARY",
             'scroll_anchor': false,
             'filter_play': true,
         },
@@ -907,89 +1326,45 @@
             'content_type': 'ParaText',
             'xml_id_field': 'child_xml_ids',
             'content_field': 'html_content',
-            'title': "Appendix",
-            'title_plural': "Appendix",
+            'title': "APPENDIX",
+            'title_plural': "APPENDIX",
             'scroll_anchor': true,
             'filter_play': true,
         }
     };
-    let nav_history = [];
-    let nav_history_cursor = 0;
+
+    let loading_overlay = $('#loading-overlay');
 
     $(document).ready(function() {
         corpora = new Corpora({'csrf_token': "{{ csrf_token }}"{% if site_request %}, 'host': '{{ corpora_url }}'{% endif %}});
         screen_size = determine_screen_size(window.innerWidth);
         style_sheet = document.styleSheets[0];
-        $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())})`);
-        draw_witness_header_and_background();
-
-        // GET CHARACTER NAMES; POSSIBLY FILTERED BY ACT/SCENE
-        let speech_params = {
-            'page-size': 0,
-            'a_terms_characters': 'speaking.xml_id,speaking.name',
-        };
-        if (current_act_scene !== 'all') {
-            if (current_act_scene.includes('.')) {
-                let [current_act, current_scene] = current_act_scene.split('.');
-                speech_params['f_act'] = current_act;
-                speech_params['f_scene'] = current_scene;
-            } else {
-                speech_params['f_act'] = current_act_scene;
-            }
-        }
-        corpora.list_content(
-            corpus_id,
-            'Speech',
-            speech_params,
-            function(char_data) {
-                if (char_data.hasOwnProperty('meta') && char_data.meta.hasOwnProperty('aggregations') && char_data.meta.aggregations.hasOwnProperty('characters')) {
-                    let char_selector = $('#hdr-character-selector');
-                    Object.keys(char_data.meta.aggregations.characters).map(char_id_name => {
-                        let [char_xml_id, char_name] = char_id_name.split('|||');
-                        let selected = current_character === char_xml_id ? ' selected' : '';
-                        char_selector.append(`
-                            <option value="${char_xml_id}"${selected}>${char_name}</option>
-                        `);
-                    });
-                }
-                characters_loaded = true;
-            }
-        );
 
         setup_lines();
         configure_controls();
+        adjust_for_screensize();
+        enable_commentary_highlighting();
 
-        $('.witness-meter').click(function(){
-            let line_id = this.id.replace('-witness-col', '');
-            let witness_indicators = $(`#${line_id}-row`).data('witness_indicators');
-            display_variant_editions(witness_indicators);
-        });
-
-        $('comspan').mouseover(function(ev) {
-            let selector = `comspan.${ev.target.className}`;
-            style_sheet.insertRule(`
-                ${selector} {
-                    border: solid 1px var(--nvs-primary-orange);
-                }
-            `);
-
-            setTimeout(delete_css_rule.bind(null, selector), 3000);
-        });
-
-        $('comspan').mouseleave(function(ev) {
-            let selector = `comspan.${ev.target.className}`;
-            delete_css_rule(selector);
-        });
-
+        // IF THIS URL CONTAINS A REFERENCE TO A LINE,
+        // VARIANT, OR COMMENTARY NOTE, NAVIGATE TO IT
         let nav_type = get_param('nav_type');
         let nav_xml_id = get_param('nav_xml_id');
         if (nav_type && nav_xml_id) {
-            show_nav_content(nav_type, nav_xml_id);
+            navigate_to(nav_type, nav_xml_id);
         }
 
-        //setTimeout(wait_for_load, 1000);
-
+        stop_loading();
     });
+
+    function start_loading(){
+        loading_overlay.removeClass('d-none');
+        loading_overlay.addClass('d-flex');
+    }
+
+    function stop_loading(){
+        loading_overlay.addClass('d-none');
+        loading_overlay.removeClass('d-flex');
+    }
 
     function delete_css_rule(selector) {
         let rule_deletion_index = -1;
@@ -1006,58 +1381,132 @@
     }
 
     function configure_controls() {
+        // WINDOW RESIZE
+        $(window).resize(function() {
+            clearTimeout(resize_timer);
+            resize_timer = setTimeout(adjust_for_screensize, 2000);
+        });
+
+        // NAV DROPDOWNS
+        $('.dropdown-menu a.dropdown-toggle').on('click', function(e) {
+            if (!$(this).next().hasClass('show')) {
+                $(this).parents('.dropdown-menu').first().find('.show').removeClass("show");
+            }
+            let subMenu = $(this).next(".dropdown-menu");
+            subMenu.toggleClass('show');
+            let parentMenu = $(this).parents('.dropdown-menu').first()[0];
+            subMenu.css('position', 'absolute');
+            subMenu.css('top', `${this.offsetTop}px`);
+            subMenu.css('left', `${this.offsetLeft + this.offsetWidth}px`);
+
+            $(this).parents('li.nav-item.dropdown.show').on('hidden.bs.dropdown', function(e) {
+                $('.dropdown-submenu .show').removeClass("show");
+            });
+
+            return false;
+        });
+
         // HEADER: LINE# BOX
         $('#hdr-line-no-box').keypress(function(e) {
             if (e.which === 13) {
-                let line_no = $('#hdr-line-no-box').val();
+                let line_box = $('#hdr-line-no-box');
+                let line_no = line_box.val();
+                line_box.val('');
+                line_box.blur();
                 if (`tln_${line_no}` in lines) {
                     $(`#tln_${line_no}-row`)[0].scrollIntoView({behavior: 'smooth'});
+                } else {
+                    while (line_no.length < 4) {
+                        line_no = '0' + line_no;
+                    }
+                    if (`tln_${line_no}` in lines) {
+                        $(`#tln_${line_no}-row`)[0].scrollIntoView({behavior: 'smooth'});
+                    }
                 }
             }
         });
 
+        // TOGGLE COMMENTARY HIGHLIGHTS
+        $('#show-commentary-referents').change(function() {
+            toggle_commentary_highlighting();
+        });
+
+        // SEARCH CONTROLS
+        let playtext_search_col = $('#playtext-search-tln-col');
+        let variant_header_col = $('#variant-header-col');
+        let quick_search_box = $('#hdr-quick-search-box');
+        let playtext_search_close_button = $('#playtext-search-close-button');
+        let quick_search_drawer = $('#hdr-quick-search-drawer');
+        let playtext_header_label = $('#playtext-header-label');
+        let playtext_search_div = $('#playtext-search-div');
+
+        // HEADER: SEARCH DRAWER
+        quick_search_drawer.collapse({
+            toggle: false
+        });
+
         // HEADER: QUICK SEARCH BOX
-        $('#hdr-quick-search-box').keypress(function(e) {
+        quick_search_box.keydown(function(e) {
             if (e.which === 13) {
-                let qs_box = $('#hdr-quick-search-box');
-                let query = qs_box.text().trim();
-                qs_box.empty();
-                qs_box.html(query);
+                start_loading();
+                let query = quick_search_box.html().trim().replace(/(<([^>]+)>)/gi, " ");
+                console.log(query);
+                quick_search_box.empty();
+                quick_search_box.html(query);
+
+                let search_type = $('input[name="search-type"]:checked').val();
+                let search_contents = [];
+                if($("#search-playtext").is(':checked')) search_contents.push('playtext');
+                if($("#search-variants").is(':checked')) search_contents.push('variants');
+                if($("#search-commentary").is(':checked')) search_contents.push('commentary');
+                search_contents = search_contents.join();
+
                 corpora.make_request(
                     search_endpoint,
                     'POST',
                     {
-                        quick_search: query
+                        quick_search: query,
+                        search_type: search_type,
+                        search_contents: search_contents
                     },
                     process_search_results
                 );
+
+                return false;
+            } else if (e.key === "Escape") {
+                collapse_search();
                 return false;
             }
         });
 
-        // HEADER: ACT, SCENE BOX
-        $('#hdr-act-scene-selector').change(function() {
-            let selection = $('#hdr-act-scene-selector').val();
-            window.location = `${playviewer_url}?act-scene=${selection}`;
+        quick_search_box.focusin(function(e) {
+            playtext_header_label.addClass('d-none');
+            playtext_search_div.addClass('w-100');
+            quick_search_box.css('width', '100%');
+            quick_search_box.addClass('not-empty');
+            playtext_search_col.removeClass('align-items-center');
+            playtext_search_col.addClass('align-items-top');
+            variant_header_col.removeClass('align-items-center');
+            variant_header_col.addClass('align-items-top');
+            variant_header_col.addClass('pt-2');
+            quick_search_drawer.collapse('show');
+            playtext_search_close_button.removeClass('d-none');
+            $(":root").css("--nvs-playtext-viewport-size", `calc(100vh - 150px)`);
         });
 
-        // HEADER: CHARACTER BOX
-        $('#hdr-character-selector').change(function() {
-            let selection = $('#hdr-character-selector').val();
-            window.location = `${playviewer_url}?character=${selection}`;
+        playtext_search_close_button.click(function() {
+            collapse_search();
         });
 
-        // HEADER: RESET BUTTON
-        $('#hdr-reset-button').click(function() {
-            window.location = `?reset=true`;
+        $('#search-widget-close-button').click(function() {
+            collapse_search();
         });
 
-        // COMMENTARY HIGHLIHT CLICK
-        $('comspan').click(function(e) {
-            let comm_id = this.className.replace('commentary-lemma-', '');
-            comm_id = `commentary-note-${comm_id}`;
-            setTimeout(delayed_scroll.bind(null, comm_id, false), 300);
-            e.stopPropagation();
+        // WITNESS METER CLICK
+        $('.witness-meter').click(function(){
+            let line_id = this.id.replace('-witness-col', '');
+            let witness_indicators = $(`#${line_id}-row`).data('witness_indicators');
+            display_variant_editions(witness_indicators, this);
         });
 
         // VARIANT TOGGLER CLICK
@@ -1069,24 +1518,29 @@
             $('.variant-siglum').off('mouseenter').on('mouseenter', function() {
                 let link = $(this);
                 let siglum = `s_${link.html().toLowerCase()}`;
+
+                let parent_div = link.parent();
+                let line_id = parent_div.data('line-id');
+                let variant_id = parent_div.data('variant-id');
+                let wit_meter = $(`#${line_id}-${variant_id}-witness-meter`);
+                let wit_indicators = wit_meter.data('witness_indicators');
+
                 if (siglum in witnesses) {
-                    let parent_div = link.parent();
-                    let line_id = parent_div.data('line-id');
-                    let variant_id = parent_div.data('variant-id');
-                    let wit_meter = $(`#${line_id}-${variant_id}-witness-meter`);
-                    let wit_indicators = wit_meter.data('witness_indicators');
                     witnesses[siglum].slots.map(slot => {
                         wit_indicators = wit_indicators.substr(0, slot) + 'x' + wit_indicators.substr(slot + 1);
                     });
-                    let url_parts = wit_meter.attr('src').split('/');
-                    url_parts[url_parts.length - 5] = wit_indicators;
-                    wit_meter.attr('src', url_parts.join('/'));
+                } else {
+                    wit_indicators = wit_indicators.slice(0, -1) + 'x';
                 }
+
+                let url_parts = wit_meter.attr('src').split('/');
+                url_parts[url_parts.length - 6] = wit_indicators;
+                wit_meter.attr('src', url_parts.join('/'));
             });
 
             $('.variant-witness-meter').off('click').on('click', function() {
                 let witness_indicators = $(this).find('img').data('witness_indicators');
-                display_variant_editions(witness_indicators);
+                display_variant_editions(witness_indicators, this);
             });
         });
 
@@ -1132,13 +1586,156 @@
         // ACT/SCENE INDICATORS
         $('.actscene-indicator').click(function() {
             let actscene = $(this).data('actscene').toString();
-            console.log(actscene);
             let actscene_parts = actscene.split('.');
             let act = actscene_parts[0];
             let scene = actscene_parts[1];
 
             $(`.play-row[data-act="${act}"][data-scene="${scene}"]:first`)[0].scrollIntoView({behavior: 'smooth'});
         });
+    }
+
+    function collapse_search() {
+        let playtext_search_col = $('#playtext-search-tln-col');
+        let variant_header_col = $('#variant-header-col');
+        let quick_search_box = $('#hdr-quick-search-box');
+
+        $('#playtext-header-label').removeClass('d-none');
+        $('#playtext-search-div').removeClass('w-100');
+        $('#playtext-search-close-button').addClass('d-none');
+        quick_search_box.css('width', '100px');
+        quick_search_box.removeClass('not-empty');
+        quick_search_box.empty();
+        quick_search_box[0].blur();
+        playtext_search_col.addClass('align-items-center');
+        playtext_search_col.removeClass('align-items-top');
+        variant_header_col.addClass('align-items-center');
+        variant_header_col.removeClass('align-items-top');
+        variant_header_col.removeClass('pt-2');
+        $('#hdr-quick-search-drawer').collapse('hide');
+        $(":root").css("--nvs-playtext-viewport-size", `calc(100vh - 90px)`);
+        $('#reader-view').unmark();
+        $('#search-widget').addClass('d-none');
+        corpora.make_request(
+            search_endpoint,
+            'GET',
+            {
+                clear: true
+            },
+            function() {
+                $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())}&no-cache=${Math.floor(Date.now() / 1000)})`);
+            }
+        );
+    }
+
+    function adjust_for_screensize() {
+        // FIX WIDTH OF "GO TO TLN" BOX
+        let tln_width = $('#tln-header-col').width() + 40;
+        $('#hdr-line-no-box').css('width', tln_width);
+
+        // FIX TEXTUAL VARIANT HEADER
+        draw_witness_header_and_background();
+
+        // FIX MINIMAP
+        $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())})`);
+
+        // REDRAW LINE WITNESS METERS
+        $('.play-row').each(function() {
+            let xml_id = $(this).data('xml_id');
+            draw_witness_meter(
+                lines[xml_id].witness_indicators,
+                lines[xml_id].witness_meter,
+                lines[xml_id].witness_column.clientWidth,
+                lines[xml_id].witness_column.clientHeight - 8
+            );
+        });
+
+        // REDRAW VARIANT WITNESS METERS
+        let variant_col_width = $(`.witness-meter`)[0].offsetWidth;
+        $('.variant-witness-meter > img').each(function() {
+            draw_witness_meter(
+                $(this).data('witness_indicators'),
+                this,
+                variant_col_width,
+                25,
+                "#FFFFFF"
+            );
+        });
+    }
+
+    function enable_commentary_highlighting() {
+        style_sheet.insertRule(`
+            comspan {
+                background-color: rgba(249, 240, 175, .52);
+                border-bottom: solid 1px var(--nvs-dark-yellow);
+                cursor: pointer;
+            }
+        `);
+
+        $('comspan').click(function(e) {
+            let comm_id = this.className.replace('commentary-lemma-', '');
+            comm_id = `commentary-note-${comm_id}`;
+            setTimeout(delayed_scroll.bind(null, comm_id, false), 300);
+            e.stopPropagation();
+        });
+
+        if (!on_mobile) {
+            $('comspan').mouseover(function (ev) {
+                let selector = `comspan.${ev.target.className}`;
+                style_sheet.insertRule(`
+                    ${selector} {
+                        border: solid 1px var(--nvs-primary-orange);
+                    }
+                `);
+
+                setTimeout(delete_css_rule.bind(null, selector), 3000);
+            });
+
+            $('comspan').mouseleave(function (ev) {
+                let selector = `comspan.${ev.target.className}`;
+                delete_css_rule(selector);
+            });
+        }
+    }
+
+    function disable_commentary_highlighting() {
+        delete_css_rule('comspan');
+        let comspan = $('comspan');
+        comspan.off('click');
+        if (!on_mobile) {
+            comspan.off('mouseover');
+            comspan.off('mouseleave');
+        }
+    }
+
+    function toggle_commentary_highlighting() {
+        if (settings.comm_highlights) {
+            disable_commentary_highlighting();
+            settings.comm_highlights = false;
+        } else {
+            enable_commentary_highlighting();
+            settings.comm_highlights = true;
+        }
+    }
+
+    function toggle_commentary_pane() {
+        if (settings.comm_pane) {
+            let var_playtext_col = $('var-playtext-col');
+            let act_scene_comm_col = $('act-scene-comm-col');
+            let act_scene_col = $('act-scene-col');
+            let comm_col = $('comm-col');
+
+            var_playtext_col.removeClass('col-sm-8');
+            var_playtext_col.addClass('col-sm-11');
+
+            act_scene_comm_col.removeClass('col-sm-4');
+            act_scene_comm_col.addClass('col-sm-1');
+
+            act_scene_col.removeClass('col-sm-1');
+            act_scene_col.removeClass('col-sm-12');
+
+            comm_col.removeClass('col-sm-11');
+            comm_col.addClass('d-none');
+        }
     }
 
     function get_nvs_var(variable_name) {
@@ -1185,8 +1782,8 @@
                                 <div class="row no-gutters variant-row">
                                     <div class="col-sm-4 p-0 m-0">
                                         <div class="row no-gutters">
-                                            <div id="variant-${variant.id}" class="col-sm-12 p-0 m-0 variant-witness-meter">
-                                                <img id="${line.xml_id}-${variant.id}-witness-meter" height="20" width="100%" src="{% static 'img/blank-meter.png'%}" data-witness_indicators="${variant.witness_meter}" />
+                                            <div id="variant-${variant.id}" class="col-sm-12 p-0 m-0 variant-witness-meter clickable">
+                                                <img id="${line.xml_id}-${variant.id}-witness-meter" height="15" width="100%" src="{% static 'img/blank-meter.png'%}" data-witness_indicators="${variant.witness_meter}" />
                                             </div>
                                         </div>
                                         <div class="row no-gutters">
@@ -1195,27 +1792,25 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-sm-8 p-0 m-0 variant-words">${variant_words}</div>
+                                    <div class="col-sm-8 p-0 m-0 variant-words align-self-center">${variant_words}</div>
                                 </div>
                             `);
 
                             $(`#${line.xml_id}-variant-div`).on('shown.bs.collapse', function (event) {
                                 let indicator = $(`#${event.target.id.replace('-div', '-toggle')}`);
-                                indicator.removeClass('fa-chevron-circle-right');
-                                indicator.addClass('fa-chevron-circle-down');
+                                indicator.attr('src', "{% static 'img/nvs-variants-collapse.png' %}")
                             });
 
                             $(`#${line.xml_id}-variant-div`).on('hidden.bs.collapse', function (event) {
                                 let indicator = $(`#${event.target.id.replace('-div', '-toggle')}`);
-                                indicator.removeClass('fa-chevron-circle-down');
-                                indicator.addClass('fa-chevron-circle-right');
+                                indicator.attr('src', "{% static 'img/nvs-variants-expand.png' %}")
                             });
 
-                            let variant_col = $(`#${line.xml_id}-witness-col`);
+                            let variant_col_width = $(`#${line.xml_id}-witness-col`).outerWidth();
                             draw_witness_meter(
                                 variant.witness_meter,
                                 document.getElementById(`${line.xml_id}-${variant.id}-witness-meter`),
-                                variant_col.outerWidth(),
+                                variant_col_width,
                                 25,
                                 "#FFFFFF"
                             );
@@ -1229,10 +1824,10 @@
         lines[line_id].populated = true;
     }
 
-    function display_variant_editions(witness_indicators) {
+    function display_variant_editions(witness_indicators, link) {
         let wit_sigla = Object.keys(witnesses);
         let sigla = [];
-        for (let slot = 0; slot < witness_indicators.length; slot++) {
+        for (let slot = 0; slot < witness_indicators.length - 1; slot++) {
             let indicator = witness_indicators.charAt(slot);
             if (indicator !== '0') {
                 for (let sig_index = 0; sig_index < wit_sigla.length; sig_index++) {
@@ -1244,15 +1839,20 @@
             }
         }
 
-        let title = "Collated Editions for Variant";
-        let content = "";
-        sigla.map(siglum => {
-            content += `<p><b>${siglum.replace('s_', '').toUpperCase()}</b> ${witnesses[siglum].bibliographic_entry}</p>`;
-        });
-        display_nav_modal(title, content, null);
+        if (sigla.length) {
+            let title = "Collated Editions for Variant";
+            let content = "";
+            sigla.map(siglum => {
+                content += `<p>${witnesses[siglum].bibliographic_entry}</p>`;
+            });
+            display_nav_modal(title, content, link);
+        }
     }
 
     function process_search_results(results) {
+        let search_widget = $('#search-widget');
+        search_widget.removeClass('d-none');
+
         if (results.last_commentary_line > last_commentary_line) {
             last_visible_line = results.last_commentary_line;
             commentary_loaded = false;
@@ -1262,7 +1862,6 @@
         if (!commentary_loaded){
             setTimeout(process_search_results.bind(null, results), 1000)
         } else {
-            console.log(results);
             $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())}&no-cache=${Math.floor(Date.now() / 1000)})`);
             if (nvs_search) {
                 $('#reader-view').unmark();
@@ -1290,33 +1889,19 @@
             $('#search-variant-next').removeClass('d-none');
             $('#search-commentary-prev').removeClass('d-none');
             $('#search-commentary-next').removeClass('d-none');
-            $('#search-widget').removeClass('d-none');
 
-            nvs_search.line_results.map(result => {
-                let html_span = $(`#${result.xml_id}-text-col`);
-                result.matches.map(match => html_span.mark(match));
-            });
-
-            nvs_search.variant_results.map(result => {
-                show_notes(result.xml_id);
-                $(`#${result.xml_id}-variant-div`).collapse('show');
-                let html_span = $(`#${result.xml_id}-variant-div .variant-words`);
-                result.matches.map(match => html_span.mark(match));
-            });
-
-            nvs_search.commentary_results.map((result, result_num) => {
-                let comm_header = $(`#commentary-note-${result.comm_id}`);
-                let comm_content = $(`#commentary-content-${result.comm_id}`);
-                result.matches.map(match => {
-                    comm_header.mark(match, {className: `search-commentary-result-${result_num}`});
-                    comm_content.mark(match, {className: `search-commentary-result-${result_num}`});
-                });
-            });
+            let box_rect = $('#hdr-quick-search-box')[0].getBoundingClientRect();
+            console.log(box_rect);
+            search_widget.css('top', `${box_rect.top + window.pageYOffset + 50}px`);
+            search_widget.css('left', `${box_rect.left + box_rect.width - 50}px`);
+            make_draggable(search_widget[0]);
 
             if (nvs_search.line_results.length) display_search_result('line', 'next');
             else if (nvs_search.variant_results.length) display_search_result('variant', 'next');
             else if (nvs_search.commentary_results.length) display_search_result('commentary', 'next');
             else display_nav_modal('No results.', 'No results for your search term were found.', null);
+
+            stop_loading();
         }
     }
 
@@ -1329,15 +1914,28 @@
             nvs_search[`current_${type}_result`] -= 1;
         }
 
-        if (type === 'commentary') {
-            let comm_result_num = nvs_search.current_commentary_result - 1;
-            document.getElementsByClassName(`search-commentary-result-${comm_result_num}`)[0].scrollIntoView({behavior: 'smooth'});
-        }
-        else {
+        let result = nvs_search[`${type}_results`][nvs_search[`current_${type}_result`] - 1];
+        if (type === 'line') {
+            let html_span = $(`#${result.xml_id}-text-col`);
+            result.matches.map(match => html_span.mark(match));
+            document.getElementById(`${result.xml_id}-text-col`).scrollIntoView({behavior: 'smooth'});
+        } else if (type === 'variant') {
             let result = nvs_search[`${type}_results`][nvs_search[`current_${type}_result`] - 1];
-            let id_suffix = '-text-col';
-            if (type === 'variant') id_suffix = '-variant-div';
-            document.getElementById(`${result.xml_id}${id_suffix}`).scrollIntoView({behavior: 'smooth'});
+            show_notes(result.xml_id);
+            $(`#${result.xml_id}-variant-div`).collapse('show');
+            let html_span = $(`#${result.xml_id}-variant-div .variant-words`);
+            result.matches.map(match => html_span.mark(match));
+            document.getElementById(`${result.xml_id}-variant-div`).scrollIntoView({behavior: 'smooth'});
+        }
+        if (type === 'commentary') {
+            let result_num = nvs_search.current_commentary_result - 1;
+            let comm_header = $(`#commentary-note-${result.comm_id}`);
+            let comm_content = $(`#commentary-content-${result.comm_id}`);
+            result.matches.map(match => {
+                comm_header.mark(match, {className: `search-commentary-result-${result_num}`});
+                comm_content.mark(match, {className: `search-commentary-result-${result_num}`});
+            });
+            document.getElementsByClassName(`search-commentary-result-${result_num}`)[0].scrollIntoView({behavior: 'smooth'});
         }
 
         $(`#search-${type}-current`).html(nvs_search[`current_${type}_result`]);
@@ -1360,7 +1958,6 @@
                 if (entries[0].isIntersecting) {
                     $(entries[0].target).remove();
                     if (remaining_commentaries) {
-                        console.log('loading more commentary...');
                         last_visible_line += 20;
                         load_commentary();
                     }
@@ -1423,20 +2020,29 @@
 
     function draw_witness_header_and_background() {
         let wit_header = $('#witness-header');
+        let wit_header_col = $('#playtext-header-col');
         let width = wit_header.width();
-        let witness_width = width / witness_count;
+        let selectively_quoted_width = 20;
+        let witness_width = (width - selectively_quoted_width) / witness_count;
+        let centuries = Object.keys(witness_centuries);
+        let last_century = centuries[centuries.length - 1];
+
+        if (witness_centuries[last_century] * witness_width < 20) {
+            last_century_buffer = 20 - witness_centuries[last_century] * witness_width;
+            witness_width = (width - (last_century_buffer + selectively_quoted_width)) / witness_count;
+        }
+
         let header_height = wit_header.height();
 
-        let header_canvas = $('#witness-header-canvas');
-        header_canvas.attr('width', `${width}px`);
-        header_canvas.attr('height', `${header_height}px`);
-        let header_context = header_canvas[0].getContext('2d');
-        let light_beige = get_nvs_var('nvs-light-beige');
-        let dark_beige = get_nvs_var('nvs-dark-beige');
+        let header_canvas = document.createElement('canvas');
+        let header_context = header_canvas.getContext('2d');
+        //let light_beige = get_nvs_var('nvs-light-beige');
+        //let dark_beige = get_nvs_var('nvs-dark-beige');
         let font_color = get_nvs_var('nvs-mid-gray');
         let light_orange = get_nvs_var('nvs-light-orange');
+        let delimiter_color = get_nvs_var('nvs-background-color');
         let font_size = 12;
-        header_context.font = `${font_size}px Roboto`;
+        header_context.font = `${font_size}px Roboto Condensed`;
         header_context.textAlign = "left";
         header_context.textBaseline = "bottom";
 
@@ -1446,28 +2052,29 @@
         background_canvas.width = width;
         let background_context = background_canvas.getContext('2d');
 
+        // DRAW LIGHT ORANGE BACKGROUND ON BOTH CANVASES
+        header_context.beginPath();
+        header_context.fillStyle = light_orange;
+        header_context.fillRect(0, 0, width, header_height);
+
+        background_context.beginPath();
+        background_context.fillStyle = light_orange;
+        background_context.fillRect(0, 0, width, playtext_col.innerHeight());
+
         let century_cursor = 0;
         let width_cursor = 0;
+        let delimiter_width = 2;
+        let century_width = 0;
         for (let century in witness_centuries) {
-            let century_width = witness_centuries[century] * witness_width;
+            century_width = witness_centuries[century] * witness_width;
 
-            if (century_cursor % 2 === 0) {
-                header_context.beginPath();
-                header_context.fillStyle = dark_beige;
-                header_context.fillRect(width_cursor, 0, century_width, header_height);
+            header_context.beginPath();
+            header_context.fillStyle = delimiter_color;
+            header_context.fillRect(width_cursor, 0, delimiter_width, header_height);
 
-                background_context.beginPath();
-                background_context.fillStyle = dark_beige;
-                background_context.fillRect(width_cursor, 0, century_width, playtext_col.innerHeight());
-            } else {
-                header_context.beginPath();
-                header_context.fillStyle = light_beige;
-                header_context.fillRect(width_cursor, 0, century_width, header_height);
-
-                background_context.beginPath();
-                background_context.fillStyle = light_beige;
-                background_context.fillRect(width_cursor, 0, century_width, playtext_col.innerHeight());
-            }
+            background_context.beginPath();
+            background_context.fillStyle = delimiter_color;
+            background_context.fillRect(width_cursor, 0, delimiter_width, playtext_col.innerHeight());
 
             header_context.save();
             header_context.fillStyle = font_color;
@@ -1480,13 +2087,35 @@
             width_cursor += century_width;
         }
 
+        if (century_width < 20) {
+            width_cursor += 20 - century_width;
+        }
+
+        header_context.beginPath();
+        header_context.fillStyle = delimiter_color;
+        header_context.fillRect(width_cursor, 0, delimiter_width, header_height);
+
+        background_context.beginPath();
+        background_context.fillStyle = delimiter_color;
+        background_context.fillRect(width_cursor, 0, delimiter_width, playtext_col.innerHeight());
+
+        header_context.save();
+        header_context.fillStyle = font_color;
+        header_context.translate(width_cursor + 5, header_height - 5);
+        header_context.rotate(-Math.PI / 2);
+        header_context.fillText("SEL.", 0, font_size);
+        header_context.restore();
+
+        wit_header_col.css('background-image', `url(${header_canvas.toDataURL()})`);
+        wit_header_col.css('background-position', `${wit_header.offset().left + 6}px 5px`);
+
         playtext_col.css('background-image', `url(${background_canvas.toDataURL()})`);
-        playtext_col.css('background-position', `${header_canvas.offset().left + 6}px 0px`);
+        playtext_col.css('background-position', `${wit_header.offset().left + 6}px 0px`);
         playtext_col.css('background-color', light_orange);
     }
 
-    function draw_witness_meter(witness_meter, canvas_element, width, height, inactive_color="#9A9A99") {
-        canvas_element.src = `${witness_meter_prefix}${witness_meter}/${Math.floor(height)}/${Math.floor(width)}/${inactive_color.replace('#', '')}/`;
+    function draw_witness_meter(witness_meter, canvas_element, width, height, inactive_color="#CFCFCF") {
+        canvas_element.src = `${witness_meter_prefix}${witness_meter}/${Math.floor(height)}/${Math.floor(width)}/${inactive_color.replace('#', '')}/${Math.floor(last_century_buffer)}/`;
     }
 
     function get_param(param) {
@@ -1495,7 +2124,7 @@
 
     function romanize (num) {
         if (isNaN(num))
-            return NaN;
+            return num;
         let digits = String(+num).split(""),
             key = ["","C","CC","CCC","CD","D","DC","DCC","DCCC","CM",
                    "","X","XX","XXX","XL","L","LX","LXX","LXXX","XC",
@@ -1508,35 +2137,6 @@
     }
 
     function navigate_to(nav_type, xml_id, link=null) {
-        if (link) { console.log(link); }
-        show_nav_content(nav_type, xml_id, false, link);
-    }
-
-    function view_nav_history(forward=false) {
-        let valid_history_location = false;
-        if (forward && nav_history_cursor + 1 <= nav_history.length - 1) {
-            nav_history_cursor += 1;
-            valid_history_location = true;
-        } else if (nav_history_cursor - 1 >= 0) {
-            nav_history_cursor -= 1;
-            valid_history_location = true;
-        }
-
-        if (valid_history_location) {
-            let nav_parts = nav_history[nav_history_cursor].split('|');
-            let nav_type = nav_parts[0];
-            let xml_id = nav_parts[1];
-            show_nav_content(nav_type, xml_id, true);
-        }
-    }
-
-    function show_nav_content(nav_type, xml_id, historic=false, link=null) {
-        let history_key = `${nav_type}|${xml_id}`;
-        if (!historic && !nav_history.includes(history_key)) {
-            nav_history.push(history_key);
-            nav_history_cursor = nav_history.length - 1;
-        }
-
         xml_id = xml_id.replace(/#/g, '');
         if (nav_type === 'lb') {
             let start_id = xml_id;
@@ -1548,9 +2148,22 @@
             }
 
             if (start_id in lines) {
+                let line_template = () =>
+                    `<div class="row no-gutters ref-row">
+                        <div class="col-sm-10 m-0 p-0 play-words">
+                            ${line_row.data('text')}
+                        </div>
+                        <div class="col-sm-1 m-0 p-1 play-label d-flex justify-content-center">
+                            ${line_row.data('line_label')}
+                        </div>
+                        <div class="col-sm-1 m-0 p-1 bg-nvs-lightest-gray actscene-indicator d-flex justify-content-center">
+                            ${romanize(line_row.data('act'))},${line_row.data('scene')}
+                        </div>
+                    </div>`;
+
                 let lines_label = 'Line';
                 let line_row = $(lines[start_id].row);
-                let lines_html = `<div class="play-words">${line_row.data('text')}<br/>`;
+                let lines_html = line_template();
 
                 if (end_id) {
                     lines_label += `s ${line_row.data('line_label')}-`;
@@ -1558,7 +2171,7 @@
                     while (collecting) {
                         line_row = line_row.next();
                         if (line_row.hasClass('play-row')) {
-                            lines_html += `${line_row.data('text')}<br/>`;
+                            lines_html += line_template();
                             if (line_row.data('xml_id') === end_id) {
                                 collecting = false;
                                 lines_label += line_row.data('line_label');
@@ -1567,18 +2180,22 @@
                     }
                 } else lines_label += ' ' + line_row.data('line_label');
 
-                lines_label += `
-                        <i class="fas fa-external-link-square-alt ml-2"
-                            style="cursor: pointer;"
-                            onClick="javascript: $('#nav-modal').modal('hide'); $('#${start_id}-row')[0].scrollIntoView({behavior: 'smooth'});"
-                        ></i>
+                let controls = `
+                        <img src="{% static 'img/controls/Modal-GOTO.svg' %}"
+                            class="ref-modal-control"
+                            onClick="javascript: $('#${start_id}-row')[0].scrollIntoView({behavior: 'smooth'});"
+                        >
+                        <a href="${playviewer_url}#${line_row.attr('id')}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}"
+                            class="ref-modal-control"
+                            border="0"
+                        ></a>
                 `;
-                lines_html += "</div>";
-                display_nav_modal(lines_label, lines_html, link);
+                display_nav_modal(lines_label, lines_html, link, controls);
             }
         } else {
             if (nav_type === 'siglum'){
-                xml_id = `s_${xml_id.toLowerCase()}`;
+                if (!xml_id.startsWith('s_')) xml_id = `s_${xml_id.toLowerCase()}`;
+
                 if (xml_id in witnesses) {
                     let title = 'Collated Edition';
                     if (witnesses[xml_id].bibliographic_entry.includes('<br /><br />')) title += 's';
@@ -1621,12 +2238,13 @@
                 ids.shift();
 
                 if (ids.length > 0) {
-                    populate_nav_contents(nav_type, ids, contents, first_xml_id);
+                    populate_nav_contents(nav_type, ids, contents, first_xml_id, link);
                 } else {
                     let nav_title = nav_map[nav_type]['title'];
                     if (contents.length > 1) { nav_title = nav_map[nav_type]['title_plural']; }
-
+                    let controls = '';
                     let nav_content = '';
+
                     contents.map(content => {
                         if (nav_content === '') nav_content += '<a name="nav-content-start"></a>';
                         else nav_content += '<br><br>';
@@ -1634,14 +2252,40 @@
                         if (nav_type === 'note_cn') {
                             nav_content += `
                                 <div class="comm-heading">
-                                    ${content.line_label}: ${content.subject_matter}
+                                    n. ${content.line_label}: ${content.subject_matter}
                                 </div>
                             `;
                         } else if (nav_type === 'anchor') {
-                            nav_title = `${content.section} | ${content.title}`;
-                            nav_title += `
-                                <a href="${paratext_prefix}${content.section}/#paratext-${content.id}" target="_blank">
-                                    <i class="fas fa-external-link-square-alt ml-2"></i>
+                            nav_title = `
+                                <span>
+                                    ${content.section}
+                                    <br/>
+                                    <div class="ref-subtitle-marker">&nbsp;</div>
+                                    <span class="text-nvs-dark-blue">
+                                        ${content.title}
+                                    </span>
+                                </span>
+                            `;
+
+                            let paratext_url = ''
+                            let paratext_section_map = {
+                                'Front Matter': 'front',
+                                'Appendix': 'appendix',
+                                'Bibliography': 'bibliography'
+                            }
+
+                            if (paratext_prefix.length) {
+                                paratext_url = `${paratext_prefix}${content.section}/`;
+                            } else {
+                                paratext_url = `/${paratext_section_map[content.section]}/${play_prefix}/`;
+                            }
+                            paratext_url += `#paratext-${content.id}`;
+
+                            controls += `
+                                <a href="${paratext_url}" target="_blank">
+                                    <img src="{% static 'img/controls/Modal-NEWTAB.svg' %}"
+                                        class="ref-modal-control"
+                                        border="0">
                                 </a>
                             `;
                         }
@@ -1649,53 +2293,65 @@
                         nav_content += content[nav_map[nav_type]['content_field']];
                     });
 
-                    let modal_id = display_nav_modal(nav_title, nav_content, link);
+                    let modal_id = display_nav_modal(nav_title, nav_content, link, controls);
                     if (nav_map[nav_type].scroll_anchor) {
-                        setTimeout(delayed_scroll.bind(null, first_xml_id, true, modal_id), 2000)
+                        setTimeout(delayed_scroll.bind(null, first_xml_id, true, modal_id), 2000);
                     }
                 }
             });
         }
     }
 
-    function display_nav_modal(title, content, link) {
+    function display_nav_modal(title, content, link, controls='', arrow_side='right') {
         let modal_id = '';
-        let title_html = '';
-        if (nav_history_cursor - 1 >= 0) title_html += `<i class="fa fa-chevron-circle-left" aria-hidden="true" onClick="javascript: view_nav_history();" style="cursor: pointer;"></i>`;
-        if (nav_history_cursor + 1 <= nav_history.length - 1) title_html += `<i class="fa fa-chevron-circle-right" aria-hidden="true" onClick="javascript: view_nav_history(true);" style="cursor: pointer;"></i>`;
-        if (title_html === '') title_html += title;
-        else title_html += `<span class="ml-2">${title}</span>`;
+        let modal_el = null;
 
         if (link) {
             modal_id = `ref-modal-${ref_modal_counter}`;
             let link_rect = link.getBoundingClientRect();
+
+            if (arrow_side !== 'top' && link_rect.x <= window.innerWidth / 2) {
+                arrow_side = 'left'
+            }
             $('body').append(`
                 <div
                     id="${modal_id}"
                     class="ref-modal"
-                    style="position: absolute; top: ${link_rect.top + window.pageYOffset - 20}px; left: ${link_rect.left - 310}px;"
                 >
-                    <div class="arrow-right">
-                        <div id="${modal_id}-header" class="ref-modal-header">
-                            ${title}
-                            <button id="${modal_id}-close-button" data-modal-id="${modal_id}" type="button" aria-label="Close">
-                                <span aria-hidden="true">×</span>
-                            </button>
+                    <div class="arrow-${arrow_side}">
+                        <div class="ref-modal-header d-flex justify-content-between">
+                            <span id="${modal_id}-header" class="w-100">
+                                ${title}
+                            </span>
+                            <span style="white-space: nowrap;">
+                                ${controls}
+                                <i id="${modal_id}-close-button" class="fas fa-times ref-modal-control" data-modal-id="${modal_id}" aria-label="Close"></i>
+                            </span>
                         </div>
                         <div class="ref-modal-content">${content}</div>
                     </div>
                 </div>
             `);
+            modal_el = $(`#${modal_id}`);
+
+            if (arrow_side === 'right') {
+                modal_el.css('top', `${link_rect.top + window.pageYOffset - 20}px`);
+                modal_el.css('left', `${link_rect.left - (modal_el.width() + 20)}px`);
+            } else if (arrow_side === 'left') {
+                modal_el.css('top', `${link_rect.top + window.pageYOffset - 20}px`);
+                modal_el.css('left', `${link_rect.right + 20}px`);
+            }
+
             $(`#${modal_id}-close-button`).click(function() {
                 let close_modal_id = $(this).data('modal-id');
                 $(`#${close_modal_id}`).remove();
             });
-            let ref_modal = $(`#${modal_id}`);
-            make_draggable(ref_modal[0]);
+
+            make_draggable(modal_el[0]);
             ref_modal_counter += 1;
         }
         else {
-            $('#nav-modal-label').html(title_html);
+            $('#nav-modal-label').html(title);
             $('#nav-modal-body').html(content);
             $('#nav-modal').modal();
         }
@@ -1708,30 +2364,43 @@
         if (document.getElementById(elmnt.id + "-header")) {
             // if present, the header is where you move the DIV from:
             document.getElementById(elmnt.id + "-header").onmousedown = dragMouseDown;
+            document.getElementById(elmnt.id + "-header").ontouchstart = dragMouseDown;
         } else {
             // otherwise, move the DIV from anywhere inside the DIV:
             elmnt.onmousedown = dragMouseDown;
+            elmnt.ontouchstart = dragMouseDown;
         }
 
         function dragMouseDown(e) {
             e = e || window.event;
             e.preventDefault();
+
             // get the mouse cursor position at startup:
             pos3 = e.clientX;
             pos4 = e.clientY;
             document.onmouseup = closeDragElement;
+            document.ontouchend = closeDragElement;
             // call a function whenever the cursor moves:
             document.onmousemove = elementDrag;
+            document.ontouchmove = elementDrag;
         }
 
         function elementDrag(e) {
             e = e || window.event;
-            e.preventDefault();
-            // calculate the new cursor position:
-            pos1 = pos3 - e.clientX;
-            pos2 = pos4 - e.clientY;
-            pos3 = e.clientX;
-            pos4 = e.clientY;
+            if (e.type === "touchmove") {
+                pos1 = pos3 - e.touches[0].clientX;
+                pos2 = pos4 - e.touches[0].clientY;
+                pos3 = e.touches[0].clientX;
+                pos4 = e.touches[0].clientY;
+            } else {
+                e.preventDefault();
+                // calculate the new cursor position:
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+            }
+
             // set the element's new position:
             elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
             elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
@@ -1741,6 +2410,8 @@
             // stop moving when mouse button is released:
             document.onmouseup = null;
             document.onmousemove = null;
+            document.ontouchend = null;
+            document.ontouchmove = null;
         }
     }
 
@@ -1750,9 +2421,6 @@
 
         let id_selector = `${parent ? '#' + parent + ' ' : ''}#${anchor}`;
         let anchor_selector = `${parent ? '#' + parent + ' ' : ''}a[name=${anchor}]`;
-
-        console.log(id_selector);
-        console.log(anchor_selector);
 
         if ($(id_selector).length) {
             $(id_selector)[0].scrollIntoView(scroll_opts);

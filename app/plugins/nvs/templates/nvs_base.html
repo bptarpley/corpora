@@ -2,42 +2,108 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>New Variorum Shakespeare</title>
-    <style>
-        html, body {
-            background-color: #1E1E1E;
-            color: whitesmoke;
-        }
-    </style>
-    {% block headrefs %}
-    {% endblock %}
+  <meta charset="UTF-8">
+  <title>New Variorum Shakespeare</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="{% static 'css/nvs.css' %}">
+  <!-- Gumshoe (For active anchor links) -->
+  <script src="https://cdn.jsdelivr.net/gh/cferdinandi/gumshoe@4/dist/gumshoe.polyfills.min.js"></script>
+
+  <style>
+    @font-face {
+        font-family: "Halyard Text";
+        src: url("/static/proprietary/font/HalyardText-Reg.woff2") format('woff2'), url("/static/proprietary/font/HalyardText-Reg.woff") format('woff');
+    }
+
+    .nvs_base--main { margin-top: 40px; }
+    @media ( min-width: 992px ) {
+      .nvs_base--main { margin-top: 23px; }
+    }
+  </style>
+  {% block headrefs %}
+  {% endblock %}
 </head>
-<body>
-    <h1>This is on every page.</h1>
+<body class="{% block body_class %}{% endblock %}">
 
-    <!-- Here is a reference to a file living in the "static" folder of the NVS plugin: -->
-    <img src="{% static 'img/nvs-logo.png' %}" style="height: 100px; width: auto;" />
+{% include 'blocks/organisms/small-header.html' %}
+{% include 'blocks/organisms/large-header.html' %}
 
-    <h4>Page Links</h4>
-    <ul>
-        <li><a href="/corpus/{{ corpus_id }}/about/">Info About</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/contributors/">Info Contributors</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/print/">Info Print Editions</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/how-to/">Info How To</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/faqs/">Info FAQ's</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/tools/">Tools About</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/search/">Tools Search</a></li>
-        <li><a href="/corpus/{{ corpus_id }}/data/">Tools Data</a></li>
-    </ul>
+<main class="nvs_base--main">
+  {% block main %}
+  {% endblock %}
 
-    {% block main %}
-    {% endblock %}
+  <!-- Here could be some javascript libraries referenced by every page -->
 
-    <!-- Here could be some javascript libraries referenced by every page -->
-
-    <!-- Here is a block for child pages to have their own specific javascript libraries: -->
-    {% block js %}
-    {% endblock %}
+  <!-- Here is a block for child pages to have their own specific javascript libraries: -->
+  {% block js %}
+  {% endblock %}
+</main>
+{% include 'blocks/organisms/footer.html' %}
 </body>
+
+<script type="text/javascript">
+
+  function navInit() {
+    let holders = document.querySelectorAll('.navigation--holder');
+    holders.forEach(holder => {
+
+      let dropDowns = holder.querySelectorAll('.navigation--dropdown');
+      dropDowns.forEach(dropDown => {
+        let button = dropDown.firstElementChild;
+        button.addEventListener('click', () => {
+          if (dropDown.classList.contains('active')) {
+            dropDown.classList.remove('active');
+          } else {
+            let previouslyActive;
+            if (dropDown.classList.contains('nested')) {
+              previouslyActive = holder.querySelector('.navigation--dropdown.active.nested');
+            } else {
+              previouslyActive = holder.querySelector('.navigation--dropdown.active.parent');
+            }
+            if (previouslyActive) {
+              previouslyActive.classList.remove('active');
+            }
+            dropDown.classList.add('active');
+          }
+        });
+      })
+
+    })
+  }
+
+  function anchorInit() {
+    let holder = document.querySelector('.anchor-links--holder');
+    if(holder) {
+      // Set up toggle button
+      let toggleButton = holder.querySelector('.anchor-links--holder .anchor-links--toggle');
+      if(toggleButton) {
+        toggleButton.addEventListener('click', () => {
+          holder.classList.toggle('active');
+        });
+      }
+
+      // Close when link is clicked.
+      let inner = holder.querySelector('.anchor-links--inner');
+      if (inner) {
+        inner.addEventListener('click', () => {
+          holder.classList.remove('active');
+        });
+      }
+
+      // Set up active states if content is in screen
+      let anchorLinks = holder.querySelector('.anchor-links--holder .anchor-link a');
+      if (anchorLinks) {
+        let spy = new Gumshoe('.anchor-links--holder .anchor-link a', {
+          offset: 70,
+        });
+      }
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    navInit();
+    anchorInit();
+  })
+</script>
+
 </html>

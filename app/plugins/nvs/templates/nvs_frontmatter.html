@@ -1,0 +1,840 @@
+{% extends 'nvs_base.html' %}
+{% load static %}
+
+{% block headrefs %}
+<style>
+    .front-matter--edition-entry {
+        margin: 5px 0;
+    }
+    @media ( min-width: 768px ) {
+        .front-matter--edition-entry {
+            display: grid;
+            grid-template-columns: 40px 1fr 40px;
+            grid-gap: 10px;
+        }
+    }
+    .front-matter--edition-entry .siglum { font-weight: bold; }
+    .front-matter--edition-entry p {
+        margin: 0;
+    }
+    .front-matter--edition-entry div,
+    .front-matter--edition-entry p { display: inline; }
+    .front-matter--edition-entry + p { margin-top: 15px; }
+</style>
+{% endblock %}
+
+{% block main %}
+
+<div class="page-title">
+  <h1 class="edition-header">
+    The Winter's Tale {% include 'svg/arrow.svg' %} <span class="edition-header--title">Front matter</span>
+  </h1>
+</div>
+<div class="page-holder is-white">
+  <div class="container">
+    <div class="page-holder--inner has-max-width">
+      <div class="anchor-links--holder">
+        <ul class="anchor-links--inner">
+          <li class="anchor-link">
+            <a href="#preface">Preface</a>
+          </li>
+          <li class="anchor-link">
+            <a href="#the-winters-tale-plan-of-work">The Winter's Tale Plan of Work</a>
+          </li>
+          <li class="anchor-link">
+            <a href="#fully-collated-editions">Fully Collated Editions</a>
+          </li>
+          <li class="anchor-link">
+            <a href="#selectively-and-occasionally-quoted-editions">Selectively and Occasionally Quoted Editions</a>
+          </li>
+          <li class="anchor-link is-level-2">
+            <a href="#sources-occasionally-quoted-in-the-commentary-or-critical-discussion">Sources occasionally quoted in the commentary or critical discussion</a>
+          </li>
+          <li class="anchor-link is-level-2">
+            <a href="#quotations-of-authors-other-than-shakespeare">Quotations of authors other than Shakespeare</a>
+          </li>
+          <li class="anchor-link is-level-2">
+            <a href="#abbreviations">Abbreviations</a>
+          </li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="anchor" id="preface">Preface</h2>
+        <p>The first New Variorum edition of The Winter&#x27;s Tale, the work of Horace Howard
+          Furness, appeared in 1898. The present edition retraces Furness&#x27;s but does not
+          replace it, for often the more recent scholarship and criticism reported here could be accommodated only
+          by reducing Furness&#x27;s ampler treatment of the early material. The reader who finds
+          this book useful is urged to consult Furness&#x27;s as well to obtain a fuller account
+          of many subjects.</p>
+        <p>Patricia Tatspaugh wrote the section of this edition on performances and Andrew Sabol that on music.
+          Robert Jones handled criticism in German. Although Virginia Haas worked primarily on the sections on
+          criticism and the text on the stage, she had a hand throughout. Except for specific contributions
+          acknowledged in their place, Robert Turner did the rest. Much of the work was done at the University of
+          Wisconsin–Milwaukee, having been underwritten by its College of Letters and Science (William F.
+          Halloran, dean, and Jessica R. Wirth, associate dean). The Research Committee of the university&#x27;
+          s Graduate School provided generous support, as did its Golda Meir Library (William F. Roselle
+          and Peter Watson-Boone, library directors), which created and fostered a Shakespeare collection rivaled
+          by few universities in the United States and by hardly any recently established ones. The Memorial
+          Library of the University of Wisconsin–Madison (Kenneth L. Frazier, director of libraries) maintains a
+          similarly distinguished collection for the use of the general editors of the Variorum series. The
+          support of both libraries has been invaluable.</p>
+        <p>Financial aid for this edition was provided by the National Endowment for the Humanities, the Folger
+          Shakespeare Library, the John Simon Guggenheim Memorial Foundation, the American Philosophical Society,
+          the American Council of Learned Societies, the Newberry Library Renaissance Consortium, and the Modern
+          Language Association of America (Phyllis Franklin, executive director). Libraries at which research was
+          done include the Folger Shakespeare Library; the Furness Memorial Library of the University of
+          Pennsylvania; the New York Public Library; the British Library; the Bodleian Library; the Cambridge
+          University Library; the Libraries of the Shakespeare Centre, Trinity College and Pembroke College,
+          Cambridge; the University of London; the Research Services Department of the Theatre Museum (Victoria
+          and Albert Museum); the Library of the Garrick Club; and the Hampden Booth Theatre Library. Their
+          hospitality is greatly appreciated. The Beinecke Library, Yale University Library, and the Henry E.
+          Huntington Library supplied information, and among the individuals who helped in various ways are Walter
+          S. Achtert, Stephen Booth, Fredson Bowers, Gerry Flynn, Philip Gaskell, Joseph Gibaldi, Charlton Hinman,
+          Cyrus Hoy, Taro Kusanagi, James G. McManaway, Barbara A. Mowat, Marvin Spevack, Judith Cook Svenheim,
+          Roy Swanson, John Velz, George Walton Williams, and George T. Wright. I especially want to thank
+          Patricia Rieselbach and James P. Hammersmith for their excellent assistance. Richard Knowles, the
+          general editor of the New Variorum Shakespeare, made innumerable improvements, caught many mistakes,
+          contributed his own critical ideas and evaluations, and in general shaped this edition much for the
+          better. More recently, Paul Werstine, his fellow general editor, began to do the same. Virginia Haas and
+          I are grateful to them both. We are also obliged to Susan Joseph, our copy editor, whose sharp eye saved
+          us from error and sharp mind gave rise to a number of changes for the better.</p>
+        <p>Robert Kean Turner</p>
+        <h2 class="anchor" id="the-winters-tale-plan-of-work"><em>The Winter&#x27;s Tale</em> Plan of Work</h2>
+        <p>This edition of The Winter&#x27;s Tale has four main parts: a text of the play
+          reprinted with little change from that of the first edition in Mr. William Shakespeares Comedies,
+          Histories, &amp; Tragedies, the Folio of 1623 (F1); textual notes of significant
+          departures from the F1 text in eighty-six editions of the play ranging in date from 1632 to 1988;
+          commentary on the meaning or the artistry of the text drawn from editions, dictionaries, and critical
+          works; and a collection of more general textual, historical, critical, and theatrical information about
+          the play.</p>
+        <p>The text presented here derives from photocopies of one of the copies of F1 in the Folger Shakespeare
+          Library. The transcript of these prints was compared with the WT texts of several other Folger copies,
+          Sidney Lee&#x27;s Shakespeares Comedies, Histories, &amp; Tragedies
+          being a Reproduction in Facsimile of the First Folio Edition (Oxford, 1902), and Charlton Hinman&#x27;
+          s The Norton Facsimile: The First Folio of Shakespeare (New York, 1968), the object being to
+          make the Variorum text as accurate as possible. No F1 press variants affecting WT readings have as yet
+          been found (see here). Silent alterations of the F1 text include the representation of roman long s by
+          s; the printing of logotypes (at lines 1672 and 2146) and ligatures (e.g., roman ss and st) as two
+          letters; the suppression or reduction of framing rules, display types, ornaments, printing space types,
+          quads, and packing; the alignment of irregular letters and normalization of spacing (except in some
+          instances noted below); the positioning of marginal stage directions to the right regardless of their
+          placement in the F1 line; and the correction of wrong-font types, including alteration of italic
+          punctuation marks to roman in a roman context and vice versa. Other errors are corrected when there is
+          no doubt what the true reading should be. In a few instances missing punctuation is supplied, words
+          turned up or down by F1 because the full line of text exceeded the measure of the column are printed in
+          one line, and conventional closing punctuation is substituted for other marks at the end of completed
+          speeches where no suspension seems intended. A list of these changes appears in the Appendix (see here).
+          Also listed there are spellings probably adopted by F1 for justification. The line numbers of the text
+          are the Through Line Numbers introduced by Charlton Hinman in The Norton Facsimile: The First Folio of
+          Shakespeare (New York, 1968), but the headlines include, as well, the act-scene-line numbers of the 1974
+          Riverside WT, edited by G. Blakemore Evans. Riverside act and scene divisions are indicated by boldface
+          numerals in the right margin. Also in the right margins, signature and column indicators of the
+          beginning of each Folio column appear in parentheses.</p>
+        <p>Please note that clicking on a word or line in the play text calls up the corresponding note in the
+          commentary column, and vice versa. (KT will add more text here once site is complete)</p>
+        <p>The textual notes, which are visualized as a histogram in the left panel of the Variorum Reader, record
+          alterations in the meaning or meter of the F1 text found in the editions collated; alteration of meaning
+          was decided by the variant&#x27;s receiving separate listing in the Oxford English
+          Dictionary and a different definition. Modernizations of form are ignored. So are misprints unless the
+          misprint creates an English word or was taken for a word. Conjectural emendations are included in the
+          textual notes if the reading has been adopted by one of the editions collated; others are in the list of
+          unadopted conjectures (here). Alterations in punctuation and capitalization are ignored unless the
+          alteration creates a different meaning. Stage directions added or altered in later editions appear only
+          if the action implied by F1 is affected in a major way. Variant lining affecting meter—verse as prose,
+          prose as verse, verse as different verse—is noted. The elision or expansion of syllables is recorded
+          only if the alteration shifts the word&#x27;s accent or alters the number of feet in a
+          verse line. When words that may be elided must be elided to make regular verse (e.g., in the to
+          one-syllable i&#x27;th) it is assumed that elision was intended and no note is provided.
+          Added stage directions calling for action clearly implied by the text are not recorded, nor are those
+          calling in different words for essentially the same action as the stage direction of the text.</p>
+        <p>The way textual notes appear on this website is...(KT will add content here about navigating textual
+          notes on this site. This explanation will be similar to the instructions for textual notes on the
+          &quot;How to Digital NVS page).</p>
+        <p>Beneath the textual notes is commentary on specific words or passages in the text. The glosses and
+          explanatory notes of many editions of WT are quoted there, and definitions are drawn from works of
+          reference and dictionaries, especially the Oxford English Dictionary but also dictionaries nearer
+          Shakespeare&#x27;s time such as John Minsheu&#x27;s Ductor in Linguas,
+          The Guide into Tongues (1617) and Henry Cockeram&#x27;s English Dictionarie (1623), as
+          well as Samuel Johnson&#x27;s Dictionary of the English Language (1755). Foreign
+          language dictionaries—John Florio&#x27;s English-Italian Queen Anna&#x27;
+          s New World of Words (1611), for example—are sometimes used, as are specialized glossaries such
+          as Henry Manwayring&#x27;s Sea-mans Dictionary (1644), B. E.&#x27;s
+          Dictionary of the Terms . . . of the Canting Crew (1699), and Edward Sugden&#x27;s
+          Topographical Dictionary (1925). Alexander Schmidt&#x27;s Shakespeare-Lexicon and C. T.
+          Onions&#x27;s Shakespeare Glossary are the sources of many definitions, and E. A. Abbott
+          &#x27;s Shakespearian Grammar and Wilhelm Franz&#x27;s Die Sprache
+          Shakespeares are frequently alluded to. In general, the first comment to be made is quoted, but if a
+          later one is clearer, more accurate, or more explicit, it appears instead. In these notes and elsewhere
+          square brackets within quotations enclose corrections or comments made by the editors of this volume;
+          the square brackets of the quotations themselves have been transformed to angle brackets (\&lt;
+          \&gt;). The spelling and punctuation of the works cited are retained except
+          that if the beginning or the end of a sentence has been omitted but a complete sentence remains, it is
+          provided with a beginning capital or a final period. Initial capitals are also supplied for direct
+          discourse. No notes are printed entirely in italics even though the source may have done so.</p>
+        <p>Commentary notes can be found in the Variorum Reader&#x27;s far right panel and...(KT
+          will add content here about navigating commentary notes on this site. This explanation will be similar
+          to the instructions on the &quot;How to Digital NVS&quot; page).</p>
+        <p>This edition also includes an Appendix which begins with a list of the F1 readings emended in the
+          present text. Following that is another collection, a listing of proposed substantive emendations never
+          adopted in the editions of WT collated. The subsequent sections are more general. Included are an essay
+          on the text of the play—its authenticity, the printing of the F1 version, the scribal copy from which
+          the compositors worked, and the copy from which the scribe worked and his fidelity to it. A second essay
+          considers the date of the play&#x27;s composition; a third examines the play&#x27;
+          s sources, primarily Robert Greene&#x27;s Pandosto but also minor sources and
+          analogues. Imitations are also mentioned. Following is a selection of the literary criticism of the play
+          and then a stage history that includes a record of how the text has been altered for the theater, an
+          account of important performances, and a discussion of the actors who have taken major roles, as well as
+          of directors responsible for significant interpretations. Finally, there is an account of the songs and
+          dances that embellish the play&#x27;s dialogue and action.</p>
+        <h2 class="anchor" id="fully-collated-editions">Fully Collated Editions</h2>
+        <p>The versions of <em>WT</em> published in the following editions were collated for substantive
+          differences from F1. Each title is preceded by the siglum that identifies the edition in the textual
+          notes and other textual apparatus. The place of publication of these and all other books mentioned
+          throughout the edition is London unless otherwise specified.</p>
+        <div class="front-matter--edition-entry"><p class="siglum">F2</p>
+          <div><p>Mr. <em>William Shakespeares Comedies, Histories, and Tragedies…The second Impression</em>.</p>
+          </div>
+          <p class="year">1632</p></div>
+        <div class="front-matter--edition-entry"><p class="siglum">F3</p>
+          <div><p>Mr. <em>William Shakespear's Comedies, Histories, and Tragedies…The third Impression</em>.</p>
+          </div>
+          <p class="year">1663-4</p></div>
+        <div class="front-matter--edition-entry"><p class="siglum">F4</p>
+          <div><p>Mr. <em>William Shakespear's Comedies, Histories, and Tragedies…The Fourth Edition</em>.</p>
+          </div>
+          <p class="year">1685</p></div>
+        <p><strong>To be formatted...</strong></p>
+        <p><strong>ROWE1</strong> NICHOLAS ROWE. Works. 6 vols. 1709. Vol. 2. <strong>1709</strong></p>
+        <p><strong>ROWE2</strong> NICHOLAS ROWE. Works. 6 vols. 1709. Vol. 2. <strong>1709</strong></p>
+        <p><strong>ROWE3</strong> NICHOLAS ROWE. Works. 8 vols. 1714. Vol. 3. <strong>1714</strong></p>
+        <p><strong>POPE1</strong> ALEXANDER POPE. Works. 6 vols. 1725. Vol. 2. <strong>1725</strong></p>
+        <p><strong>POPE2</strong> ALEXANDER POPE. Works. 8 vols. 1728. Vol. 3. <strong>1728</strong></p>
+        <p><strong>THEO1</strong> LEWIS THEOBALD. Works. 7 vols. 1733. Vol. 3. <strong>1733</strong></p>
+        <p><strong>THEO2</strong> LEWIS THEOBALD. Works. 8 vols. 1740. Vol. 3. <strong>1740</strong></p>
+        <p><strong>HAN1</strong> THOMAS HANMER. Works. 6 vols. Oxford, 1743–4. Vol. 2. <strong>1743</strong></p>
+        <p><strong>HAN2</strong> THOMAS HANMER. Works. 6 vols. 1745. Vol. 2. <strong>1745</strong></p>
+        <p><strong>WARB</strong> WILLIAM WARBURTON. Works. 8 vols. 1747. Vol. 3. <strong>1747</strong></p>
+        <p><strong>THEO4</strong> LEWIS THEOBALD. Works. 8 vols. 1757. Vol. 3. <strong>1757</strong></p>
+        <p><strong>JOHN1</strong> SAMUEL JOHNSON. Plays. 8 vols. Printed for J. and R. Tonson, C. Corbet...1765.
+          Vol. 2. <strong>1765</strong></p>
+        <p><strong>JOHN2</strong> SAMUEL JOHNSON. Plays. 8 vols. Printed for J. and R. Tonson, H. Woodfall . . . ,
+          1765. Vol. 2. <strong>1765</strong></p>
+        <p><strong>CAP</strong> EDWARD CAPELL. Comedies, Histories, &amp; Tragedies. 10 vols.
+          [1768.] Vol. 4. <strong>1768</strong></p>
+        <p><strong>v1773</strong> SAMUEL JOHNSON &amp; GEORGE STEEVENS. Plays. 10 vols. 1773. Vol.
+          4. <strong>1773</strong></p>
+        <p><strong>v1778</strong> SAMUEL JOHNSON &amp; GEORGE STEEVENS. Plays. 10 vols. 1778. Vol.
+          4. <strong>1778</strong></p>
+        <p><strong>v1785</strong> SAMUEL JOHNSON, GEORGE STEEVENS, &amp; ISAAC REED. Plays. 10
+          vols. 1785. Vol. 4. <strong>1785</strong></p>
+        <p><strong>RANN</strong> JOSEPH RANN. Dramatic Works. 6 vols. Oxford, [94] . Vol. 2.
+          <strong>1786-1787</strong></p>
+        <p><strong>MAL</strong> EDMOND MALONE. Plays &amp; Poems. 10 vols. 1790. Vol. 4. <strong>1790</strong>
+        </p>
+        <p><strong>v1793</strong> GEORGE STEEVENS &amp; ISAAC REED. <em>Plays</em>. 15 vols. 1793.
+          Vol. 7. <strong>1793</strong></p>
+        <p><strong>v1803</strong> ISAAC REED. <em>Plays</em>. 21 vols. 1803. Vol. 9. <strong>1803</strong></p>
+        <p><strong>v1813</strong> ISAAC REED. <em>Plays</em>. 21 vols. 1813. Vol. 9. <strong>1813</strong></p>
+        <p><strong>v1821</strong> JAMES BOSWELL. <em>Plays &amp; Poems</em>. 21 vols. 1821. Vol.
+          14. <strong>1821</strong></p>
+        <p><strong>SING1</strong> SAMUEL W. SINGER. <em>Dramatic Works</em>. 10 vols. Chiswick, 1826. Vol. 4.
+          <strong>1826</strong></p>
+        <p><strong>KNT1</strong> CHARLES KNIGHT. <em>Comedies, Histories, Tragedies, &amp;
+          Poems</em>. Pictorial Ed. 55 pts. [1838–43.] Reissued in 8 vols. Pt. 30 (Comedies, vol.
+          2). <strong>1841</strong></p>
+        <p><strong>KNT2</strong> CHARLES KNIGHT. <em>Comedies, Histories, Tragedies, &amp;
+          Poems</em>. 2nd ed. 12 vols. 1842–4. Vol. 4. <strong>1842</strong></p>
+        <p><strong>COL1</strong> JOHN PAYNE COLLIER. <em>Works</em>. 8 vols. 1842–4. Vol. 3. <strong>1842</strong>
+        </p>
+        <p><strong>HUD1</strong> HENRY N. HUDSON. <em>Works</em>. 11 vols. Boston &amp; Cambridge,
+          Mass., 1851–6. Vol. 4. <strong>1852</strong></p>
+        <p><strong>COL2</strong> JOHN PAYNE COLLIER. <em>Plays</em>. <strong>1853</strong></p>
+        <p><strong>SING2</strong> SAMUEL W. SINGER. <em>Dramatic Works</em>. 10 vols. Vol. 4.
+          <strong>1856</strong></p>
+        <p><strong>DYCE1</strong> ALEXANDER DYCE. <em>Works</em>. 6 vols. 1857. Vol. 3. <strong>1857</strong></p>
+        <p><strong>WH1</strong> RICHARD GRANT WHITE. <em>Works</em>. 12 vols. Boston, 1857–66. Vol. 5.
+          <strong>1857</strong>
+        </p>
+        <p><strong>COL3</strong> JOHN PAYNE COLLIER. <em>Comedies, Histories, Tragedies, &amp;
+          Poems</em>. &#x27;&#x27;The Second Edition.&#x27;&#x27;
+          6 vols. 1858. Vol. 3. <strong>1858</strong></p>
+        <p><strong>HAL</strong> JAMES O. HALLIWELL. <em>Works</em>. 16 vols. 1853–65. Vol. 8.
+          <strong>1859</strong></p>
+        <p><strong>STAU</strong> HOWARD STAUNTON. <em>Plays</em>. 50 pts. 1856–60. Reissued in 3 vols. 1858–60.
+          Pts. 37–8 (Vol. 3). <strong>1859</strong></p>
+        <p><strong>DEL2</strong> NICOLAUS DELIUS. <em>Werke</em>. 7 vols. Elberfeld, 1854– [61] .
+          Vol. 6. <strong>1860</strong></p>
+        <p><strong>CAM1</strong> WILLIAM GEORGE CLARK, JOHN GLOVER, &amp;WILLIAM ALDIS WRIGHT.
+          <em>Works</em>. Cambridge Sh. 9 vols. Cambridge &amp; London, 1863–6. Vol. 3. <strong>1863</strong>
+        </p>
+        <p><strong>GLO</strong> WILLIAM GEORGE CLARK &amp; WILLIAM ALDIS WRIGHT. <em>Works</em>.
+          Globe Ed. Cambridge &amp; London. <strong>1864</strong></p>
+        <p><strong>KTLY</strong> THOMAS KEIGHTLEY. <em>Plays</em>. 6 vols. 1864. Vol. 2. <strong>1864</strong></p>
+        <p><strong>DYCE2</strong> ALEXANDER DYCE. <em>Works</em>. 2nd ed. 9 vols. 1864–7. Vol. 3.
+          <strong>1864</strong></p>
+        <p><strong>KNT3</strong> CHARLES KNIGHT. <em>Works</em>. Pictorial Ed. &#x27;&#x27;
+          The Second Edition, Revised.&#x27;&#x27; 8 vols. 1867. Comedies, vol. 2.
+          <strong>1867</strong></p>
+        <p><strong>DEL4</strong> NICOLAUS DELIUS. <em>Werke</em>. &#x27;&#x27;Dritte,
+          Revidirte Auflage.&#x27;&#x27; 2 vols. Elberfeld, 1872. Vol. 1.
+          <strong>1872</strong></p>
+        <p><strong>COL4</strong> JOHN PAYNE COLLIER. <em>Plays &amp; Poems</em>. 43 pts. in 8
+          vols. 1875–8. Vol. 3. <strong>1875</strong></p>
+        <p><strong>HUD2</strong> HENRY N. HUDSON. <em>Works</em>. Harvard Ed. 20 vols. Boston, 1880–1. Vol. 7.
+          <strong>1880</strong></p>
+        <p><strong>WH2</strong> RICHARD GRANT WHITE. <em>Comedies, Histories, Tragedies, &amp;
+          Poems</em>. Riverside Sh. 6 vols. Boston, 1883. Vol. 2. <strong>1883</strong></p>
+        <p><strong>IRV</strong> HENRY IRVING &amp; FRANK MARSHALL. <em>Works</em>. Henry Irving
+          Sh. 8 vols. N.Y., 1888–90. Vol. 7. Notes and Introd. by Arthur Symons. <strong>1890</strong></p>
+        <p><strong>OXF1</strong> W. J. CRAIG. <em>Works</em>. Oxford Sh. [<strong>1891</strong>]</p>
+        <p><strong>BUL</strong> A. H. BULLEN. <em>Works</em>. Stratford Town Ed. 10 vols. Stratford-on-Avon,
+          1904–7. Vol. 4. <strong>1905</strong></p>
+        <p><strong>NLSN</strong> WILLIAM ALLAN NEILSON. <em>Works</em>. Cambridge Ed. Boston &amp;
+          N.Y. <strong>1906</strong></p>
+        <p><strong>ARD1</strong> F.W.MOORMAN. <em>WT</em>. Arden Sh. <strong>1912</strong></p>
+        <p><strong>CAM3</strong> ARTHUR QUILLER-COUCH &amp; JOHN DOVER WILSON. <em>WT</em>. New
+          [Cambridge] Sh. 1931; rev. 1950. <strong>1931</strong></p>
+        <p><strong>KIT1</strong> GEORGE LYMAN KITTREDGE. <em>Works</em>. Boston. <strong>1936</strong></p>
+        <p><strong>ALEX</strong> PETER ALEXANDER. <em>Works</em>. <strong>1951</strong></p>
+        <p><strong>SIS</strong> CHARLES JASPER SISSON. <em>Works</em>. <strong>1954</strong></p>
+        <p><strong>PEL1</strong> BALDWIN MAXWELL. <em>WT</em>. Pelican Sh. Baltimore. <strong>1956</strong></p>
+        <p><strong>CLN2</strong> S. L. BETHELL. <em>WT</em>. New Clarendon Sh. <strong>1956</strong></p>
+        <p><strong>ARD2</strong> J. H. P. PAFFORD. <em>WT</em>. New Arden Sh. <strong>1963</strong></p>
+        <p><strong>SIG</strong> FRANK KERMODE. <em>WT</em>. Signet Classic Sh. <strong>1963</strong></p>
+        <p><strong>PEN2</strong> ERNEST SCHANZER. <em>WT</em>. New Penguin Sh. <strong>1969</strong></p>
+        <p><strong>EVNS</strong> G. BLAKEMORE EVANS et al. <em>Works</em>. Riverside Sh. Boston.
+          <strong>1974</strong></p>
+        <p><strong>BEV3</strong> DAVID BEVINGTON. <em>Works</em>. 3rd ed. Glenville, Ill. <strong>1980</strong>
+        </p>
+        <p><strong>OXF2</strong> STANLEY WELLS &amp; GARY TAYLOR. <em>Works</em>. Oxford Sh.
+          (Modern Sp.) Oxford. <strong>1986</strong></p>
+        <p><strong>BEV4</strong> DAVID BEVINGTON. <em>The Late Romances</em>. Bantam Books. Toronto.
+          <strong>1988</strong></p>
+        <h2 class="anchor" id="selectively-and-occasionally-quoted-editions">Selectively and Occasionally Quoted Editions</h2>
+        <p>The editions, books, and manuscripts listed below are also referred to. Although all editions mentioned
+          in the textual notes have been fully collated, only readings that they first print or, in a few
+          instances, revive after long disuse are reported. Readings from revised editions (N&amp;H,
+          K&amp;R, and PEL2) appear only when those editions differ from their predecessors.</p>
+        <p><strong>mSING</strong> MS notes in F2, S. W. Singer copy, quoted in SING2. <strong>1632–1856</strong>
+        </p>
+        <p><strong>mF1H</strong> MS notes in F1, Honeyman copy. See HOOK (1959). <strong>–1650?</strong></p>
+        <p><strong>mFLV</strong>.a.80 [Evans, John. &#x27;&#x27;Hesperides, or The
+          Muses Garden.&#x27;&#x27;] Commonplace book. Folger Library. See SORELIUS
+          (1973). <strong>1655–9</strong></p>
+        <p><strong>mF1FL10</strong> MS notes in F1. Folger Library, Copy 10. <strong>1700–</strong></p>
+        <p><strong>mPOPE</strong> ALEXANDER POPE. MS notes in F3. Folger Library, Copy 20. <strong>–1723</strong>
+        </p>
+        <p><strong>mTBY1</strong> STYAN THIRLBY. MS notes in one of Rowe&#x27;s 1709 eds., now
+          lost but quoted in mTBY2. <strong>1709–25</strong></p>
+        <p><strong>mTBY2</strong> STYAN THIRLBY. MS notes in Pope&#x27;s 1725 ed. Beinecke
+          Library, Yale. Vol. 5. <strong>1725–33?</strong></p>
+        <p><strong>mTHEO1</strong> LEWIS THEOBALD. MS notes in F2. Folger Library, Copy 20.
+          <strong>–1729?</strong></p>
+        <p><strong>mLONG</strong> ROGER LONG. MS notes in F2. Pembroke College Library, Cambridge.
+          <strong>–1733?</strong></p>
+        <p><strong>mTBY3</strong> STYAN THIRLBY. MS notes in Theobald&#x27;s 1733 ed. Folger
+          Library, Copy 2. <strong>1733–47?</strong></p>
+        <p><strong>mF4TCC</strong> MS notes in F4. Trinity College Library, Cambridge, H.18.12.
+          <strong>1733?–</strong></p>
+        <p><strong>m1733FL4</strong> MS notes in Theobald&#x27;s 1733 ed. Folger Library, Copy 4.
+          <strong>1733?–</strong></p>
+        <p><strong>mHAN</strong> THOMAS HANMER. Letters to William Warburton. British Library.
+          <strong>1735–9</strong></p>
+        <p><strong>mTOL</strong> GEORGE TOLLET. MS notes in Theobald&#x27;s 1740 ed. Folger
+          Library, Copy 4. <strong>1740–79</strong></p>
+        <p><strong>mF2FL48</strong> MS notes in F2. Folger Library, Copy 48. <strong>–1747</strong></p>
+        <p><strong>mTBY4</strong> STYAN THIRLBY. MS notes in Warburton&#x27;s 1747 ed. Folger
+          Library, Copy 2. <strong>1747–53</strong></p>
+        <p><strong>mGREY</strong> ZACHARY GREY. Notes and Extracts from Mr. Warburton&#x27;s
+          Shakespear. Cambridge University Library. <strong>1747–66</strong></p>
+        <p><strong>mWARB</strong> WILLIAM WARBURTON. MS notes in his 1747 ed. Folger Library, Copy 5.
+          <strong>1747–79</strong>
+        </p>
+        <p><strong>mF2FL27</strong> MS notes in F2. Folger Library, Copy 27. <strong>c. 1750</strong></p>
+        <p><strong>THEO3</strong> LEWIS THEOBALD. <em>Works</em>. 8 vols. 1752. Vol. 3. <strong>1752</strong></p>
+        <p><strong>BLAIR</strong> [HUGH BLAIR.] <em>Works</em>. 8 vols. Edinburgh, 1753. Vol. 3.
+          <strong>1753</strong></p>
+        <p><strong>mLUSH</strong> HENRY LUSHINGTON. MS notes in Theobald&#x27;s 1733 ed. Folger
+          Library, Copy 5.</p>
+        <p><strong>c. 1754</strong></p>
+        <p><strong>mCAP2</strong> EDWARD CAPELL. MS text of <em>WT</em>. Trinity College Library, Cambridge.
+          <strong>1754</strong></p>
+        <p><strong>mF2FL21</strong> MS notes in F2. Folger Library, Copy 21. <strong>1754–65</strong></p>
+        <p><strong>mTYR</strong> THOMAS TYRWHITT. MS notes in F2. (c.39.i.13) British Library.
+          <strong>–1767</strong></p>
+        <p><strong>HAN3</strong> THOMAS HANMER. <em>Works</em>. 6 vols. Oxford, 1770–1. Vol. 2.
+          <strong>1770</strong></p>
+        <p><strong>mMAL1</strong> EDMOND MALONE. Notebook. British Library. <strong>1773–90</strong></p>
+        <p><strong>GENT</strong> FRANCIS GENTLEMAN &amp; SAMUEL DERRICK. <em>WT: A Tragedy, . . .
+          As Performed at the Theatre- Royal, Covent-Garden</em>. Bell&#x27;s Sh. 1773. Issued in
+          9 vols. [1773–4.] Vol. 5. 2nd ed. 1775. <strong>1774</strong></p>
+        <p><strong>mMAL2</strong> EDMOND MALONE. Notebook. Furness Collection, Univ. of Pennsylvania Library.
+          <strong>1777–80</strong></p>
+        <p><strong>m1773FL3</strong> MS notes in Johnson &amp; Steevens&#x27;s
+          1773 ed. Folger Library, Copy 3. <strong>1778?–</strong></p>
+        <p><strong>DODD</strong> WILLIAM DODD. <em>The Beauties of Shakespear</em>. 3rd ed. 2 vols. (1st ed.
+          1752.) <strong>1780</strong></p>
+        <p><strong>CAPN</strong> EDWARD CAPELL. <em>Notes and Various Readings to Shakespeare</em>. 3 vols.
+          <strong>1783</strong></p>
+        <p><strong>m1778BL</strong> ISAAC REED and others (Edmond Malone? Samuel Henley? John? Henderson?). MS
+          notes in Johnson &amp; Steevens&#x27;s 1778 ed. British Library.
+          <strong>–1785</strong></p>
+        <p><strong>AYS1</strong> [SAMUEL AYSCOUGH.] <em>Works</em>. John Stockdale, [etc.]
+          . <strong>1784</strong></p>
+        <p><strong>AYS2</strong> SAMUEL AYSCOUGH. <em>Dramatic Works</em>. 3 vols. 1790. Vol. 1.
+          <strong>1790</strong></p>
+        <p><strong>m1768FL</strong> MS notes in Capell&#x27;s 1768 ed. Folger Library, Copy 6.
+          <strong>c. 1790</strong></p>
+        <p><strong>mTOOK</strong> JOHN HORNE TOOKE. MS notes in Malone&#x27;s 1790 ed. Folger
+          Library. <strong>1790–1812</strong></p>
+        <p><strong>m1790aFL</strong> Anon. MS notes in Ayscough&#x27;s 1790 ed. Folger Library,
+          Copy 8. <strong>1790–</strong></p>
+        <p><strong>m1790bFL</strong> Anon. MS notes in Malone&#x27;s 1790 ed. Folger Library, Copy
+          4. <strong>1790–</strong></p>
+        <p><strong>m1793BOD</strong> GEORGE STEEVENS, ISAAC REED, et al. MS notes in Johnson &amp;
+          Steevens&#x27;s 1793 ed. Bodleian Library. <strong>1793–1803?</strong></p>
+        <p><strong>m1793FL</strong> Anon. MS notes. Folger Library S.a.113 <strong>1793–</strong></p>
+        <p><strong>KEM1</strong> JOHN PHILIP KEMBLE. <em>WT</em>. As acted at the Theatre Royal.
+          <strong>1802</strong></p>
+        <p><strong>KEM2</strong> JOHN PHILIP KEMBLE. <em>WT</em>. As acted at the Theatre Royal.
+          <strong>1811</strong></p>
+        <p><strong>mCAL</strong> THOMAS CALDECOTT (d. 1833). MS notes in v1813. British Library.
+          <strong>1813–33</strong></p>
+        <p><strong>HARN</strong> WILLIAM HARNESS. <em>Dramatic Works</em>. 8 vols. Vol. 3. <strong>1825</strong>
+        </p>
+        <p><strong>VALPY</strong> A. J. VALPY. <em>Plays and Poems</em>. 15 vols. 1832–4. Vol. 5.
+          <strong>1833</strong></p>
+        <p><strong>mCOLE</strong> SAMUEL TAYLOR COLERIDGE. MS notes in Theobald&#x27;s 1733 ed.
+          British Library. <strong>c. 1834</strong></p>
+        <p><strong>mLET</strong> W. NANSON LETTSOM. MS notes in a facsimile F1, 1807? Dyce Collection, Victoria
+          and Albert Museum. <strong>1840–65</strong></p>
+        <p><strong>mCOL1</strong> JOHN PAYNE COLLIER. MS notes in F1, Bridgewater Copy. Huntington Library.</p>
+        <p><strong>c. 1840</strong></p>
+        <p><strong>mCOL2</strong> JOHN PAYNE COLLIER. MS notes in F2, Perkins Copy. Huntington Library. <strong>c.
+          1850</strong></p>
+        <p><strong>mTAY</strong> JOHN TAYLOR. MS notes in Reed&#x27;s 1813 ed. Trinity College
+          Library, Cambridge.</p>
+        <p><strong>c. 1850</strong></p>
+        <p><strong>COLNE</strong> JOHN PAYNE COLLIER. <em>Notes and Emendations</em>. 2nd ed., rev. &amp;
+          enl. 1853. (1st ed. 1852.) <strong>1853</strong></p>
+        <p><strong>mCOL3</strong> JOHN PAYNE COLLIER. MS notes in his 1853 ed., vol. 3. Bodleian Library. <strong>1858–78?</strong>
+        </p>
+        <p><strong>mSTAU</strong> HOWARD STAUNTON. MS notes, copied by P. A. Daniel, in Staunton&#x27;
+          s 1864 ed., vol. 3. Folger Library. <strong>1864–74</strong></p>
+        <p><strong>DYCE3</strong> ALEXANDER DYCE. <em>Works</em>. 3rd ed. 9 vols. 1875–6. Vol. 3.
+          <strong>1875</strong></p>
+        <p><strong>mBRAE</strong> ANDREW E. BRAE. Letter to Joseph Parker Norris, 24 Dec. 1877. Folger Library.
+          <strong>1877</strong></p>
+        <p><strong>mPER</strong> PHILIP PERRING. MS notes on <em>WT</em>. Trinity College Library, Cambridge.
+          <strong>1885–1920?</strong></p>
+        <p><strong>CAM2</strong> WILLIAM ALDIS WRIGHT. <em>Works</em>. Cambridge Sh. 2nd ed. 9 vols. 1891–3. Vol.
+          3. <strong>1891</strong></p>
+        <p><strong>mWRAY</strong> G. O. WRAY. Corrections and suggestions from the revd. Dr. Wray. Trinity College
+          Library, Cambridge. <strong>1891–3?</strong></p>
+        <p><strong>v1898</strong> HORACE HOWARD FURNESS. <em>WT</em>. New Variorum Sh. Philadelphia.
+          <strong>1898</strong></p>
+        <p><strong>RLTR</strong> E. K. CHAMBERS. <em>WT</em>. Red Letter Sh. <strong>[1907]</strong></p>
+        <p><strong>RID</strong> MAURICE R. RIDLEY. <em>WT</em>. New Temple Sh. <strong>1935</strong></p>
+        <p><strong>N&amp;H</strong> WILLIAM A. NEILSON &amp; CHARLES J. HILL. <em>Plays
+          and Poems</em>. Cambridge, Mass. <strong>1942</strong></p>
+        <p><strong>PEN1</strong> G.B.HARRISON. <em>WT</em>. Penguin Sh. <strong>1947</strong></p>
+        <p><strong>MUN</strong> JOHN MUNRO. <em>Works</em>. London Sh. 6 vols. 1957. Vol. 2. <strong>1957</strong>
+        </p>
+        <p><strong>K&amp;R</strong> GEORGE LYMAN KITTREDGE &amp; IRVING RIBNER.
+          <em>WT</em>. Waltham, Mass. <strong>1967</strong></p>
+        <p><strong>PEL2</strong> BALDWIN MAXWELL. <em>WT</em>. In <em>Works</em>. Pelican Sh., rev. Baltimore.
+          <strong>1969</strong></p>
+        <h3 class="anchor" id="sources-occasionally-quoted-in-the-commentary-or-critical-discussion">Sources occasionally quoted
+          in the commentary or critical discussion</h3>
+        <p><strong>DAVID GARRICK</strong>. <em>Florizel and Perdita</em>. . . . As it is performed at the Theatre
+          Royal in Drury Lane. <strong>1758</strong></p>
+        <p><strong>DAVID GARRICK</strong>. <em>The Winter&#x27;s Tale, or Florizel and
+          Perdita</em>. A dramatic pastoral altered from Shakspeare. <strong>1785</strong></p>
+        <p><strong>JOHANN JOACHIM ESCHENBURG</strong>. <em>Schauspiele</em>. 12 vols. Zu¨rich, 1798–1806. Vol. 5.
+          (1st ed. 1775–6.) <strong>1801</strong></p>
+        <p><strong>[ELIZABETH] INCHBALD</strong>. <em>WT</em>. British Theatre. 25 vols. Vol. 3. <strong>1808</strong>
+        </p>
+        <p><strong>ALEXANDER CHALMERS</strong>. <em>Plays.</em> 8 vols. Vol. 3. <strong>1823</strong></p>
+        <p><strong>JOHANN WILHELM OTTO BENDA</strong>. <em>Werke</em>. 19 vols. Leipzig, 1825–6. Vol. 8.
+          <strong>1825</strong>
+        </p>
+        <p><strong>JOHANN HEINRICH &amp; ABRAHAM VOSS</strong>. <em>Schauspiele</em>. 9 vols.
+          Leipzig &amp; Stuttgart, 1818–29. Vol. 9. <strong>1829</strong></p>
+        <p><strong>D [ANIEL] , G [EORGE]</strong>. <em>WT</em>. Cumberland&#x27;
+          s Sh. 5. <strong>[1830?]</strong></p>
+        <p><strong>LUDWIG TIECK</strong>. <em>Dramatische Werke</em>. Tr. A. W. von Schlegel. 9 vols. Berlin,
+          1825–33. Vol. 8. <strong>1832</strong></p>
+        <p><strong>J. R. PITMAN</strong>. <em>The School-Shakspeare</em>. 2nd ed. <strong>1834</strong></p>
+        <p><strong>WILLIAM CHARLES MACREADY</strong>. <em>WT</em>. Ed. Elizabeth Inchbald. Annotated by J. R.
+          Anderson. <strong>1837</strong></p>
+        <p><strong>BARRY CORNWALL</strong> (i.e., Bryan Waller Procter). <em>Works</em>. 3 vols. Vol. 1.
+          <strong>1844</strong>
+        </p>
+        <p><strong>SAMUEL PHELPS</strong>. <em>WT</em>. Cumberland&#x27;s British Theatre 6.
+          Annotated by Phelps and William C. Williams. <strong>1845–</strong></p>
+        <p><strong>GULIAN VERPLANCK</strong>. <em>Plays</em>. 138 pts. [N.Y., 1844–7.] Reissued in
+          3 vols. Vol. 2. <strong>1845</strong></p>
+        <p><strong>CHARLES KNIGHT</strong>. <em>WT</em>. The Stratford Shakespeare. 4 vols. Vol. 4.
+          <strong>1854</strong></p>
+        <p><strong>WILLIAM BURTON</strong>. <em>WT</em>. Ed. Elizabeth Inchbald. Annotated by John Moore.
+          <strong>1856</strong>
+        </p>
+        <p><strong>CHARLES KEAN</strong>. <em>WT</em>. Extracted from <em>Works</em>. Ed. Charles Knight.
+          [1841] . MS alterations. <strong>1856</strong></p>
+        <p><strong>CHARLES KEAN</strong>. <em>WT</em>. As performed 28 Apr. 1856. <strong>1856</strong></p>
+        <p><strong>J. B. WRIGHT</strong>. <em>WT</em>. French&#x27;s Standard Drama, no. 317.
+          <strong>[1860?]</strong></p>
+        <p><strong>R. CARRUTHERS &amp; W. CHAMBERS</strong>. <em>Dramatic Works</em>. Chambers
+          &#x27;s Household Ed. 10 vols. in 5. 1861–3. Vol. 4. <strong>1862</strong></p>
+        <p><strong>CHARLES &amp; MARY COWDEN CLARKE</strong>. <em>Plays</em>. Cassell&#x27;
+          s Illustrated Sh. 270 pts., 1864–9. Reissued in 3 vols. Vol. 1. <strong>1865</strong></p>
+        <p><strong>CHARLES CALVERT</strong>. <em>WT</em>. Manchester. <strong>[1869]</strong></p>
+        <p><strong>OTTO GILDEMEISTER</strong> (tr.). <em>Das Winterma‥rchen</em>. Leipzig. <strong>1870</strong>
+        </p>
+        <p><strong>ALEXANDER SCHMIDT</strong>. <em>Das Winterma‥rchen</em>. In <em>Dramatische Werke</em>. Tr.
+          August Wilhelm von Schlegel &amp; Ludwig Tieck. Ed. H. Ulrici. 12 vols. Berlin, 1867–71.
+          Vol. 9. <strong>1870</strong></p>
+        <p><strong>JOHN HUNTER</strong>. <em>Shakspeare&#x27;s Comedy of</em> A Winter&#x27;
+          s Tale. <strong>1872</strong></p>
+        <p><strong>F. J. FURNIVALL</strong>. <em>WT</em>. The Leopold Sh. Furnivall introd. Delius text.
+          <strong>[1877?]</strong>
+        </p>
+        <p><strong>WILLIAM J. ROLFE</strong>. <em>WT</em>. English Classics. <strong>1879</strong></p>
+        <p><strong>JOSEPH CROSBY</strong>. Letter to C. M. Ingleby, 30 Aug. 1881. Folger Library C.a.9.
+          <strong>1881</strong>
+        </p>
+        <p><strong>HENRY MORLEY</strong>. <em>WT</em>. Cassell&#x27;s Natl. Lib.
+          <strong>1887</strong></p>
+        <p><strong>MARY ANDERSON</strong>. <em>WT</em>. N.Y. <strong>1888</strong></p>
+        <p><strong>KENNETH DEIGHTON</strong>. <em>WT</em>. Deighton&#x27;s Grey Cover Sh. <strong>1889</strong>
+        </p>
+        <p><strong>ISRAEL GOLLANCZ</strong>. <em>WT</em>. Temple Sh. 41 vols. Vol. 41. <strong>1894</strong></p>
+        <p><strong>W. E. HENLEY</strong>. <em>Works</em>. 10 vols. 1901–4. Vol. 3. <strong>1902</strong></p>
+        <p><strong>CHARLOTTE PORTER &amp; HELEN A. CLARKE</strong>. <em>Works</em>. Croxley Ed. 12
+          vols. Vol. 4.</p>
+        <p><strong>[c. 1903]</strong></p>
+        <p><strong>C. H. HERFORD</strong>. <em>Works</em>. Eversley Ed. 10 vols. Vol. 4. (<em>WT</em> first pub.
+          as 1 of 39 vols., 1899.) <strong>1904</strong></p>
+        <p><strong>A. J. F. COLLINS</strong>. <em>WT</em>. The Tutorial Sh. <strong>[1904–24?]</strong></p>
+        <p><strong>VIOLA ALLEN</strong>. <em>WT</em>. As performed 26 Dec. 1904. N.Y. <strong>1905a</strong></p>
+        <p><strong>VIOLA ALLEN</strong>. <em>WT</em>. Promptbook created by annotating the performance ed.
+          <strong>1905b</strong></p>
+        <p><strong>GEORGE BRANDES</strong>. <em>Works</em>. Garrick Sh. 12 vols. Vols. 4 &amp; 12.
+          <strong>1905</strong></p>
+        <p><strong>SIDNEY LEE</strong>. <em>Works</em>. Univ. Press Ed. 40 vols. N.Y., 1906–9. Vol. 15.
+          <em>WT</em> introd. by J. J. Jusserand. <strong>1907</strong></p>
+        <p><strong>CHARLOTTE PORTER &amp; HELEN A. CLARKE</strong>. <em>Works</em>. First Folio
+          Ed. 40 vols. N.Y., c. 1903–12. Vol. 34. <strong>[1908]</strong></p>
+        <p><strong>K [ENNETH] DEIGHTON</strong>. <em>WT</em>. 2nd ed. Deighton&#x27;
+          s Red Cover Sh. <strong>1908</strong></p>
+        <p><strong>F. J. FURNIVALL &amp; F. W. CLARKE</strong>. <em>WT</em>. Old-Spelling Sh. N.Y.
+          <strong>1908</strong></p>
+        <p><strong>J. H. LOBBAN</strong>. <em>WT</em>. Granta Sh. Cambridge. <strong>1910</strong></p>
+        <p><strong>WINTHROP AMES &amp; JOHN CORBIN</strong>. <em>WT</em>. Promptbook based on a
+          1902 ed. <strong>1910</strong></p>
+        <p><strong>HARLEY GRANVILLE-BARKER</strong>. <em>WT</em>. Preface by Granville-Barker.
+          <strong>[1912]</strong></p>
+        <p><strong>H. B. CHARLTON</strong>. <em>WT</em>. Arden Sh. <strong>1916</strong></p>
+        <p><strong>C. H. HERFORD</strong>. <em>WT</em>. Warwick Sh. <strong>[1916–]</strong></p>
+        <p><strong>FREDERICK E. PIERCE</strong>. <em>WT</em>. Yale Sh. <strong>1918</strong></p>
+        <p><strong>HARDIN CRAIG</strong>. <em>Shakespeare: A Historical and Critical Study of Twenty-One
+          Plays</em>. <strong>1931</strong></p>
+        <p><strong>FRANK WOOLFE</strong>. Promptbook based on Gollancz, ed. 1894. <strong>1932</strong></p>
+        <p><strong>TUCKER BROOKE, J. W. CUNLIFFE, &amp; H. N. MACCRACKEN</strong>. <em>Principal
+          Plays</em>. 3rd. ed. <strong>1935</strong></p>
+        <p><strong>EMILE LEGOUIS</strong>. <em>Le Conte d&#x27;hiver</em>. Collection Sh. <strong>1936</strong>
+        </p>
+        <p><strong>B. IDEN PAYNE</strong>. <em>WT</em>. Promptbook based on Herford, ed. 1904.
+          <strong>1937</strong></p>
+        <p><strong>B. IDEN PAYNE</strong>. <em>WT</em>. Typescript promptbook with MS notes. <strong>1946</strong>
+        </p>
+        <p><strong>ANTHONY QUAYLE</strong>. <em>WT</em>. Promptbook with MS notes. <strong>1948</strong></p>
+        <p><strong>PETER WOOD</strong>. <em>WT</em>. Promptbook based on Cambridge Pocket Sh.
+          <strong>1959</strong>.</p>
+        <p><strong>S. C. BOORMAN</strong>. <em>WT</em>. London English Literature Ser. <strong>1964</strong></p>
+        <p><strong>R. R. YOUNG &amp; C. W. R. D. MOSELEY</strong>. <em>WT</em>. South Bank Sh.
+          <strong>1965</strong></p>
+        <p><strong>LOUIS B. WRIGHT &amp; VIRGINIA A. LAMAR</strong>. <em>WT</em>. Folger Library
+          General Reader&#x27;s Sh. <strong>1966</strong></p>
+        <p><strong>TREVOR NUNN</strong>. <em>WT</em>. Promptbook based on Kermode, ed. 1963. <strong>1969</strong>
+        </p>
+        <p><strong>JOHN BARTON</strong>. <em>WT</em>. Promptbook based on Wilson, ed. 1931 (rpt. 1959).
+          <strong>1976</strong>
+        </p>
+        <p><strong>RONALD EYRE</strong>. <em>WT</em>. Promptbook based on Schanzer, ed. 1969.
+          <strong>1981</strong></p>
+        <p><strong>CHRISTOPHER PARRY</strong>. <em>WT</em>. Macmillan Sh. <strong>1982</strong></p>
+        <p><strong>INGEBORG BOLTZ</strong>. <em>WT. Das Winterma‥rchen</em>. Englisch-deutsche Studienausgabe.
+          <strong>1986</strong></p>
+        <p><strong>TERRY HANDS</strong>. <em>WT</em>. Promptbook based on Schanzer, ed. 1969.
+          <strong>1987</strong></p>
+        <p><strong>DAVID BEVINGTON</strong>. <em>Works</em>. 4th ed. N.Y. <strong>1992</strong></p>
+        <p><strong>STEPHEN ORGEL</strong>. <em>WT</em>. Oxford Sh. <strong>1996</strong></p>
+        <p><strong>RICHARD KNOWLES</strong>. <em>Lr</em>. New Variorum Sh. <strong>2021</strong></p>
+        <h3 class="anchor" id="quotations-of-authors-other-than-shakespeare">Quotations of authors other than Shakespeare</h3>
+        <p>Unless otherwise specified, quotations of authors other than Shakespeare are drawn from these
+          editions:</p>
+        <p><em>The Dramatic Works in the Beaumont &amp; Fletcher Canon</em>. Gen. ed. Fredson
+          Bowers. 10 vols. Cambridge, 1966–96.</p>
+        <p><em>The Life &amp; Complete Works in Verse &amp; Prose of Robert
+          Greene, M.A</em>. Ed. Alexander B. Grosart. 15 vols. 1881–6. (Rpt. N.Y.: Russell &amp;
+          Russell, 1964.)</p>
+        <p><em>Ben Jonson</em>. Ed. C. H. Herford &amp; Percy &amp; Evelyn
+          Simpson. 11 vols. 1925–52.</p>
+        <p><em>The Works of Thomas Kyd</em>. Ed. Frederick S. Boas. Oxford, 1901.</p>
+        <p><em>The Complete Works of John Lyly</em>. Ed. R. Warwick Bond. 3 vols. Oxford, 1902.</p>
+        <p><em>The Complete Works of Christopher Marlowe</em>. Ed. Fredson Bowers. 2nd ed. 2 vols. Cambridge,
+          1979.</p>
+        <p><em>The Life &amp; Works of George Peele</em>. Gen. ed. Charles Tyler Prouty. 3 vols.
+          New Haven, 1952–70.</p>
+        <p><em>The Dramatic Works and Poems of James Shirley</em>. Ed. William Gifford; rev. Alexander Dyce. 6
+          vols. 1833.</p>
+        <h3 class="anchor" id="abbreviations">Abbreviations</h3>
+        <p>In addition to others commonly employed, the following abbreviations occur:</p>
+        <p>a in a signature, left-hand column</p>
+        <p><em>a</em>. adjective</p>
+        <p>ad. added, additionally</p>
+        <p><em>Ado Much Ado about Nothing</em></p>
+        <p><em>AEB Analytical and Enumerative Bibliography</em></p>
+        <p><em>AI American Imago</em></p>
+        <p><em>ALitASH Acta Litteraria Academiae Scientiarum Hungaricae</em></p>
+        <p>Anon. Anonymous</p>
+        <p><em>Ant</em>. <em>Antony and Cleopatra</em></p>
+        <p>app. appendix</p>
+        <p><em>Archiv Archiv fu‥r das Studium der Neueren Sprachen und Literaturen</em></p>
+        <p>Assn. Association</p>
+        <p>attrib. attributed to</p>
+        <p>aug. augmented</p>
+        <p><em>AWW All&#x27;s Well That Ends Well</em></p>
+        <p><em>AYL As You Like It</em></p>
+        <p>b in a signature, right-hand column</p>
+        <p><em>BJRL Bulletin of the John Rylands University Library of Manchester</em></p>
+        <p>BL British Library</p>
+        <p><em>BLC British Library General Catalogue of Printed Books</em></p>
+        <p><em>BSUF Ball State University Forum</em></p>
+        <p>Bull. Bulletin</p>
+        <p><em>BuR Bucknell Review</em></p>
+        <p>c. circa, century</p>
+        <p><em>CahiersE Cahiers Elisabe&#x27;thains</em></p>
+        <p><em>C&amp;L Christianity and Literature</em></p>
+        <p><em>CE College English</em></p>
+        <p><em>CentR Centennial Review</em></p>
+        <p>cf. compare</p>
+        <p>ch. chapter</p>
+        <p><em>CLAJ College Language Association Journal</em></p>
+        <p><em>CLS Comparative Literature Studies</em></p>
+        <p><em>CML Classical and Modern Literature: A Quarterly</em></p>
+        <p><em>CompD Comparative Drama</em></p>
+        <p>Comp. Lit. Comparative Literature</p>
+        <p>comp(s). compiler(s)</p>
+        <p>conj. conjecture, conjectural</p>
+        <p><em>ConR Contemporary Review</em></p>
+        <p><em>CritQ Critical Quarterly</em></p>
+        <p><em>Cym</em>. <em>Cymbeline</em></p>
+        <p>degr. degraded (usually to a note)</p>
+        <p>diff. different</p>
+        <p>diss. dissertation</p>
+        <p><em>DNB Dictionary of National Biography</em></p>
+        <p><em>DR Dalhousie Review</em></p>
+        <p><em>DUJ Durham University Journal</em></p>
+        <p><em>EA Etudes Anglaises</em></p>
+        <p><em>EAA Estudos Anglo-Americanos</em> (Sa˜o Paulo)</p>
+        <p><em>E&amp;S Essays and Studies</em> (London)</p>
+        <p>ed(s). edited by, editor(s), edition(s)</p>
+        <p><em>EDD The English Dialect Dictionary</em>, ed. Joseph Wright, 6 vols. 1898–1905</p>
+        <p><em>EIC Essays in Criticism</em></p>
+        <p><em>EIE English Institute Essays</em></p>
+        <p><em>EigoS Eigo Seinen</em></p>
+        <p><em>EIRC Explorations in Renaissance Culture</em></p>
+        <p><em>EiT Essays in Theatre</em></p>
+        <p><em>ELH</em> the title per se; formerly <em>Journal of English Literary History</em></p>
+        <p><em>ELN English Language Notes</em></p>
+        <p><em>ELR English Literary Renaissance</em></p>
+        <p><em>EM English Miscellany</em></p>
+        <p>Eng. English</p>
+        <p>enl. enlarged</p>
+        <p><em>Err</em>. <em>The Comedy of Errors</em></p>
+        <p><em>ES English Studies</em> (Netherlands)</p>
+        <p><em>ESC English Studies in Canada</em></p>
+        <p><em>ESn Englische Studien</em></p>
+        <p>et al. and others</p>
+        <p><em>etc</em>. (in a textual note) and all other collated editions</p>
+        <p><em>Expl Explicator</em></p>
+        <p>f. folio (leaf or page number)</p>
+        <p>F, F1 First Folio (1623)</p>
+        <p>F2, F3, F4 Second (1632), Third (1663–4), Fourth (1685) Folios</p>
+        <p>Ff. Folios</p>
+        <p><em>FQ Faerie Queene</em></p>
+        <p>Fr. French</p>
+        <p>Gen. Genesis</p>
+        <p>Gent. Gentleman</p>
+        <p><em>Gent. Mag</em>. <em>Gentleman&#x27;s Magazine</em></p>
+        <p>Ger. German</p>
+        <p><em>1H4 The First Part of Henry the Fourth</em></p>
+        <p><em>2H4 The Second Part of Henry the Fourth</em></p>
+        <p><em>H5 Henry the Fifth</em></p>
+        <p><em>1H6 The First Part of Henry the Sixth</em></p>
+        <p><em>2H6 The Second Part of Henry the Sixth</em></p>
+        <p><em>3H6 The Third Part of Henry the Sixth</em></p>
+        <p><em>H8 King Henry the Eighth</em></p>
+        <p><em>HAB Humanities Association Bulletin</em> (Canada)</p>
+        <p><em>Ham</em>. <em>Hamlet</em></p>
+        <p><em>HLB Harvard Library Bulletin</em></p>
+        <p><em>HLQ Huntington Library Quarterly</em></p>
+        <p>IDEM the same commentator</p>
+        <p><em>IJPP Interpretation: A Journal of Political Philosophy</em></p>
+        <p><em>ISJR Iowa State Journal of Research</em></p>
+        <p><em>JAMS Journal of the American Musicological Society</em></p>
+        <p><em>JC Julius Caesar</em></p>
+        <p><em>JEGP Journal of English and Germanic Philology</em></p>
+        <p><em>JHI Journal of the History of Ideas</em></p>
+        <p><em>Jn</em>. <em>King John</em></p>
+        <p><em>Jour</em>. <em>Journal</em></p>
+        <p>l(l). line(s)</p>
+        <p><em>L&amp;P Literature and Psychology</em></p>
+        <p><em>LanM Les Langues Modernes</em></p>
+        <p><em>LC A Lover&#x27;s Complaint</em></p>
+        <p>Libr. Library</p>
+        <p><em>LLL Love&#x27;s Labour&#x27;s Lost</em></p>
+        <p><em>Lr</em>. <em>King Lear</em></p>
+        <p>m with a siglum, a manuscript source</p>
+        <p><em>Mac</em>. <em>Macbeth</em></p>
+        <p><em>Mag</em>. <em>Magazine</em></p>
+        <p><em>M&amp;L Music and Letters</em></p>
+        <p><em>MdF Mercure de France</em></p>
+        <p><em>Met</em>. <em>Metamorphoses</em></p>
+        <p><em>MLN</em> the title per se; formerly <em>Modern Language Notes</em></p>
+        <p><em>MLQ Modern Language Quarterly</em></p>
+        <p><em>MLR Modern Language Review</em></p>
+        <p><em>MLS Modern Language Studies</em></p>
+        <p><em>MM Measure for Measure</em></p>
+        <p><em>MND A Midsummer Night&#x27;s Dream</em></p>
+        <p><em>MP Modern Philology</em></p>
+        <p><em>MQ Midwest Quarterly</em></p>
+        <p>MS(S) manuscript(s)</p>
+        <p><em>MSE Massachusetts Studies in English</em></p>
+        <p><em>MSpr Moderna Spra˚k</em></p>
+        <p>MSR Malone Society Reprint</p>
+        <p><em>MV The Merchant of Venice</em></p>
+        <p>n(n). note(s)</p>
+        <p><em>N&amp;Q Notes and Queries</em></p>
+        <p><em>NCCH New Century Classical Handbook</em></p>
+        <p>n.d. not dated</p>
+        <p>n.p. place of publication unspecified</p>
+        <p>NS new series</p>
+        <p><em>NUC National Union Catalogue</em></p>
+        <p><em>OCD Oxford Classical Dictionary</em></p>
+        <p><em>OED Oxford English Dictionary</em></p>
+        <p><em>om</em>. omitted by</p>
+        <p><em>Oth</em>. <em>Othello</em></p>
+        <p>OUP Oxford University Press</p>
+        <p>p(p). page(s)</p>
+        <p><em>PBA Proceedings of the British Academy</em></p>
+        <p><em>PBSA Papers of the Bibliographical Society of America</em></p>
+        <p><em>PCLS Proceedings of the Comparative Literature Symposium</em> (Lubbock, Texas)</p>
+        <p><em>PCP Pacific Coast Philology</em></p>
+        <p><em>Per</em>. <em>Pericles</em></p>
+        <p><em>PhT The Phoenix and Turtle</em></p>
+        <p>pl. plural</p>
+        <p><em>PMLA Publications of the Modern Language Association of America</em></p>
+        <p><em>PQ Philological Quarterly</em></p>
+        <p>prep. preposition</p>
+        <p><em>Preuss</em>. <em>Preussische</em> (Prussian)</p>
+        <p>pseud. pseudonym</p>
+        <p><em>PsyR Psychoanalytic Review</em></p>
+        <p>pt(s). part(s)</p>
+        <p>pub., publ. published, publication</p>
+        <p>Q quarto</p>
+        <p><em>QQ Queen&#x27;s Quarterly</em></p>
+        <p><em>R2 King Richard the Second</em></p>
+        <p><em>R3 King Richard the Third</em></p>
+        <p><em>RAA Revue Anglo-Ame&#x27;ricaine</em></p>
+        <p><em>REL Review of English Literature</em></p>
+        <p><em>RenD Renaissance Drama</em></p>
+        <p><em>RenQ Renaissance Quarterly</em></p>
+        <p><em>RES Review of English Studies</em></p>
+        <p><em>Rev</em>. <em>Review</em></p>
+        <p>rev. revised</p>
+        <p><em>RMR Rocky Mountain Review of Language and Literature</em></p>
+        <p><em>Rom</em>. <em>Romeo and Juliet</em></p>
+        <p>rpt. reprint, reprinted</p>
+        <p>RSC Royal Shakespeare Company</p>
+        <p><em>RSTC</em> Revised ed. (1986–91) of <em>STC</em></p>
+        <p><em>SAB South Atlantic Bulletin</em></p>
+        <p><em>sb</em>. substantive (noun)</p>
+        <p><em>SB Studies in Bibliography</em></p>
+        <p>SCL Shakespeare Centre Library, Stratford-upon-Avon</p>
+        <p>SD(s) stage direction(s)</p>
+        <p><em>SEL Studies in English Literature, 1500–1900</em></p>
+        <p>ser. series</p>
+        <p><em>ShAB Shakespeare Association Bulletin</em></p>
+        <p><em>ShakB Shakespeare Bulletin</em> (New York Sh. Soc.)</p>
+        <p><em>ShakS Shakespeare Studies</em></p>
+        <p>Sh(n). Shakespeare(an) (any spelling)</p>
+        <p><em>ShN Shakespeare Newsletter</em></p>
+        <p><em>Shr</em>. <em>The Taming of the Shrew</em></p>
+        <p><em>ShS Shakespeare Survey</em></p>
+        <p>sig(s). signature(s)</p>
+        <p><em>SJ Shakespeare-Jahrbuch</em></p>
+        <p><em>SJH Shakespeare-Jahrbuch</em> (Heidelberg)</p>
+        <p><em>SJW Shakespeare-Jahrbuch</em> (Weimar)</p>
+        <p><em>SN Studia Neophilologica</em></p>
+        <p><em>SoAR South Atlantic Review</em></p>
+        <p>Soc. Society</p>
+        <p><em>Son</em>. Shakespeare&#x27;s <em>Sonnets</em></p>
+        <p><em>SoRA Southern Review</em> (Adelaide)</p>
+        <p><em>SP Studies in Philology</em></p>
+        <p>SP(s) speech prefix(es)</p>
+        <p><em>SPWVSRA Selected Papers from the West Virginia Shakespeare and Renaissance Association</em></p>
+        <p><em>SQ Shakespeare Quarterly</em></p>
+        <p><em>SR Sewanee Review</em></p>
+        <p>Sr. Sister</p>
+        <p><em>SSEng Sydney Studies in English</em></p>
+        <p><em>STC A Short-Title Catalogue of Books Printed in England, Scotland, and Ireland...1475–1640</em>.
+          (by A. W. Pollard and G. R. Redgrave; 2nd ed., rev. and enl. Ed. W. A. Jackson, F. S. Ferguson, &amp;
+          Katherine F. Pantzer. 3 vols. 1986–91)</p>
+        <p>Stud. Studies</p>
+        <p>subst. substantially</p>
+        <p>supp. supplement</p>
+        <p>s.v. <em>sub verba</em></p>
+        <p><em>TGV Two Gentlemen of Verona</em></p>
+        <p>Th. Theater, Theatre</p>
+        <p><em>ThS Theatre Survey</em></p>
+        <p><em>THSt Theatre History Studies</em></p>
+        <p><em>Tim</em>. <em>Timon of Athens</em></p>
+        <p><em>Tit</em>. <em>Titus Andronicus</em></p>
+        <p>TLN Through Line Number(s)</p>
+        <p><em>TLS</em> [London] <em>Times Literary Supplement</em></p>
+        <p>TM Theatre Museum, London</p>
+        <p><em>Tmp</em>. <em>The Tempest</em></p>
+        <p><em>TN Twelfth Night</em> or <em>Theatre Notebook</em></p>
+        <p><em>TNK The Two Noble Kinsmen</em></p>
+        <p><em>TPB Tennessee Philological Bulletin</em></p>
+        <p>tr. translation, translated by</p>
+        <p><em>Tro</em>. <em>Troilus and Cressida</em></p>
+        <p><em>TSLL Texas Studies in Literature and Language</em></p>
+        <p><em>UCrow The Upstart Crow</em></p>
+        <p><em>UES Unisa English Studies</em></p>
+        <p><em>UMSE University of Mississippi Studies in English</em></p>
+        <p>Univ. University</p>
+        <p><em>UTQ University of Toronto Quarterly</em></p>
+        <p>v (in a signature, superscript) verso; (with a siglum) variorum edition</p>
+        <p>v. verb</p>
+        <p>Var. variorum edition</p>
+        <p>vol(s). volume(s)</p>
+        <p><em>Wiv</em>. <em>Merry Wives of Windsor</em></p>
+        <p><em>WS Women&#x27;s Studies</em></p>
+        <p><em>WT The Winter&#x27;s Tale</em></p>
+        <p><em>WVUPP West Virginia University Philological Papers</em></p>
+        <p><em>YES Yearbook of English Studies</em></p>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block js %}
+<!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+{% endblock %}

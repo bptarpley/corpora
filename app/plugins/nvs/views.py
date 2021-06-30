@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils.text import slugify
 from corpus import *
 from mongoengine.queryset.visitor import Q
-from manager.utilities import _get_context, get_scholar_corpus, _contains, _clean, parse_uri, build_search_params_from_dict
+from manager.utilities import _get_context, get_scholar_corpus, _contains, _contains_any, parse_uri, build_search_params_from_dict
 from importlib import reload
 from plugins.nvs import tasks
 from rest_framework.decorators import api_view
@@ -14,6 +14,12 @@ from math import floor
 from PIL import Image, ImageDraw
 from elasticsearch_dsl import A
 
+
+# TEMPORARY FIX FOR SOFT LAUNCH
+editors = {
+    'wt': "ROBERT KEAN TURNER, VIRGINIA WESTLING HAAS, with ROBERT A. JONES, ANDREW J. SABOL, PATRICIA E. TATSPAUGH",
+    'mnd': "Judith M. Kennedy, Paul Werstine, with Susan May, Roberta Barker, David Nichol"
+}
 
 def splash(request):
     return render(
@@ -24,12 +30,18 @@ def splash(request):
 
 
 def playviewer(request, corpus_id=None, play_prefix=None):
+    nvs_page = "variorum-viewer"
     site_request = False
     corpora_url = 'https://' if settings.USE_SSL else 'http://'
     corpora_url += settings.ALLOWED_HOSTS[0]
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
         site_request = True
+
+    on_mobile = False
+    user_agent = request.META['HTTP_USER_AGENT']
+    if _contains_any(user_agent, ['Mobile', 'Opera Mini', 'Android']):
+        on_mobile = True
 
     corpus = get_corpus(corpus_id)
     play = corpus.get_content('Play', {'prefix': play_prefix})[0]
@@ -40,9 +52,6 @@ def playviewer(request, corpus_id=None, play_prefix=None):
     character = request.GET.get('character', nvs_session['filter']['character'])
 
     lines = []
-    witnesses = {}
-    witness_centuries = {}
-
     session_changed = False
 
     if 'play_id' not in nvs_session or nvs_session['play_id'] != str(play.id):
@@ -127,48 +136,14 @@ def playviewer(request, corpus_id=None, play_prefix=None):
         if 'Trailer|||0' in as_results['meta']['aggregations']['act_scenes']:
             act_scenes['TR'] = "Trailer.0"
 
-    witness_docs = corpus.get_content('Document', {'nvs_doc_type': 'witness'}).order_by('pub_date')
-    play_wit_ids = [w.id for w in play.primary_witnesses]
-    wit_counter = 0
-    for wit_doc in witness_docs:
-        if wit_doc.id in play_wit_ids:
-            witnesses[wit_doc.siglum] = {
-                'slots': [wit_counter],
-                'document_id': str(wit_doc.id),
-                'bibliographic_entry': wit_doc.bibliographic_entry
-            }
-
-            century = wit_doc.pub_date[:2] + "00"
-            if century in witness_centuries:
-                witness_centuries[century] += 1
-            else:
-                witness_centuries[century] = 1
-
-            wit_counter += 1
-
-    document_collections = corpus.get_content('DocumentCollection', all=True)
-    for collection in document_collections:
-        slots = []
-        bib_entry = ""
-
-        for reffed_doc in collection.referenced_documents:
-            if reffed_doc.siglum in witnesses:
-                slots += witnesses[reffed_doc.siglum]['slots']
-                if bib_entry:
-                    bib_entry += "<br /><br />"
-                bib_entry += reffed_doc.bibliographic_entry
-
-        witnesses[collection.siglum] = {
-            'slots': slots,
-            'bibliographic_entry': bib_entry
-        }
-
+    witnesses, wit_counter, witness_centuries = get_nvs_witnesses(corpus, play)
 
     return render(
         request,
         'playviewer.html',
         {
             'site_request': site_request,
+            'on_mobile': on_mobile,
             'corpora_url': corpora_url,
             'corpus_id': corpus_id,
             'lines': lines,
@@ -176,10 +151,12 @@ def playviewer(request, corpus_id=None, play_prefix=None):
             'notes': json.dumps(notes),
             'line_note_map': line_note_map,
             'play': play,
-            'witnesses': witnesses,
+            'editors': editors[play_prefix],
+            'witnesses': json.dumps(witnesses),
             'witness_centuries': witness_centuries,
             'witness_count': wit_counter,
-            'nvs_session': nvs_session
+            'nvs_session': nvs_session,
+            'nvs_page': nvs_page
         }
     )
 
@@ -207,52 +184,84 @@ def get_session_lines(corpus, session, only_ids=False):
     return lines
 
 
-def bibliography(request, corpus_id, play_prefix):
-    corpus = get_corpus(corpus_id)
-    play = corpus.get_content('Play', {'prefix': play_prefix})[0]
-
-    docs = corpus.get_content('Document', all=True).order_by('bibliographic_entry_text')
-    bibliographic_entries = [doc.bibliographic_entry for doc in docs]
-
-    return render(
-        request,
-        'bibliography.html',
-        {
-            'corpus_id': corpus_id,
-            'bibliography': bibliographic_entries
-        }
-    )
-
-
 def paratext(request, corpus_id=None, play_prefix=None, section=None):
     corpora_url = 'https://' if settings.USE_SSL else 'http://'
     corpora_url += settings.ALLOWED_HOSTS[0]
+    site_request = False
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     play = corpus.get_content('Play', {'prefix': play_prefix}, single_result=True)
-    section_toc = "<ul>"
+    nvs_page = ""
+
+    section_toc = ""
     section_html = ""
 
-    top_paratexts = corpus.get_content('ParaText', {
-        'play': play.id,
-        'section': section,
-        'level': 1
-    }).order_by('order')
+    if section in ['Appendix', 'Front Matter']:
+        top_paratexts = corpus.get_content('ParaText', {
+            'play': play.id,
+            'section': section,
+            'level': 1
+        }).order_by('order')
 
-    for pt in top_paratexts:
-        section_toc += pt.toc_html
-        section_html += pt.full_html.replace('/file/uri/', "{0}/file/uri/".format(corpora_url))
+        for pt in top_paratexts:
+            section_toc += pt.toc_html
+            section_html += pt.full_html.replace('/file/uri/', "{0}/file/uri/".format(corpora_url))
 
-    section_toc += "</ul>"
+        nvs_page = "{0}-frontmatter".format(play_prefix)
+        if section == "Appendix":
+            nvs_page = "{0}-appendix".format(play_prefix)
+    elif section == "Bibliography":
+        marker_map = {
+            'ABC': 'A-C',
+            'DEF': 'D-F',
+            'GHI': 'G-I',
+            'JKL': 'J-L',
+            'MNO': 'M-O',
+            'PQR': 'P-R',
+            'STU': 'S-U',
+            'VWX': 'V-X',
+            'YZ': 'Y-Z'
+        }
+
+        for letters in marker_map.keys():
+            section_toc += '<li class="anchor-link is-level-1"><a href="#{0}">{0}</a></li>'.format(
+                marker_map[letters]
+            )
+
+        last_marker = ""
+        for bib in play.bibliographic_sources:
+            marker = last_marker
+            if bib.bibliographic_entry_text:
+                for letters in marker_map.keys():
+                    if _contains_any(bib.bibliographic_entry_text[0], letters):
+                        marker = marker_map[letters]
+                        break
+
+            if marker != last_marker:
+                if section_html:
+                    section_html += '</ul>'
+                section_html += '<ul id="{0}">'.format(marker)
+                last_marker = marker
+
+            section_html += "<li>{0}</li>".format(bib.bibliographic_entry)
+
+        nvs_page = "{0}-bibliography".format(play_prefix)
+
+    witnesses, wit_counter, witness_centuries = get_nvs_witnesses(corpus, play)
 
     return render(
         request,
         'paratext.html',
         {
             'corpus_id': corpus_id,
+            'site_request': site_request,
+            'nvs_page': nvs_page,
+            'corpora_url': corpora_url,
             'play': play,
+            'witnesses': json.dumps(witnesses),
             'section': section,
             'toc': section_toc,
             'html': section_html
@@ -260,8 +269,8 @@ def paratext(request, corpus_id=None, play_prefix=None, section=None):
     )
 
 
-def witness_meter(request, witness_flags, height, width, inactive_color_hex):
-    if height.isdigit() and width.isdigit():
+def witness_meter(request, witness_flags, height, width, inactive_color_hex, label_buffer):
+    if height.isdigit() and width.isdigit() and label_buffer.isdigit():
         height = int(height)
         width = int(width)
         color_map = {
@@ -275,13 +284,14 @@ def witness_meter(request, witness_flags, height, width, inactive_color_hex):
             '7': '#bd5822',
             '8': '#a84f1f',
             '9': '#8f2d13',
-            'x': '#c4dffc'
+            'x': '#2a69a1'
         }
-        indicator_width = width / len(witness_flags)
+        selectively_quoted_width = 20 + int(label_buffer)
+        indicator_width = (width - selectively_quoted_width) / (len(witness_flags) - 1)
         img = Image.new('RGBA', (width, height), (255, 0, 0, 0))
         draw = ImageDraw.Draw(img)
 
-        for flag_index in range(0, len(witness_flags)):
+        for flag_index in range(0, len(witness_flags) - 1):
             indicator_color = color_map[witness_flags[flag_index]]
             start_x = flag_index * indicator_width
             start_y = 0
@@ -294,6 +304,26 @@ def witness_meter(request, witness_flags, height, width, inactive_color_hex):
                 outline=None,
                 width=0
             )
+
+        if witness_flags[-1] != '0':
+            indicator_color = color_map['3']
+            if witness_flags[-1] == 'x':
+                indicator_color = color_map['x']
+
+            start_x = width - 10 - indicator_width
+            end_x = start_x + indicator_width
+
+            start_y = 0
+            while start_y + 1 < height:
+                draw.rectangle(
+                    [(start_x, start_y), (end_x, start_y + 1)],
+                    fill=indicator_color,
+                    outline=None,
+                    width=0
+                )
+
+                start_y += 4
+
 
         response = HttpResponse(content_type="image/png")
         img.save(response, 'PNG')
@@ -386,11 +416,112 @@ def play_minimap(request, corpus_id=None, play_prefix=None):
             return response
 
 
-def info_about(request, corpus_id=None):
+def home(request, corpus_id=None):
+    nvs_page = "home"
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'nvs_home'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'nvs_home.html',
+        {
+            'corpus_id': corpus_id,
+            'site_request': site_request,
+            'content': dynamic_content,
+            'nvs_page': nvs_page
+        }
+    )
+
+
+def frontmatter(request, corpus_id=None):
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+        site_request = True
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'nvs_frontmatter'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'nvs_frontmatter.html',
+        {
+            'corpus_id': corpus_id,
+            'site_request': site_request,
+            'content': dynamic_content
+        }
+    )
+
+
+def appendix(request, corpus_id=None):
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+        site_request = True
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'nvs_appendix'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'nvs_appendix.html',
+        {
+            'corpus_id': corpus_id,
+            'site_request': site_request,
+            'content': dynamic_content
+        }
+    )
+
+
+def bibliography(request, corpus_id=None):
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+        site_request = True
+
+    corpus = get_corpus(corpus_id)
+    content_block = corpus.get_content('ContentBlock', {'handle': 'nvs_bibliography'}, single_result=True)
+    if content_block:
+        dynamic_content = content_block.html
+
+    return render(
+        request,
+        'nvs_bibliography.html',
+        {
+            'corpus_id': corpus_id,
+            'site_request': site_request,
+            'content': dynamic_content
+        }
+    )
+
+
+def info_about(request, corpus_id=None):
+    nvs_page = "info-about"
+    dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
+
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'info_about'}, single_result=True)
@@ -402,16 +533,21 @@ def info_about(request, corpus_id=None):
         'info_about.html',
         {
             'corpus_id': corpus_id,
-            'content': dynamic_content
+            'site_request': site_request,
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
 
 def info_contributors(request, corpus_id=None):
+    nvs_page = "info-contributors"
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'info_contributors'}, single_result=True)
@@ -423,16 +559,21 @@ def info_contributors(request, corpus_id=None):
         'info_contributors.html',
         {
             'corpus_id': corpus_id,
-            'content': dynamic_content
+            'site_request': site_request,
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
 
 def info_print_editions(request, corpus_id=None):
+    nvs_page = "info-print-editions"
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'info_print'}, single_result=True)
@@ -444,16 +585,21 @@ def info_print_editions(request, corpus_id=None):
         'info_print.html',
         {
             'corpus_id': corpus_id,
-            'content': dynamic_content
+            'site_request': site_request,
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
 
 def info_how_to(request, corpus_id=None):
+    nvs_page = "info-how-to"
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'info_how_to'}, single_result=True)
@@ -465,16 +611,21 @@ def info_how_to(request, corpus_id=None):
         'info_how_to.html',
         {
             'corpus_id': corpus_id,
-            'content': dynamic_content
+            'site_request': site_request,
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
 
 def info_faqs(request, corpus_id=None):
+    nvs_page = "info-faqs"
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'info_faqs'}, single_result=True)
@@ -486,16 +637,21 @@ def info_faqs(request, corpus_id=None):
         'info_faqs.html',
         {
             'corpus_id': corpus_id,
-            'content': dynamic_content
+            'site_request': site_request,
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
 
 def tools_about(request, corpus_id=None):
+    nvs_page = "tools-about"
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'tools_about'}, single_result=True)
@@ -507,16 +663,21 @@ def tools_about(request, corpus_id=None):
         'tools_about.html',
         {
             'corpus_id': corpus_id,
-            'content': dynamic_content
+            'site_request': site_request,
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
 
 def tools_advanced_search(request, corpus_id=None):
+    nvs_page = "tools-advanced-search"
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'tools_advanced_search'}, single_result=True)
@@ -528,16 +689,21 @@ def tools_advanced_search(request, corpus_id=None):
         'tools_advanced_search.html',
         {
             'corpus_id': corpus_id,
-            'content': dynamic_content
+            'site_request': site_request,
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
 
 def tools_data_extraction(request, corpus_id=None):
+    nvs_page = "tools-data-extraction"
     dynamic_content = "Some <i>dynamically</i> generated content!"
+    site_request = False
 
     if not corpus_id and hasattr(request, 'corpus_id'):
         corpus_id = request.corpus_id
+        site_request = True
 
     corpus = get_corpus(corpus_id)
     content_block = corpus.get_content('ContentBlock', {'handle': 'tools_data'}, single_result=True)
@@ -549,22 +715,37 @@ def tools_data_extraction(request, corpus_id=None):
         'tools_data.html',
         {
             'corpus_id': corpus_id,
-            'content': dynamic_content
+            'site_request': site_request,
+            'content': dynamic_content,
+            'nvs_page': nvs_page
         }
     )
 
 
-@api_view(['GET'])
-def api_lines(request, corpus_id, starting_line_no, ending_line_no):
-    context = _get_context(request)
+def api_lines(request, corpus_id=None, play_prefix=None, starting_line_id=None, ending_line_id=None):
     lines = []
 
-    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+    if not corpus_id and hasattr(request, 'corpus_id'):
+        corpus_id = request.corpus_id
 
-    if corpus and 'PlayLine' in corpus.content_types:
-        lines = corpus.get_content('PlayLine', {'line_number__gte': starting_line_no, 'line_number__lte': ending_line_no})
-        lines = lines.order_by('line_number')
-        lines = [line.to_dict() for line in lines]
+    if corpus_id and play_prefix and starting_line_id:
+        corpus = get_corpus(corpus_id)
+        play = corpus.get_content('Play', {'prefix': play_prefix})[0]
+
+        all_lines = corpus.get_content('PlayLine', {'play': play.id}).order_by('line_number')
+        started_collecting = False
+        for line in all_lines:
+            if line.xml_id == starting_line_id:
+                lines.append(line.to_dict())
+                if ending_line_id:
+                    started_collecting = True
+                else:
+                    break
+            elif line.xml_id == ending_line_id:
+                lines.append(line.to_dict())
+                break
+            elif started_collecting:
+                lines.append(line.to_dict())
 
     return HttpResponse(
         json.dumps(lines),
@@ -578,133 +759,208 @@ def api_search(request, corpus_id=None, play_prefix=None):
     corpus = get_corpus(corpus_id)
     play = corpus.get_content('Play', {'prefix': play_prefix})[0]
     nvs_session = get_nvs_session(request, play_prefix)
+    results = {}
 
     quick_search = request.POST.get('quick_search', None)
+    search_type = request.POST.get('search_type', None)
+    search_contents = request.POST.get('search_contents', None)
 
-    results = {
-        'characters': {},
-        'lines': [],
-        'variants': [],
-        'commentaries': [],
-        'last_commentary_line': 0
-    }
-
-    if quick_search:
-        # SEARCH PLAY LINES VIA Speech CT
-        speech_query = {
-            'content_type': 'Speech',
-            'page': 1,
-            'page_size': 1000,
-            'fields_filter': {
-                'play.id': str(play.id)
-            },
-            'only': ['act', 'scene', 'speaking'],
-            'fields_highlight': ['text'],
-            'highlight_num_fragments': 0
-        }
-        # print('SPEECHES')
-        qs_results = progressive_search(corpus, speech_query, ['text'], quick_search)
-
-        for record in qs_results['records']:
-            for speaker in record['speaking']:
-                sp_xml_id = speaker['xml_id']
-                act_scene = float("{0}.{1}".format(record['act'], record['scene']))
-
-                if sp_xml_id not in results['characters']:
-                    results['characters'][sp_xml_id] = {}
-
-                if act_scene not in results['characters'][sp_xml_id]:
-                    results['characters'][sp_xml_id][act_scene] = 1
-                else:
-                    results['characters'][sp_xml_id][act_scene] += 1
-
-            for speech in record['_search_highlights']['text']:
-                lines = [l for l in speech.split('<tln_') if l]
-                for line in lines:
-                    matches = re.findall(r'<em>([^<]*)</em>', line)
-                    if matches:
-                        line_xml_id = "tln_{0}".format(line[:line.index(' />')])
-                        results['lines'].append({
-                            'xml_id': line_xml_id,
-                            'matches': matches
-                        })
-
-        # SEARCH VARIANTS VIA TextualNote CT
-        variant_query = {
-            'content_type': 'TextualNote',
-            'page': 1,
-            'page_size': 1000,
-            'fields_filter': {
-                'play.id': str(play.id)
-            },
-            'only': ['lines.xml_id', 'variants.id'],
-            'fields_highlight': ['variants.variant', 'variants.description'],
-            'highlight_num_fragments': 0,
-        }
-        # print('VARIANTS')
-        variant_results = progressive_search(corpus, variant_query, ['variants.variant', 'variants.description'], quick_search)
-        variant_lines = {}
-        for record in variant_results['records']:
-            variant_line_id = record['lines'][0]['xml_id']
-            if variant_line_id not in variant_lines:
-                result = {
-                    'xml_id': variant_line_id,
-                    'matches': []
-                }
-                if 'variants.variant' in record['_search_highlights']:
-                    for highlight in record['_search_highlights']['variants.variant']:
-                        matches = re.findall(r'<em>([^<]*)</em>', highlight)
-                        if matches:
-                            result['matches'] += matches
-                if 'variants.description' in record['_search_highlights']:
-                    for highlight in record['_search_highlights']['variants.description']:
-                        matches = re.findall(r'<em>([^<]*)</em>', highlight)
-                        if matches:
-                            result['matches'] += matches
-
-                results['variants'].append(result)
-                variant_lines[variant_line_id] = True
-
-        # Search Commentary
-        comm_query = {
-            'content_type': 'Commentary',
-            'page': 1,
-            'page_size': 1000,
-            'fields_filter': {
-                'play.id': str(play.id)
-            },
-            'only': ['id', 'lines.line_number'],
-            'fields_highlight': ['subject_matter', 'contents'],
-        }
-        # print('COMMENTARY')
-        comm_results = progressive_search(corpus, comm_query, ['subject_matter', 'contents'], quick_search)
-
-        for record in comm_results['records']:
-            if 'lines' in record:
-                for line in record['lines']:
-                    if line['line_number'] > results['last_commentary_line']:
-                        results['last_commentary_line'] = line['line_number']
-
-                result = {
-                    'comm_id': record['id'],
-                    'matches': []
-                }
-                if 'subject_matter' in record['_search_highlights']:
-                    for highlight in record['_search_highlights']['subject_matter']:
-                        matches = re.findall(r'<em>([^<]*)</em>', highlight)
-                        if matches:
-                            result['matches'] += matches
-                if 'contents' in record['_search_highlights']:
-                    for highlight in record['_search_highlights']['contents']:
-                        matches = re.findall(r'<em>([^<]*)</em>', highlight)
-                        if matches:
-                            result['matches'] += matches
-                result['matches'] = list(set(result['matches']))
-                results['commentaries'].append(result)
-
-        nvs_session['search']['quick_search'] = quick_search
-        nvs_session['search']['results'] = results
+    if 'clear' in request.GET:
+        nvs_session['search'] = {}
         set_nvs_session(request, nvs_session, play_prefix)
+    else:
+        results = {
+            'characters': {},
+            'lines': [],
+            'variants': [],
+            'commentaries': [],
+            'last_commentary_line': 0
+        }
+
+        if quick_search:
+            if 'playtext' in search_contents:
+                lines_found = {}
+
+                # SEARCH PLAY LINES VIA Speech CT
+                speech_query = {
+                    'content_type': 'Speech',
+                    'page': 1,
+                    'page_size': 1000,
+                    'fields_filter': {
+                        'play.id': str(play.id)
+                    },
+                    'only': ['act', 'scene', 'speaking'],
+                    'fields_highlight': ['text'],
+                    'highlight_num_fragments': 0
+                }
+                print('SPEECHES')
+                qs_results = progressive_search(corpus, speech_query, ['text'], quick_search, search_type)
+
+                for record in qs_results['records']:
+                    for speaker in record['speaking']:
+                        sp_xml_id = speaker['xml_id']
+                        act_scene = float("{0}.{1}".format(record['act'], record['scene']))
+
+                        if sp_xml_id not in results['characters']:
+                            results['characters'][sp_xml_id] = {}
+
+                        if act_scene not in results['characters'][sp_xml_id]:
+                            results['characters'][sp_xml_id][act_scene] = 1
+                        else:
+                            results['characters'][sp_xml_id][act_scene] += 1
+
+                    for speech in record['_search_highlights']['text']:
+                        lines = [l for l in speech.split('<tln_') if l]
+                        for line in lines:
+                            matches = re.findall(r'<em>([^<]*)</em>', line)
+
+                            if matches and search_type == 'exact':
+                                exact_terms = quick_search.lower().split()
+                                matches = [m for m in matches if _contains_any(m.lower(), exact_terms)]
+
+                            if matches:
+                                line_xml_id = "tln_{0}".format(line[:line.index(' />')])
+                                lines_found[line_xml_id] = True
+                                results['lines'].append({
+                                    'xml_id': line_xml_id,
+                                    'matches': matches
+                                })
+
+                # SEARCH PLAY LINES VIA PlayLine CT
+                lines_query = {
+                    'content_type': 'PlayLine',
+                    'page': 1,
+                    'page_size': 1000,
+                    'fields_filter': {
+                        'play.id': str(play.id)
+                    },
+                    'only': ['act', 'scene', 'xml_id', 'text'],
+                    'fields_highlight': ['text'],
+                    'highlight_num_fragments': 0
+                }
+                print('LINES')
+                qs_results = progressive_search(corpus, lines_query, ['text'], quick_search, search_type)
+
+                for record in qs_results['records']:
+                    line_xml_id = record['xml_id']
+                    if line_xml_id not in lines_found:
+                        for hit in record['_search_highlights']['text']:
+                            matches = re.findall(r'<em>([^<]*)</em>', hit)
+
+                            if matches and search_type == 'exact':
+                                exact_terms = quick_search.lower().split()
+                                matches = [m for m in matches if _contains_any(m.lower(), exact_terms)]
+
+                            if matches:
+                                results['lines'].append({
+                                    'xml_id': line_xml_id,
+                                    'matches': matches
+                                })
+
+                if results['lines']:
+                    results['lines'] = sorted(results['lines'], key=lambda l: len(l['matches']), reverse=True)
+
+            if 'variants' in search_contents:
+                # SEARCH VARIANTS VIA TextualNote CT
+                variant_query = {
+                    'content_type': 'TextualNote',
+                    'page': 1,
+                    'page_size': 1000,
+                    'fields_filter': {
+                        'play.id': str(play.id)
+                    },
+                    'only': ['lines.xml_id', 'variants.id'],
+                    'fields_highlight': ['variants.variant', 'variants.description'],
+                    'highlight_num_fragments': 0,
+                }
+                print('VARIANTS')
+                variant_results = progressive_search(corpus, variant_query, ['variants.variant', 'variants.description'], quick_search, search_type)
+                variant_lines = {}
+                for record in variant_results['records']:
+                    variant_line_id = record['lines'][0]['xml_id']
+                    if variant_line_id not in variant_lines:
+                        result = {
+                            'xml_id': variant_line_id,
+                            'matches': []
+                        }
+                        if 'variants.variant' in record['_search_highlights']:
+                            for highlight in record['_search_highlights']['variants.variant']:
+                                matches = re.findall(r'<em>([^<]*)</em>', highlight)
+
+                                if matches and search_type == 'exact':
+                                    exact_terms = quick_search.lower().split()
+                                    matches = [m for m in matches if _contains_any(m.lower(), exact_terms)]
+
+                                if matches:
+                                    result['matches'] += matches
+                        if 'variants.description' in record['_search_highlights']:
+                            for highlight in record['_search_highlights']['variants.description']:
+                                matches = re.findall(r'<em>([^<]*)</em>', highlight)
+
+                                if matches and search_type == 'exact':
+                                    exact_terms = quick_search.lower().split()
+                                    matches = [m for m in matches if _contains_any(m.lower(), exact_terms)]
+
+                                if matches:
+                                    result['matches'] += matches
+
+                        if result['matches']:
+                            results['variants'].append(result)
+                            variant_lines[variant_line_id] = True
+
+            if 'commentary' in search_contents:
+                # Search Commentary
+                comm_query = {
+                    'content_type': 'Commentary',
+                    'page': 1,
+                    'page_size': 1000,
+                    'fields_filter': {
+                        'play.id': str(play.id)
+                    },
+                    'only': ['id', 'lines.line_number'],
+                    'fields_highlight': ['subject_matter', 'contents'],
+                }
+                print('COMMENTARY')
+                comm_results = progressive_search(corpus, comm_query, ['subject_matter', 'contents'], quick_search, search_type)
+
+                for record in comm_results['records']:
+                    if 'lines' in record:
+                        for line in record['lines']:
+                            if line['line_number'] > results['last_commentary_line']:
+                                results['last_commentary_line'] = line['line_number']
+
+                        result = {
+                            'comm_id': record['id'],
+                            'matches': []
+                        }
+                        if 'subject_matter' in record['_search_highlights']:
+                            for highlight in record['_search_highlights']['subject_matter']:
+                                matches = re.findall(r'<em>([^<]*)</em>', highlight)
+
+                                if matches and search_type == 'exact':
+                                    exact_terms = quick_search.lower().split()
+                                    matches = [m for m in matches if _contains_any(m.lower(), exact_terms)]
+
+                                if matches:
+                                    result['matches'] += matches
+                        if 'contents' in record['_search_highlights']:
+                            for highlight in record['_search_highlights']['contents']:
+                                matches = re.findall(r'<em>([^<]*)</em>', highlight)
+
+                                if matches and search_type == 'exact':
+                                    exact_terms = quick_search.lower().split()
+                                    matches = [m for m in matches if _contains_any(m.lower(), exact_terms)]
+
+                                if matches:
+                                    result['matches'] += matches
+
+                        if result['matches']:
+                            result['matches'] = list(set(result['matches']))
+                            results['commentaries'].append(result)
+
+            nvs_session['search']['quick_search'] = quick_search
+            nvs_session['search']['results'] = results
+            set_nvs_session(request, nvs_session, play_prefix)
 
     return HttpResponse(
         json.dumps(results),
@@ -712,47 +968,46 @@ def api_search(request, corpus_id=None, play_prefix=None):
     )
 
 
-def progressive_search(corpus, search_params, fields, query):
+def progressive_search(corpus, search_params, fields, query, search_type):
     if len(fields) > 1:
         search_params['operator'] = "or"
 
+    results = []
     fields_dict = {}
     for field in fields:
         fields_dict[field] = query
 
-    #print('trying term...')
-    search_params['fields_term'] = fields_dict
-    results = corpus.search_content(**search_params)
-
-    if not results['records']:
-        #print('trying phrase...')
-        del search_params['fields_term']
-        search_params['fields_phrase'] = fields_dict
+    if search_type in ['fuzzy', 'exact']:
+        print('trying term...')
+        search_params['fields_term'] = fields_dict
         results = corpus.search_content(**search_params)
 
-    if not results['records']:
-        #print('trying fields...')
-        del search_params['fields_phrase']
-        search_params['fields_query'] = fields_dict
-        results = corpus.search_content(**search_params)
+        if not results['records'] and search_type in ['fuzzy', 'exact']:
+            print('trying phrase...')
+            del search_params['fields_term']
+            search_params['fields_phrase'] = fields_dict
+            results = corpus.search_content(**search_params)
 
-    if not results['records']:
-        #print('trying no stopwords...')
-        adjusted_query = query.lower().split()
-        for stopword in "a an and are as at be but by for if in into is it no not of on or such that the their then there these they this to was will with".split():
-            if stopword in adjusted_query:
-                adjusted_query.remove(stopword)
-        adjusted_query = ' '.join(adjusted_query)
-        for field in fields:
-            search_params['fields_query'][field] = adjusted_query
+        if not results['records'] and search_type == 'fuzzy':
+            print('trying fields...')
+            del search_params['fields_phrase']
+            search_params['fields_query'] = fields_dict
+            results = corpus.search_content(**search_params)
+
+        if not results['records'] and search_type == 'fuzzy':
+            print('trying no stopwords...')
+            adjusted_query = query.lower().split()
+            for stopword in "a an and are as at be but by for if in into is it no not of on or such that the their then there these they this to was will with".split():
+                if stopword in adjusted_query:
+                    adjusted_query.remove(stopword)
+            adjusted_query = ' '.join(adjusted_query)
+            for field in fields:
+                search_params['fields_query'][field] = adjusted_query
+            results = corpus.search_content(**search_params)
+
+    elif search_type == 'wildcard':
+        search_params['fields_wildcard'] = fields_dict
         results = corpus.search_content(**search_params)
-    '''
-    if not results['records']:
-        print('trying general...')
-        del search_params['fields_query']
-        search_params['general_query'] = query
-        results = corpus.search_content(**search_params)
-    '''
 
     return results
 
@@ -791,6 +1046,56 @@ def get_nvs_session(request, play_prefix, deserialize=True, reset=False):
         if deserialize:
             return default_session
         return json.dumps(default_session)
+
+
+def get_nvs_witnesses(corpus, play):
+    witnesses = {}
+    witness_centuries = {}
+
+    wit_counter = 0
+    for wit_doc in play.primary_witnesses:
+        witnesses[wit_doc.siglum] = {
+            'slots': [wit_counter],
+            'document_id': str(wit_doc.id),
+            'bibliographic_entry': "{0} {1}".format(wit_doc.siglum_label, wit_doc.bibliographic_entry),
+            'occasional': False
+        }
+
+        century = wit_doc.pub_date[:2] + "00"
+        if century in witness_centuries:
+            witness_centuries[century] += 1
+        else:
+            witness_centuries[century] = 1
+
+        wit_counter += 1
+
+    for sel_doc in play.occasional_witnesses:
+        witnesses[sel_doc.siglum] = {
+            'slots': [wit_counter],
+            'document_id': str(sel_doc.id),
+            'bibliographic_entry': sel_doc.bibliographic_entry,
+            'occasional': True
+        }
+
+    document_collections = corpus.get_content('DocumentCollection', all=True)
+    for collection in document_collections:
+        slots = []
+        bib_entry = ""
+
+        for reffed_doc in collection.referenced_documents:
+            if reffed_doc.siglum in witnesses:
+                slots += witnesses[reffed_doc.siglum]['slots']
+                if bib_entry:
+                    bib_entry += "<br /><br />"
+                bib_entry += "{0} {1}".format(reffed_doc.siglum_label, reffed_doc.bibliographic_entry)
+
+        witnesses[collection.siglum] = {
+            'slots': slots,
+            'bibliographic_entry': bib_entry,
+            'occasional': False
+        }
+
+    return witnesses, wit_counter, witness_centuries
 
 
 def api_nvs_session(request, play_prefix):

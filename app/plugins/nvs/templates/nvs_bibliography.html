@@ -1,0 +1,64 @@
+{% extends 'nvs_base.html' %}
+{% load static %}
+
+{% block headrefs %}
+<style>
+  .bibl#key span {
+       display: block;
+       margin-bottom: 3px;
+   }
+  .bibl .author { background-color: deeppink; }
+  .bibl .editor { background-color: lightgreen; }
+  .bibl .title {
+      background-color: lightcyan;
+  }
+  .bibl .title.level-m { border: 2px solid mediumpurple; }
+  .bibl .title.level-a { border: 2px solid red; }
+  .bibl .title.level-j { border: 2px solid mediumspringgreen; }
+  .bibl .title.level-s { border: 2px solid orange; }
+  .bibl .edition { background-color: cadetblue; }
+  .bibl .pubPlace { background-color: orange; }
+  .bibl .date { background-color: lawngreen; }
+  .bibl .biblScope { background-color: yellow; }
+  .bibl .inner-bibl { border: 2px solid dodgerblue; }
+  .bibl .note { background-color: lightslategrey; }
+  .bibl .publisher { background-color: mediumpurple; }
+  .bibl .respstmt { background-color: indianred; }
+</style>
+{% endblock %}
+
+{% block main %}
+<div class="page-title">
+  <h1 class="edition-header">
+    The Winter's Tale {% include 'svg/arrow.svg' %} <span class="edition-header--title">Bibliography</span>
+  </h1>
+</div>
+
+<div class="page-holder is-white">
+  <div class="container">
+    <div class="page-holder--inner has-max-width">
+      <div class="anchor-links--holder">
+        <ul class="anchor-links--inner">
+        </ul>
+      </div>
+      <div>
+        <h2 id="key">Key</h2>
+        <div id="key" class="bibl"><span class="author">Author</span><span
+            class="editor">Editor</span><span
+            class="title level-m">Title - Level M</span><span class="title level-a">Title - Level A</span><span
+            class="title level-j">Title - Level J</span><span class="title level-s">Title - Level S</span><span
+            class="edition">Edition</span><span class="pubPlace">Pub. Place</span><span
+            class="biblScope">biblScope</span><span
+            class="inner-bibl">Bibl within another Bibl</span><span class="note">Note</span><span
+            class="publisher">Publisher</span><span class="respstmt">respstmt</span></div>
+        <h2 id="content">Content</h2>
+        {% include 'blocks/molecules/bibliography-content.html' %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+{% endblock %}

@@ -2,17 +2,121 @@
 {% load static %}
 
 {% block headrefs %}
-    <!-- This goes inside the head tag specific for this page -->
+<!-- This goes inside the head tag specific for this page -->
 {% endblock %}
 
 {% block main %}
-    <h2>Tools: About</h2>
+<div class="page-title is-grey">
+  <h1>Tools About</h1>
+</div>
 
-    {% if content %}
-        {{ content|safe }}
-    {% endif %}
+<div class="page-holder is-grey">
+  <div class="container">
+    <div class="page-holder--inner has-max-width">
+      <div class="anchor-links--holder">
+        <ul class="anchor-links--inner">
+            <li class="anchor-link">
+                <a href="#overview">Overview</a>
+            </li>
+            <li class="anchor-link">
+                <a href="#variorum-reader">The Variorum Reader</a>
+            </li>
+            <li class="anchor-link">
+                <a href="#paratext-reader">The Paratext Reader</a>
+            </li>
+            <li class="anchor-link">
+                <a href="#future-tools">Future Tools</a>
+            </li>
+        </ul>
+      </div>
+      <div>
+          <div class="anchor" id="Overview">
+              <h2>Overview</h2>
+              <p>
+                  The digital edition of the NVS aims to produce forward-looking scholarly tools for creating, reading,
+                  and displaying the complexity and connections of a variorum in a web-based environment. Our interfaces
+                  and applications make the most of the affordances of the medium while maximizing the research potential
+                  of networked and accessible archival resources. With our July 2021 launch, we introduce to the user
+                  the beta version of the Variorum Reader (and its affiliate, the Paratext Reader). On the backend, NVS
+                  editors are learning to use CoDHR’s web application, Corpora. In the coming years, we will continue to
+                  refine these tools and introduce ones, as outlined below. The design and research team, together with
+                  the board and editors, consider these efforts to be integral to the larger research mission of the NVS.
+              </p>
+          </div>
+          <div class="anchor" id="variorum-reader">
+            <h2>The Variorum Reader</h2>
+            <p>
+                The digital edition of the NVS features a visual and interactive reimagining of the apparatus of the
+                variorum (play text, textual notes, and commentary). It associates a given play line to pertinent
+                textual notes (referred to as “variants”) by visualizing their presence in the form of a histogram which
+                compactly conveys variation over time throughout the editions fully collated by the editors. For any
+                line with variants, a “disclosure triangle” appears to the left of the text, allowing the user to expand
+                that aggregated view and see exactly how a given collated edition differs from the copy-text.
+            </p>
+            <p>
+                Within the text for a given line are also highlights which denote the presence of commentary relevant to the
+                highlighted word(s). Clicking on those highlights scrolls the commentary pane to the right such that the
+                user can see commentary pertinent to the highlighted text. Throughout the commentary, various play
+                lines, collated editions, bibliographic entries, and sections of the appendices are referenced. Those
+                references appear as links, and the user is able to click on those links in order to summon further
+                information appearing in the form of pop-up modals which can be left open and moved around on the screen.
+            </p>
+            <p>
+                The reader is also afforded the opportunity to search the play text, variants, and commentary using
+                three modes of searching. The default “fuzzy” search makes use of Early Modern English synonyms, so that
+                the user can use modern spellings for words and still find their equivalents as spelled using earlier
+                conventions—i.e. a search for “sleepy drinks” in The Winter’s Tale will show results for “sleepie
+                drinkes,” etc. The “exact” search only matches on exact spellings of search terms. The “wildcard”
+                search allows you to make use of the asterisk (*) to look for results based on partial matches—i.e. a
+                search for “kin*” will show results for “kin,” “king,” “kingdom,” etc.
+            </p>
+            <p>
+                The Variorum Reader is currently in beta. More work is to be done before the reader will be fully
+                accessible to screen readers, will work seamlessly across all browsers (including mobile devices in
+                portrait mode), and will be fully vetted in terms of the accuracy of the synthetically produced variants.
+                At present, accessing the Variorum Reader on Google Chrome from a laptop or desktop computer provides
+                the best experience.
+            </p>
+          </div>
+          <div class="anchor" id="paratext-reader">
+              <h2>The Paratext Reader</h2>
+              <p>
+                  The digital NVS also features a reader for the paratexts of a given edition, including the Front
+                  Matter, Bibliography, and Appendix. The user is offered a table of contents for navigating the various
+                  sections of a given paratext, and throughout the text (particularly of the Appendix), references to
+                  other material appear as links which, when clicked on, summon pop-up modals containing additional
+                  information which can be left open and repositioned.
+              </p>
+              <p>
+                  The Paratext Reader is also in beta. The Appendix in particular features a wealth of information,
+                  whether it be a list of conjectural notes, the reproduction of primary sources, and explications of
+                  the provenance and history of a particular play. The act of appropriately displaying these disparate
+                  forms of content is an ongoing effort.
+              </p>
+          </div>
+          <div class="anchor" id="future-tools">
+              <h2>Future Tools</h2>
+              <p>
+                  Envisioned by the design team for the digital edition of the NVS is a suite of research tools
+                  including an advanced search across multiple editions; visualizations of search results (such as a
+                  character-based frequency plot which will convey what characters most frequently use search terms in
+                  their speeches); the ability to sort and filter play lines, textual notes, and commentary in tabular
+                  format; and the ability to download raw versions of the data as JSON or TEI. We also hope to integrate
+                  external sources of information about a given play line or bibliographic entry.
+              </p>
+              <p>
+                  Also forthcoming are tools for building future digital editions of the NVS. Aside from providing
+                  web-based tools for creating appropriately marked-up commentary notes and paratexts, plans include
+                  affordances for collated editions to be OCR’d, hand corrected, and lineated. This will allow for
+                  collations to occur automatically, saving decades of time compared to the conventional methods of
+                  collating a variorum.
+              </p>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block js %}
-    <!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+<!-- If you wanted this particular page to have a javascript library referenced, put it here -->
 {% endblock %}

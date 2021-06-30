@@ -1,0 +1,106 @@
+<style>
+  .large-header--holder {
+    display: none;
+  }
+  @media ( min-width: 992px ) {
+    .large-header--holder {
+      display: block;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 20;
+      background-color: var(--white);
+    }
+  }
+
+  .large-header--holder .container {
+      padding: 0 0 0 10px;
+  }
+
+  .large-header--inner {
+    width: 100%;
+    display: grid;
+    grid-template-columns: var(--sideBar) 1fr;
+    align-items: start;
+  }
+
+  .home .large-header--inner {
+      grid-template-columns: 220px 1fr;
+  }
+  .large-header--logo-holder {
+    position: relative;
+  }
+  .large-header--logo-holder a {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+  }
+  .large-header--logo-holder a svg {
+    display: block;
+    max-width: 100%;
+    width: auto;
+    margin-top: var(--logoPaddingTop);
+  }
+
+  .large-header--logo-holder a svg:first-child {
+      display: none;
+      height: 250px;
+  }
+  .large-header--logo-holder a svg:last-child {
+      width: auto;
+      height: var(--logoHeight);
+      margin-left: 2px;
+  }
+
+  .home .large-header--logo-holder a svg:first-child {
+      display: block;
+  }
+  .home .large-header--logo-holder a svg:last-child {
+      display: none;
+  }
+
+  .large-header--nav-holder {
+    font-size: 16px;
+  }
+  .large-header--nav-holder nav > ul {
+    display: grid;
+    grid-template-columns: 3fr 2fr 2fr;
+  }
+  @media ( min-width: 1400px ) {
+    .large-header--nav-holder nav > ul {
+      grid-template-columns: 2fr 1fr 1fr;
+    }
+  }
+  .large-header--nav-holder nav > ul > li {
+    border-left: 1px solid var(--white);
+    border-right: 1px solid var(--white);
+    background-color: var(--white);
+  }
+  .large-header--nav-holder nav > ul > li:nth-child(2) {
+    background-color: var(--blue5);
+  }
+  .large-header--nav-holder nav > ul > li:last-child {
+    background-color: var(--grey5);
+  }
+
+</style>
+
+<div class="large-header--holder">
+  <div class="container">
+    <div class="large-header--inner">
+      <div class="large-header--logo-holder">
+        <a href="{% if site_request %}/{% else %}/corpus/{{ corpus_id }}/home/{% endif %}">
+          {% include 'svg/logo-w-type.svg' %}
+          {% include 'svg/logo.svg' %}
+        </a>
+      </div>
+      <div class="large-header--nav-holder">
+        {% include 'blocks/atoms/navigation.html' %}
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,366 @@
+{% extends 'nvs_base.html' %}
+{% block body_class %} home {% endblock %}
+{% load static %}
+
+{% block headrefs %}
+<style>
+
+    .home--intro {
+        color: var(--blue);
+    }
+    @media ( min-width: 992px ) {
+        .home--intro {
+            position: relative;
+        }
+    }
+
+    @media ( min-width: 992px ) {
+        .home--intro-inner {
+            position: sticky;
+            top: 280px;
+            left: 0;
+            margin-right: 40px;
+        }
+    }
+    .home--intro-inner p {
+        font-weight: 500;
+        margin-bottom: 10px;
+        font-size: 14px;
+        line-height: 20px;
+    }
+
+    .home--main-content {
+        margin-bottom: 30px;
+    }
+    @media ( min-width: 768px ) {
+        .home--main-content {
+            margin-bottom: 60px;
+        }
+    }
+
+    .home--cards {
+        display: grid;
+        grid-template-columns: 260px;
+        grid-gap: 15px;
+        margin: 30px 0 10px 0;
+        align-items: start;
+    }
+    @media ( min-width: 576px ) {
+        .home--cards { grid-template-columns: 260px 260px; }
+    }
+    @media ( min-width: 850px ) {
+        .home--cards {
+            grid-template-columns: 260px 260px 260px;
+        }
+    }
+    @media ( min-width: 1400px ) {
+        .home--cards {
+            grid-template-columns: 260px 260px 260px 260px;
+        }
+    }
+
+    .edition-card--holder {
+        color: var(--white);
+        border: 1px solid var(--white);
+    }
+    .edition-card--holder.current {
+        cursor: pointer;
+    }
+    .edition-card--holder.current.open {
+        border: 1px solid var(--yellow);
+    }
+    .edition-card--image-holder {
+        background-color: var(--grey3);
+        padding: 10px;
+        position: relative;
+        overflow: hidden;
+    }
+    .edition-card--holder.current .edition-card--image-holder {
+        background-color: var(--blue6);
+    }
+    .edition-card--image-holder img {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+    .edition-card--image-holder svg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        object-fit: cover;
+        z-index: 2;
+    }
+    .edition-card--text-inner {
+        padding: 7px 9px 9px 9px;
+        min-height: 82px;
+        background-color: var(--grey2);
+    }
+    .edition-card--holder.current .edition-card--text-inner {
+        padding: 9px;
+        background-color: var(--blue);
+    }
+    .edition-card--text-inner h2 {
+        margin: 0;
+        font-family: "Roboto Condensed", sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: bold;
+        font-size: 21px;
+        line-height: 1;
+    }
+    .edition-card--text-inner h2 .year {
+        font-weight: normal;
+        font-size: 16px;
+    }
+    .edition-card--text-inner small {
+        color: var(--yellow);
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 12px;
+    }
+    .edition-card--nav {
+        color: var(--white);
+        background-color: var(--blue);
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.5s ease;
+    }
+    .edition-card--holder.current.open .edition-card--nav {
+        max-height: 200px;
+    }
+    .edition-card--nav ul {
+        margin: 0;
+        list-style: none;
+        padding: 0 0 9px 0;
+    }
+    .edition-card--nav ul li {
+        margin: 0;
+        padding: 0 9px;
+        font-size: 15px;
+    }
+    .edition-card--nav ul li:hover {
+        color: var(--blue);
+        background-color: var(--grey3);
+    }
+    .edition-card--nav ul li a {
+        display: inline-block;
+        text-decoration: none;
+    }
+    .edition-card--nav ul li a:hover {
+        text-decoration: none;
+    }
+
+    .edition-card--editors {
+        font-family: "Roboto Condensed", sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 12px;
+        line-height: 15px;
+        margin: 5px 0 10px 0;
+    }
+
+    .home--main-content .note {
+        font-size: 14px;
+    }
+
+</style>
+{% endblock %}
+
+{% block main %}
+<div class="page-holder is-white">
+  <div class="container">
+    <div class="page-holder--inner">
+      <div class="home--intro">
+        <div class="home--intro-inner">
+          <p>NVS Digital Editions contain the complete text of each play along with a full collation of textual notes from the earliest editions to the present, including extensive previous commentary.</p>
+          <p>This site is in BETA mode. Your <a href="mailto:torabik@tamu.edu">feedback</a> can help us define future versions.</p>
+        </div>
+      </div>
+      <div class="home--main-content">
+        <div class="home--cards">
+
+          <div>
+            <div class="edition-card--holder current">
+              <div class="edition-card--image-holder">
+                {% include 'svg/edition-overlay.svg' %}
+                <img src="{% static 'img/home/WT-card.png' %}" alt="The Winter's Tale"/>
+              </div>
+              <div class="edition-card--text">
+                <div class="edition-card--text-inner">
+                  <h2>The Winter's Tale <span class="year">(1610)</span></h2>
+                </div>
+                <div class="edition-card--nav">
+                  <ul>
+                    <li class="roboto-uppercase"><a
+                        href="{% if site_request %}/edition/wt/{% else %}/corpus/{{ corpus_id }}/play-viewer/wt/{% endif %}">Variorum
+                      Reader</a></li>
+                    <li class="roboto-uppercase"><a
+                        href="{% if site_request %}/front/wt/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/wt/Front Matter/{% endif %}">Front
+                      matter</a></li>
+                    <li class="roboto-uppercase"><a
+                        href="{% if site_request %}/bibliography/wt/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/wt/Bibliography/{% endif %}">Bibliography</a>
+                    </li>
+                    <li class="roboto-uppercase"><a
+                        href="{% if site_request %}/appendix/wt/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/wt/Appendix/{% endif %}">Appendix</a>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <p class="edition-card--editors">Editors: Robert Kean Turner, Virginia Westling Haas</p>
+          </div>
+
+          <div>
+            <div class="edition-card--holder current">
+              <div class="edition-card--image-holder">
+                {% include 'svg/edition-overlay.svg' %}
+                <img src="{% static 'img/home/MND-card.png' %}" alt="A Midsummer Night's Dream"/>
+              </div>
+              <div class="edition-card--text">
+                <div class="edition-card--text-inner">
+                  <h2>A Midsummer Night's Dream <span class="year">(1595)</span></h2>
+                </div>
+                <div class="edition-card--nav">
+                  <ul>
+                    <li class="roboto-uppercase"><a
+                        href="{% if site_request %}/edition/mnd/{% else %}/corpus/{{ corpus_id }}/play-viewer/mnd/{% endif %}">Variorum
+                      Reader</a></li>
+                    <li class="roboto-uppercase"><a
+                        href="{% if site_request %}/front/mnd/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/mnd/Front Matter/{% endif %}">Front
+                      matter</a></li>
+                    <li class="roboto-uppercase"><a
+                        href="{% if site_request %}/bibliography/mnd/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/mnd/Bibliography/{% endif %}">Bibliography</a>
+                    </li>
+                    <li class="roboto-uppercase"><a
+                        href="{% if site_request %}/appendix/mnd/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/mnd/Appendix/{% endif %}">Appendix</a>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <p class="edition-card--editors">Editors: Judith M. Kennedy, Paul Werstine,  with Susan May, Roberta Barker, David Nichol</p>
+          </div>
+
+          <div>
+            <div class="edition-card--holder">
+              <div class="edition-card--image-holder">
+                {% include 'svg/edition-overlay.svg' %}
+                <img src="{% static 'img/home/COE-card.png' %}" alt="Comedy of Errors"/>
+              </div>
+              <div class="edition-card--text">
+                <div class="edition-card--text-inner">
+                  <small>Coming soon<sup>*</sup></small>
+                  <h2>Comedy of Errors <span class="year">(1589)</span></h2>
+                </div>
+              </div>
+            </div>
+            <p class="edition-card--editors">Editor: Standish Henning</p>
+          </div>
+
+          <div>
+            <div class="edition-card--holder">
+              <div class="edition-card--image-holder">
+                {% include 'svg/edition-overlay.svg' %}
+                <img src="{% static 'img/home/TKL-card.png' %}" alt="King Lear"/>
+              </div>
+              <div class="edition-card--text">
+                <div class="edition-card--text-inner">
+                  <small>In production<sup>*</sup></small>
+                  <h2>King Lear <span class="year">(1605)</span></h2>
+                </div>
+              </div>
+            </div>
+            <p class="edition-card--editors">Editors: Richard Knowles, Kevin Donovan, with Paula Glatzer</p>
+          </div>
+
+          <div>
+            <div class="edition-card--holder">
+              <div class="edition-card--image-holder">
+                {% include 'svg/edition-overlay.svg' %}
+                <img src="{% static 'img/home/MWW-card.png' %}" alt="Merry Wives of Windsor"/>
+              </div>
+              <div class="edition-card--text">
+                <div class="edition-card--text-inner">
+                  <small>In production<sup>*</sup></small>
+                  <h2>Merry Wives of Windsor <span class="year">(1600)</span></h2>
+                </div>
+              </div>
+            </div>
+            <p class="edition-card--editors">Editor: Michael Steppat</p>
+          </div>
+
+          <div>
+            <div class="edition-card--holder">
+              <div class="edition-card--image-holder">
+                {% include 'svg/edition-overlay.svg' %}
+                <img src="{% static 'img/home/C-card.png' %}" alt="Julius Caesar"/>
+              </div>
+              <div class="edition-card--text">
+                <div class="edition-card--text-inner">
+                  <small>In production<sup>*</sup></small>
+                  <h2>Julius Caesar <span class="year">(1599)</span></h2>
+                </div>
+              </div>
+            </div>
+            <p class="edition-card--editors">Editor: M. L. Stapleton</p>
+          </div>
+
+          <div>
+            <div class="edition-card--holder">
+              <div class="edition-card--image-holder">
+                {% include 'svg/edition-overlay.svg' %}
+                <img src="{% static 'img/home/TT-card.png' %}" alt="The Tempest"/>
+              </div>
+              <div class="edition-card--text">
+                <div class="edition-card--text-inner">
+                  <small>In production<sup>*</sup></small>
+                  <h2>The Tempest <span class="year">(1611)</span></h2>
+                </div>
+              </div>
+            </div>
+            <p class="edition-card--editors">Editor: Ian De Jong</p>
+          </div>
+
+          <div>
+            <div class="edition-card--holder">
+              <div class="edition-card--image-holder">
+                {% include 'svg/edition-overlay.svg' %}
+                <img src="{% static 'img/home/TRT-card.png' %}" alt="Richard III"/>
+              </div>
+              <div class="edition-card--text">
+                <div class="edition-card--text-inner">
+                  <small>In production<sup>*</sup></small>
+                  <h2>Richard III <span class="year">(1592)</span></h2>
+                </div>
+              </div>
+            </div>
+            <p class="edition-card--editors">Editors: Lara Hansen, Mark Farnsworth</p>
+          </div>
+        </div>
+        <small class="note"><sup>*</sup>Production status: print editions of <a
+            href="https://www.mla.org/Publications/Bookstore/A-New-Variorum-Edition-of-Shakespeare/The-Comedy-of-Errors"
+            target="_blank" rel="noopener noreferrer">The Comedy of Errors</a> and <a
+            href="https://www.mla.org/Publications/Bookstore/A-New-Variorum-Edition-of-Shakespeare/King-Lear"
+            target="_blank" rel="noopener noreferrer">King Lear</a> can be obtained from the MLA website.</small>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    let holders = document.querySelectorAll('.edition-card--holder.current');
+    holders.forEach(holder => {
+      holder.addEventListener("click", () => {
+        holder.classList.toggle('open');
+      })
+    })
+  })
+</script>
+{% endblock %}

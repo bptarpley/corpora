@@ -1024,11 +1024,44 @@ def get_file(request, file_uri):
         if not mime_type:
             mime_type, encoding = mimetypes.guess_type(file_path)
 
-        print('Mime type: {0}'.format(mime_type))
-
         response = HttpResponse(content_type=mime_type)
         response['X-Accel-Redirect'] = "/files/{0}".format(file_path.replace('/corpora/', ''))
         return response
+
+    raise Http404("File not found.")
+
+
+def get_repo_file(request, corpus_id, repo_name):
+    context = _get_context(request)
+    if 'path' in request.GET:
+        file_path = None
+
+        if (
+            context['scholar'] and (
+            context['scholar'].is_admin
+            or corpus_id in context['scholar'].available_corpora.keys())
+        ) or corpus_id in get_open_access_corpora():
+            corpus = get_corpus(corpus_id)
+            if repo_name in corpus.repos:
+                file_path = os.path.join(corpus.repos[repo_name].path, _clean(request.GET, 'path'))
+                if not os.path.exists(file_path):
+                    file_path = None
+
+        if file_path:
+            mime_type = None
+            explicit_mime_types = {
+                'hocr': 'application/xml'
+            }
+
+            lowered_extension = file_path.split('.')[-1].lower()
+            mime_type = explicit_mime_types.get(lowered_extension, None)
+
+            if not mime_type:
+                mime_type, encoding = mimetypes.guess_type(file_path)
+
+            response = HttpResponse(content_type=mime_type)
+            response['X-Accel-Redirect'] = "/files/{0}".format(file_path.replace('/corpora/', ''))
+            return response
 
     raise Http404("File not found.")
 

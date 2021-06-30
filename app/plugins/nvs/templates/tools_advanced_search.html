@@ -2,17 +2,29 @@
 {% load static %}
 
 {% block headrefs %}
-    <!-- This goes inside the head tag specific for this page -->
+<!-- This goes inside the head tag specific for this page -->
 {% endblock %}
 
 {% block main %}
-    <h2>Tools: Advanced Search</h2>
+<div class="page-holder is-grey">
+  <div class="container">
+    <div class="page-holder--inner has-max-width">
+      <div class="anchor-links--holder">
+        <ul class="anchor-links--inner">
+        </ul>
+      </div>
+      <div>
+        <h1>Search</h1>
+      </div>
+    </div>
+  </div>
+</div>
 
-    {% if content %}
-        {{ content|safe }}
-    {% endif %}
+{% if content %}
+{{ content|safe }}
+{% endif %}
 {% endblock %}
 
 {% block js %}
-    <!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+<!-- If you wanted this particular page to have a javascript library referenced, put it here -->
 {% endblock %}

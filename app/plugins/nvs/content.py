@@ -67,6 +67,66 @@ REGISTRY = [
                 "inherited": False
             },
             {
+                "name": "occasional_witnesses",
+                "label": "Occasional Witnesses",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "Document",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "primary_sources",
+                "label": "Primary Sources",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "Document",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "occasional_sources",
+                "label": "Occasional Sources",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "Document",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "bibliographic_sources",
+                "label": "Bibliographic Sources",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "Document",
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
                 "name": "genre",
                 "label": "Genre",
                 "indexed": False,
@@ -1686,35 +1746,36 @@ class ParaText(Content):
             }).order_by('order'))
         return self._children
 
-    meta = {
-        'abstract': True
-    }
-
     @property
     def toc_html(self):
-        if not hasattr(self, '_toc_html'):
-            title = self.title
-            if self.level == 1:
-                title = title.upper()
+        if self.level <= 2:
+            if not hasattr(self, '_toc_html'):
+                html = '''
+                    <li class="anchor-link is-level-{0}">
+                        <a href="#paratext-{1}">{2}</a>
+                    </li>
+                '''.format(
+                    self.level,
+                    self.id,
+                    self.title
+                )
 
-            html = '''
-                <li><a href="#paratext-{0}">{1}</li>
-            '''.format(self.id, title)
+                if self.children:
+                    for child in self.children:
+                        html += child.toc_html
 
-            if self.children:
-                html += "<ul>"
-                for child in self.children:
-                    html += child.toc_html
-                html += "</ul>"
-
-            setattr(self, '_toc_html', html)
-        return self._toc_html
+                setattr(self, '_toc_html', html)
+            return self._toc_html
+        return ''
 
     @property
     def full_html(self):
         if not hasattr(self, '_full_html'):
             html = '<a name="paratext-{0}"></a>'.format(self.id)
-            html += '<h2>{0}</h2>'.format(self.title)
+            html += '<h2 class="section-heading level-{0}">{1}</h2>'.format(
+                self.level,
+                self.title
+            )
             html += self.html_content
             for child in self.children:
                 html += child.full_html
@@ -1722,4 +1783,6 @@ class ParaText(Content):
             setattr(self, '_full_html', html)
         return self._full_html
 
-
+    meta = {
+        'abstract': True
+    }

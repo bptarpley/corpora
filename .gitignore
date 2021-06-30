@@ -2,6 +2,7 @@ gcv_creds.json
 .DS_Store
 .idea
 archived
+proprietary
 docker-compose.yml
 local.docker-compose.yml
 *.pyc

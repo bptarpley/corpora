@@ -205,30 +205,38 @@ class Command(BaseCommand):
             print("\t-- SCHOLAR INDEX CREATED :)")
 
         # Ensure a user exists
-        if User.objects.all().count() > 0:
+        if User.objects.filter(username=settings.DEFAULT_USER_USERNAME).count() > 0 and Scholar.objects(username=settings.DEFAULT_USER_USERNAME).count() > 0:
             print("\t-- USERS EXIST :)")
         else:
-            # Create default user
-            user = User.objects.create_user(
-                settings.DEFAULT_USER_USERNAME,
-                settings.DEFAULT_USER_EMAIL,
-                settings.DEFAULT_USER_PASSWORD
-            )
-            user.first_name = settings.DEFAULT_USER_FNAME
-            user.last_name = settings.DEFAULT_USER_LNAME
-            user.is_superuser = True
-            user.save()
+            user = None
 
-            scholar = Scholar()
-            scholar.username = settings.DEFAULT_USER_USERNAME
-            scholar.fname = settings.DEFAULT_USER_FNAME
-            scholar.lname = settings.DEFAULT_USER_LNAME
-            scholar.email = settings.DEFAULT_USER_EMAIL
-            scholar.is_admin = True
+            if User.objects.filter(username=settings.DEFAULT_USER_USERNAME).count() == 0:
+                # Create default user
+                user = User.objects.create_user(
+                    settings.DEFAULT_USER_USERNAME,
+                    settings.DEFAULT_USER_EMAIL,
+                    settings.DEFAULT_USER_PASSWORD
+                )
+                user.first_name = settings.DEFAULT_USER_FNAME
+                user.last_name = settings.DEFAULT_USER_LNAME
+                user.is_superuser = True
+                user.save()
 
-            token, created = Token.objects.get_or_create(user=user)
-            scholar.auth_token = token.key
-            scholar.save()
+            if Scholar.objects(username=settings.DEFAULT_USER_USERNAME).count() == 0:
+                if not user:
+                    user = User.objects.get(username=settings.DEFAULT_USER_USERNAME)
+
+                scholar = Scholar()
+                scholar.username = settings.DEFAULT_USER_USERNAME
+                scholar.fname = settings.DEFAULT_USER_FNAME
+                scholar.lname = settings.DEFAULT_USER_LNAME
+                scholar.email = settings.DEFAULT_USER_EMAIL
+                scholar.is_admin = True
+
+                token, created = Token.objects.get_or_create(user=user)
+                scholar.auth_token = token.key
+                scholar.save()
+
             print("\t-- DEFAULT USER CREATED :)")
 
         # Register new plug-in tasks (or update existing with new version)

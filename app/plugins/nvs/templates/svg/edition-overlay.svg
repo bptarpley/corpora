@@ -1,0 +1,10 @@
+<svg id="edition-overlay-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 302 212">
+  <g id="card_art_maker" data-name="card art maker">
+    <g id="lines">
+      <rect x="85.99" y="72.02" width="0.5" height="204.84" transform="translate(-108.01 162.94) rotate(-60.3)" fill="#fff"/>
+      <rect x="187.12" y="-81.13" width="0.5" height="266.48" transform="translate(49.25 189.03) rotate(-60.29)" fill="#fff"/>
+      <rect x="119.19" y="123.45" width="249.66" height="0.5" transform="translate(15.62 274.31) rotate(-60.28)" fill="#fff"/>
+      <rect x="261.15" y="-11.14" width="0.5" height="263.42" fill="#fff"/>
+    </g>
+  </g>
+</svg>
