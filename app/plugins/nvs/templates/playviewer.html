@@ -1769,7 +1769,7 @@
                     let variant_words = variant.variant;
                     if (!variant_words) {
                         if (variant.description === null) {
-                            variant_words = `Error with variant transform: <a href='${notes[note_id].uri}/' target='_blank'>Note</a> <a href='${variant.uri}/' target='_blank'>Variant</a>`;
+                            variant_words = `Due to the site being in beta, an error occurred when parsing this variant.`;
                         } else {
                             variant_words = `<span class="variant-note">${variant.description}</span>`;
                         }
