@@ -1001,6 +1001,8 @@ TEXTUAL NOTES INGESTION
                 note_lemma = tei_to_html(note.app.lem)
 
             current_color = 1
+            note_exclusions = []
+            note_exclusion_formula = ''
             variants = note.app.find_all('appPart')
 
             for variant in variants:
@@ -1054,11 +1056,15 @@ TEXTUAL NOTES INGESTION
                             excluding_sigla.append(siglum_label)
 
                     else:
-                        textual_variant.witness_formula += str(child.string)
+                        if 'etc.' in str(child.string):
+                            textual_variant.witness_formula += note_exclusion_formula
+                        else:
+                            textual_variant.witness_formula += str(child.string)
+
                         formula = str(child.string).strip()
 
                         # handle '+' ranges
-                        if formula.startswith('+'):
+                        if formula.startswith('+') or 'etc.' in formula:
                             include_all_following = True
                             if '(−' in formula:
                                 exclusion_started = True
@@ -1089,7 +1095,7 @@ TEXTUAL NOTES INGESTION
                                         starting_siglum,
                                         ending_witness_siglum=ending_siglum,
                                         include_all_following=include_all_following,
-                                        excluding_sigla=excluding_sigla
+                                        excluding_sigla=excluding_sigla + note_exclusions
                                     )
                                 )
 
@@ -1107,25 +1113,13 @@ TEXTUAL NOTES INGESTION
                             starting_siglum,
                             ending_witness_siglum=ending_siglum,
                             include_all_following=include_all_following,
-                            excluding_sigla=excluding_sigla
+                            excluding_sigla=excluding_sigla + note_exclusions
                         )
                     )
 
-                variant_witness_indicators = get_variant_witness_indicators(witnesses, textual_variant)
-                textual_variant.witness_meter = make_witness_meter(
-                    variant_witness_indicators,
-                    marker=str(current_color),
-                    references_selectively_quoted_witness=references_selectively_quoted_witness
-                )
-
-                current_color += 2
-                if current_color >= 10:
-                    current_color -= 9
-
-                textual_note.witness_meter = collapse_indicators(textual_variant.witness_meter, textual_note.witness_meter)
-
+                has_note_exclusions = False
                 try:
-                    textual_variant.variant = perform_variant_transform(corpus, textual_note, textual_variant)
+                    textual_variant.variant, has_note_exclusions = perform_variant_transform(corpus, textual_note, textual_variant)
                 except:
                     report += "Error when performing transform for variant in note {0}:\n{1}\n\n".format(
                         textual_note.xml_id,
@@ -1133,8 +1127,29 @@ TEXTUAL NOTES INGESTION
                     )
                     textual_variant.has_bug = 1
 
-                textual_variant.save()
-                textual_note.variants.append(textual_variant.id)
+                # If this variant was of type 'lem,' then 'has_note_exclusions' will be set to True.
+                # When this is the case, there's no need to save the variant or color witness meters,
+                # as variants of type 'lem' are when the lemma matches the copy-text. Therefore, the
+                # witnesses associated with this variant will be considered note-wide exclusions.
+                if has_note_exclusions:
+                    note_exclusions += [strip_tags(w.siglum_label) for w in witnesses if w.id in textual_variant.witnesses]
+                    note_exclusion_formula = "+ (-{0})".format(textual_variant.witness_formula)
+                else:
+                    variant_witness_indicators = get_variant_witness_indicators(witnesses, textual_variant)
+                    textual_variant.witness_meter = make_witness_meter(
+                        variant_witness_indicators,
+                        marker=str(current_color),
+                        references_selectively_quoted_witness=references_selectively_quoted_witness
+                    )
+
+                    current_color += 2
+                    if current_color >= 10:
+                        current_color -= 9
+
+                    textual_note.witness_meter = collapse_indicators(textual_variant.witness_meter, textual_note.witness_meter)
+
+                    textual_variant.save()
+                    textual_note.variants.append(textual_variant.id)
 
             textual_note.save()
             note_counter += 1
@@ -1296,8 +1311,13 @@ def perform_variant_transform(corpus, note, variant):
     original_text = ""
     embed_pipes = False
 
-    #if variant.transform and '|' in variant.transform:
-    #    embed_pipes = True
+    # Handle variants of type 'lem,' which are interpreted here to mean that
+    # the witnesses associated with this variant are intended to be global
+    # witness exclusions for subsequent variants (the lemma for this note
+    # matches the copy-text, therefore subsequent variants should exclude
+    # these witnesses.
+    if variant.transform_type and variant.transform_type.strip() == 'lem':
+        return None, True
 
     if type(note.lines[0]) is ObjectId:
         lines = corpus.get_content('PlayLine', {'id__in': note.lines}, only=['text'])
@@ -1470,9 +1490,9 @@ def perform_variant_transform(corpus, note, variant):
             result += "</span>"
 
     if not result:
-        return None
+        return None, False
 
-    return result
+    return result, False
 
 
 def parse_bibliography(corpus, play, bibliography_file_path):
@@ -1910,7 +1930,7 @@ def mark_commentary_lemma(corpus, play, note):
         starting_location = None
         ending_location = None
 
-        ellipsis = ' . . . '
+        ellipsis = ' .\xa0.\xa0. '
         if ellipsis in lemma:
             start_and_end = lemma.split(ellipsis)
             starting_char_index = all_words.find(start_and_end[0])
@@ -1928,7 +1948,7 @@ def mark_commentary_lemma(corpus, play, note):
                 starting_location = char_index_map[starting_char_index]
                 ending_location = char_index_map[starting_char_index + len(lemma)]
 
-        if starting_location and ending_location:
+        if starting_location is not None and ending_location is not None:
             lemma_span = corpus.get_content('PlayTag')
             lemma_span.play = play.id
             lemma_span.name = 'comspan'
