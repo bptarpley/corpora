@@ -1910,7 +1910,7 @@ def mark_commentary_lemma(corpus, play, note):
         starting_location = None
         ending_location = None
 
-        ellipsis = ' . . . '
+        ellipsis = ' .\xa0.\xa0. '
         if ellipsis in lemma:
             start_and_end = lemma.split(ellipsis)
             starting_char_index = all_words.find(start_and_end[0])
@@ -1928,7 +1928,7 @@ def mark_commentary_lemma(corpus, play, note):
                 starting_location = char_index_map[starting_char_index]
                 ending_location = char_index_map[starting_char_index + len(lemma)]
 
-        if starting_location and ending_location:
+        if starting_location is not None and ending_location is not None:
             lemma_span = corpus.get_content('PlayTag')
             lemma_span.play = play.id
             lemma_span.name = 'comspan'
