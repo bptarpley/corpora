@@ -550,7 +550,7 @@
     let play_prefix = "{{ play.prefix }}";
     let play_id = "{{ play.id }}";
     let witnesses = {{ witnesses|safe }};
-    let playviewer_url = {% if site_request %}`/play/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-viewer/${play_prefix}/`{% endif %};
+    let playviewer_url = {% if site_request %}`/edition/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-viewer/${play_prefix}/`{% endif %};
     let paratext_prefix = {% if site_request %}''{% else %}`/corpus/${corpus_id}/paratext-viewer/${play_prefix}/`{% endif %};
     let lines_endpoint = {% if site_request %}`${window.location.protocol}//${window.location.host}/lines/${play_prefix}/`{% else %}`/api/corpus/${corpus_id}/nvs-lines/${play_prefix}/`{% endif %};
     let ref_modal_counter = 0;
