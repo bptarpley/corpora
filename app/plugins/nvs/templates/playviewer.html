@@ -1769,7 +1769,7 @@
                     let variant_words = variant.variant;
                     if (!variant_words) {
                         if (variant.description === null) {
-                            variant_words = `Due to the site being in beta, an error occurred when parsing this variant.`;
+                            variant_words = `<span class="variant-note">Due to the site being in beta, an error occurred when parsing this variant.</span>`;
                         } else {
                             variant_words = `<span class="variant-note">${variant.description}</span>`;
                         }
