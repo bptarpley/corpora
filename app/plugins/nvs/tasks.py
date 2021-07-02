@@ -1328,7 +1328,7 @@ def perform_variant_transform(corpus, note, variant):
         original_text = stitch_lines(note.lines, embed_pipes=embed_pipes)
 
     if original_text:
-        ellipsis = ' . . . '
+        ellipsis = ' .\xa0.\xa0. '
         swung_dash = ' ~ '
         under_carrot = '‸'
         double_under_carrot = '‸ ‸'
