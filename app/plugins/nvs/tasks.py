@@ -1376,7 +1376,7 @@ def perform_variant_transform(corpus, note, variant):
                         else:
                             transforms[lemma_index] = transforms[lemma_index].replace(swung_dash, no_punct_lemmas[lemma_index])
 
-                        result = result.replace(lemmas[lemma_index], transforms[lemma_index])
+                        result = result.replace(lemmas[lemma_index], transforms[lemma_index], 1)
 
                 # replace using swung_dash only
                 elif swung_dash in variant.transform:
@@ -1392,7 +1392,7 @@ def perform_variant_transform(corpus, note, variant):
                     else:
                         transform = transform.replace(swung_dash, no_punct_lemma)
 
-                    result = original_text.replace(lemma, transform)
+                    result = original_text.replace(lemma, transform, 1)
 
                 # replace using ellipsis
                 elif ellipsis in lemma and ellipsis in variant.transform:
@@ -1401,7 +1401,7 @@ def perform_variant_transform(corpus, note, variant):
                     if len(lemmas) == len(transforms):
                         result = original_text
                         for lemma_index in range(0, len(lemmas)):
-                            result = result.replace(lemmas[lemma_index], transforms[lemma_index])
+                            result = result.replace(lemmas[lemma_index], transforms[lemma_index], 1)
 
                 # ellipsis in lemma only
                 elif ellipsis in lemma:
@@ -1409,21 +1409,21 @@ def perform_variant_transform(corpus, note, variant):
                     lemma_parts = []
                     adding_lemma_parts = False
                     for word in original_text.split():
-                        if word == lemma_delimiters[0]:
+                        if strip_punct(word) == lemma_delimiters[0]:
                             lemma_parts.append(word)
                             adding_lemma_parts = True
-                        elif word == lemma_delimiters[1]:
+                        elif strip_punct(word) == lemma_delimiters[1]:
                             lemma_parts.append(word)
                             break
                         elif adding_lemma_parts:
                             lemma_parts.append(word)
 
                     lemma = " ".join(lemma_parts)
-                    result = original_text.replace(lemma, transform)
+                    result = original_text.replace(lemma, transform, 1)
 
                 # simple replacement
                 elif lemma in original_text:
-                    result = original_text.replace(lemma, transform)
+                    result = original_text.replace(lemma, transform, 1)
 
         # replace line altogether
         elif not variant.lemma and variant.transform_type == 'replace' and variant.transform:
@@ -2391,6 +2391,13 @@ def _str(val):
         val = str(val.string)
         return val
     return ''
+
+
+def strip_punct(text):
+    stripped = text
+    for punct in punctuation:
+        stripped = stripped.replace(punct, '')
+    return stripped
 
 
 def tei_to_html(tag):
