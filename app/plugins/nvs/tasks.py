@@ -536,16 +536,16 @@ FRONT MATTER INGESTION
             if not witness_collection:
                 witness_collection = corpus.get_content('DocumentCollection')
                 witness_collection.siglum = witness_collection_info['siglum']
+
             witness_collection.siglum_label = witness_collection_info['siglum_label']
             witness_tag = witness_collection_info['tag']
+            witness_collection.referenced_documents = []
 
-            current_sigla = [w.siglum for w in witness_collection.referenced_documents]
             referenced_witnesses = witness_tag['corresp'].split(' ')
             for reffed in referenced_witnesses:
                 reffed_siglum = reffed.replace('#', '')
-                if reffed_siglum not in current_sigla:
-                    reffed_doc = corpus.get_content('Document', {'siglum': reffed_siglum}, single_result=True)
-                    witness_collection.referenced_documents.append(reffed_doc.id)
+                reffed_doc = corpus.get_content('Document', {'siglum': reffed_siglum}, single_result=True)
+                witness_collection.referenced_documents.append(reffed_doc.id)
 
             witness_collection.save()
 
@@ -941,7 +941,7 @@ def make_text_location(line_number, char_index):
     return float(text_location)
 
 
-def parse_textualnotes_file(corpus, play, textualnotes_file_path):
+def parse_textualnotes_file(corpus, play, textualnotes_file_path, tn_xml_id=None):
     report = '''
 ##########################################################
 TEXTUAL NOTES INGESTION
@@ -985,7 +985,14 @@ TEXTUAL NOTES INGESTION
         # get all "note" tags, corresponding to TexualNote content
         # type so we can iterate over and build them
         note_counter = 0
-        notes = notes_tei.find_all("note", attrs={'type': 'textual'})
+        note_attrs = {'type': 'textual'}
+
+        # if a tn_xml_id was passed in, restrict note results to a
+        # single note w/ matching id
+        if tn_xml_id:
+            note_attrs['xml:id'] = tn_xml_id
+
+        notes = notes_tei.find_all("note", attrs=note_attrs)
         for note in notes:
 
             # create instance of TextualNote
@@ -1019,6 +1026,8 @@ TEXTUAL NOTES INGESTION
                 if reading:
                     if 'type' in reading.attrs:
                         textual_variant.transform_type = reading['type']
+                        if 'subtype' in reading.attrs:
+                            textual_variant.transform_type += '_' + reading['subtype']
                     else:
                         textual_variant.transform_type = "punctuation"
                     textual_variant.transform = tei_to_html(reading)
@@ -1156,45 +1165,47 @@ TEXTUAL NOTES INGESTION
 
         report += "{0} textual notes ingested.\n\n".format(note_counter)
 
-        lines = corpus.get_content('PlayLine', {'play': play.id})
-        lines = lines.order_by('line_number')
-        lines = corpus.explore_content(
-            left_content_type='PlayLine',
-            left_content=lines,
-            relationship='haslines',
-            cardinality=2,
-            right_content_type="TextualNote",
-            order_by="right.uri"
-        )
-        recolored_notes = {}
-        for line in lines:
-            line.witness_meter = "0" * (len(witnesses) + 1)
-            if hasattr(line, '_exploration') and 'haslines' in line._exploration:
-                color_offset = 0
+        # Only recolor lines, variants, and notes if all textual notes were parsed (not just one)
+        if not tn_xml_id:
+            lines = corpus.get_content('PlayLine', {'play': play.id})
+            lines = lines.order_by('line_number')
+            lines = corpus.explore_content(
+                left_content_type='PlayLine',
+                left_content=lines,
+                relationship='haslines',
+                cardinality=2,
+                right_content_type="TextualNote",
+                order_by="right.uri"
+            )
+            recolored_notes = {}
+            for line in lines:
+                line.witness_meter = "0" * (len(witnesses) + 1)
+                if hasattr(line, '_exploration') and 'haslines' in line._exploration:
+                    color_offset = 0
 
-                for note_dict in line._exploration['haslines']:
-                    note_id = note_dict['id']
-                    note = corpus.get_content('TextualNote', note_id)
+                    for note_dict in line._exploration['haslines']:
+                        note_id = note_dict['id']
+                        note = corpus.get_content('TextualNote', note_id)
 
-                    if color_offset > 0 and note_id not in recolored_notes:
-                        note.witness_meter = "0" * (len(witnesses) + 1)
+                        if color_offset > 0 and note_id not in recolored_notes:
+                            note.witness_meter = "0" * (len(witnesses) + 1)
 
-                        for variant in note.variants:
-                            variant_indicators = [int(i) + color_offset if i != '0' else 0 for i in variant.witness_meter]
-                            variant_indicators = [i if i < 10 else i - 10 for i in variant_indicators]
-                            variant.witness_meter = "".join([str(i) for i in variant_indicators])
-                            variant.save()
-                            note.witness_meter = collapse_indicators(variant.witness_meter, note.witness_meter)
+                            for variant in note.variants:
+                                variant_indicators = [int(i) + color_offset if i != '0' else 0 for i in variant.witness_meter]
+                                variant_indicators = [i if i < 10 else i - 10 for i in variant_indicators]
+                                variant.witness_meter = "".join([str(i) for i in variant_indicators])
+                                variant.save()
+                                note.witness_meter = collapse_indicators(variant.witness_meter, note.witness_meter)
 
-                        note.save()
-                        recolored_notes[note_id] = 1
+                            note.save()
+                            recolored_notes[note_id] = 1
 
-                    line.witness_meter = collapse_indicators(note.witness_meter, line.witness_meter)
-                    note_indicators = [int(i) for i in note.witness_meter]
-                    color_offset += max(note_indicators) + 1
+                        line.witness_meter = collapse_indicators(note.witness_meter, line.witness_meter)
+                        note_indicators = [int(i) for i in note.witness_meter]
+                        color_offset += max(note_indicators) + 1
 
-                line.save()
-        del lines
+                    line.save()
+            del lines
 
     except:
         "An error prevented full ingestion of textual notes:\n{0}\n\n".format(traceback.format_exc())
@@ -1336,11 +1347,8 @@ def perform_variant_transform(corpus, note, variant):
         if variant.lemma and variant.transform and variant.transform_type:
             lemma = strip_tags(variant.lemma).replace(double_under_carrot, '').replace(under_carrot, '')
             transform = strip_tags(variant.transform).replace('| ', '').replace(double_under_carrot, '').replace(under_carrot, '')
-            #transform = strip_tags(variant.transform).replace(double_under_carrot, '').replace(under_carrot, '')
 
-            if variant.transform_type == "replace":
-
-
+            if variant.transform_type in ["replace", "insert", "insert_before"]:
                 # TODO:
                 '''
                     * handle under_carrots
@@ -1354,7 +1362,7 @@ def perform_variant_transform(corpus, note, variant):
                 '''
 
                 # replace using ellipsis and swung dash
-                if _contains(lemma, [ellipsis]) and _contains(variant.transform, [ellipsis, swung_dash]):
+                if variant.transform_type == "replace" and _contains(lemma, [ellipsis]) and _contains(variant.transform, [ellipsis, swung_dash]):
                     result = original_text
 
                     lemmas = lemma.split(ellipsis)
@@ -1379,7 +1387,7 @@ def perform_variant_transform(corpus, note, variant):
                         result = result.replace(lemmas[lemma_index], transforms[lemma_index], 1)
 
                 # replace using swung_dash only
-                elif swung_dash in variant.transform:
+                elif variant.transform_type == "replace" and swung_dash in variant.transform:
                     no_punct_lemma = lemma
                     for punct in punctuation:
                         no_punct_lemma = no_punct_lemma.replace(punct, '')
@@ -1395,7 +1403,7 @@ def perform_variant_transform(corpus, note, variant):
                     result = original_text.replace(lemma, transform, 1)
 
                 # replace using ellipsis
-                elif ellipsis in lemma and ellipsis in variant.transform:
+                elif variant.transform_type == "replace" and ellipsis in lemma and ellipsis in variant.transform:
                     lemmas = lemma.split(ellipsis)
                     transforms = transform.split(ellipsis)
                     if len(lemmas) == len(transforms):
@@ -1419,22 +1427,35 @@ def perform_variant_transform(corpus, note, variant):
                             lemma_parts.append(word)
 
                     lemma = " ".join(lemma_parts)
-                    result = original_text.replace(lemma, transform, 1)
 
-                # simple replacement
-                elif lemma in original_text:
-                    result = original_text.replace(lemma, transform, 1)
+                # replacement/insertion w/ lemma
+                if not result and lemma in original_text:
+                    if variant.transform_type == "replace":
+                        result = original_text.replace(lemma, transform, 1)
+                    # insert after lemma
+                    elif variant.transform_type == "insert":
+                        result = "{0} {1} {2}".format(
+                            original_text[:original_text.find(lemma) + len(lemma)].strip(),
+                            transform,
+                            original_text[original_text.find(lemma) + len(lemma):].strip()
+                        )
+                    # insert before lemma
+                    elif variant.transform_type == "insert_before":
+                        result = "{0} {1} {2}".format(
+                            original_text[:original_text.find(lemma)].strip(),
+                            transform,
+                            original_text[original_text.find(lemma):].strip()
+                        )
 
         # replace line altogether
         elif not variant.lemma and variant.transform_type == 'replace' and variant.transform:
             result = strip_tags(variant.transform)
 
-        # insert at beginning of line
+        # insertions sans lemma
         elif not variant.lemma and variant.transform and variant.transform_type == "insert":
-            if variant.description and strip_tags(variant.description).lower().startswith("ad."):
-                result = "{0} {1}".format(original_text, strip_tags(variant.transform))
-            else:
-                result = "{0} {1}".format(strip_tags(variant.transform), original_text)
+            result = "{0} {1}".format(original_text, strip_tags(variant.transform))
+        elif not variant.lemma and variant.transform and variant.transform_type == "insert_before":
+            result = "{0} {1}".format(strip_tags(variant.transform), original_text)
 
         # simple omission
         elif variant.lemma and not variant.transform and strip_tags(variant.description).lower() == "om.":
@@ -1510,15 +1531,16 @@ BIBLIOGRAPHY INGESTION
 
         bib_tei = BeautifulSoup(tei_text, "xml")
 
+    play.bibliographic_sources = []
     unhandled = []
     doc_count = 0
     bibls = bib_tei.div.listBibl.find_all('bibl', recursive=False)
+
     for bibl in bibls:
         doc = handle_bibl_tag(corpus, bibl, unhandled)
         if doc:
             doc_count += 1
-            if doc not in play.bibliographic_sources:
-                play.bibliographic_sources.append(doc.id)
+            play.bibliographic_sources.append(doc.id)
         else:
             report += "Error creating bibliographic entry for this TEI representation:\n{0}\n\n".format(str(bibl).replace('<', '&lt;').replace('>', '&gt;'))
 
@@ -1557,7 +1579,8 @@ def handle_bibl_tag(corpus, bibl, unhandled, xml_id=None, date='', siglum_label=
             'unhandled': []
         }
 
-        extract_bibl_components(bibl, doc_data)
+        for child in bibl.children:
+            extract_bibl_components(child, doc_data)
 
         for key in doc_data.keys():
             if hasattr(doc, key) and doc_data[key]:
@@ -1574,58 +1597,68 @@ def handle_bibl_tag(corpus, bibl, unhandled, xml_id=None, date='', siglum_label=
     return doc
 
 
-def extract_bibl_components(tag, doc_data, inside_note=False):
-    for element in tag.children:
-        if element.name:
-            if element.name == 'author':
-                author = element.text
-                if doc_data['author']:
-                    doc_data['author'] += ", "
-                doc_data['author'] += author
-                doc_data['bibliographic_entry'] += author
+def extract_bibl_components(element, doc_data, inside_note=False):
+    if element.name:
+        open = ""
+        close = ""
+        tag = "span"
+        classes = [element.name]
+        for attr, val in element.attrs.items():
+            if attr not in ['xml', 'target', 'targType']:
+                classes.append(attr + "_" + slugify(val))
 
-            elif element.name == 'title':
-                title = handle_bibl_title(element)
-                if not doc_data['title'] and not inside_note:
-                    doc_data['title'] = title
+        if element.name == 'author':
+            if doc_data['author']:
+                doc_data['author'] += ", "
+            doc_data['author'] += element.text
+            # doc_data['bibliographic_entry'] += author
 
-                doc_data['bibliographic_entry'] += title
+        elif element.name == 'editor':
+            if doc_data['editor']:
+                doc_data['editor'] += ", "
+            doc_data['editor'] += element.text
 
-            elif element.name == 'date':
-                if not doc_data['pub_date']:
-                    doc_data['pub_date'] = element.text
-                    doc_data['bibliographic_entry'] += doc_data['pub_date']
+        elif element.name == 'title':
+            if not doc_data['title'] and not inside_note:
+                doc_data['title'] = element.text
 
-            elif element.name == 'pubPlace':
-                doc_data['place'] = element.text
-                doc_data['bibliographic_entry'] += doc_data['place']
+        elif element.name == 'date':
+            if not doc_data['pub_date']:
+                doc_data['pub_date'] = element.text
 
-            elif element.name == 'publisher':
-                doc_data['publisher'] = element.text
-                doc_data['bibliographic_entry'] += doc_data['publisher']
+        elif element.name == 'pubPlace':
+            doc_data['place'] = element.text
 
-            elif element.name in ['note', 'bibl']:
-                extract_bibl_components(element, doc_data, inside_note=True)
+        elif element.name == 'publisher':
+            doc_data['publisher'] = element.text
 
-            elif element.name == 'ref' and _contains(element.attrs, ['targType', 'target']):
-                doc_data['bibliographic_entry'] += '''<a ref="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
-                    element['targType'],
-                    element['target']
-                )
+        elif element.name in ['note', 'bibl']:
+            inside_note = True
+            if element.name == 'bibl':
+                classes.remove('bibl')
+                classes.append('inline-bibl')
 
-                for child in element.children:
-                    if child.name:
-                        extract_bibl_components(child, doc_data, inside_note=True)
-                    else:
-                        doc_data['bibliographic_entry'] += str(child)
+        elif element.name == 'ref' and _contains(element.attrs, ['targType', 'target']):
+            open = '''<a ref="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
+                element['targType'],
+                element['target']
+            )
+            close = "</a>"
 
-                doc_data['bibliographic_entry'] += "</a>"
+        if not open:
+            open = '<{0} class="{1}">'.format(
+                tag,
+                " ".join(classes)
+            )
+            close = "</{0}>".format(tag)
 
-            else:
-                doc_data['unhandled'].append(element.name)
-                doc_data['bibliographic_entry'] += element.text
-        else:
-            doc_data['bibliographic_entry'] += str(element)
+        doc_data['bibliographic_entry'] += open
+        for child in element.children:
+            extract_bibl_components(child, doc_data, inside_note)
+        doc_data['bibliographic_entry'] += close
+
+    else:
+        doc_data['bibliographic_entry'] += str(element)
 
 
 def handle_bibl_title(tag, toggle_italics=False):
@@ -2407,6 +2440,7 @@ def tei_to_html(tag):
         'p': 'p',
         'hi': 'span',
         'title': 'i',
+        'head': 'h3:heading',
         'quote': 'q',
         'table': 'table',
         'row': 'tr',

@@ -235,18 +235,25 @@ def paratext(request, corpus_id=None, play_prefix=None, section=None):
         for bib in play.bibliographic_sources:
             marker = last_marker
             if bib.bibliographic_entry_text:
+                entry_text = bib.bibliographic_entry_text
+                if entry_text.startswith('The '):
+                    entry_text = entry_text[4:]
                 for letters in marker_map.keys():
-                    if _contains_any(bib.bibliographic_entry_text[0], letters):
+                    if _contains_any(entry_text[0], letters):
                         marker = marker_map[letters]
                         break
 
             if marker != last_marker:
                 if section_html:
                     section_html += '</ul>'
-                section_html += '<ul id="{0}">'.format(marker)
+                section_html += '<h3 class="bibliography-section">{0}</h3>'.format(marker)
+                section_html += '<ul id="{0}" class="anchor">'.format(marker)
                 last_marker = marker
 
-            section_html += "<li>{0}</li>".format(bib.bibliographic_entry)
+            section_html += '<li id="{0}" class="bibl">{1}</li>'.format(
+                bib.siglum,
+                bib.bibliographic_entry
+            )
 
         nvs_page = "{0}-bibliography".format(play_prefix)
 

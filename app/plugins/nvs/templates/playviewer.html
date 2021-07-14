@@ -554,6 +554,10 @@
                 margin-left: 10px;
             }
 
+            span.foreign, span.entity {
+                font-style: italic;
+            }
+
             .witness-meter, .variant-witness-meter {
                 -webkit-box-align: center!important;
                 -ms-flex-align: center!important;
@@ -590,7 +594,7 @@
 
             .variant-words {
                 font-family: 'Baskerville', serif;
-                font-size: clamp(18px, 1.2vw, 30px);
+                font-size: clamp(1.125rem, 1.2vw, 1.5rem);
                 font-variant-numeric: oldstyle-nums;
                 color: #949494;
                 padding-left: 41px !important;
@@ -843,6 +847,44 @@
 
             .ref-anchor, .ref-p, .ref-text, .ref-item, .ref-quote, .ref-div, .ref-l {
                 text-transform: uppercase;
+            }
+
+            /* -----------------------------
+            || BIBLIOGRAPHY
+            || -------------------------- */
+            .ref-modal-content .name, .ref-modal-content .author, .ref-modal-content .editor {
+                color: var(--nvs-dark-blue);
+                font-weight: 700;
+            }
+            .ref-modal-content .date {
+                font-weight: 700;
+            }
+
+            .ref-modal-content .title.level_m, .ref-modal-content .title.level_j {
+                font-style: italic;
+            }
+            .ref-modal-content .title.level_m .title.level_m {
+                font-style: normal;
+            }
+
+            .ref-modal-content .title.level_a {
+                quotes: "“" "”" "‘" "’";
+            }
+            .ref-modal-content .title.level_a::before {
+                content: open-quote;
+            }
+            .ref-modal-content .title.level_a::after {
+                content: close-quote;
+            }
+
+            .ref-modal-content .quote {
+                quotes: "‘" "’";
+            }
+            .ref-modal-content .quote::before {
+                content: open-quote;
+            }
+            .ref-modal-content .quote::after {
+                content: close-quote;
             }
         </style>
 

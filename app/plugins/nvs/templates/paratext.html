@@ -124,12 +124,39 @@
         text-decoration: none;
     }
 
-    .name {
+    .name, .author, .editor {
         color: var(--blue);
         font-weight: 700;
     }
     .date {
         font-weight: 700;
+    }
+
+    .title.level_m, .title.level_j {
+        font-style: italic;
+    }
+    .title.level_m .title.level_m {
+        font-style: normal;
+    }
+
+    .title.level_a {
+        quotes: "“" "”" "‘" "’";
+    }
+    .title.level_a::before {
+        content: open-quote;
+    }
+    .title.level_a::after {
+        content: close-quote;
+    }
+
+    .quote {
+        quotes: "‘" "’";
+    }
+    .quote::before {
+        content: open-quote;
+    }
+    .quote::after {
+        content: close-quote;
     }
 
     .bibl-list {
