@@ -802,6 +802,11 @@
                 cursor: pointer;
                 height: 20px;
                 margin-left: 5px;
+                text-decoration: none;
+            }
+
+            .ref-modal-control:hover {
+                text-decoration: none;
             }
 
             .ref-modal-content {
@@ -2318,13 +2323,9 @@
                             }
                             paratext_url += `#paratext-${content.id}`;
 
-                            controls += `
-                                <a href="${paratext_url}" target="_blank">
-                                    <img src="{% static 'img/controls/Modal-NEWTAB.svg' %}"
-                                        class="ref-modal-control"
-                                        border="0">
-                                </a>
-                            `;
+                            if (!controls) {
+                                controls += `<a href="${paratext_url}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}" class="ref-modal-control" border="0"></a>`;
+                            }
                         }
 
                         nav_content += content[nav_map[nav_type]['content_field']];
