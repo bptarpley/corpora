@@ -2256,7 +2256,7 @@
                     if (biblio_url) {
                         biblio_url += `Front Matter/#${xml_id}`;
                     } else {
-                        biblio_url = `/front/wt/#${xml_id}`;
+                        biblio_url = `/front/${play_prefix}/#${xml_id}`;
                     }
                     let controls = `<a href="${biblio_url}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}" class="ref-modal-control" border="0"></a>`;
                     display_nav_modal(title, witnesses[xml_id].bibliographic_entry, link, controls);
@@ -2321,13 +2321,13 @@
                                 if (biblio_url) {
                                     biblio_url += `Bibliography/#${first_xml_id}`;
                                 } else {
-                                    biblio_url = `/bibliography/wt/#${first_xml_id}`;
+                                    biblio_url = `/bibliography/${play_prefix}/#${first_xml_id}`;
                                 }
-                            } else if (first_xml_id.startsWith('pw_')) {
+                            } else if (first_xml_id.startsWith('pw_') || first_xml_id.startsWith('s_')) {
                                 if (biblio_url) {
                                     biblio_url += `Front Matter/#${first_xml_id}`;
                                 } else {
-                                    biblio_url = `/front/wt/#${first_xml_id}`;
+                                    biblio_url = `/front/${play_prefix}/#${first_xml_id}`;
                                 }
                             }
                             controls += `<a href="${biblio_url}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}" class="ref-modal-control" border="0"></a>`;
