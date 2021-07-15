@@ -1676,39 +1676,42 @@
                 `Due to the site being in beta, this screen size is not currently supported.
                 If you are using a mobile device, try rotating it into landscape orientation.`
             );
+        } else {
+            $('#nav-modal').modal('hide');
+
+            // FIX WIDTH OF "GO TO TLN" BOX
+            let tln_width = $('#tln-header-col').width() + 40;
+            $('#hdr-line-no-box').css('width', tln_width);
+
+            // FIX TEXTUAL VARIANT HEADER
+            draw_witness_header_and_background();
+
+            // FIX MINIMAP
+            $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())})`);
+
+            // REDRAW LINE WITNESS METERS
+            $('.play-row').each(function() {
+                let xml_id = $(this).data('xml_id');
+                draw_witness_meter(
+                    lines[xml_id].witness_indicators,
+                    lines[xml_id].witness_meter,
+                    lines[xml_id].witness_column.clientWidth,
+                    lines[xml_id].witness_column.clientHeight - 8
+                );
+            });
+
+            // REDRAW VARIANT WITNESS METERS
+            let variant_col_width = $(`.witness-meter`)[0].offsetWidth;
+            $('.variant-witness-meter > img').each(function() {
+                draw_witness_meter(
+                    $(this).data('witness_indicators'),
+                    this,
+                    variant_col_width,
+                    25,
+                    "#FFFFFF"
+                );
+            });
         }
-        // FIX WIDTH OF "GO TO TLN" BOX
-        let tln_width = $('#tln-header-col').width() + 40;
-        $('#hdr-line-no-box').css('width', tln_width);
-
-        // FIX TEXTUAL VARIANT HEADER
-        draw_witness_header_and_background();
-
-        // FIX MINIMAP
-        $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())})`);
-
-        // REDRAW LINE WITNESS METERS
-        $('.play-row').each(function() {
-            let xml_id = $(this).data('xml_id');
-            draw_witness_meter(
-                lines[xml_id].witness_indicators,
-                lines[xml_id].witness_meter,
-                lines[xml_id].witness_column.clientWidth,
-                lines[xml_id].witness_column.clientHeight - 8
-            );
-        });
-
-        // REDRAW VARIANT WITNESS METERS
-        let variant_col_width = $(`.witness-meter`)[0].offsetWidth;
-        $('.variant-witness-meter > img').each(function() {
-            draw_witness_meter(
-                $(this).data('witness_indicators'),
-                this,
-                variant_col_width,
-                25,
-                "#FFFFFF"
-            );
-        });
     }
 
     function enable_commentary_highlighting() {
