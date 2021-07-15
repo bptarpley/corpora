@@ -1379,7 +1379,6 @@
 
     $(document).ready(function() {
         corpora = new Corpora({'csrf_token': "{{ csrf_token }}"{% if site_request %}, 'host': '{{ corpora_url }}'{% endif %}});
-        screen_size = determine_screen_size(window.innerWidth);
         style_sheet = document.styleSheets[0];
 
         setup_lines();
@@ -1670,6 +1669,14 @@
     }
 
     function adjust_for_screensize() {
+        screen_size = determine_screen_size();
+        if (screen_size === "small") {
+            display_nav_modal(
+                'Warning',
+                `Due to the site being in beta, this screen size is not currently supported.
+                If you are using a mobile device, try rotating it into landscape orientation.`
+            );
+        }
         // FIX WIDTH OF "GO TO TLN" BOX
         let tln_width = $('#tln-header-col').width() + 40;
         $('#hdr-line-no-box').css('width', tln_width);
@@ -1784,8 +1791,9 @@
         return getComputedStyle(document.documentElement).getPropertyValue(`--${variable_name}`);
     }
 
-    function determine_screen_size(width) {
-        if (width < 768) { return 'small'; }
+    function determine_screen_size() {
+        let width = window.innerWidth;
+        if (width <= 700) { return 'small'; }
         else if (width < 992) { return 'medium'; }
         return 'large';
     }
