@@ -2252,7 +2252,14 @@
                 if (xml_id in witnesses) {
                     let title = 'Collated Edition';
                     if (witnesses[xml_id].bibliographic_entry.includes('<br /><br />')) title += 's';
-                    display_nav_modal(title, witnesses[xml_id].bibliographic_entry, link);
+                    let biblio_url = paratext_prefix;
+                    if (biblio_url) {
+                        biblio_url += `Front Matter/#${xml_id}`;
+                    } else {
+                        biblio_url = `/front/wt/#${xml_id}`;
+                    }
+                    let controls = `<a href="${biblio_url}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}" class="ref-modal-control" border="0"></a>`;
+                    display_nav_modal(title, witnesses[xml_id].bibliographic_entry, link, controls);
                 }
             } else {
                 if (!nav_map.hasOwnProperty(nav_type)) nav_type = 'anchor';
@@ -2308,6 +2315,22 @@
                                     n. ${content.line_label}: ${content.subject_matter}
                                 </div>
                             `;
+                        } else if (nav_type === 'bibl' && first_xml_id && !controls) {
+                            let biblio_url = paratext_prefix;
+                            if (first_xml_id.startsWith('b_')) {
+                                if (biblio_url) {
+                                    biblio_url += `Bibliography/#${first_xml_id}`;
+                                } else {
+                                    biblio_url = `/bibliography/wt/#${first_xml_id}`;
+                                }
+                            } else if (first_xml_id.startsWith('pw_')) {
+                                if (biblio_url) {
+                                    biblio_url += `Front Matter/#${first_xml_id}`;
+                                } else {
+                                    biblio_url = `/front/wt/#${first_xml_id}`;
+                                }
+                            }
+                            controls += `<a href="${biblio_url}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}" class="ref-modal-control" border="0"></a>`;
                         } else if (nav_type === 'anchor') {
                             nav_title = `
                                 <span>

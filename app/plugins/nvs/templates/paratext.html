@@ -168,6 +168,7 @@
         font-size: 15px;
         line-height: 22px;
         display: block;
+        text-indent: -1em;
     }
 
     .witness .bibl {
@@ -639,6 +640,11 @@
             let path = graphic.data('path');
             let src = `${corpora_url}/repo-file/${corpus_id}/${repo_name}/?path=${path}`;
             graphic.attr('src', src);
+        });
+
+        $('.author.display_bookldash').each(function() {
+            let span = $(this);
+            span.html(`&mdash;&mdash;${span.html().endsWith('.') ? '.' : ''}`);
         });
     })
 
