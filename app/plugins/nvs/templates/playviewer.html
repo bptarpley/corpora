@@ -554,6 +554,10 @@
                 margin-left: 10px;
             }
 
+            span.foreign, span.entity {
+                font-style: italic;
+            }
+
             .witness-meter, .variant-witness-meter {
                 -webkit-box-align: center!important;
                 -ms-flex-align: center!important;
@@ -590,7 +594,7 @@
 
             .variant-words {
                 font-family: 'Baskerville', serif;
-                font-size: clamp(18px, 1.2vw, 30px);
+                font-size: clamp(1.125rem, 1.2vw, 1.5rem);
                 font-variant-numeric: oldstyle-nums;
                 color: #949494;
                 padding-left: 41px !important;
@@ -798,6 +802,11 @@
                 cursor: pointer;
                 height: 20px;
                 margin-left: 5px;
+                text-decoration: none;
+            }
+
+            .ref-modal-control:hover {
+                text-decoration: none;
             }
 
             .ref-modal-content {
@@ -843,6 +852,44 @@
 
             .ref-anchor, .ref-p, .ref-text, .ref-item, .ref-quote, .ref-div, .ref-l {
                 text-transform: uppercase;
+            }
+
+            /* -----------------------------
+            || BIBLIOGRAPHY
+            || -------------------------- */
+            .ref-modal-content .name, .ref-modal-content .author, .ref-modal-content .editor {
+                color: var(--nvs-dark-blue);
+                font-weight: 700;
+            }
+            .ref-modal-content .date {
+                font-weight: 700;
+            }
+
+            .ref-modal-content .title.level_m, .ref-modal-content .title.level_j {
+                font-style: italic;
+            }
+            .ref-modal-content .title.level_m .title.level_m {
+                font-style: normal;
+            }
+
+            .ref-modal-content .title.level_a {
+                quotes: "“" "”" "‘" "’";
+            }
+            .ref-modal-content .title.level_a::before {
+                content: open-quote;
+            }
+            .ref-modal-content .title.level_a::after {
+                content: close-quote;
+            }
+
+            .ref-modal-content .quote {
+                quotes: "‘" "’";
+            }
+            .ref-modal-content .quote::before {
+                content: open-quote;
+            }
+            .ref-modal-content .quote::after {
+                content: close-quote;
             }
         </style>
 
@@ -1332,7 +1379,6 @@
 
     $(document).ready(function() {
         corpora = new Corpora({'csrf_token': "{{ csrf_token }}"{% if site_request %}, 'host': '{{ corpora_url }}'{% endif %}});
-        screen_size = determine_screen_size(window.innerWidth);
         style_sheet = document.styleSheets[0];
 
         setup_lines();
@@ -1623,38 +1669,49 @@
     }
 
     function adjust_for_screensize() {
-        // FIX WIDTH OF "GO TO TLN" BOX
-        let tln_width = $('#tln-header-col').width() + 40;
-        $('#hdr-line-no-box').css('width', tln_width);
-
-        // FIX TEXTUAL VARIANT HEADER
-        draw_witness_header_and_background();
-
-        // FIX MINIMAP
-        $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())})`);
-
-        // REDRAW LINE WITNESS METERS
-        $('.play-row').each(function() {
-            let xml_id = $(this).data('xml_id');
-            draw_witness_meter(
-                lines[xml_id].witness_indicators,
-                lines[xml_id].witness_meter,
-                lines[xml_id].witness_column.clientWidth,
-                lines[xml_id].witness_column.clientHeight - 8
+        screen_size = determine_screen_size();
+        if (screen_size === "small") {
+            display_nav_modal(
+                'Warning',
+                `Due to the site being in beta, this screen size is not currently supported.
+                If you are using a mobile device, try rotating it into landscape orientation.`
             );
-        });
+        } else {
+            $('#nav-modal').modal('hide');
 
-        // REDRAW VARIANT WITNESS METERS
-        let variant_col_width = $(`.witness-meter`)[0].offsetWidth;
-        $('.variant-witness-meter > img').each(function() {
-            draw_witness_meter(
-                $(this).data('witness_indicators'),
-                this,
-                variant_col_width,
-                25,
-                "#FFFFFF"
-            );
-        });
+            // FIX WIDTH OF "GO TO TLN" BOX
+            let tln_width = $('#tln-header-col').width() + 40;
+            $('#hdr-line-no-box').css('width', tln_width);
+
+            // FIX TEXTUAL VARIANT HEADER
+            draw_witness_header_and_background();
+
+            // FIX MINIMAP
+            $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())})`);
+
+            // REDRAW LINE WITNESS METERS
+            $('.play-row').each(function() {
+                let xml_id = $(this).data('xml_id');
+                draw_witness_meter(
+                    lines[xml_id].witness_indicators,
+                    lines[xml_id].witness_meter,
+                    lines[xml_id].witness_column.clientWidth,
+                    lines[xml_id].witness_column.clientHeight - 8
+                );
+            });
+
+            // REDRAW VARIANT WITNESS METERS
+            let variant_col_width = $(`.witness-meter`)[0].offsetWidth;
+            $('.variant-witness-meter > img').each(function() {
+                draw_witness_meter(
+                    $(this).data('witness_indicators'),
+                    this,
+                    variant_col_width,
+                    25,
+                    "#FFFFFF"
+                );
+            });
+        }
     }
 
     function enable_commentary_highlighting() {
@@ -1737,8 +1794,9 @@
         return getComputedStyle(document.documentElement).getPropertyValue(`--${variable_name}`);
     }
 
-    function determine_screen_size(width) {
-        if (width < 768) { return 'small'; }
+    function determine_screen_size() {
+        let width = window.innerWidth;
+        if (width <= 700) { return 'small'; }
         else if (width < 992) { return 'medium'; }
         return 'large';
     }
@@ -2194,7 +2252,14 @@
                 if (xml_id in witnesses) {
                     let title = 'Collated Edition';
                     if (witnesses[xml_id].bibliographic_entry.includes('<br /><br />')) title += 's';
-                    display_nav_modal(title, witnesses[xml_id].bibliographic_entry, link);
+                    let biblio_url = paratext_prefix;
+                    if (biblio_url) {
+                        biblio_url += `Front Matter/#${xml_id}`;
+                    } else {
+                        biblio_url = `/front/wt/#${xml_id}`;
+                    }
+                    let controls = `<a href="${biblio_url}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}" class="ref-modal-control" border="0"></a>`;
+                    display_nav_modal(title, witnesses[xml_id].bibliographic_entry, link, controls);
                 }
             } else {
                 if (!nav_map.hasOwnProperty(nav_type)) nav_type = 'anchor';
@@ -2250,6 +2315,22 @@
                                     n. ${content.line_label}: ${content.subject_matter}
                                 </div>
                             `;
+                        } else if (nav_type === 'bibl' && first_xml_id && !controls) {
+                            let biblio_url = paratext_prefix;
+                            if (first_xml_id.startsWith('b_')) {
+                                if (biblio_url) {
+                                    biblio_url += `Bibliography/#${first_xml_id}`;
+                                } else {
+                                    biblio_url = `/bibliography/wt/#${first_xml_id}`;
+                                }
+                            } else if (first_xml_id.startsWith('pw_')) {
+                                if (biblio_url) {
+                                    biblio_url += `Front Matter/#${first_xml_id}`;
+                                } else {
+                                    biblio_url = `/front/wt/#${first_xml_id}`;
+                                }
+                            }
+                            controls += `<a href="${biblio_url}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}" class="ref-modal-control" border="0"></a>`;
                         } else if (nav_type === 'anchor') {
                             nav_title = `
                                 <span>
@@ -2276,13 +2357,9 @@
                             }
                             paratext_url += `#paratext-${content.id}`;
 
-                            controls += `
-                                <a href="${paratext_url}" target="_blank">
-                                    <img src="{% static 'img/controls/Modal-NEWTAB.svg' %}"
-                                        class="ref-modal-control"
-                                        border="0">
-                                </a>
-                            `;
+                            if (!controls) {
+                                controls += `<a href="${paratext_url}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}" class="ref-modal-control" border="0"></a>`;
+                            }
                         }
 
                         nav_content += content[nav_map[nav_type]['content_field']];

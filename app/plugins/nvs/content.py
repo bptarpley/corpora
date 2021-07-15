@@ -1771,7 +1771,7 @@ class ParaText(Content):
     @property
     def full_html(self):
         if not hasattr(self, '_full_html'):
-            html = '<a name="paratext-{0}"></a>'.format(self.id)
+            html = '<a name="paratext-{0}" class="anchor"></a>'.format(self.id)
             html += '<h2 class="section-heading level-{0}">{1}</h2>'.format(
                 self.level,
                 self.title
