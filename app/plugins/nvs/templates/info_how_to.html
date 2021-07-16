@@ -2,119 +2,158 @@
 {% load static %}
 
 {% block headrefs %}
-<style>
-    .how-to--video-holder {
-        display: grid;
-        grid-template-columns: 1fr;
-        grid-gap: 20px;
-        margin: 15px 0;
-    }
-    @media ( min-width: 768px ) {
+    <style>
         .how-to--video-holder {
-            grid-template-columns: 1fr 1fr;
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-gap: 20px;
+            margin: 15px 0;
         }
-    }
-</style>
+
+        @media ( min-width: 768px ) {
+            .how-to--video-holder {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .nvs-video {
+            margin-top: 15px;
+            margin-bottom: 20px;
+        }
+    </style>
 
 {% endblock %}
 
 {% block main %}
-<div class="page-title is-blue">
-  <h1>How To Digital NVS</h1>
-</div>
-<div class="page-holder is-blue">
-  <div class="container">
-    <div class="page-holder--inner has-max-width">
-      <div class="anchor-links--holder">
-        <button class="anchor-links--toggle link roboto-uppercase">page navigation</button>
-        <ul class="anchor-links--inner">
-          <li class="anchor-link">
-            <a href="#how-to-use">How to Use</a>
-          </li>
-          <!--
-          <li class="anchor-link">
-            <a href="#navigating-the-site">Navigating
-              the Site</a>
-          </li>
-          <li class="anchor-link is-level-2">
-            <a href="#simple-search">Simple Search</a>
-          </li>
-          <li class="anchor-link is-level-2">
-            <a href="#an-advanced-search">An Advanced
-              Search</a>
-          </li>
-          /-->
-        </ul>
-      </div>
-      <div>
-        <div class="anchor" id="how-to-use">
-          <h2>How to Use</h2>
-          <p>
-              The contents of this page are still under development. Forthcoming will be instructions and videos for
-              using the various features of the digital variorum reader, front matter, bibliography, and appendix.
-          </p>
-        </div>
-        <!--
-        <div class="anchor" id="navigating-the-site">
-          <h2>Navigating the Site</h2>
-          <div class="anchor" id="simple-search">
-            <h3>Simple Search</h3>
-            <div class="how-to--video-holder">
-              <div>
-                <div class="embed-container">
-                  <iframe width="560" height="315" src="https://www.youtube.com/embed/X3fa-Y1M6eY"
-                          title="YouTube video player" frameBorder="0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowfullscreen=""></iframe>
-                </div>
-              </div>
-              <div><p>A simple search will return a wide range of results based on keyword searching. Results are
-                obtained by searching for terms or keywords across all fields. For example, if a user performs a
-                simple search for the keyword “heretic” by typing the word in the Simple Search box they will get
-                1,003 results as the simple search returns all instances of the word in the play text as well as in
-                the commentary notes.</p></div>
-            </div>
-          </div>
-          <div class="anchor" id="an-advanced-search">
-            <h3>An Advanced Search</h3>
-            <div class="how-to--video-holder">
-              <div>
-                <div class="embed-container">
-                  <iframe width="560" height="315" src="https://www.youtube.com/embed/X3fa-Y1M6eY"
-                          title="YouTube video player" frameBorder="0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowfullscreen=""></iframe>
-                </div>
-              </div>
-              <div><p>An advanced search allows for a more targeted query by limiting the search to a particular play
-                or to specific fields within and across plays on this site. Users may search by through line number,
-                act, scene, character, date, genre, content type, and keyword.</p></div>
-            </div>
-            <h4 id="description-of-advanced-search-fields">Description of Advanced Search fields</h4>
-            <div class="how-to--video-holder">
-              <div>
-                <div class="embed-container">
-                  <iframe width="560" height="315" src="https://www.youtube.com/embed/X3fa-Y1M6eY"
-                          title="YouTube video player" frameBorder="0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowfullscreen=""></iframe>
-                </div>
-              </div>
-              <div><p>Through Line Number:
-                Date:
-                Genre:
-                Act and Scene
-                etc.</p></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      /-->
+    <div class="page-title is-blue">
+        <h1>How To Digital NVS</h1>
     </div>
-  </div>
-</div>
+    <div class="page-holder is-blue">
+    <div class="container">
+        <div class="page-holder--inner has-max-width">
+            <div class="anchor-links--holder">
+                <button class="anchor-links--toggle link roboto-uppercase">page navigation</button>
+                <ul class="anchor-links--inner">
+                    <li class="anchor-link">
+                        <a href="#nvs-overview">NVS Overview</a>
+                    </li>
+                    <li class="anchor-link">
+                        <a href="#play-text-commentary">Play Text and Commentary Notes</a>
+                    </li>
+                    <li class="anchor-link">
+                        <a href="#textual-notes-search">Textual Notes and Simple Search</a>
+                    </li>
+                </ul>
+            </div>
+            <div>
+                <p>
+                    In 2019 the Modern Language Association’s Executive Council awarded the Center of Digital Humanities
+                    Research
+                    (CoDHR) at Texas A&M University a grant to publish NVS editions online, making them freely available
+                    to scholars,
+                    educators, students, and performers via an open access, interactive web platform. Please visit the
+                    <a href="{% if site_request %}/about/{% else %}/corpus/{{ corpus_id }}/about/{% endif %}">About</a> page
+                    to learn more about the history of the NVS and the scope of this project.
+                </p>
+                <p>
+                    Please note that this site is in BETA mode. More work is to be done before the reader will be fully accessible
+                    to screen readers, will work seamlessly across all browsers (including mobile devices in portrait mode), and
+                    will be fully vetted in terms of the accuracy of the synthetically produced variants.
+                    At present, accessing the Variorum Reader on Google Chrome from a laptop or desktop computer provides
+                    the best experience.
+                </p>
+                <p>
+                    To learn more about the site and how to use the Variorum Reader, please watch our instructional
+                    videos below.
+                </p>
+
+                <div class="anchor" id="nvs-overview">
+                    <h2>NVS Overview</h2>
+                    <div class="nvs-video">
+                        <video poster="https://newvariorumshakespeare.org/static/videos/nvs_overview_poster.png" controls="controls">
+                            <source src="https://newvariorumshakespeare.org/static/videos/nvs_overview.mp4" type="video/mp4">
+                        </video>
+                    </div>
+                </div>
+
+                <div class="anchor" id="play-text-commentary">
+                    <h2>Play Text and Commentary Notes</h2>
+                    <div class="nvs-video">
+                        <video poster="https://newvariorumshakespeare.org/static/videos/playtext_commentary_poster.png" controls="controls">
+                            <source src="https://newvariorumshakespeare.org/static/videos/playtext_commentary.mp4" type="video/mp4">
+                        </video>
+                    </div>
+                </div>
+
+                <div class="anchor" id="textual-notes-search">
+                    <h2>Textual Notes and Simple Search</h2>
+                    <div class="nvs-video">
+                        <video poster="https://newvariorumshakespeare.org/static/videos/textual_notes_search_poster.png" controls="controls">
+                            <source src="https://newvariorumshakespeare.org/static/videos/textual_notes_search.mp4" type="video/mp4">
+                        </video>
+                    </div>
+                </div>
+                <!--
+                <div class="anchor" id="navigating-the-site">
+                  <h2>Navigating the Site</h2>
+                  <div class="anchor" id="simple-search">
+                    <h3>Simple Search</h3>
+                    <div class="how-to--video-holder">
+                      <div>
+                        <div class="embed-container">
+                          <iframe width="560" height="315" src="https://www.youtube.com/embed/X3fa-Y1M6eY"
+                                  title="YouTube video player" frameBorder="0"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowfullscreen=""></iframe>
+                        </div>
+                      </div>
+                      <div><p>A simple search will return a wide range of results based on keyword searching. Results are
+                        obtained by searching for terms or keywords across all fields. For example, if a user performs a
+                        simple search for the keyword “heretic” by typing the word in the Simple Search box they will get
+                        1,003 results as the simple search returns all instances of the word in the play text as well as in
+                        the commentary notes.</p></div>
+                    </div>
+                  </div>
+                  <div class="anchor" id="an-advanced-search">
+                    <h3>An Advanced Search</h3>
+                    <div class="how-to--video-holder">
+                      <div>
+                        <div class="embed-container">
+                          <iframe width="560" height="315" src="https://www.youtube.com/embed/X3fa-Y1M6eY"
+                                  title="YouTube video player" frameBorder="0"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowfullscreen=""></iframe>
+                        </div>
+                      </div>
+                      <div><p>An advanced search allows for a more targeted query by limiting the search to a particular play
+                        or to specific fields within and across plays on this site. Users may search by through line number,
+                        act, scene, character, date, genre, content type, and keyword.</p></div>
+                    </div>
+                    <h4 id="description-of-advanced-search-fields">Description of Advanced Search fields</h4>
+                    <div class="how-to--video-holder">
+                      <div>
+                        <div class="embed-container">
+                          <iframe width="560" height="315" src="https://www.youtube.com/embed/X3fa-Y1M6eY"
+                                  title="YouTube video player" frameBorder="0"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowfullscreen=""></iframe>
+                        </div>
+                      </div>
+                      <div><p>Through Line Number:
+                        Date:
+                        Genre:
+                        Act and Scene
+                        etc.</p></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              /-->
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block js %}
-<!-- If you wanted this particular page to have a javascript library referenced, put it here -->
+    <!-- If you wanted this particular page to have a javascript library referenced, put it here -->
 {% endblock %}

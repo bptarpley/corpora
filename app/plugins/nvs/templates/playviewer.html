@@ -2036,13 +2036,13 @@
                         if (!commentaries.hasOwnProperty(comm.id)) {
                             comm_frame.append(`
                                 <div class="row">
-                                    <div id="commentary-note-${comm.id}" class="col-sm-12 comm-heading" onClick="document.getElementById('${comm.lines[0].xml_id}-row').scrollIntoView();">
-                                        <a name="commentary-note-${comm.id}"></a>
+                                    <div id="commentary-note-${comm.xml_id}" class="col-sm-12 comm-heading" onClick="document.getElementById('${comm.lines[0].xml_id}-row').scrollIntoView();">
+                                        <a name="commentary-note-${comm.xml_id}"></a>
                                         n. ${comm.line_label}: ${comm.subject_matter}
                                     </div>
                                 </div>
                                 <div class="row">
-                                    <div id="commentary-content-${comm.id}" class="col-sm-12 comm-block">
+                                    <div id="commentary-content-${comm.xml_id}" class="col-sm-12 comm-block">
                                         ${comm.contents}
                                     </div>
                                 </div>
@@ -2305,7 +2305,7 @@
                     let controls = '';
                     let nav_content = '';
 
-                    contents.map(content => {
+                    contents.map(function(content, content_index) {
                         if (nav_content === '') nav_content += '<a name="nav-content-start"></a>';
                         else nav_content += '<br><br>';
 
@@ -2332,16 +2332,18 @@
                             }
                             controls += `<a href="${biblio_url}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}" class="ref-modal-control" border="0"></a>`;
                         } else if (nav_type === 'anchor') {
-                            nav_title = `
-                                <span>
-                                    ${content.section}
-                                    <br/>
-                                    <div class="ref-subtitle-marker">&nbsp;</div>
-                                    <span class="text-nvs-dark-blue">
-                                        ${content.title}
+                            if (content_index === 0) {
+                                nav_title = `
+                                    <span>
+                                        ${content.section}
+                                        <br/>
+                                        <div class="ref-subtitle-marker">&nbsp;</div>
+                                        <span class="text-nvs-dark-blue">
+                                            ${content.title}
+                                        </span>
                                     </span>
-                                </span>
-                            `;
+                                `;
+                            }
 
                             let paratext_url = ''
                             let paratext_section_map = {

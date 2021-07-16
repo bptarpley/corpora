@@ -317,7 +317,7 @@ Delete Existing:    {4}
                     )
                     job.set_status('running', percent_complete=85)
 
-                    line_count = corpus.get_content('PlayLine', all=True).count()
+                    line_count = corpus.get_content('PlayLine', {'play': play.id}, all=True).count()
                     line_cursor = 0
                     line_chunk_size = 200
                     while line_cursor < line_count:
@@ -485,6 +485,9 @@ FRONT MATTER INGESTION
 
     # extract witness and reference documents
     try:
+        for field in ['primary_witnesses', 'occasional_witnesses', 'primary_sources', 'occasional_sources']:
+            setattr(play, field, [])
+
         witness_collections = []
         unhandled = []
 
@@ -1821,9 +1824,9 @@ def handle_commentary_tag(tag, data={}):
                 html += "</i>"
 
         elif tag.name == "quote":
-            html += '''<span class="quote">'''
+            html += '''<q>'''
             html += "".join([handle_commentary_tag(child, data) for child in tag.children])
-            html += '''</span>'''
+            html += '''</q>'''
 
         elif tag.name == "p":
             html += '''<p>'''
@@ -1985,7 +1988,7 @@ def mark_commentary_lemma(corpus, play, note):
             lemma_span = corpus.get_content('PlayTag')
             lemma_span.play = play.id
             lemma_span.name = 'comspan'
-            lemma_span.classes = "commentary-lemma-{0}".format(note.id)
+            lemma_span.classes = "commentary-lemma-{0}".format(note.xml_id)
             lemma_span.start_location = starting_location
             lemma_span.end_location = ending_location
             lemma_span.save()
@@ -2218,12 +2221,15 @@ def handle_paratext_tag(tag, pt, pt_data):
 
             pt_data['current_note'] = curr_note
 
+            if 'type' in tag.attrs and tag.attrs['type'] in ['textual', 'irregular', 'unadopted']:
+                classes.append('pt_textual_note')
+
             if classes:
                 attributes += ' class="{0}"'.format(
                     " ".join(classes)
                 )
 
-            html += "<div{0} class='pt_textual_note'>".format(attributes)
+            html += "<div{0}>".format(attributes)
             for child in tag.children:
                 html += handle_paratext_tag(child, pt, pt_data)
             html += "</div>"
