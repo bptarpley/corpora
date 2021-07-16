@@ -924,7 +924,7 @@ def api_search(request, corpus_id=None, play_prefix=None):
                     'fields_filter': {
                         'play.id': str(play.id)
                     },
-                    'only': ['id', 'lines.line_number'],
+                    'only': ['xml_id', 'lines.line_number'],
                     'fields_highlight': ['subject_matter', 'contents'],
                 }
                 print('COMMENTARY')
@@ -937,7 +937,7 @@ def api_search(request, corpus_id=None, play_prefix=None):
                                 results['last_commentary_line'] = line['line_number']
 
                         result = {
-                            'comm_id': record['id'],
+                            'comm_id': record['xml_id'],
                             'matches': []
                         }
                         if 'subject_matter' in record['_search_highlights']:
