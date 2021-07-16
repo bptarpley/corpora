@@ -264,6 +264,11 @@
         left: 0;
     }
 
+    p.digital-nvs-comment {
+        padding: 10px;
+        background-color: #EBF4FC;
+    }
+
     /* -----------------------------
     || STYLES IMPORTED FROM PLAYVIEWER TO SUPPORT REF MODALS
     || -------------------------- */
@@ -639,6 +644,28 @@
 
     $(document).ready(function() {
         corpora = new Corpora({'csrf_token': "{{ csrf_token }}"{% if site_request %},'host': '{{ corpora_url }}'{% endif %}});
+
+        let textual_note_explanation = $('#textual_note_explanation_start');
+        if (textual_note_explanation.length) {
+            textual_note_explanation.prepend(`
+                <p class="digital-nvs-comment">
+                    <b>Note</b>: In the section below you will find the original explanation for reading textual notes
+                    as they appear throughout the
+                    <a href="{% if site_request %}/print-editions/{% else %}/corpus/{{ corpus_id }}/print/{% endif %}" target="_blank">print edition</a>
+                    of this volume. For the present, digital edition of this
+                    volume, textual notes for the play text have been re-envisioned so as to provide a line-by-line,
+                    aggregated view of change over time throughout collated editions (or witnesses) in the form of a
+                    histogram. These visualizations can be expanded to show how the variant line appears in given
+                    witnesses. For more information about how to read textual notes in the digital version of this
+                    volume, watch our
+                    <a href="{% if site_request %}/how-to/{% else %}/corpus/{{ corpus_id }}/how-to/{% endif %}#textual-notes-search" target="_blank">video tutorial</a>.
+                    The original, print convention for textual notes is still used, however, in the
+                    <a href="{% if site_request %}/appendix/${play_prefix}/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/${play_prefix}/Appendix/{% endif %}" target="_blank">Appendix</a>
+                    of this digital edition, particularly in the "Irregular, Doubtful, and Emended Accidentals" and
+                    "Unadopted Conjectures" sections.
+                </p>
+            `);
+        }
 
         $('img.graphic').each(function() {
             let graphic = $(this);
