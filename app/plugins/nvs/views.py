@@ -40,7 +40,7 @@ def playviewer(request, corpus_id=None, play_prefix=None):
 
     on_mobile = False
     user_agent = request.META['HTTP_USER_AGENT']
-    if _contains_any(user_agent, ['Mobile', 'Opera Mini', 'Android', 'Safari']):
+    if _contains_any(user_agent, ['Mobile', 'Opera Mini', 'Android']):
         on_mobile = True
 
     corpus = get_corpus(corpus_id)

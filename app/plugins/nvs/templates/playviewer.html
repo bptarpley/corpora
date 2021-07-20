@@ -1285,6 +1285,7 @@
     let play_prefix = "{{ play.prefix }}";
     let play_id = "{{ play.id }}";
     let on_mobile = {% if on_mobile %}true{% else %}false{% endif %};
+    let on_safari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
     let playviewer_url = {% if site_request %}`/edition/${play_prefix}/`{% else %}`/corpus/${corpus_id}/play-viewer/${play_prefix}/`{% endif %};
     let search_endpoint = {% if site_request %}`${window.location.protocol}//${window.location.host}/search/${play_prefix}/`{% else %}`/api/corpus/${corpus_id}/nvs-search/${play_prefix}/`{% endif %};
@@ -1730,7 +1731,7 @@
             e.stopPropagation();
         });
 
-        if (!on_mobile) {
+        if (!on_mobile && !on_safari) {
             $('comspan').mouseover(function (ev) {
                 let selector = `comspan.${ev.target.className}`;
                 style_sheet.insertRule(`
