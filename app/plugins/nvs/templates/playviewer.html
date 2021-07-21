@@ -2033,9 +2033,12 @@
             comm_search,
             function(comm_data) {
                 if (comm_data.records.length) {
+                    let comm_blocks = [];
+                    let comm_counter = 0;
                     comm_data.records.map(comm => {
                         if (!commentaries.hasOwnProperty(comm.id)) {
-                            comm_frame.append(`
+                            comm_counter += 1;
+                            comm_blocks.push(`
                                 <div class="row">
                                     <div id="commentary-note-${comm.xml_id}" class="col-sm-12 comm-heading" onClick="document.getElementById('${comm.lines[0].xml_id}-row').scrollIntoView();">
                                         <a name="commentary-note-${comm.xml_id}"></a>
@@ -2049,8 +2052,17 @@
                                 </div>
                             `);
                             commentaries[comm.id] = true;
+
+                            if (comm_counter % 100 === 0) {
+                                comm_frame[0].innerHTML += comm_blocks.join('');
+                                comm_blocks = [];
+                            }
                         }
                     });
+                    if (comm_blocks.length) {
+                        comm_frame[0].innerHTML += comm_blocks.join('');
+                        comm_blocks = [];
+                    }
                     let comm_spinner = $('#commentary-spinner');
                     if (comm_spinner.length) comm_spinner.remove();
                     comm_frame.append(`
