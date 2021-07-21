@@ -1849,9 +1849,6 @@ def handle_commentary_tag(tag, data={}):
                 html += "".join([handle_commentary_tag(child, data) for child in tag.children])
                 html += '''</span>'''
 
-        elif tag.name == 'rs':
-            html += "".join([handle_commentary_tag(child, data) for child in tag.children])
-
         elif tag.name == 'ptr' and _contains(tag.attrs, ['targType', 'target']):
             target = tag['target'].replace('#', '')
             if 'targetEnd' in tag.attrs:
@@ -1888,6 +1885,29 @@ def handle_commentary_tag(tag, data={}):
             html += "".join([handle_commentary_tag(child, data) for child in tag.children])
             html += '''</li>'''
 
+        elif tag.name == 'foreign':
+            html += '''<i>'''
+            html += "".join([handle_commentary_tag(child, data) for child in tag.children])
+            html += '''</i>'''
+
+        elif tag.name == 'title':
+            html_tag = "i"
+            if 'level' in tag.attrs and tag.attrs['level'] == 'a':
+                html_tag = "q"
+
+            html += '''<{0}>'''.format(html_tag)
+            html += "".join([handle_commentary_tag(child, data) for child in tag.children])
+            html += '''</{0}>'''.format(html_tag)
+
+        elif tag.name == 'lemNote':
+            html += '''<span class="lemma-note">'''
+            html += "".join([handle_commentary_tag(child, data) for child in tag.children])
+            html += '''</span>'''
+
+        # tags to ignore
+        elif tag.name in ['rs']:
+            html += "".join([handle_commentary_tag(child, data) for child in tag.children])
+
         else:
             if 'unhandled' not in data:
                 data['unhandled'] = []
@@ -1907,7 +1927,10 @@ def handle_commentary_tag(tag, data={}):
 def mark_commentary_lemma(corpus, play, note):
     report = ""
     note.reload()
-    lemma_string = strip_tags(note.subject_matter)
+    lemma_string = note.subject_matter
+    if '<span class="lemma-note">' in lemma_string:
+        lemma_string = lemma_string[:lemma_string.index('<span class="lemma-note">')]
+    lemma_string = strip_tags(lemma_string).strip()
 
     all_words = ""
     char_index_map = {}
