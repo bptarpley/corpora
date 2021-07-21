@@ -2023,7 +2023,8 @@
         let comm_search = {
             'f_play.id': play_id,
             'r_lines.line_number': `${last_commentary_line}__${last_visible_line + 20}`,
-            's_id': 'asc',
+            's_lines.line_number': 'asc',
+            's_xml_id': 'asc',
             'page-size': 500
         };
 
