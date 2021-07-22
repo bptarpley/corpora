@@ -557,7 +557,7 @@ REGISTRY = [
         "proxy_field": "",
         "templates": {
             "Label": {
-                "template": "[{{ PlayLine.line_number }}] {{ PlayLine.words|join:' ' }}",
+                "template": "{{ PlayLine.xml_id }}",
                 "mime_type": "text/html"
             }
         },

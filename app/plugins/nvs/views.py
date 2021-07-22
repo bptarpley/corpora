@@ -109,6 +109,24 @@ def playviewer(request, corpus_id=None, play_prefix=None):
                 else:
                     line_note_map[line['xml_id']].append(note['xml_id'])
 
+    comm_ids = []
+    comm_search = {
+        'content_type': 'Commentary',
+        'page': 1,
+        'page_size': 10000,
+        'fields_filter': {
+            'play.id': str(play.id)
+        },
+        'fields_sort': [
+            {'lines.line_number': {'order': 'asc'}},
+            {'xml_id': {'order': 'asc'}}
+        ],
+        'only': ['id', 'xml_id'],
+    }
+    comm_results = corpus.search_content(**comm_search)
+    for comm_result in comm_results['records']:
+        comm_ids.append({'xml_id': comm_result['xml_id'], 'id': comm_result['id']})
+
     act_scenes = {}
     as_search = {
         'page-size': 0,
@@ -149,6 +167,7 @@ def playviewer(request, corpus_id=None, play_prefix=None):
             'lines': lines,
             'act_scenes': act_scenes,
             'notes': json.dumps(notes),
+            'comm_ids': comm_ids,
             'line_note_map': line_note_map,
             'play': play,
             'editors': editors[play_prefix],

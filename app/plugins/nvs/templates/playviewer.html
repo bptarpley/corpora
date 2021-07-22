@@ -509,6 +509,9 @@
            /* -----------------------------
            || PLAY TEXT STYLING
            || -------------------------- */
+            comspan {
+                display: inline;
+            }
 
             span.castlist:not(:empty) {
                 width: 100%;
@@ -1184,7 +1187,7 @@
                                                 <img id="{{ line.xml_id }}-variant-toggle" src="{% static 'img/nvs-variants-expand.png' %}" />
                                             </a>
                                         {% endif %}
-                                        {{ line.rendered_html|safe }}
+                                        <div class="w-100">{{ line.rendered_html|safe }}</div>
                                     </div>
                                     <div id="{{ line.xml_id }}-number-col" class="col-sm-1 m-0 p-0">
                                         <div class="row no-gutters h-100 bg-nvs">
@@ -1218,7 +1221,18 @@
                                     </div>
                                 </div>
                                 <div class="col-sm-11 p-0 m-0 comm-col">
-                                    <div id="commentary-frame"></div>
+                                    <div id="commentary-frame">
+                                        {% for comm in comm_ids %}
+                                            <div class="row">
+                                                <div id="commentary-note-{{ comm.xml_id }}" class="col-sm-12 comm-heading" data-corpora_id="{{ comm.id }}">
+                                                    <a name="commentary-note-{{ comm.xml_id }}"></a>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div id="commentary-content-{{ comm.xml_id }}" class="col-sm-12 comm-block"></div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1300,6 +1314,7 @@
     };
 
     let style_sheet = null;
+    let current_line_number = 0;
     let current_act_scene = "{{ nvs_session.filter.act_scene }}";
     let current_character = "{{ nvs_session.filter.character }}";
     let corpus;
@@ -1471,6 +1486,14 @@
         // TOGGLE COMMENTARY HIGHLIGHTS
         $('#show-commentary-referents').change(function() {
             toggle_commentary_highlighting();
+        });
+
+        // COMMENTARY HEADER CLICK
+        $('.comm-heading').click(function() {
+            let heading = $(this);
+            if (heading.data('first_line')) {
+                document.getElementById(`${heading.data('first_line')}-row`).scrollIntoView();
+            }
         });
 
         // SEARCH CONTROLS
@@ -1736,7 +1759,7 @@
                 let selector = `comspan.${ev.target.className}`;
                 style_sheet.insertRule(`
                     ${selector} {
-                        border: solid 1px var(--nvs-primary-orange);
+                        border-bottom: solid 1px var(--nvs-primary-orange) !important;
                     }
                 `);
 
@@ -1907,56 +1930,46 @@
         let search_widget = $('#search-widget');
         search_widget.removeClass('d-none');
 
-        if (results.last_commentary_line > last_commentary_line) {
-            last_visible_line = results.last_commentary_line;
-            commentary_loaded = false;
-            load_commentary();
+        $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())}&no-cache=${Math.floor(Date.now() / 1000)})`);
+        if (nvs_search) {
+            $('#reader-view').unmark();
         }
 
-        if (!commentary_loaded){
-            setTimeout(process_search_results.bind(null, results), 1000)
-        } else {
-            $(":root").css("--scrollbarURL", `url(${minimap_url}?width=40&height=${parseInt($("#playtext-col").height())}&no-cache=${Math.floor(Date.now() / 1000)})`);
-            if (nvs_search) {
-                $('#reader-view').unmark();
-            }
+        nvs_search = {
+            character_results: results.characters,
+            line_results: results.lines,
+            variant_results: results.variants,
+            commentary_results: results.commentaries,
+            current_line_result: 0,
+            current_variant_result: 0,
+            current_commentary_result: 0
+        };
 
-            nvs_search = {
-                character_results: results.characters,
-                line_results: results.lines,
-                variant_results: results.variants,
-                commentary_results: results.commentaries,
-                current_line_result: 0,
-                current_variant_result: 0,
-                current_commentary_result: 0
-            };
+        $('.search-line-current').html('0');
+        $('.search-variant-current').html('0');
+        $('.search-commentary-current').html('0');
+        $('.search-line-total').html(nvs_search.line_results.length);
+        $('.search-variant-total').html(nvs_search.variant_results.length);
+        $('.search-commentary-total').html(nvs_search.commentary_results.length);
+        $('#search-line-prev').removeClass('d-none');
+        $('#search-line-next').removeClass('d-none');
+        $('#search-variant-prev').removeClass('d-none');
+        $('#search-variant-next').removeClass('d-none');
+        $('#search-commentary-prev').removeClass('d-none');
+        $('#search-commentary-next').removeClass('d-none');
 
-            $('.search-line-current').html('0');
-            $('.search-variant-current').html('0');
-            $('.search-commentary-current').html('0');
-            $('.search-line-total').html(nvs_search.line_results.length);
-            $('.search-variant-total').html(nvs_search.variant_results.length);
-            $('.search-commentary-total').html(nvs_search.commentary_results.length);
-            $('#search-line-prev').removeClass('d-none');
-            $('#search-line-next').removeClass('d-none');
-            $('#search-variant-prev').removeClass('d-none');
-            $('#search-variant-next').removeClass('d-none');
-            $('#search-commentary-prev').removeClass('d-none');
-            $('#search-commentary-next').removeClass('d-none');
+        let box_rect = $('#hdr-quick-search-box')[0].getBoundingClientRect();
+        console.log(box_rect);
+        search_widget.css('top', `${box_rect.top + window.pageYOffset + 50}px`);
+        search_widget.css('left', `${box_rect.left + box_rect.width - 50}px`);
+        make_draggable(search_widget[0]);
 
-            let box_rect = $('#hdr-quick-search-box')[0].getBoundingClientRect();
-            console.log(box_rect);
-            search_widget.css('top', `${box_rect.top + window.pageYOffset + 50}px`);
-            search_widget.css('left', `${box_rect.left + box_rect.width - 50}px`);
-            make_draggable(search_widget[0]);
+        if (nvs_search.line_results.length) display_search_result('line', 'next');
+        else if (nvs_search.variant_results.length) display_search_result('variant', 'next');
+        else if (nvs_search.commentary_results.length) display_search_result('commentary', 'next');
+        else display_nav_modal('No results.', 'No results for your search term were found.', null);
 
-            if (nvs_search.line_results.length) display_search_result('line', 'next');
-            else if (nvs_search.variant_results.length) display_search_result('variant', 'next');
-            else if (nvs_search.commentary_results.length) display_search_result('commentary', 'next');
-            else display_nav_modal('No results.', 'No results for your search term were found.', null);
-
-            stop_loading();
-        }
+        stop_loading();
     }
 
     function display_search_result(type, which) {
@@ -1985,11 +1998,8 @@
             let result_num = nvs_search.current_commentary_result - 1;
             let comm_header = $(`#commentary-note-${result.comm_id}`);
             let comm_content = $(`#commentary-content-${result.comm_id}`);
-            result.matches.map(match => {
-                comm_header.mark(match, {className: `search-commentary-result-${result_num}`});
-                comm_content.mark(match, {className: `search-commentary-result-${result_num}`});
-            });
-            document.getElementsByClassName(`search-commentary-result-${result_num}`)[0].scrollIntoView({behavior: 'smooth'});
+            show_commentary(comm_header, comm_content, result, result_num);
+            //document.getElementsByClassName(`search-commentary-result-${result_num}`)[0].scrollIntoView({behavior: 'smooth'});
         }
 
         $(`#search-${type}-current`).html(nvs_search[`current_${type}_result`]);
@@ -2009,16 +2019,28 @@
     function load_commentary() {
         if (commentary_observer === null) {
             commentary_observer = new IntersectionObserver(function(entries) {
-                if (entries[0].isIntersecting) {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                    /*
                     $(entries[0].target).remove();
                     if (remaining_commentaries) {
                         last_visible_line += 20;
                         load_commentary();
+                    }*/
+                    let comm_xml_id = entry.target.id.replace('commentary-note-', '');
+                    let comm_content_div = $(`#commentary-content-${comm_xml_id}`);
+                    if (!comm_content_div.html()) {
+                        show_commentary($(entry.target), comm_content_div);
                     }
                 }
+                });
             }, { threshold: [0] });
-        }
 
+            $('.comm-heading').each(function() {
+                commentary_observer.observe(this);
+            });
+        }
+        /*
         let comm_frame = $('#commentary-frame');
         let comm_search = {
             'f_play.id': play_id,
@@ -2039,6 +2061,7 @@
                     comm_data.records.map(comm => {
                         if (!commentaries.hasOwnProperty(comm.id)) {
                             comm_counter += 1;
+                            // onClick="document.getElementById('${comm.lines[0].xml_id}-row').scrollIntoView();"
                             comm_blocks.push(`
                                 <div class="row">
                                     <div id="commentary-note-${comm.xml_id}" class="col-sm-12 comm-heading" onClick="document.getElementById('${comm.lines[0].xml_id}-row').scrollIntoView();">
@@ -2083,6 +2106,39 @@
             true
         );
         last_commentary_line = last_visible_line + 20;
+         */
+    }
+
+    function show_commentary(header_div, content_div, result=null, result_num=null) {
+        if (!content_div.html()) {
+            let comm_id = header_div.data('corpora_id');
+            corpora.get_content(
+                corpus_id,
+                'Commentary',
+                comm_id,
+                function (comm) {
+                    if (!content_div.html()) {
+                        header_div.append(`n. ${comm.line_label}: ${comm.subject_matter}`);
+                        if (comm.lines.length) header_div.data('first_line', comm.lines[0].label);
+                        content_div.append(`${comm.contents}`);
+                    }
+
+                    if (result !== null) {
+                        result.matches.map(match => {
+                            header_div.mark(match, {className: `search-commentary-result-${result_num}`});
+                            content_div.mark(match, {className: `search-commentary-result-${result_num}`});
+                        });
+                        document.getElementsByClassName(`search-commentary-result-${result_num}`)[0].scrollIntoView();
+                    }
+                }
+            );
+        } else if (result !== null) {
+            result.matches.map(match => {
+                header_div.mark(match, {className: `search-commentary-result-${result_num}`});
+                content_div.mark(match, {className: `search-commentary-result-${result_num}`});
+            });
+            document.getElementsByClassName(`search-commentary-result-${result_num}`)[0].scrollIntoView();
+        }
     }
 
     function draw_witness_header_and_background() {
