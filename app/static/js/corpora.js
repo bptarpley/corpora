@@ -1025,6 +1025,9 @@ class ContentGraph {
                                     </div>
                                     <div class="row">
                                         <div class="col mt-2 text-center">
+                                            <select class="form-control" id="addproxy_ct_selector">
+                                                <option value="None">Select Content Type to add another step to collapse...</option>
+                                            </select>
                                             <button type="button" class="btn btn-primary" id="collapse-add-button">Collapse</button>
                                         </div>
                                     </div>
@@ -1047,11 +1050,21 @@ class ContentGraph {
             // SETUP EXPLORE CT MODAL COLLAPSE SELECTORS AND EVENTS
             let from_ct_selector = $('#from_ct_selector');
             let to_ct_selector = $('#to_ct_selector');
+            let add_ct_selector = $('#addproxy_ct_selector');
             for (let ct_name in this.corpus.content_types) {
                 let option = `<option value='${ct_name}'>${ct_name}</option>`;
                 from_ct_selector.append(option);
                 to_ct_selector.append(option);
+                add_ct_selector.append(option);
             }
+
+            add_ct_selector.change(function() {
+                let ct_to_add = add_ct_selector.val();
+                if (ct_to_add !== 'None') {
+                    let cts_added = $('.modal-proxy-ct').html();
+                    $('.modal-proxy-ct').html(cts_added + '.' + ct_to_add);
+                }
+            });
 
             $('#collapse-add-button').click(function() {
                 let proxy_ct = $('.modal-proxy-ct').html();

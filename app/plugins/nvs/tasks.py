@@ -2011,7 +2011,7 @@ def mark_commentary_lemma(corpus, play, note):
             lemma_span = corpus.get_content('PlayTag')
             lemma_span.play = play.id
             lemma_span.name = 'comspan'
-            lemma_span.classes = "commentary-lemma-{0}".format(note.xml_id)
+            lemma_span.classes = "commentary-lemma-{0}".format(slugify(note.xml_id))
             lemma_span.start_location = starting_location
             lemma_span.end_location = ending_location
             lemma_span.save()

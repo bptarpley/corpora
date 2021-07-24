@@ -1271,7 +1271,12 @@ def api_network_json(request, corpus_id, content_type, content_id):
             proxy_ct = collapse_parts[1]
             to_ct = collapse_parts[2]
 
-            excluded_cts.append(proxy_ct)
+            if '.' in proxy_ct:
+                proxy_cts = proxy_ct.split('.')
+                for p in proxy_cts:
+                    excluded_cts.append(p)
+            else:
+                excluded_cts.append(proxy_ct)
 
             if from_ct == content_type:
                 collapses.append({
@@ -1344,22 +1349,27 @@ def api_network_json(request, corpus_id, content_type, content_id):
 
         node_uris = [n['id'] for n in network_json['nodes']]
         for collapse in collapses:
+            proxy_path = []
+            proxy_cts = collapse['proxy_ct'].split('.')
+            for proxy_index in range(0, len(proxy_cts)):
+                proxy_path.append("(b{0}:{1})".format(proxy_index, proxy_cts[proxy_index]))
+            proxy_path = " -- ".join(proxy_path)
+
             proxied_content = run_neo('''
-                MATCH path = (a:{0}) -- (b:{1}) -- (c:{2})
+                MATCH path = (a:{0}) -- {1} -- (c:{2})
                 WHERE a.uri = '{3}'
                 RETURN distinct c, count(path) as freq
                 SKIP {4}
                 LIMIT {5}
             '''.format(
                 collapse['from_ct'],
-                collapse['proxy_ct'],
+                proxy_path,
                 collapse['to_ct'],
                 content_uri,
                 per_type_skip,
                 per_type_limit
             ), {})
 
-            last_length = 10
             for result in proxied_content:
                 uri = result.get('c').get('uri')
                 freq = result.get('freq')
@@ -1379,12 +1389,6 @@ def api_network_json(request, corpus_id, content_type, content_id):
                             'freq': freq
                         }
                     )
-                    if last_length == 10:
-                        last_length = 90
-                    else:
-                        last_length = 10
-
-
 
     return HttpResponse(
         json.dumps(network_json),
