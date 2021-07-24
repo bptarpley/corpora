@@ -1224,12 +1224,12 @@
                                     <div id="commentary-frame">
                                         {% for comm in comm_ids %}
                                             <div class="row">
-                                                <div id="commentary-note-{{ comm.xml_id }}" class="col-sm-12 comm-heading" data-corpora_id="{{ comm.id }}">
-                                                    <a name="commentary-note-{{ comm.xml_id }}"></a>
+                                                <div id="commentary-note-{{ comm.xml_id|slugify }}" class="col-sm-12 comm-heading" data-corpora_id="{{ comm.id }}">
+                                                    <a name="commentary-note-{{ comm.xml_id|slugify }}"></a>
                                                 </div>
                                             </div>
                                             <div class="row">
-                                                <div id="commentary-content-{{ comm.xml_id }}" class="col-sm-12 comm-block"></div>
+                                                <div id="commentary-content-{{ comm.xml_id|slugify }}" class="col-sm-12 comm-block"></div>
                                             </div>
                                         {% endfor %}
                                     </div>
