@@ -151,6 +151,7 @@ def build_search_params_from_dict(params):
         'fields_highlight': [],
         'fields_sort': [],
         'aggregations': {},
+        'explorations': [],
         'page': 1,
         'page_size': 50,
         'only': [],
@@ -170,6 +171,7 @@ def build_search_params_from_dict(params):
             'page-size',
             'only',
             'operator',
+            'exploration',
             'highlight_fields',
             'highlight_num_fragments',
             'highlight_fragment_size',
@@ -183,6 +185,8 @@ def build_search_params_from_dict(params):
             search['highlight_num_fragments'] = int(value)
         elif param == 'highlight_fragment_size' and value.isdigit():
             search['highlight_fragment_size'] = int(value)
+        elif param == 'exploration':
+            search['explorations'].append(value)
         elif param == 'q':
             search['general_query'] = value
         elif param.startswith('q_'):

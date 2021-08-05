@@ -1306,6 +1306,7 @@ class Corpus(mongoengine.Document):
             fields_sort=[],
             only=[],
             excludes=[],
+            explorations=[],
             operator="and",
             highlight_num_fragments=5,
             highlight_fragment_size=100,
@@ -1411,6 +1412,7 @@ class Corpus(mongoengine.Document):
                         else:
                             should.append(q)
 
+            # PHRASE QUERY
             for search_field in fields_phrase.keys():
                 field_values = [value_part for value_part in fields_phrase[search_field].split('__') if value_part]
 
@@ -1436,6 +1438,7 @@ class Corpus(mongoengine.Document):
                         else:
                             should.append(q)
 
+            # TERMS QUERY
             for search_field in fields_term.keys():
                 field_values = [value_part for value_part in fields_term[search_field].split('__') if value_part]
 
@@ -1461,6 +1464,7 @@ class Corpus(mongoengine.Document):
                         else:
                             should.append(q)
 
+            # WILDCARD QUERY
             for search_field in fields_wildcard.keys():
                 field_values = [value_part for value_part in fields_wildcard[search_field].split('__') if value_part]
 
@@ -1489,6 +1493,7 @@ class Corpus(mongoengine.Document):
                         else:
                             should.append(q)
 
+            # EXISTENCE QUERY
             for search_field in fields_exist:
                 q = None
 
@@ -1511,6 +1516,7 @@ class Corpus(mongoengine.Document):
                     else:
                         should.append(q)
 
+            # FILTER QUERY
             if fields_filter:
                 for search_field in fields_filter.keys():
                     field_values = [value_part for value_part in fields_filter[search_field].split('__') if value_part]
@@ -1530,6 +1536,7 @@ class Corpus(mongoengine.Document):
                                 search_field = '_id'
                             filter.append(Q('term', **{search_field: field_value}))
 
+            # RANGE QUERY
             if fields_range:
                 for search_field in fields_range.keys():
                     field_values = [value_part for value_part in fields_range[search_field].split('__') if value_part]
@@ -1598,6 +1605,18 @@ class Corpus(mongoengine.Document):
                         )
                     else:
                         filter.append(range_query)
+
+            # EXPLORATIONS (TERMS LOOKUP)
+            if explorations:
+                exploration_index = self._get_exploration_index()
+                for exploration_name in explorations:
+                    exploration = self.get_exploration(exploration_name)
+                    if exploration:
+                        filter.append(Q('terms', **{'_id': {
+                            'index': exploration_index._name,
+                            'id': exploration_name,
+                            'path': 'ids'
+                        }}))
 
             if should or must or filter:
 
@@ -2264,6 +2283,71 @@ class Corpus(mongoengine.Document):
                 return job.id
         return None
 
+    def make_exploration(self, name, path, label, scholar_id=None, connected_to_uris=[]):
+        exploration = {
+            'name': name,
+            'path': path,
+            'label': label,
+            'scholar_id': scholar_id,
+            'connected_to_uris': connected_to_uris,
+            'status': 'invalid',
+            'content_types': [],
+            'job': None
+        }
+
+        if '-' in path:
+            path_parts = path.split('-')
+            if path_parts == 3:
+                nested_path = path_parts[1]
+                nested_parts = nested_path.split('.')
+                exploration['content_types'].append(path_parts[0])
+                for nested_part in nested_parts:
+                    exploration['content_types'].append(nested_part)
+                exploration['content_types'].append(path_parts[2])
+            else:
+                exploration['content_types'] = path_parts
+
+            exploration['status'] = 'valid'
+            for ct in exploration['content_types']:
+                if ct not in self.content_types:
+                    exploration['status'] = 'invalid'
+
+        if exploration['status'] == 'valid':
+            index = self._get_exploration_index()
+            conn = get_connection()
+            exploration['status'] = 'performing'
+            conn.index(
+                index=index._name,
+                id=name,
+                body={
+                    'path': exploration['path'],
+                    'label': exploration['label'],
+                    'ids': [],
+                    'scholar_id': exploration['scholar_id'],
+                    'connected_to_uris': exploration['connected_to_uris'],
+                    'content_types': exploration['content_types'],
+                    'status': exploration['status']
+                }
+            )
+            exploration['job'] = self.queue_local_job(task_name="Perform Exploration", parameters={
+                'name': exploration['name']
+            })
+
+        return exploration
+
+    def get_exploration(self, name, include_ids=False):
+        index = self._get_exploration_index()
+        conn = get_connection()
+        exclusions = ['ids']
+        if include_ids:
+            exclusions = []
+
+        try:
+            exploration = conn.get(index._name, name, _source_excludes=exclusions)
+            return exploration['_source']
+        except:
+            return None
+
     def running_jobs(self):
         return Job.get_jobs(corpus_id=str(self.id))
 
@@ -2271,6 +2355,40 @@ class Corpus(mongoengine.Document):
         corpus_path = "/corpora/{0}".format(self.id)
         os.makedirs("{0}/files".format(corpus_path), exist_ok=True)
         return corpus_path
+
+    def _get_exploration_index(self):
+        index_name = "corpus-{0}-exploration".format(self.id)
+        index = Index(index_name)
+        if not index.exists():
+            mapping = Mapping()
+            mapping.field('path', 'keyword')
+            mapping.field('ids', 'keyword')
+            mapping.field('label', 'keyword')
+            mapping.field('scholar_id', 'keyword')
+            mapping.field('connected_to_uris', 'keyword')
+            mapping.field('content_types', 'keyword')
+            mapping.field('status', 'keyword')
+
+            index.mapping(mapping)
+            index.save()
+
+        return index
+
+    @property
+    def views(self):
+        if not hasattr(self, '_views'):
+            setattr(self, '_views', [])
+            conn = get_connection()
+            index = self._get_exploration_index()
+            search = Search(using=conn, index=index._name).source(excludes=['ids'])
+            for hit in search.scan():
+                self._views.append({
+                    'name': hit.meta.id,
+                    'label': hit.label,
+                    'primary_ct': hit.content_types[0],
+                    'status': hit.status
+                })
+        return self._views
 
     @property
     def redis_cache(self):
@@ -2288,14 +2406,17 @@ class Corpus(mongoengine.Document):
 
         # Create node in Neo4j for corpus
         run_neo('''
-                    MERGE (c:Corpus { uri: $corpus_uri })
-                    SET c.name = $corpus_title
-                ''',
-                {
-                    'corpus_uri': "/corpus/{0}".format(document.id),
-                    'corpus_title': document.name
-                }
-                )
+                MERGE (c:Corpus { uri: $corpus_uri })
+                SET c.name = $corpus_title
+            ''',
+            {
+                'corpus_uri': "/corpus/{0}".format(document.id),
+                'corpus_title': document.name
+            }
+        )
+
+        # Ensure exploration index for this corpus exists
+        document._get_exploration_index()
 
         # Add this corpus to Corpora Elasticsearch index
         get_connection().index(
@@ -2355,7 +2476,7 @@ class Corpus(mongoengine.Document):
         if os.path.exists(document.path):
             shutil.rmtree(document.path)
         
-    def to_dict(self):
+    def to_dict(self, include_views=False):
         corpus_dict = {
             'id': str(self.id),
             'name': self.name,
@@ -2377,6 +2498,9 @@ class Corpus(mongoengine.Document):
 
         for ct_name in self.content_types:
             corpus_dict['content_types'][ct_name] = self.content_types[ct_name].to_dict()
+
+        if include_views:
+            corpus_dict['views'] = self.views
 
         corpus_dict['provenance'] = [prov.to_dict() for prov in self.provenance]
 

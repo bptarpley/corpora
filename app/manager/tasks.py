@@ -8,11 +8,12 @@ import logging
 import math
 import redis
 from copy import deepcopy
-from corpus import Corpus, Job, get_corpus, File
+from corpus import Corpus, Job, get_corpus, File, run_neo
 from huey.contrib.djhuey import db_task, db_periodic_task
 from huey import crontab
 from bson.objectid import ObjectId
 from django.conf import settings
+from elasticsearch_dsl.connections import get_connection
 from PIL import Image
 from datetime import datetime
 from subprocess import call
@@ -242,6 +243,23 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['pull_repo']
     },
+    "Perform Exploration": {
+        "version": "0.0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "name": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Exploration Name"
+                }
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['perform_exploration']
+    }
 }
 
 
@@ -717,4 +735,71 @@ def pull_repo(job_id):
             job.corpus.repos[repo_name].error = True
             job.corpus.save()
             print(traceback.format_exc())
+    job.complete(status='complete')
+
+
+@db_task(priority=5)
+def perform_exploration(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    name = job.configuration['parameters']['name']['value']
+    exploration = job.corpus.get_exploration(name)
+    conn = get_connection()
+    index = job.corpus._get_exploration_index()
+    path = exploration['path'].split('-')
+    step_parts = path[1].split('.')
+    steps = []
+    for step_index in range(0, len(step_parts)):
+        steps.append("(b{0}:{1})".format(step_index, step_parts[step_index]))
+
+    cypher = "MATCH (a:{origin}) -- {steps} -- (c:{target})".format(
+        origin=path[0],
+        steps=" -- ".join(steps),
+        target=path[2]
+    )
+
+    if exploration['connected_to_uris']:
+        cypher += "\nWHERE c.uri in [{connected_to_uris}]".format(
+            connected_to_uris=', '.join(["'{0}'".format(ct_uri) for ct_uri in exploration['connected_to_uris']])
+        )
+
+    count_cypher = cypher + "\nRETURN count(distinct a)"
+    data_cypher = cypher + "\nRETURN distinct a.uri"
+
+    print(count_cypher)
+
+    count_results = run_neo(count_cypher, {})
+    count = count_results[0].value()
+
+    if count <= 60000:
+        data_results = run_neo(data_cypher, {})
+        ids = [res.value().split('/')[-1] for res in data_results]
+        conn.index(
+            index=index._name,
+            id=name,
+            body={
+                'path': exploration['path'],
+                'label': exploration['label'],
+                'ids': ids,
+                'scholar_id': exploration['scholar_id'],
+                'connected_to_uris': exploration['connected_to_uris'],
+                'content_types': exploration['content_types'],
+                'status': 'successful'
+            }
+        )
+    else:
+        conn.index(
+            index=index._name,
+            id=name,
+            body={
+                'path': exploration['path'],
+                'label': exploration['label'],
+                'ids': [],
+                'scholar_id': exploration['scholar_id'],
+                'connected_to_uris': exploration['connected_to_uris'],
+                'content_types': exploration['content_types'],
+                'status': 'too large'
+            }
+        )
+
     job.complete(status='complete')
