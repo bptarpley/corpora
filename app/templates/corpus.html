@@ -427,6 +427,60 @@
             </div>
         </div>
     </div>
+
+    <!-- CREATE VIEW MODAL -->
+    <div class="modal fade" id="find-connected-modal" tabindex="-1" role="dialog" aria-labelledby="find-connected-modal-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="find-connected-modal-label">Create a View</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="new-view-name-box">View Name</label>
+                        <input id="new-view-name-box" type="text" class="form-control">
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label" for="exploration-start-ct">Find:</label>
+                        <div class="col-sm-9">
+                            <select id="exploration-start-ct" class="form-control-sm btn-primary"></select>
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label" for="exploration-end-ct">Connected to:</label>
+                        <div class="col-sm-9">
+                            <select id="exploration-end-ct" class="form-control-sm btn-primary"></select>
+                        </div>
+                    </div>
+
+                    <div class="form-group ml-3">
+                        <input type="checkbox" id="exploration-end-uris"> Specifically:
+                        <div id="exploration-end-uris-div"></div>
+                        <button id="exploration-end-uris-add-button" role="button" class="btn btn-secondary">Add</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label>With intermediary steps:</label>
+                        <div id="exploration-steps-div"></div>
+                        <button id="exploration-steps-add-button" role="button" class="btn btn-secondary">Add</button>
+                    </div>
+                    <form id="create-view-form" method="post">
+                        {% csrf_token %}
+                        <input id="create-view-data" name="create-view" type="hidden" value="{}">
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="create-view-button">Create</button>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block main %}
@@ -1150,10 +1204,41 @@
                     multi_form.submit();
                 });
 
+                // VIEW CREATION BUTTON
+                $('#create-view-button').click(function() {
+                    let name_box = $('#new-view-name-box');
+                    let exploration_start_ct = $('#exploration-start-ct');
+                    let exploration_end_ct = $('#exploration-end-ct');
+
+                    let steps = '';
+                    $('.exploration-step').each(function() {
+                        if (steps) steps += '.' + $(this).val();
+                        else steps += $(this).val();
+                    });
+
+                    let path = `${exploration_start_ct.val()}-${steps}-${exploration_end_ct.val()}`;
+
+                    let connected_uris = [];
+                    if ($('#exploration-end-uris').is(':checked')) {
+                        $('.exploration-uri').each(function () {
+                            connected_uris.push($(this).data('uri'));
+                        });
+                    }
+
+                    let view_data = {
+                        name: pep8_variable_format(name_box.val()),
+                        path: path,
+                        label: name_box.val(),
+                        connected_to_uris: connected_uris
+                    }
+                    $('#create-view-data').val(JSON.stringify(view_data));
+                    $('#create-view-form').submit();
+                });
+
                 let scroll_location = location.hash;
                 location.hash = '';
                 location.hash = scroll_location;
-            });
+            }, true);
 
             hide_loading_overlay();
         });

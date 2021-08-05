@@ -111,11 +111,16 @@ class Corpora {
         );
     }
 
-    get_corpus(id, callback) {
+    get_corpus(id, callback, include_views=false) {
+        let params = {};
+        if (include_views) {
+            params['include-views'] = true;
+        }
+
         this.make_request(
             `/api/corpus/${id}/`,
             "GET",
-            {},
+            params,
             callback
         );
     }
@@ -455,6 +460,7 @@ class ContentTable {
                                     <select class="form-control-sm btn-primary ml-1 mr-1" id="ct-${ct.name}-selection-action-selector">
                                         <option value="explore" selected>Explore</option>
                                         <option value="merge">Merge</option>
+                                        ${['Editor', 'Admin'].includes(role) ? '<option value="create_view">Create View</option>' : ''}
                                         ${['Editor', 'Admin'].includes(role) ? '<option value="delete">Delete</option>' : ''}
                                     </select>
                                     <button type="button" class="btn btn-sm btn-secondary" id="ct-${ct.name}-selection-action-go-button" disabled>Go</button>
@@ -644,6 +650,40 @@ class ContentTable {
                 } else if (action === 'merge') {
                     multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/merge/`);
                     multi_form.submit();
+                } else if (action === 'create_view') {
+                    let steps_counter = 0;
+                    let ct_options = '';
+                    for (let ct_name in corpus.content_types) {
+                        ct_options += `<option value="${ct_name}">${corpus.content_types[ct_name].plural_name}</option>\n`;
+                    }
+                    $('#exploration-start-ct').html(ct_options);
+                    $('#exploration-end-ct').html(ct_options);
+                    $('#exploration-end-ct').val(ct_name);
+
+                    $('#exploration-end-uris').prop('checked', true);
+                    $('#exploration-end-uris-div').html('');
+
+                    selected_content.ids.map(id => {
+                        let exp_uri = `/corpus/${corpus_id}/${ct_name}/${id}`;
+                        $('#exploration-end-uris-div').append(`
+                            <iframe class="exploration-uri" src="${exp_uri}/?popup=y" frameborder="0" width="200px" height="200px" data-uri="${exp_uri}"></iframe>
+                        `);
+                    });
+
+                    $('#exploration-steps-div').html('');
+                    $('#exploration-steps-add-button').off('click').on('click', function() {
+                        $('#exploration-steps-div').append(`
+                            <div id="exploration-step-${steps_counter}">
+                                <select class="exploration-step form-control-sm btn-primary">${ct_options}</select>
+                                <button id="exploration-step-${steps_counter}-remove-button" role="button" class="btn btn-sm btn-primary">-</button>
+                            </div>
+                        `);
+                        $(`#exploration-step-${steps_counter}-remove-button`).click(function() {
+                            $(`#exploration-step-${steps_counter}`).remove();
+                        });
+                    });
+
+                    $('#find-connected-modal').modal();
                 } else if (action === 'delete') {
                     $('#deletion-confirmation-modal-message').html(`
                         Are you sure you want to delete the selected ${corpus.content_types[ct_name].plural_name}?
@@ -761,6 +801,40 @@ class ContentTable {
                         <a class="text-white ${ct.name}-remove-search-param" data-search-param="${search_setting}"><i class="far fa-times-circle"></i></a>
                     </span>
                 `);
+            }
+        }
+
+        // setup view selector if views for this ct exist
+        if (corpus.hasOwnProperty('views')) {
+            let ct_views = [];
+            corpus.views.map(view => {
+                if (view.primary_ct === ct.name) {
+                    ct_views.push(`
+                        <option value="${view.name}">${view.label}</option>
+                    `);
+                }
+            });
+            if (ct_views.length) {
+                current_search_div.append(`
+                    <div class="form-inline ml-auto">
+                        <select id="${ct.name}-view-selector" class="form-control form-control-sm btn-primary">
+                            <option value="NONE">Default View</option>
+                            ${ct_views.join('\n')}
+                        </select>
+                    </div>
+                `);
+                let view_selector = $(`#${ct.name}-view-selector`);
+                if (search.hasOwnProperty('exploration')) {
+                    view_selector.val(search.exploration);
+                }
+                view_selector.change(function() {
+                    if (view_selector.val() === 'NONE') {
+                        sender.remove_search_param('exploration');
+                    } else {
+                        search['exploration'] = view_selector.val();
+                        corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content); });
+                    }
+                });
             }
         }
 
@@ -1152,6 +1226,9 @@ class ContentGraph {
                         fit: true
                     },
                 },
+                layout: {
+                    improvedLayout: false
+                }
             }
         );
 

@@ -176,6 +176,15 @@ def corpus(request, corpus_id):
                 job = Job(kill_job_id)
                 job.kill()
 
+            # HANDLE VIEW CREATION
+            elif 'create-view' in request.POST:
+                new_view = json.loads(request.POST['create-view'])
+                exploration = corpus.make_exploration(**new_view)
+                print(exploration)
+                if exploration['status'] == 'performing':
+                    run_job(exploration['job'])
+                    response['messages'].append("View successfully created.")
+
             # HANDLE CONTENT TYPE SCHEMA SUBMISSION
             elif 'schema' in request.POST:
                 schema = json.loads(request.POST['schema'])
@@ -1213,7 +1222,8 @@ def api_corpus(request, corpus_id):
     corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
 
     if corpus:
-        corpus_dict = corpus.to_dict()
+        include_views = 'include-views' in request.GET
+        corpus_dict = corpus.to_dict(include_views)
         corpus_dict['scholar_role'] = role
         corpus_dict['available_synonyms'] = settings.ES_SYNONYM_OPTIONS
 
