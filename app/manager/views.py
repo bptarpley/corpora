@@ -1339,17 +1339,18 @@ def api_network_json(request, corpus_id, content_type, content_id):
         for relationship in distinct_relationships:
             rel_net_json = get_network_json(
                 '''
-                    MATCH path = (a:{0}) -[b:{1}]- (c)
-                    WHERE a.uri = '{2}'
+                    MATCH path = (a:{origin}) -[b:{relationship}]- (c)
+                    WHERE a.uri = '{uri}' {exclusions} 
                     RETURN path
-                    SKIP {3}
-                    LIMIT {4}
+                    SKIP {skip}
+                    LIMIT {limit}
                 '''.format(
-                    content_type,
-                    relationship,
-                    content_uri,
-                    per_type_skip,
-                    per_type_limit
+                    origin=content_type,
+                    relationship=relationship,
+                    uri=content_uri,
+                    exclusions=exclusion_clause,
+                    skip=per_type_skip,
+                    limit=per_type_limit
                 )
             )
 

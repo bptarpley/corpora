@@ -13,7 +13,7 @@
             -webkit-tap-highlight-color: rgba(255, 255, 255, 0); /* mobile webkit */
         }
     </style>
-    <link href="{% static 'css/vis-network.min.css' %}" rel="stylesheet">
+    <!--<link href="{% static 'css/vis-network.min.css' %}" rel="stylesheet">-->
 
 {% endblock %}
 
@@ -87,7 +87,7 @@
 {% block js %}
     <script src="{% static 'js/filepond.js' %}"></script>
     <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
-    <script src="{% static 'js/vis-network.min.js' %}"></script>
+    <script src="{% static 'js/vis-network.js' %}"></script>
     <script type="application/javascript">
         let corpus_id = '{{ corpus_id }}';
         let corpus_uri = `/corpus/${corpus_id}`;

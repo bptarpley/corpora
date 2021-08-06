@@ -1203,8 +1203,18 @@ class ContentGraph {
                 nodes: {
                     shape: 'dot',
                     size: 10,
+                    scaling: {
+                        min: 10,
+                        max: 100
+                    },
                     font: {
                         background: "white"
+                    },
+                    mass: 2
+                },
+                edges: {
+                    smooth: {
+                        type: "continuous"
                     }
                 },
                 groups: this.groups,
@@ -1215,22 +1225,70 @@ class ContentGraph {
                 },
                 physics: {
                     solver: 'repulsion',
-                    forceAtlas2Based: {
-                        springConstant: .04,
-                        gravitationalConstant: -10,
-                        damping: 0.9,
-                        avoidOverlap: 1
+                    repulsion: {
+                        springConstant: .01,
+                        centralGravity: .1,
+                        nodeDistance: 200
                     },
                     stabilization: {
                         enabled: false,
                         fit: true
                     },
+                    wind: {
+                        x: .3,
+                        groups: this.groups
+                    }
                 },
-                layout: {
-                    improvedLayout: false
-                }
             }
         );
+
+        // CUSTOM PHYSICS
+        this.network.physics._performStep = function(nodeId) {
+            const node = this.body.nodes[nodeId];
+            const force = this.physicsBody.forces[nodeId];
+
+            force.x += this.options.wind.groups[node.options.group].wind.x;
+            force.y += this.options.wind.groups[node.options.group].wind.y;
+
+            const velocity = this.physicsBody.velocities[nodeId];
+
+            // store the state so we can revert
+            this.previousStates[nodeId] = {
+                x: node.x,
+                y: node.y,
+                vx: velocity.x,
+                vy: velocity.y,
+            };
+
+            if (node.options.fixed.x === false) {
+                velocity.x = this.calculateComponentVelocity(
+                    velocity.x,
+                    force.x,
+                    node.options.mass
+                );
+                node.x += velocity.x * this.timestep;
+            } else {
+                force.x = 0;
+                velocity.x = 0;
+            }
+
+            if (node.options.fixed.y === false) {
+                velocity.y = this.calculateComponentVelocity(
+                    velocity.y,
+                    force.y,
+                    node.options.mass
+                );
+                node.y += velocity.y * this.timestep;
+            } else {
+                force.y = 0;
+                velocity.y = 0;
+            }
+
+            const totalVelocity = Math.sqrt(
+                Math.pow(velocity.x, 2) + Math.pow(velocity.y, 2)
+            );
+            return totalVelocity;
+        }
 
         this.network.on("click", function(params) {
             sender.remove_unpinned_panes();
@@ -1324,7 +1382,7 @@ class ContentGraph {
         });
 
         this.seed_uris.map(uri => this.sprawl_node(uri, true));
-        this.normalize_collapse_thickness();
+        //this.normalize_collapse_thickness();
     }
 
     setup_legend() {
@@ -1341,12 +1399,24 @@ class ContentGraph {
             '#CCC9E7',
             '#E9E3B4',
         ];
+        let group_winds = [
+            {x: 0, y: -1},
+            {x: 0, y: 1},
+            {x: -1, y: 0},
+            {x: 1, y: 0},
+            {x: -.5, y: .5},
+            {x: .5, y: -.5},
+            {x: -.7, y: -.7},
+            {x: .7, y: .7},
+            {x: -.5, y: -.5},
+            {x: .5, y: .5}
+        ];
         let group_color_cursor = 0;
 
         // ensure the first content type in seeds receives the first color
         if (this.seed_uris.length) {
             let seed_group = this.seed_uris[0].split('/')[3];
-            this.groups[seed_group] = {color:group_colors[group_color_cursor]};
+            this.groups[seed_group] = {color: group_colors[group_color_cursor], wind: group_winds[group_color_cursor]};
             group_color_cursor++;
         }
 
@@ -1354,7 +1424,8 @@ class ContentGraph {
         group_names.map(group_name => {
             if (group_name !== 'Corpus' && !Object.keys(this.groups).includes(group_name)) {
                 this.groups[group_name] = {
-                    color: group_colors[group_color_cursor]
+                    color: group_colors[group_color_cursor],
+                    wind: group_winds[group_color_cursor]
                 };
                 group_color_cursor++;
                 if (group_color_cursor >= group_colors.length) group_color_cursor = 0;
@@ -1553,7 +1624,7 @@ class ContentGraph {
 
         this.sprawls.push(false);
         clearTimeout(this.sprawl_timer);
-        this.sprawl_timer = setTimeout(this.await_sprawls.bind(this), 1000);
+        this.sprawl_timer = setTimeout(this.await_sprawls.bind(this), 2000);
         let sprawl_index = this.sprawls.length - 1;
 
         this.corpora.get_network_json(this.corpus_id, node_ct, node_id, net_json_params, function(net_json) {
@@ -1588,20 +1659,24 @@ class ContentGraph {
         }
 
         sender.sprawls[sprawl_index] = true;
-
-        if (this.first_start) {
-            this.first_start = false;
-        }
     }
 
     await_sprawls() {
         clearTimeout(this.sprawl_timer);
         if (this.sprawls.includes(false)) {
-            this.sprawl_timer = setTimeout(this.await_sprawls.bind(this), 1000);
+            this.sprawl_timer = setTimeout(this.await_sprawls.bind(this), 2000);
         } else {
             this.sprawls = [];
             this.normalize_collapse_thickness();
             this.setup_legend();
+
+            if (this.first_start) {
+                this.seed_uris.map(seed_uri => {
+                    this.nodes.update([{id: seed_uri, fixed: true}]);
+                    console.log(seed_uri);
+                });
+                this.first_start = false;
+            }
         }
     }
 
@@ -1700,6 +1775,11 @@ class ContentGraph {
                 });
             });
             this.edges.update(updated_edges);
+        });
+
+        this.nodes.map(node => {
+            node.value = this.network.getConnectedEdges(node.id).length;
+            this.nodes.update(node);
         });
     }
 
