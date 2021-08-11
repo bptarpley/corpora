@@ -1266,9 +1266,12 @@ def api_network_json(request, corpus_id, content_type, content_id):
     context = _get_context(request)
     per_type_limit = int(request.GET.get('per_type_limit', '20'))
     per_type_skip = int(request.GET.get('per_type_skip', '0'))
+    meta_only = 'meta-only' in request.GET
+    target_ct = request.GET.get('target-ct', '')
     network_json = {
         'nodes': [],
-        'edges': []
+        'edges': [],
+        'meta': {}
     }
     collapses = []
     excluded_cts = []
@@ -1324,82 +1327,116 @@ def api_network_json(request, corpus_id, content_type, content_id):
 
         distinct_relationships = run_neo(
             '''
-                MATCH (a:{0}) -[b]- (c)
-                WHERE a.uri = '{1}' {2}
-                RETURN distinct type(b)
+                MATCH (a:{origin}) -[b]- (c)
+                WHERE a.uri = '{uri}' {exclusions}
+                RETURN distinct type(b) as REL, labels(c) as CT, count(labels(c)) as COUNT
             '''.format(
-                    content_type,
-                    content_uri,
-                    exclusion_clause
+                    origin=content_type,
+                    uri=content_uri,
+                    exclusions=exclusion_clause
                  )
             , {}
         )
-        distinct_relationships = [rel.value() for rel in distinct_relationships]
 
         for relationship in distinct_relationships:
-            rel_net_json = get_network_json(
-                '''
-                    MATCH path = (a:{origin}) -[b:{relationship}]- (c)
-                    WHERE a.uri = '{uri}' {exclusions} 
-                    RETURN path
-                    SKIP {skip}
-                    LIMIT {limit}
-                '''.format(
-                    origin=content_type,
-                    relationship=relationship,
-                    uri=content_uri,
-                    exclusions=exclusion_clause,
-                    skip=per_type_skip,
-                    limit=per_type_limit
+            if not meta_only and (not target_ct or target_ct == relationship.get('CT')[0]):
+                rel_net_json = get_network_json(
+                    '''
+                        MATCH path = (a:{origin}) -[b:{relationship}]- (c:{destination})
+                        WHERE a.uri = '{uri}' {exclusions} 
+                        RETURN path
+                        SKIP {skip}
+                        LIMIT {limit}
+                    '''.format(
+                        origin=content_type,
+                        relationship=relationship.get('REL'),
+                        destination=relationship.get('CT')[0],
+                        uri=content_uri,
+                        exclusions=exclusion_clause,
+                        skip=per_type_skip,
+                        limit=per_type_limit
+                    )
                 )
-            )
 
-            node_uris = [n['id'] for n in network_json['nodes']]
-            network_json['nodes'] += [n for n in rel_net_json['nodes'] if n['id'] not in node_uris]
-            network_json['edges'] += rel_net_json['edges']
+                node_uris = [n['id'] for n in network_json['nodes']]
+                network_json['nodes'] += [n for n in rel_net_json['nodes'] if n['id'] not in node_uris]
+                network_json['edges'] += rel_net_json['edges']
+
+            path_key = "{0}-{1}".format(relationship.get('REL'), relationship.get('CT')[0])
+            network_json['meta'][path_key] = {
+                'count': relationship.get('COUNT'),
+                'skip': per_type_skip,
+                'limit': per_type_limit,
+                'collapsed': False
+            }
 
         node_uris = [n['id'] for n in network_json['nodes']]
+
         for collapse in collapses:
+            path_key = "{0}-{1}-{2}".format(
+                collapse['from_ct'],
+                collapse['proxy_ct'],
+                collapse['to_ct']
+            )
             proxy_path = []
             proxy_cts = collapse['proxy_ct'].split('.')
             for proxy_index in range(0, len(proxy_cts)):
                 proxy_path.append("(b{0}:{1})".format(proxy_index, proxy_cts[proxy_index]))
             proxy_path = " -- ".join(proxy_path)
 
-            proxied_content = run_neo('''
-                MATCH path = (a:{0}) -- {1} -- (c:{2})
-                WHERE a.uri = '{3}'
-                RETURN distinct c, count(path) as freq
-                SKIP {4}
-                LIMIT {5}
+            proxied_cypher = '''
+                MATCH path = (a:{origin}) -- {proxy_path} -- (c:{destination})
+                WHERE a.uri = '{uri}'
             '''.format(
-                collapse['from_ct'],
-                proxy_path,
-                collapse['to_ct'],
-                content_uri,
-                per_type_skip,
-                per_type_limit
-            ), {})
+                origin=collapse['from_ct'],
+                proxy_path=proxy_path,
+                destination=collapse['to_ct'],
+                uri=content_uri
+            )
 
-            for result in proxied_content:
-                uri = result.get('c').get('uri')
-                freq = result.get('freq')
-                if uri not in node_uris:
-                    network_json['nodes'].append({
-                        'group': collapse['to_ct'],
-                        'id': uri,
-                        'label': result.get('c').get('label')
-                    })
-                    node_uris.append(uri)
-                    network_json['edges'].append(
-                        {
-                            'from': content_uri,
-                            'id': content_uri + '-' + uri,
-                            'title': 'has{0}via{1}'.format(collapse['to_ct'], collapse['proxy_ct']),
-                            'to': uri,
-                            'freq': freq
-                        }
-                    )
+            proxied_count = run_neo('''
+                {proxied_cypher}
+                RETURN count(path) as COUNT
+            '''.format(proxied_cypher=proxied_cypher), {})
+
+            network_json['meta'][path_key] = {
+                'count': proxied_count[0].get('COUNT'),
+                'skip': per_type_skip,
+                'limit': per_type_limit,
+                'collapsed': True
+            }
+
+            if not meta_only and (not target_ct or target_ct == collapse['to_ct']):
+                proxied_content = run_neo('''
+                    {proxied_cypher}
+                    RETURN distinct c, count(path) as freq
+                    SKIP {skip}
+                    LIMIT {limit}
+                '''.format(
+                    proxied_cypher=proxied_cypher,
+                    skip=per_type_skip,
+                    limit=per_type_limit
+                ), {})
+
+                for result in proxied_content:
+                    uri = result.get('c').get('uri')
+                    freq = result.get('freq')
+                    if uri not in node_uris:
+                        network_json['nodes'].append({
+                            'group': collapse['to_ct'],
+                            'id': uri,
+                            'label': result.get('c').get('label')
+                        })
+                        node_uris.append(uri)
+                        network_json['edges'].append(
+                            {
+                                'from': content_uri,
+                                'id': content_uri + '-' + uri,
+                                'title': 'has{0}via{1}'.format(collapse['to_ct'], collapse['proxy_ct']),
+                                'to': uri,
+                                'freq': freq
+                            }
+                        )
 
     return HttpResponse(
         json.dumps(network_json),
