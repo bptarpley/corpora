@@ -1267,6 +1267,7 @@ def api_network_json(request, corpus_id, content_type, content_id):
     per_type_limit = int(request.GET.get('per_type_limit', '20'))
     per_type_skip = int(request.GET.get('per_type_skip', '0'))
     meta_only = 'meta-only' in request.GET
+    is_seed = 'is-seed' in request.GET
     target_ct = request.GET.get('target-ct', '')
     network_json = {
         'nodes': [],
@@ -1437,6 +1438,19 @@ def api_network_json(request, corpus_id, content_type, content_id):
                                 'freq': freq
                             }
                         )
+
+        if is_seed and content_uri not in node_uris:
+            seed = run_neo('''
+                MATCH (a:{content_type})
+                WHERE a.uri = '{uri}'
+                RETURN a
+            '''.format(content_type=content_type, uri=content_uri), {})
+            if seed:
+                network_json['nodes'].append({
+                    'id': content_uri,
+                    'group': content_type,
+                    'label': seed[0].get('a').get('label')
+                })
 
     return HttpResponse(
         json.dumps(network_json),
