@@ -1206,7 +1206,7 @@ class ContentGraph {
                     size: 10,
                     scaling: {
                         min: 10,
-                        max: 100,
+                        max: 200,
                         label: {
                             enabled: true,
                             min: 14,
@@ -1261,8 +1261,13 @@ class ContentGraph {
             const node = this.body.nodes[nodeId];
             const force = this.physicsBody.forces[nodeId];
 
-            force.x += this.options.groups[node.options.group].wind.x;
-            force.y += this.options.groups[node.options.group].wind.y;
+            if (node.options.hasOwnProperty('group')) {
+                force.x += this.options.groups[node.options.group].wind.x;
+                force.y += this.options.groups[node.options.group].wind.y;
+            } else {
+                console.log('no group!');
+                console.log(node);
+            }
 
             const velocity = this.physicsBody.velocities[nodeId];
 
@@ -1398,7 +1403,7 @@ class ContentGraph {
             });
         });
 
-        this.seed_uris.map(uri => this.sprawl_node(uri, {sprawl_children: true}));
+        this.seed_uris.map(uri => this.sprawl_node(uri, {is_seed: true, sprawl_children: true}));
     }
 
     setup_legend() {
@@ -1619,6 +1624,7 @@ class ContentGraph {
     sprawl_node(uri, options={}) {
         let opts = Object.assign(
             {
+                is_seed: false,
                 sprawl_children: false,
                 pane_id: null,
                 meta_only: false,
@@ -1651,10 +1657,8 @@ class ContentGraph {
         let hidden_param = this.hidden_cts.join(',');
         if (hidden_param) { net_json_params['hidden'] = hidden_param; }
 
-        if (opts.meta_only) {
-            net_json_params['meta-only'] = 'y';
-        }
-
+        if (opts.is_seed) net_json_params['is-seed'] = 'y';
+        if (opts.meta_only) net_json_params['meta-only'] = 'y';
         if (opts.sprawl_ct) net_json_params['target-ct'] = opts.sprawl_ct;
 
         this.sprawls.push(false);
@@ -1797,7 +1801,7 @@ class ContentGraph {
         this.first_start = true;
 
         this.seed_uris.map(uri => {
-            this.sprawl_node(uri, {sprawl_children: true});
+            this.sprawl_node(uri, {is_seed: true, sprawl_children: true});
         });
     }
 
@@ -1889,7 +1893,12 @@ class ContentGraph {
         });
 
         let update_nodes = [];
-        let aggregated_edge_cts = this.collapsed_relationships.map(rel => rel.to_ct);
+        let aggregated_edge_cts = [];
+        this.collapsed_relationships.map(rel => {
+            aggregated_edge_cts.push(rel.from_ct)
+            aggregated_edge_cts.push(rel.to_ct);
+        });
+
         this.nodes.map(node => {
             let update_node = {id: node.id, value: 0, mass: 0};
 
