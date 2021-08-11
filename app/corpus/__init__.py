@@ -2283,6 +2283,19 @@ class Corpus(mongoengine.Document):
                 return job.id
         return None
 
+    def get_exploration(self, name, include_ids=False):
+        index = self._get_exploration_index()
+        conn = get_connection()
+        exclusions = ['ids']
+        if include_ids:
+            exclusions = []
+
+        try:
+            exploration = conn.get(index._name, name, _source_excludes=exclusions)
+            return exploration['_source']
+        except:
+            return None
+
     def make_exploration(self, name, path, label, scholar_id=None, connected_to_uris=[]):
         exploration = {
             'name': name,
@@ -2335,27 +2348,6 @@ class Corpus(mongoengine.Document):
 
         return exploration
 
-    def get_exploration(self, name, include_ids=False):
-        index = self._get_exploration_index()
-        conn = get_connection()
-        exclusions = ['ids']
-        if include_ids:
-            exclusions = []
-
-        try:
-            exploration = conn.get(index._name, name, _source_excludes=exclusions)
-            return exploration['_source']
-        except:
-            return None
-
-    def running_jobs(self):
-        return Job.get_jobs(corpus_id=str(self.id))
-
-    def _make_path(self):
-        corpus_path = "/corpora/{0}".format(self.id)
-        os.makedirs("{0}/files".format(corpus_path), exist_ok=True)
-        return corpus_path
-
     def _get_exploration_index(self):
         index_name = "corpus-{0}-exploration".format(self.id)
         index = Index(index_name)
@@ -2373,6 +2365,14 @@ class Corpus(mongoengine.Document):
             index.save()
 
         return index
+
+    def running_jobs(self):
+        return Job.get_jobs(corpus_id=str(self.id))
+
+    def _make_path(self):
+        corpus_path = "/corpora/{0}".format(self.id)
+        os.makedirs("{0}/files".format(corpus_path), exist_ok=True)
+        return corpus_path
 
     @property
     def views(self):

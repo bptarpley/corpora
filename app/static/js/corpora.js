@@ -1045,6 +1045,7 @@ class ContentGraph {
         this.sprawls = [];
         this.sprawl_timer = null;
         this.per_type_limit = 'per_type_limit' in config ? config['per_type_limit'] : 20;
+        this.max_mass = 'max_node_mass' in config ? config['max_node_mass'] : 100;
         this.vis_div_id = vis_div_id;
         this.vis_div = $(`#${vis_div_id}`);
         this.vis_legend_id = vis_legend_id;
@@ -1205,7 +1206,14 @@ class ContentGraph {
                     size: 10,
                     scaling: {
                         min: 10,
-                        max: 100
+                        max: 100,
+                        label: {
+                            enabled: true,
+                            min: 14,
+                            max: 30,
+                            maxVisible: 30,
+                            drawThreshold: 5
+                        }
                     },
                     font: {
                         background: "white"
@@ -1224,20 +1232,26 @@ class ContentGraph {
                     tooltipDelay: this.label_display === 'full' ? 3600000 : 100
                 },
                 physics: {
+                    solver: 'barnesHut',
+                    barnesHut: {
+                        springConstant: .01,
+                        damping: 0.8,
+                        avoidOverlap: 1,
+                        springLength: 200
+                    },
+                    /*
                     solver: 'repulsion',
                     repulsion: {
                         springConstant: .01,
                         centralGravity: .1,
                         nodeDistance: 200
                     },
+                     */
                     stabilization: {
-                        enabled: false,
+                        enabled: true,
                         fit: true
                     },
-                    wind: {
-                        x: .3,
-                        groups: this.groups
-                    }
+                    groups: this.groups
                 },
             }
         );
@@ -1247,8 +1261,8 @@ class ContentGraph {
             const node = this.body.nodes[nodeId];
             const force = this.physicsBody.forces[nodeId];
 
-            force.x += this.options.wind.groups[node.options.group].wind.x;
-            force.y += this.options.wind.groups[node.options.group].wind.y;
+            force.x += this.options.groups[node.options.group].wind.x;
+            force.y += this.options.groups[node.options.group].wind.y;
 
             const velocity = this.physicsBody.velocities[nodeId];
 
@@ -1295,7 +1309,6 @@ class ContentGraph {
 
             if (params.nodes.length > 0) {
                 let clicked_uri = params.nodes[0];
-                let clicked_node = sender.nodes.get(clicked_uri);
                 let pane_id = `${clicked_uri.replace(/\//g, '-')}-pane`;
                 let canvas_offset = sender.vis_div.offset();
                 let pane_x = params.pointer.DOM.x + canvas_offset.left;
@@ -1321,9 +1334,13 @@ class ContentGraph {
                                 <span id="${pane_id}-extrude" title="Hide" data-uri="${clicked_uri}" class="popup-button far fa-eye-slash"></span>
                                 <a href="${clicked_uri}/" target="_blank"><span title="Open" class="popup-button float-right fas fa-external-link-square-alt"></span></a>
                             </div>
-                            <iframe src="${clicked_uri}/?popup=y" frameBorder="0" width="200px" height="200px" />
+                            <div id="${pane_id}-meta">
+                            </div>
+                            <iframe id="${pane_id}-iframe" src="${clicked_uri}/?popup=y" frameBorder="0" width="200px" height="200px" />
                         </div>
                     `);
+
+                    sender.build_meta_controls(clicked_uri, pane_id);
 
                     $(`#${pane_id}-select`).click(function() {
                         let uri = $(this).data('uri');
@@ -1353,7 +1370,7 @@ class ContentGraph {
                     });
 
                     $(`#${pane_id}-sprawl`).click(function() {
-                        sender.sprawl_node($(this).data('uri'));
+                        sender.sprawl_node($(this).data('uri'), {pane_id: pane_id});
                     });
 
                     $(`#${pane_id}-extrude`).click(function() {
@@ -1381,8 +1398,7 @@ class ContentGraph {
             });
         });
 
-        this.seed_uris.map(uri => this.sprawl_node(uri, true));
-        //this.normalize_collapse_thickness();
+        this.seed_uris.map(uri => this.sprawl_node(uri, {sprawl_children: true}));
     }
 
     setup_legend() {
@@ -1600,14 +1616,27 @@ class ContentGraph {
         }
     }
 
-    sprawl_node(uri, sprawl_children=false) {
+    sprawl_node(uri, options={}) {
+        let opts = Object.assign(
+            {
+                sprawl_children: false,
+                pane_id: null,
+                meta_only: false,
+                sprawl_ct: null,
+                skip: -1,
+                resprawls: 0,
+            },
+            options
+        );
+
         let sender = this;
         let node_ct = uri.split('/').slice(-2)[0];
         let node_id = uri.split('/').slice(-1)[0];
+        let sprawl_node = this.nodes.get(uri);
         let skip = 0;
 
-        let sprawl_node = this.nodes.get(uri);
-        if (sprawl_node && sprawl_node.hasOwnProperty('skip')) {
+        if (opts.skip > 0) skip = opts.skip;
+        else if (sprawl_node && sprawl_node.hasOwnProperty('skip')) {
             skip = sprawl_node.skip;
         }
 
@@ -1622,6 +1651,12 @@ class ContentGraph {
         let hidden_param = this.hidden_cts.join(',');
         if (hidden_param) { net_json_params['hidden'] = hidden_param; }
 
+        if (opts.meta_only) {
+            net_json_params['meta-only'] = 'y';
+        }
+
+        if (opts.sprawl_ct) net_json_params['target-ct'] = opts.sprawl_ct;
+
         this.sprawls.push(false);
         clearTimeout(this.sprawl_timer);
         this.sprawl_timer = setTimeout(this.await_sprawls.bind(this), 2000);
@@ -1629,13 +1664,20 @@ class ContentGraph {
 
         this.corpora.get_network_json(this.corpus_id, node_ct, node_id, net_json_params, function(net_json) {
             let children = [];
+            let origin_plotted = false;
+            let nodes_added = 0;
 
             net_json.nodes.map(n => {
                 if (n.id !== sender.corpus_uri && !sender.nodes.get(n.id) && !sender.extruded_nodes.includes(n.id)) {
                     n.label_data = unescape(n.label);
                     sender.format_label(n);
+                    if (n.id === uri) {
+                        n.meta = net_json.meta;
+                        origin_plotted = true;
+                    }
                     sender.nodes.add(n);
-                    if (sprawl_children) {
+                    nodes_added += 1;
+                    if (opts.sprawl_children) {
                         children.push(n.id);
                     }
                 }
@@ -1648,12 +1690,33 @@ class ContentGraph {
                 }
             });
 
-            if (sprawl_children) {
+            if (!origin_plotted) {
+                sender.nodes.update([{'id': uri, 'meta': net_json.meta}]);
+            }
+
+            if (opts.sprawl_children) {
                 children.map(child_uri => sender.sprawl_node(child_uri));
+            }
+
+            if (!opts.meta_only && !opts.sprawl_ct && sprawl_node && sprawl_node.hasOwnProperty('meta') && nodes_added === 0) {
+                let plotted = sender.network.getConnectedEdges(uri).length;
+                let total_count = 0;
+                for (let path in sprawl_node.meta) {
+                    if (!sprawl_node.meta[path].collapsed) {
+                        total_count += sprawl_node.meta[path].count;
+                    }
+                }
+                if (plotted < total_count && opts.resprawls < 10) {
+                    opts.resprawls += 1;
+                    sender.sprawl_node(uri, opts);
+                }
+            }
+            if (opts.pane_id) {
+                sender.build_meta_controls(uri, opts.pane_id);
             }
         });
 
-        if (sprawl_node) {
+        if (sprawl_node && !opts.meta_only && !opts.sprawl_ct) {
             sprawl_node.skip = skip += this.per_type_limit;
             sender.nodes.update(sprawl_node);
         }
@@ -1671,12 +1734,60 @@ class ContentGraph {
             this.setup_legend();
 
             if (this.first_start) {
+                // PIN ALL SEED NODES
                 this.seed_uris.map(seed_uri => {
                     this.nodes.update([{id: seed_uri, fixed: true}]);
-                    console.log(seed_uri);
                 });
+
                 this.first_start = false;
             }
+        }
+    }
+
+    build_meta_controls(uri, pane_id) {
+        let sender = this;
+        let node = this.nodes.get(uri);
+        let meta_div = $(`#${pane_id}-meta`);
+        meta_div.html('');
+        if (!node.hasOwnProperty('meta')) {
+            this.sprawl_node(uri, {pane_id: pane_id, meta_only: true});
+        } else {
+            let node_edge_ids = this.network.getConnectedEdges(uri);
+            let ct_counts = {};
+
+            node_edge_ids.map(e_id => {
+                let e_parts = e_id.split('-');
+                let other = e_parts[1];
+                if (other.includes(node.group)) other = e_parts[0];
+                let other_ct = other.split('/').slice(-2)[0];
+                if (other_ct in ct_counts) ct_counts[other_ct] += 1;
+                else ct_counts[other_ct] = 1;
+            });
+
+            for (let path in node.meta) {
+                let path_parts = path.split('-');
+                let sprawl_ct = path_parts[path_parts.length - 1];
+                if (this.groups.hasOwnProperty(sprawl_ct)) {
+                    let plotted = ct_counts.hasOwnProperty(sprawl_ct) ? ct_counts[sprawl_ct] : 0;
+                    meta_div.append(`
+                        <span
+                            class="badge mr-1 p-1 meta-badge"
+                            style="background-color: ${this.groups[sprawl_ct].color}; color: #FFFFFF; cursor: pointer;"
+                            data-uri="${uri}" data-sprawl_ct="${sprawl_ct}" data-skip="${plotted}"
+                        >
+                            ${sprawl_ct} (${plotted} / ${node.meta[path].collapsed ? 'collapsed' : node.meta[path].count})
+                        </span>
+                    `);
+                }
+            }
+
+            $('.meta-badge').off('click').on('click', function() {
+                sender.sprawl_node($(this).data('uri'), {
+                    pane_id: pane_id,
+                    sprawl_ct: $(this).data('sprawl_ct'),
+                    skip: parseInt($(this).data('skip'))
+                });
+            });
         }
     }
 
@@ -1686,7 +1797,7 @@ class ContentGraph {
         this.first_start = true;
 
         this.seed_uris.map(uri => {
-            this.sprawl_node(uri, true);
+            this.sprawl_node(uri, {sprawl_children: true});
         });
     }
 
@@ -1777,10 +1888,33 @@ class ContentGraph {
             this.edges.update(updated_edges);
         });
 
+        let update_nodes = [];
+        let aggregated_edge_cts = this.collapsed_relationships.map(rel => rel.to_ct);
         this.nodes.map(node => {
-            node.value = this.network.getConnectedEdges(node.id).length;
-            this.nodes.update(node);
+            let update_node = {id: node.id, value: 0, mass: 0};
+
+            if (aggregated_edge_cts.includes(node.group)) {
+                let conn_edge_ids = this.network.getConnectedEdges(node.id);
+                update_node.value = 0;
+                conn_edge_ids.map(conn_edge_id => {
+                    let conn_edge = this.edges.get(conn_edge_id);
+                    if (conn_edge.hasOwnProperty('freq')) {
+                        update_node.value += conn_edge.freq;
+                    } else {
+                        update_node.value += 1;
+                    }
+                });
+            } else {
+                update_node.value = this.network.getConnectedEdges(node.id).length;
+            }
+            update_node.mass = update_node.value > this.max_mass ? this.max_mass : update_node.value;
+
+            if ((!node.hasOwnProperty('value') || !node.hasOwnProperty('mass')) || (node.value !== update_node.value || node.mass !== update_node.mass)) {
+                update_nodes.push(update_node);
+            }
         });
+
+        if (update_nodes.length) this.nodes.update(update_nodes);
     }
 
     remove_unpinned_panes() {
