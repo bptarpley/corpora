@@ -288,6 +288,11 @@ def corpus(request, corpus_id):
             # HANDLE NOTEBOOK LAUNCH
             elif 'launch-notebook' in request.POST:
                 if corpus.path:
+                    running_notebooks = subprocess.check_output("jupyter notebook list".split()).decode('utf-8')
+                    if '0.0.0.0:9999' in running_notebooks:
+                        subprocess.Popen("jupyter notebook stop 9999".split())
+                        sleep(2)
+
                     notebook_path = "{0}/corpus_notebook.ipynb".format(corpus.path)
                     jupyter_token = "{0}{1}".format(corpus_id, response['scholar'].id)
                     notebook_url = "/notebook/notebooks/corpus_notebook.ipynb?token={0}".format(jupyter_token)
@@ -1010,7 +1015,7 @@ def get_file(request, file_uri):
         ) or uri_dict['corpus'] in get_open_access_corpora():
             results = run_neo(
                 '''
-                    MATCH (f:File { uri: $file_uri })
+                    MATCH (f:_File { uri: $file_uri })
                     return f.path as file_path
                 ''',
                 {
@@ -1119,7 +1124,7 @@ def get_image(
         if context['scholar'].is_admin or uri_dict['corpus'] in context['scholar'].available_corpora.keys():
             results = run_neo(
                 '''
-                    MATCH (f:File { uri: $image_uri, is_image: true })
+                    MATCH (f:_File { uri: $image_uri, is_image: true })
                     return f.path as file_path
                 ''',
                 {
