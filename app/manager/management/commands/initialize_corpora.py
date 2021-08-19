@@ -123,21 +123,21 @@ class Command(BaseCommand):
             if ":Corpus" not in constraints:
                 neo.run("CREATE CONSTRAINT ON(c:Corpus) ASSERT c.uri IS UNIQUE")
                 constraint_created = True
-            if ":File" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(f:File) ASSERT f.uri IS UNIQUE")
-                neo.run("CREATE INDEX ON :File(corpus_id)")
+            if ":_File" not in constraints:
+                neo.run("CREATE CONSTRAINT ON(f:_File) ASSERT f.uri IS UNIQUE")
+                neo.run("CREATE INDEX ON :_File(corpus_id)")
                 constraint_created = True
-            if ":JobSite" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(js:JobSite) ASSERT js.uri IS UNIQUE")
+            if ":_JobSite" not in constraints:
+                neo.run("CREATE CONSTRAINT ON(js:_JobSite) ASSERT js.uri IS UNIQUE")
                 constraint_created = True
-            if ":Task" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(t:Task) ASSERT t.uri IS UNIQUE")
+            if ":_Task" not in constraints:
+                neo.run("CREATE CONSTRAINT ON(t:_Task) ASSERT t.uri IS UNIQUE")
                 constraint_created = True
-            if ":Job" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(j:Job) ASSERT j.uri IS UNIQUE")
+            if ":_Job" not in constraints:
+                neo.run("CREATE CONSTRAINT ON(j:_Job) ASSERT j.uri IS UNIQUE")
                 constraint_created = True
-            if ":Process" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(p:Process) ASSERT p.uri IS UNIQUE")
+            if ":_Process" not in constraints:
+                neo.run("CREATE CONSTRAINT ON(p:_Process) ASSERT p.uri IS UNIQUE")
                 constraint_created = True
 
             if constraint_created:

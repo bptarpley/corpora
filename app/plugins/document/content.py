@@ -6,6 +6,7 @@ import os
 import shutil
 import mongoengine
 from corpus import Content, File, run_neo, get_corpus
+from manager.utilities import _contains
 from natsort import natsorted
 from datetime import datetime
 from django.utils.text import slugify
@@ -201,7 +202,7 @@ class Page(mongoengine.EmbeddedDocument):
         
             run_neo('''
                     MATCH (d:{content_type} {{ uri: $doc_uri }})
-                    MERGE (p:Page {{ uri: $page_uri }})
+                    MERGE (p:_Page {{ uri: $page_uri }})
                     SET p.label = $page_label
                     SET p.corpus_id = $corpus_id
                     SET p.ref_no = $page_ref_no
@@ -217,17 +218,20 @@ class Page(mongoengine.EmbeddedDocument):
             )
 
             for file_key, file in self.files.items():
-                file._do_linking(content_type='Page', content_uri=page_uri)
+                file._do_linking(content_type='_Page', content_uri=page_uri)
 
     def to_dict(self, parent_uri):
         self_uri = "{0}/page/{1}".format(parent_uri, self.ref_no)
-        return {
+        self_dict = {
             'uri': self_uri,
             'instance': self.instance,
             'label': self.label,
             'ref_no': self.ref_no,
-            'files': [file.to_dict(self_uri) for file_key, file in self.files.items()]
+            'files': {}
         }
+        for file_key, file in self.files.items():
+            self_dict['files'][file_key] = file.to_dict(self_uri)
+        return self_dict
 
 
 class PageNavigator(object):
@@ -295,7 +299,7 @@ class Document(Content):
             '''
             cached_pfcs = run_neo(
                 # triple quotes
-                    MATCH (d:Document { uri: $doc_uri }) -[:hasPageFileCollection]-> (pfc:PageFileCollection)
+                    MATCH (d:Document { uri: $doc_uri }) -[:hasPageFileCollection]-> (pfc:_PageFileCollection)
                     RETURN pfc
                 # triple quotes
                 ,
@@ -368,7 +372,7 @@ class Document(Content):
         pfc = {}
         results = run_neo(
             '''
-                MATCH (pfc:PageFileCollection { uri: $pfc_uri })
+                MATCH (pfc:_PageFileCollection { uri: $pfc_uri })
                 RETURN pfc
             '''
             ,
@@ -410,6 +414,45 @@ class Document(Content):
         doc_dict.update(super().to_dict(ref_only))
 
         return doc_dict
+
+    def from_dict(self, dict):
+        core_fields = ['title', 'work', 'expression', 'manifestation', 'author', 'pub_date']
+        page_fields = ['instance', 'label', 'ref_no']
+        file_fields = ['primary_witness', 'path', 'basename', 'extension', 'byte_size', 'description', 'provenance_type', 'provenance_id', 'height', 'width', 'iiif_info']
+
+        if _contains(dict, core_fields):
+            for core_field in core_fields:
+                setattr(self, core_field, dict[core_field])
+
+        for ref_no, page_dict in dict['pages'].items():
+            p = Page()
+
+            if _contains(page_dict, page_fields):
+                for page_field in page_fields:
+                    setattr(p, page_field, page_dict[page_field])
+
+            for file_key, file_dict in page_dict['files'].items():
+                f = File()
+                if _contains(file_dict, file_fields):
+                    for file_field in file_fields:
+                        setattr(f, file_field, file_dict[file_field])
+
+                p.files[file_key] = f
+
+            self.pages[ref_no] = p
+
+        for file_key, file_dict in dict['files'].items():
+            f = File()
+            if _contains(file_dict, file_fields):
+                for file_field in file_fields:
+                    setattr(f, file_field, file_dict[file_field])
+
+            self.files[file_key] = f
+
+        # Extra fields defined by corpus
+        for ct_field in self._ct.fields:
+            if not ct_field.inherited and ct_field.name in dict:
+                setattr(self, ct_field.name, dict[ct_field.name])
 
     meta = {
         'abstract': True

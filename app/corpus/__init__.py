@@ -165,7 +165,7 @@ class Task(mongoengine.Document):
 
         # Create task node
         run_neo('''
-                MERGE (t:Task { uri: $task_uri })
+                MERGE (t:_Task { uri: $task_uri })
                 SET t.name = $task_name
             ''',
             {
@@ -196,7 +196,7 @@ class Task(mongoengine.Document):
         # completed tasks. That way, document files can still maintain provenance.
 
         run_neo('''
-                MATCH (t:Task { uri: $task_uri })
+                MATCH (t:_Task { uri: $task_uri })
                 DETACH DELETE t
             ''',
             {
@@ -232,7 +232,7 @@ class JobSite(mongoengine.Document):
 
         # Create jobsite node
         run_neo('''
-                MERGE (js:JobSite { uri: $js_uri })
+                MERGE (js:_JobSite { uri: $js_uri })
                 SET js.name = $js_name
                 SET js.type = $js_type
             ''',
@@ -246,8 +246,8 @@ class JobSite(mongoengine.Document):
         # Create relationships with registered tasks
         for task_name, task_info in self.task_registry.items():
             run_neo('''
-                    MATCH (js:JobSite { uri: $js_uri })
-                    MATCH (t:Task { uri: $task_uri })
+                    MATCH (js:_JobSite { uri: $js_uri })
+                    MATCH (t:_Task { uri: $task_uri })
                     MERGE (js) -[:hasRegisteredTask]-> (t)
                 ''',
                 {
@@ -260,7 +260,7 @@ class JobSite(mongoengine.Document):
     @classmethod
     def _post_delete(self, sender, document, **kwargs):
         run_neo('''
-                MATCH (js:JobSite { uri: $jobsite_uri })
+                MATCH (js:_JobSite { uri: $jobsite_uri })
                 DETACH DELETE js
             ''',
             {
@@ -295,7 +295,7 @@ class Job(object):
     def _load(self, id):
         results = run_neo(
             '''
-                MATCH (j:Job { uri: $job_uri })
+                MATCH (j:_Job { uri: $job_uri })
                 return j
             ''',
             {
@@ -333,7 +333,7 @@ class Job(object):
         # check process completion
         results = run_neo(
             '''
-                MATCH (j:Job { uri: $job_uri }) -[rel:hasProcess]-> (p:Process)
+                MATCH (j:_Job { uri: $job_uri }) -[rel:hasProcess]-> (p:_Process)
                 return p
             ''',
             {'job_uri': "/job/{0}".format(self.id)}
@@ -358,7 +358,7 @@ class Job(object):
             run_neo(
                 '''
                     MATCH (c:Corpus {{ uri: $corpus_uri }})
-                    MERGE (j:Job {{ uri: $job_uri }})
+                    MERGE (j:_Job {{ uri: $job_uri }})
                     SET j.corpus_id = $job_corpus_id
                     SET j.content_type = $job_content_type
                     SET j.content_id = $job_content_id
@@ -403,7 +403,7 @@ class Job(object):
                 '''
                     MATCH (c:Corpus {{ uri: $corpus_uri }})
                     MATCH (d:{0} {{ uri: $content_uri }})
-                    MERGE (j:Job {{ uri: $job_uri }})
+                    MERGE (j:_Job {{ uri: $job_uri }})
                     SET j.corpus_id = $job_corpus_id
                     SET j.content_type = $job_content_type
                     SET j.content_id = $job_content_id
@@ -479,7 +479,7 @@ class Job(object):
 
         run_neo(
             '''
-                MATCH (j:Job { uri: $job_uri })
+                MATCH (j:_Job { uri: $job_uri })
                 SET j.status = $job_status
                 SET j.status_time = $job_status_time
                 SET j.percent_complete = $percent_complete
@@ -504,8 +504,8 @@ class Job(object):
     def add_process(self, process_id):
         run_neo(
             '''
-                MATCH (j:Job { uri: $job_uri })
-                MERGE (p:Process { uri: $process_uri })
+                MATCH (j:_Job { uri: $job_uri })
+                MERGE (p:_Process { uri: $process_uri })
                 SET p.status = 'running'
                 SET p.created = $process_created
                 MERGE (j) -[rel:hasProcess]-> (p)
@@ -520,7 +520,7 @@ class Job(object):
     def complete_process(self, process_id):
         run_neo(
             '''
-                MATCH (j:Job { uri: $job_uri }) -[rel:hasProcess]-> (p:Process { uri: $process_uri })
+                MATCH (j:_Job { uri: $job_uri }) -[rel:hasProcess]-> (p:_Process { uri: $process_uri })
                 SET p.status = 'complete'
             ''',
             {
@@ -532,7 +532,7 @@ class Job(object):
     def clear_processes(self):
         run_neo(
             '''
-                MATCH (j:Job { uri: $job_uri }) -[rel:hasProcess]-> (p:Process)
+                MATCH (j:_Job { uri: $job_uri }) -[rel:hasProcess]-> (p:_Process)
                 DETACH DELETE p
             ''',
             {'job_uri': "/job/{0}".format(self.id)}
@@ -541,7 +541,7 @@ class Job(object):
     def kill(self):
         results = run_neo(
             '''
-                MATCH (j:Job { uri: $job_uri }) -[rel:hasProcess]-> (p:Process)
+                MATCH (j:_Job { uri: $job_uri }) -[rel:hasProcess]-> (p:_Process)
                 return p
             ''',
             {'job_uri': "/job/{0}".format(self.id)}
@@ -558,7 +558,7 @@ class Job(object):
 
         run_neo(
             '''
-                MATCH (j:Job { uri: $job_uri })
+                MATCH (j:_Job { uri: $job_uri })
                 OPTIONAL MATCH (j) -[rel:hasProcess]-> (p)
                 DETACH DELETE j, p
             ''',
@@ -629,7 +629,7 @@ class Job(object):
 
         run_neo(
             '''
-                MATCH (j:Job { uri: $job_uri })
+                MATCH (j:_Job { uri: $job_uri })
                 OPTIONAL MATCH (j) -[rel:hasProcess]-> (p)
                 DETACH DELETE j, p
             ''',
@@ -667,14 +667,14 @@ class Job(object):
         if not corpus_id and not content_type and not content_id:
             results = run_neo(
                 '''
-                    MATCH (j:Job)
+                    MATCH (j:_Job)
                     {0}
                 '''.format(return_statement), {}
             )
         elif corpus_id and not content_type:
             results = run_neo(
                 '''
-                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[rel:hasJob]-> (j:Job)
+                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[rel:hasJob]-> (j:_Job)
                     {0}
                 '''.format(return_statement),
                 {
@@ -684,7 +684,7 @@ class Job(object):
         elif corpus_id and content_type and not content_id:
             results = run_neo(
                 '''
-                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:Job) <-[:hasJob]- (d:{0})
+                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:_Job) <-[:hasJob]- (d:{0})
                     {1}
                 '''.format(content_type, return_statement),
                 {
@@ -694,7 +694,7 @@ class Job(object):
         elif corpus_id and content_type and content_id:
             results = run_neo(
                 '''
-                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:Job) <-[:hasJob]- (d:{0} {{ uri: $content_uri }})
+                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:_Job) <-[:hasJob]- (d:{0} {{ uri: $content_uri }})
                     {1}
                 '''.format(content_type, return_statement),
                 {
@@ -1020,7 +1020,7 @@ class File(mongoengine.EmbeddedDocument):
             run_neo(
                 '''
                     MATCH (n:{content_type} {{ uri: $content_uri }})
-                    MERGE (f:File {{ uri: $file_uri }})
+                    MERGE (f:_File {{ uri: $file_uri }})
                     SET f.path = $file_path
                     SET f.corpus_id = $corpus_id
                     SET f.is_image = $is_image
@@ -1038,7 +1038,7 @@ class File(mongoengine.EmbeddedDocument):
     def _unlink(self, content_uri):
         run_neo(
             '''
-                MATCH (f:File { uri: $file_uri })
+                MATCH (f:_File { uri: $file_uri })
                 DETACH DELETE f
             ''',
             {
@@ -2369,6 +2369,68 @@ class Corpus(mongoengine.Document):
     def running_jobs(self):
         return Job.get_jobs(corpus_id=str(self.id))
 
+    def import_content_crystal(self, path):
+        content_path = None
+        crystal_path = None
+        last_step = path.split('/')[-1]
+
+        if last_step.endswith('.json'):
+            crystal_path = path
+            content_path = os.path.dirname(path)
+        else:
+            content_path = path
+            crystal_path = "{0}/{1}.json".format(path, last_step)
+
+        if content_path and crystal_path and os.path.exists(content_path) and os.path.exists(crystal_path):
+            content_dict = None
+            with open(crystal_path, 'r', encoding='utf-8') as crystal_in:
+                content_dict = json.load(crystal_in)
+
+            if content_dict:
+                ct_name = content_dict['content_type']
+                if ct_name in self.content_types:
+                    ct = self.content_types[ct_name]
+                    old_corpus_id = content_dict['corpus_id']
+
+                    content_json = None
+                    with open(crystal_path, 'r', encoding='utf-8') as crystal_in:
+                        content_json = crystal_in.read()
+
+                    content_json = content_json.replace(old_corpus_id, str(self.id))
+                    content_dict = json.loads(content_json)
+
+                    content_obj = self.get_content(ct_name)
+                    content_obj.id = ObjectId(content_dict['id'])
+                    content_obj.label = content_dict['label']
+                    content_obj.uri = content_dict['uri']
+
+                    successfully_saved = False
+
+                    if ct.inherited_from_module:
+                        from_dict_method = getattr(content_obj, "from_dict", None)
+                        if callable(from_dict_method):
+                            content_obj.from_dict(content_dict)
+                            content_obj.save()
+                            successfully_saved = True
+                    else:
+                        all_fields_present = True
+                        for field in ct.fields:
+                            if field.name in content_dict:
+                                setattr(content_obj, field.name, content_dict[field.name])
+                            else:
+                                all_fields_present = False
+                                break
+
+                        if all_fields_present:
+                            content_obj.save()
+                            successfully_saved = True
+
+                    if successfully_saved:
+                        content_files = [f for f in os.listdir(content_path) if not f.startswith('.')]
+                        if len(content_files) > 1:
+                            content_obj._make_path(force=True)
+                            shutil.copytree(content_path, content_obj.path, dirs_exist_ok=True)
+
     def _make_path(self):
         corpus_path = "/corpora/{0}".format(self.id)
         os.makedirs("{0}/files".format(corpus_path), exist_ok=True)
@@ -2611,8 +2673,8 @@ class Content(mongoengine.Document):
             return True
         return False
 
-    def _make_path(self):
-        if not self.path and self._ct.has_file_field:
+    def _make_path(self, force=False):
+        if not self.path and (self._ct.has_file_field or force):
             breakout_dir = str(self.id)[-6:-2]
             self.path = "/corpora/{0}/{1}/{2}/{3}".format(self.corpus_id, self.content_type, breakout_dir, self.id)
             os.makedirs(self.path + "/files", exist_ok=True)
@@ -2815,6 +2877,22 @@ class Content(mongoengine.Document):
             if field == 'id':
                 field_values[field] = ObjectId(field_values[field])
             setattr(self, field, field_values[field])
+
+    def crystalize(self):
+        if not self.path:
+            _make_path(force=True)
+            self.update(set__path=self.path)
+
+        make_crystal = True
+        crystal_path = "{0}/{1}.json".format(self.path, self.id)
+        if os.path.exists(crystal_path):
+            crystal_updated = datetime.fromtimestamp(os.path.getmtime(crystal_path))
+            if crystal_updated > self.last_updated:
+                make_crystal = False
+
+        if make_crystal:
+            with open(crystal_path, 'w', encoding='utf-8') as crystal_out:
+                json.dump(self.to_dict(), crystal_out, indent=4)
 
     meta = {
         'abstract': True

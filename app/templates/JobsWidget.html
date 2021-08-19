@@ -38,7 +38,7 @@
                         if (stale_jobs.includes(job.id)) { stale_jobs = stale_jobs.filter(e => e !== job.id); }
 
                         let progress_value = job.percent_complete;
-                        if (job.status == 'preparing') {
+                        if (job.status === 'preparing') {
                             progress_value = 0;
                         }
 
@@ -48,9 +48,9 @@
                         }
 
                         if ($(`#running-job-${job.id}-div`).length) {
-                            $(`#running-job-${job.id}-progress-bar`).css("width", progress_value);
+                            $(`#running-job-${job.id}-progress-bar`).css("width", `${progress_value}%`);
                             $(`#running-job-${job.id}-progress-bar`).attr("aria-valuenow", progress_value);
-                            $(`#running-job-${job.id}-progress-bar`).html(progress_value);
+                            $(`#running-job-${job.id}-progress-bar`).html(`${progress_value}%`);
                         } else {
                             let kill_job_form = '';
                             let report_button = '';
@@ -110,6 +110,9 @@
                         running_jobs = running_jobs.filter(function (value, index, arr) {
                             return value !== stale_job_id;
                         });
+                        if (window.parent.hasOwnProperty('job_finished')) {
+                            window.parent.job_finished();
+                        }
                     });
                 }
                 else {

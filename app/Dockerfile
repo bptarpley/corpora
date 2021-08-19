@@ -1,4 +1,4 @@
-FROM python:3.7-slim-buster
+FROM python:3.8-slim-buster
 ENV PYTHONUNBUFFERED 1
 
 RUN apt-get update && apt-get install -y ca-certificates python3-pip git jupyter-notebook ghostscript libgs-dev imagemagick tesseract-ocr tesseract-ocr-eng

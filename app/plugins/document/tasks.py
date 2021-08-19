@@ -279,6 +279,15 @@ def extract_pdf_pages(job_id):
             job.set_status('running')
 
 
+# TODO: install PyMuPDF package
+# extract pages like so:
+'''
+import fitz
+doc = fitz.open('F1.pdf')
+for page in doc:
+    pix = page.getPixmap()
+    pix.writeImage('./F1_images/{0}.png'.format(page.number))
+'''
 @db_task(priority=1, context=True)
 def extract_pdf_page(job_id, pdf_file_path, page_num, image_dpi, split_images, primary_witness, task=None):
     job = Job(job_id)
@@ -497,7 +506,7 @@ def cache_page_file_collections(job_id):
     for slug in page_file_collections.keys():
         cypher = '''
             MATCH (d:Document { uri: $doc_uri })
-            MERGE (d) -[:hasPageFileCollection]-> (pfc:PageFileCollection { uri: $pfc_uri })
+            MERGE (d) -[:hasPageFileCollection]-> (pfc:_PageFileCollection { uri: $pfc_uri })
             SET pfc.created = $pfc_created
             SET pfc.slug = $pfc_slug
             SET pfc.label = $pfc_label

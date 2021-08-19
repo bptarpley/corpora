@@ -312,16 +312,20 @@ def draw_page_regions(request, corpus_id, document_id, ref_no):
                         ocr_file = file.path
                         page_regions = get_page_regions(file.path, 'HOCR')
 
+        image_dict = image_file.to_dict(parent_uri="/corpus/{0}/Document/{1}/page/{2}".format(
+            corpus_id,
+            document_id,
+            ref_no
+        ))
+
+        print(json.dumps(image_dict, indent=4))
+
         return render(
             request,
             'draw_regions.html',
             {
                 'response': response,
-                'image_file': image_file.to_dict(parent_uri="/corpus/{0}/Document/{1}/page/{2}".format(
-                    corpus_id,
-                    document_id,
-                    ref_no
-                )),
+                'image_file': image_dict,
                 'page_regions': page_regions,
                 'corpus': corpus,
                 'document': document,
@@ -447,9 +451,18 @@ def get_page_regions(ocr_file, ocr_type):
         elif ocr_type == 'HOCR':
             with open(ocr_file, 'rb') as hocr_in:
                 hocr_obj = BeautifulSoup(hocr_in.read(), 'html.parser')
-            blocks = hocr_obj.find_all("div", class_="ocr_carea")
+            blocks = hocr_obj.find_all("span", class_="ocr_line")
             for block in blocks:
-                bbox_parts = block.attrs['title'].split()
+                title_attr = block.attrs['title']
+                bbox_string = title_attr
+
+                if ';' in title_attr:
+                    title_parts = title_attr.split(';')
+                    for title_part in title_parts:
+                        if 'bbox' in title_part:
+                            bbox_string = title_part
+
+                bbox_parts = bbox_string.split()
                 regions.append({
                     'x': int(bbox_parts[1]),
                     'y': int(bbox_parts[2]),
