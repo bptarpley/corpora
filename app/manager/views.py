@@ -1583,7 +1583,7 @@ def api_jobs(request, corpus_id=None, content_type=None, content_id=None):
     cached_jobsites = {}
     cached_tasks = {}
 
-    if not corpus_id and context['scholar'].is_admin:
+    if not corpus_id and context['scholar'] and context['scholar'].is_admin:
         payload['meta']['total'] = Job.get_jobs(count_only=True)
         results = Job.get_jobs(
             limit=limit,
