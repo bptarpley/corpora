@@ -60,10 +60,11 @@ def document(request, corpus_id, document_id):
                         files_to_process.append(import_file_path)
 
                 if files_to_process:
+                    image_split = _clean(request.POST, 'import-pages-split')
+                    primary_witness = _clean(request.POST, 'import-pages-primary')
+
                     if import_type == 'pdf':
                         image_dpi = _clean(request.POST, 'import-pages-image-dpi')
-                        image_split = _clean(request.POST, 'import-pages-split')
-                        primary_witness = _clean(request.POST, 'import-pages-primary')
                         extract_text = _clean(request.POST, 'import-pages-extract-text')
 
                         if '.pdf' in files_to_process[0].lower():
@@ -98,6 +99,21 @@ def document(request, corpus_id, document_id):
                                 }
                             )
                             run_job(job_id)
+
+                    elif import_type == 'images':
+                        # Get Local JobSite, PDF Import Task, and setup Job
+                        job_id = corpus.queue_local_job(
+                            content_type='Document',
+                            content_id=document_id,
+                            task_name='Import Document Pages from Images',
+                            scholar_id=response['scholar'].id,
+                            parameters={
+                                'import_files_json': json.dumps(files_to_process),
+                                'split_images': image_split,
+                                'primary_witness': primary_witness
+                            }
+                        )
+                        run_job(job_id)
                 else:
                     response['errors'].append("Error locating files to import.")
 
@@ -157,6 +173,34 @@ def document(request, corpus_id, document_id):
                         response['errors'].append("Start and end pages must be existing page numbers!")
                 else:
                     response['errors'].append("A page set with that name already exists!")
+
+            # HANDLE TRANSCRIPTION FORM
+            elif _contains(request.POST, ['trans-project',
+                                          'trans-name',
+                                          'trans-pageset',
+                                          'trans-image-pfc',
+                                          'trans-ocr-pfc',
+                                          'trans-level']):
+
+                trans_project_id = _clean(request.POST, 'trans-project')
+
+                if trans_project_id == 'new':
+                    trans_project = corpus.get_content('TranscriptionProject')
+                    trans_project.name = _clean(request.POST, 'trans-name')
+                    trans_project.document = document.id
+                    trans_project.pageset = _clean(request.POST, 'trans-pageset')
+                    trans_project.image_pfc = _clean(request.POST, 'trans-image-pfc')
+                    trans_project.ocr_pfc = _clean(request.POST, 'trans-ocr-pfc')
+                    trans_project.transcription_level = _clean(request.POST, 'trans-level')
+                    trans_project.allow_markup = 'trans-markup' in request.POST
+                    trans_project.save()
+                    trans_project_id = str(trans_project.id)
+
+                return redirect("/corpus/{0}/Document/{1}/transcribe/{2}/".format(
+                    corpus_id,
+                    document_id,
+                    trans_project_id
+                ))
 
             # HANDLE TASK FORM SUBMISSION
             elif _contains(request.POST, ['jobsite', 'task']):
@@ -278,6 +322,111 @@ def tei_skeleton(request, corpus_id, document_id):
             template.render(template_context),
             content_type="application/xml"
         )
+    else:
+        raise Http404("Corpus does not exist, or you are not authorized to view it.")
+
+
+@login_required
+def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
+    response = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
+
+    if corpus and (response['scholar'].is_admin or role == 'Editor'):
+        document = corpus.get_content('Document', document_id)
+        project = corpus.get_content('TranscriptionProject', project_id)
+        pageset = None
+        image_pfc = None
+        image_file = None
+        ocr_pfc = None
+        ocr_file = None
+        transcription = None
+        page_regions = []
+
+        if document and project:
+            if project.pageset != 'all' and project.pageset in document.page_sets:
+                pageset = project.pageset
+
+            if project.image_pfc:
+                image_pfc = document.get_page_file_collection(project.image_pfc, pageset)
+
+            if project.ocr_pfc:
+                ocr_pfc = document.get_page_file_collection(project.ocr_pfc, pageset)
+
+            if not ref_no:
+                transcriptions = corpus.get_content(
+                    'Transcription',
+                    {'project': project.id},
+                    only=['page_refno', 'complete']
+                )
+                if transcriptions:
+                    for ordered_ref_no, page in document.ordered_pages(pageset):
+                        trans_found = False
+                        for trans in transcriptions:
+                            if trans.page_refno == ordered_ref_no and trans.complete:
+                                trans_found = True
+                                break
+                        if not trans_found:
+                            ref_no = ordered_ref_no
+                            break
+                else:
+                    if pageset:
+                        ref_no = document.page_sets[pageset].ref_nos[0]
+                    else:
+                        ref_no = "1"
+
+            if ref_no and ref_no in document.ordered_pages(pageset).ordered_ref_nos:
+                if image_pfc and ref_no in image_pfc['page_files']:
+                    image_file = image_pfc['page_files'][ref_no]
+                    transcription = corpus.get_content('Transcription', {
+                        'project': project.id,
+                        'page_refno': ref_no
+                    }, single_result=True)
+
+                    if not transcription:
+                        transcription = corpus.get_content('Transcription')
+                        transcription.project = project.id
+                        transcription.page_refno = ref_no
+                        transcription.data = ''
+                        transcription.complete = False
+                        transcription.save()
+                else:
+                    raise Http404("This document page has no relevant image.")
+
+            if transcription:
+                if ocr_pfc and ref_no in ocr_pfc['page_files']:
+                    ocr_file = ocr_pfc['page_files'][ref_no]
+
+                if transcription.data:
+                    page_regions = json.loads(transcription.data)
+                else:
+                    if os.path.exists(ocr_file['path']):
+                        if ocr_file['path'].lower().endswith('.object'):
+                            page_regions = get_page_regions(ocr_file['path'], 'GCV', project.transcription_level)
+                        elif ocr_file['path'].lower().endswith('.hocr'):
+                            page_regions = get_page_regions(ocr_file['path'], 'HOCR', project.transcription_level)
+
+                    if page_regions:
+                        transcription.data = json.dumps(page_regions)
+                        transcription.save()
+
+        if image_file and transcription:
+            return render(
+                request,
+                'transcribe.html',
+                {
+                    'response': response,
+                    'project': project,
+                    'project_pages': document.ordered_pages(pageset).ordered_ref_nos,
+                    'image_file': image_file,
+                    'page_regions': page_regions,
+                    'corpus': corpus,
+                    'document': document,
+                    'ocr_file': ocr_file,
+                    'ref_no': ref_no
+                }
+            )
+        else:
+            raise Http404("Corpus does not exist, or you are not authorized to view it.")
     else:
         raise Http404("Corpus does not exist, or you are not authorized to view it.")
 
@@ -405,7 +554,7 @@ def get_document_iiif_manifest(request, corpus_id, document_id, collection=None,
             })
             return HttpResponse(
                 template.render(template_context),
-                content_type=template_format.mime_type
+                content_type='application/json'
             )
     else:
         raise Http404("Corpus does not exist, or you are not authorized to view it.")
@@ -414,19 +563,19 @@ def get_document_iiif_manifest(request, corpus_id, document_id, collection=None,
 def get_document_page_file_collections(scholar, corpus_id, document_id, pfc_slug=None):
     page_file_collections = {}
     corpus, role = get_scholar_corpus(corpus_id, scholar, only=['id'])
-    if corpus:
+    document = corpus.get_content('Document', document_id)
+
+    if corpus and document:
         if pfc_slug:
-            pfc = Document.get_page_file_collection(corpus_id, document_id, pfc_slug)
+            pfc = document.get_page_file_collection(pfc_slug)
             if pfc:
                 page_file_collections[pfc_slug] = pfc
         else:
-            document = corpus.get_content('Document', document_id)
-            if document:
-                page_file_collections = document.page_file_collections
+            page_file_collections = document.page_file_collections
     return page_file_collections
 
 
-def get_page_regions(ocr_file, ocr_type):
+def get_page_regions(ocr_file, ocr_type, granularity='line'):
     regions = []
 
     if os.path.exists(ocr_file):
@@ -451,7 +600,13 @@ def get_page_regions(ocr_file, ocr_type):
         elif ocr_type == 'HOCR':
             with open(ocr_file, 'rb') as hocr_in:
                 hocr_obj = BeautifulSoup(hocr_in.read(), 'html.parser')
-            blocks = hocr_obj.find_all("span", class_="ocr_line")
+
+            blocks = []
+            if granularity == 'line':
+                blocks = hocr_obj.find_all("span", class_="ocr_line")
+            else:
+                blocks = hocr_obj.find_all("p", class_="ocr_par")
+
             for block in blocks:
                 title_attr = block.attrs['title']
                 bbox_string = title_attr
@@ -461,6 +616,7 @@ def get_page_regions(ocr_file, ocr_type):
                     for title_part in title_parts:
                         if 'bbox' in title_part:
                             bbox_string = title_part
+                            break
 
                 bbox_parts = bbox_string.split()
                 regions.append({

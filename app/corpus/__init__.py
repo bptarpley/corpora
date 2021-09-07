@@ -733,7 +733,7 @@ class Scholar(mongoengine.Document):
 
         # Create/update scholar node
         run_neo('''
-                MERGE (s:Scholar { uri: $scholar_uri })
+                MERGE (s:_Scholar { uri: $scholar_uri })
                 SET s.username = $scholar_username
                 SET s.name = $scholar_name
                 SET s.email = $scholar_email
@@ -750,17 +750,6 @@ class Scholar(mongoengine.Document):
 
         # Wire up permissions (not relevant if user is admin)
         for corpus_id, role in self.available_corpora.items():
-        #    run_neo(
-        #        '''
-        #            MATCH (s:Scholar {{ uri: $scholar_uri }})
-        #            MATCH (c:Corpus {{ uri: $corpus_uri }})
-        #            MERGE (s) -[:is{role}]-> (c)
-        #        '''.format(role=role),
-        #        {
-        #            'scholar_uri': "/scholar/{0}".format(self.id),
-        #            'corpus_uri': "/corpus/{0}".format(corpus_id)
-        #        }
-        #    )
             permissions += "{0}:{1},".format(corpus_id, role)
 
 
@@ -785,7 +774,7 @@ class Scholar(mongoengine.Document):
     def get_preference(self, content_type, content_uri, preference):
         results = run_neo(
             '''
-                MATCH (s:Scholar {{ uri: $scholar_uri }}) -[prefs:hasPreferences]-> (c:{content_type} {{ uri: $content_uri }})
+                MATCH (s:_Scholar {{ uri: $scholar_uri }}) -[prefs:hasPreferences]-> (c:{content_type} {{ uri: $content_uri }})
                 RETURN prefs.{preference} as preference
             '''.format(content_type=content_type, preference=preference),
             {
@@ -801,7 +790,7 @@ class Scholar(mongoengine.Document):
     def set_preference(self, content_type, content_uri, preference, value):
         run_neo(
             '''
-                MATCH (s:Scholar {{ uri: $scholar_uri }})
+                MATCH (s:_Scholar {{ uri: $scholar_uri }})
                 MATCH (c:{content_type} {{ uri: $content_uri }})
                 MERGE (s) -[prefs:hasPreferences]-> (c) 
                 SET prefs.{preference} = $value
@@ -817,7 +806,7 @@ class Scholar(mongoengine.Document):
     def _post_delete(cls, sender, document, **kwargs):
         # Delete Neo4J nodes
         run_neo('''
-                MATCH (s:Scholar { uri: $scholar_uri })
+                MATCH (s:_Scholar { uri: $scholar_uri })
                 DETACH DELETE s
             ''',
             {

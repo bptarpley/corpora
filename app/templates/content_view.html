@@ -191,7 +191,7 @@
         $(document).ready(function() {
             $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
                 if (e.target.id === 'explore-tab') {
-                    network.network.fit();
+                    network.network.fit({nodes: [content.uri]});
                 }
             });
 

@@ -2021,18 +2021,18 @@
             commentary_observer = new IntersectionObserver(function(entries) {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
-                    /*
-                    $(entries[0].target).remove();
-                    if (remaining_commentaries) {
-                        last_visible_line += 20;
-                        load_commentary();
-                    }*/
-                    let comm_xml_id = entry.target.id.replace('commentary-note-', '');
-                    let comm_content_div = $(`#commentary-content-${comm_xml_id}`);
-                    if (!comm_content_div.html()) {
-                        show_commentary($(entry.target), comm_content_div);
+                        /*
+                        $(entries[0].target).remove();
+                        if (remaining_commentaries) {
+                            last_visible_line += 20;
+                            load_commentary();
+                        }*/
+                        let comm_xml_id = entry.target.id.replace('commentary-note-', '');
+                        let comm_content_div = $(`#commentary-content-${comm_xml_id}`);
+                        if (!comm_content_div.html()) {
+                            show_commentary($(entry.target), comm_content_div);
+                        }
                     }
-                }
                 });
             }, { threshold: [0] });
 

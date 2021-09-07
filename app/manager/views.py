@@ -1334,7 +1334,8 @@ def api_network_json(request, corpus_id, content_type, content_id):
         distinct_relationships = run_neo(
             '''
                 MATCH (a:{origin}) -[b]- (c)
-                WHERE a.uri = '{uri}' {exclusions}
+                WHERE a.uri = '{uri}'
+                AND ANY(l in labels(c) WHERE NOT l STARTS WITH '_') {exclusions}
                 RETURN distinct type(b) as REL, labels(c) as CT, count(labels(c)) as COUNT
             '''.format(
                     origin=content_type,
