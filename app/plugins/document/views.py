@@ -340,9 +340,40 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
         ocr_pfc = None
         ocr_file = None
         transcription = None
+        new_transcription = False
+        region_metadata = []
+        markup = {
+            'i': 'fas fa-italic'
+        }
         page_regions = []
 
+        if 'NVS' in corpus.name:
+            region_metadata.append('TLN')
+
         if document and project:
+            if request.method == 'POST' and 'ref-no' in request.POST:
+                ref_no = request.POST['ref-no']
+
+                transcription = corpus.get_content('Transcription', {
+                    'project': project.id,
+                    'page_refno': ref_no
+                }, single_result=True)
+
+                if 'data' in request.POST:
+                    trans_data = json.loads(request.POST['data'])
+                    transcription.data = json.dumps(trans_data)
+                    transcription.save()
+
+                    return HttpResponse(status=201)
+
+                if 'reset-page' in request.POST:
+                    transcription.delete()
+
+                if 'complete-page' in request.POST:
+                    transcription.complete = True
+                    transcription.save()
+                    return redirect('{0}/transcribe/{1}/'.format(document.uri, project_id))
+
             if project.pageset != 'all' and project.pageset in document.page_sets:
                 pageset = project.pageset
 
@@ -383,6 +414,7 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
                     }, single_result=True)
 
                     if not transcription:
+                        new_transcription = True
                         transcription = corpus.get_content('Transcription')
                         transcription.project = project.id
                         transcription.page_refno = ref_no
@@ -394,16 +426,18 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
 
             if transcription:
                 if ocr_pfc and ref_no in ocr_pfc['page_files']:
-                    ocr_file = ocr_pfc['page_files'][ref_no]
+                    ocr_file_obj = ocr_pfc['page_files'][ref_no]
+                    if ocr_file_obj and 'path' in ocr_file_obj:
+                        ocr_file = ocr_file_obj['path']
 
                 if transcription.data:
                     page_regions = json.loads(transcription.data)
-                else:
-                    if os.path.exists(ocr_file['path']):
-                        if ocr_file['path'].lower().endswith('.object'):
-                            page_regions = get_page_regions(ocr_file['path'], 'GCV', project.transcription_level)
-                        elif ocr_file['path'].lower().endswith('.hocr'):
-                            page_regions = get_page_regions(ocr_file['path'], 'HOCR', project.transcription_level)
+                elif new_transcription:
+                    if ocr_file and os.path.exists(ocr_file):
+                        if ocr_file.lower().endswith('.object'):
+                            page_regions = get_page_regions(ocr_file, 'GCV', project.transcription_level)
+                        elif ocr_file.lower().endswith('.hocr'):
+                            page_regions = get_page_regions(ocr_file, 'HOCR', project.transcription_level)
 
                     if page_regions:
                         transcription.data = json.dumps(page_regions)
@@ -418,11 +452,14 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
                     'project': project,
                     'project_pages': document.ordered_pages(pageset).ordered_ref_nos,
                     'image_file': image_file,
-                    'page_regions': page_regions,
+                    'page_regions': json.dumps(page_regions),
                     'corpus': corpus,
                     'document': document,
                     'ocr_file': ocr_file,
-                    'ref_no': ref_no
+                    'ref_no': ref_no,
+                    'region_metadata': region_metadata,
+                    'markup': markup,
+                    'popup': True
                 }
             )
         else:
@@ -619,18 +656,27 @@ def get_page_regions(ocr_file, ocr_type, granularity='line'):
                             break
 
                 bbox_parts = bbox_string.split()
-                regions.append({
-                    'x': int(bbox_parts[1]),
-                    'y': int(bbox_parts[2]),
-                    'width': int(bbox_parts[3]) - int(bbox_parts[1]),
-                    'height': int(bbox_parts[4]) - int(bbox_parts[2])
-                })
+                content = ''
+                words = block.find_all("span", class_="ocrx_word")
+                for word in words:
+                    content += word.text + ' '
+                content = content.strip()
+
+                if content:
+                    regions.append({
+                        'x': int(bbox_parts[1]),
+                        'y': int(bbox_parts[2]),
+                        'width': int(bbox_parts[3]) - int(bbox_parts[1]),
+                        'height': int(bbox_parts[4]) - int(bbox_parts[2]),
+                        'ocr_content': content.strip()
+                    })
 
     return regions
 
 
 def get_page_region_content(ocr_file, ocr_type, x, y, width, height):
     content = ""
+    pixel_margin = 5
 
     if os.path.exists(ocr_file):
         if ocr_type == 'GCV':
@@ -669,9 +715,9 @@ def get_page_region_content(ocr_file, ocr_type, x, y, width, height):
             words = hocr_obj.find_all("span", class_="ocrx_word")
             for word in words:
                 bbox_parts = word.attrs['title'].replace(';', '').split()
-                if int(bbox_parts[1]) >= x and \
-                        int(bbox_parts[2]) >= y and \
-                        int(bbox_parts[3]) <= (x + width) and \
-                        int(bbox_parts[4]) <= (y + height):
+                if int(bbox_parts[1]) >= x - pixel_margin and \
+                        int(bbox_parts[2]) >= y - pixel_margin and \
+                        int(bbox_parts[3]) <= (x + width + pixel_margin) and \
+                        int(bbox_parts[4]) <= (y + height + pixel_margin):
                     content += word.text + ' '
     return content.strip()

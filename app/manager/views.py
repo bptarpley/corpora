@@ -417,6 +417,9 @@ def edit_content(request, corpus_id, content_type, content_id=None):
     context = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
     edit_widget_url = None
+    content_ids = request.POST.get('content-ids', None)
+    content_query = request.POST.get('content-query', None)
+    bulk_edit_field_names = []
 
     if (context['scholar'].is_admin or role == 'Editor') and corpus and content_type in corpus.content_types:
         if corpus.content_types[content_type].edit_widget_url:
@@ -426,7 +429,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                 content_id=content_id
             )
 
-        if request.method == 'POST':
+        if request.method == 'POST' and 'corpora-content-edit' in request.POST:
             temp_file_fields = []
             multi_field_values = {}
             ct_fields = {}
@@ -446,69 +449,90 @@ def edit_content(request, corpus_id, content_type, content_id=None):
 
             # iterate over the POST params, assuming each one corresponds with a field value
             for field_param, field_value in request.POST.items():
-                param_parts = field_param.split('-')
-                field_name = param_parts[0]
+                if field_param not in ['corpora-content-edit', 'content-ids', 'content-query']:
+                    param_parts = field_param.split('-')
+                    field_name = param_parts[0]
 
-                if field_name in ct_fields:
-                    # set value for file fields
-                    if ct_fields[field_name].type == 'file':
-                        if field_value:
-                            base_path = "{corpus_path}/{content_type}/temporary_uploads".format(
-                                corpus_path=corpus.path,
-                                content_type=content_type
-                            )
+                    if field_name in ct_fields:
+                        bulk_edit_field_names.append(field_name)
 
-                            if content.id:
-                                base_path = "{content_path}/files".format(content_path=content.path)
-
-                            file_path = "{base_path}{sub_path}".format(
-                                base_path=base_path,
-                                sub_path=field_value
-                            )
-                            if os.path.exists(file_path):
-                                field_value = File.process(
-                                    file_path,
-                                    desc="{0} for {1}".format(ct_fields[field_name].label, content_type),
-                                    prov_type="Scholar",
-                                    prov_id=str(context['scholar'].id)
+                        # set value for file fields
+                        if ct_fields[field_name].type == 'file':
+                            if field_value:
+                                base_path = "{corpus_path}/{content_type}/temporary_uploads".format(
+                                    corpus_path=corpus.path,
+                                    content_type=content_type
                                 )
 
-                                if not content.id and field_name not in temp_file_fields:
-                                    temp_file_fields.append(field_name)
-                        else:
+                                if content.id:
+                                    base_path = "{content_path}/files".format(content_path=content.path)
+
+                                file_path = "{base_path}{sub_path}".format(
+                                    base_path=base_path,
+                                    sub_path=field_value
+                                )
+                                if os.path.exists(file_path):
+                                    field_value = File.process(
+                                        file_path,
+                                        desc="{0} for {1}".format(ct_fields[field_name].label, content_type),
+                                        prov_type="Scholar",
+                                        prov_id=str(context['scholar'].id)
+                                    )
+
+                                    if not content.id and field_name not in temp_file_fields:
+                                        temp_file_fields.append(field_name)
+                            else:
+                                field_value = None
+
+                        # set value for xref fields
+                        elif ct_fields[field_name].type == 'cross_reference':
+                            field_value = corpus.get_content(ct_fields[field_name].cross_reference_type, field_value).to_dbref()
+
+                        # set value for number/decimal fields
+                        elif ct_fields[field_name].type in ['number', 'decimal'] and not field_value:
                             field_value = None
+                        elif ct_fields[field_name].type == 'decimal':
+                            field_value = float(field_value)
 
-                    # set value for xref fields
-                    elif ct_fields[field_name].type == 'cross_reference':
-                        field_value = corpus.get_content(ct_fields[field_name].cross_reference_type, field_value).to_dbref()
+                        # set value for boolean fields
+                        elif ct_fields[field_name].type == 'boolean':
+                            field_value = True
 
-                    # set value for number/decimal fields
-                    elif ct_fields[field_name].type in ['number', 'decimal'] and not field_value:
-                        field_value = None
-                    elif ct_fields[field_name].type == 'decimal':
-                        field_value = float(field_value)
+                        # set value for date fields
+                        elif ct_fields[field_name].type == 'date' and not field_value:
+                            field_value = None
+                        elif ct_fields[field_name].type == 'date':
+                            field_value = parse_date_string(field_value)
 
-                    # set value for boolean fields
-                    elif ct_fields[field_name].type == 'boolean':
-                        field_value = True
-
-                    # set value for date fields
-                    elif ct_fields[field_name].type == 'date' and not field_value:
-                        field_value = None
-                    elif ct_fields[field_name].type == 'date':
-                        field_value = parse_date_string(field_value)
-
-                    # having parsed the value correctly depending on data type, now actually set the field value for
-                    # our content
-                    if ct_fields[field_name].multiple and len(param_parts) == 3:
-                        multi_field_values[field_name].append(field_value)
-                    else:
-                        setattr(content, field_name, field_value)
+                        # having parsed the value correctly depending on data type, now actually set the field value for
+                        # our content
+                        if ct_fields[field_name].multiple and len(param_parts) == 3:
+                            multi_field_values[field_name].append(field_value)
+                        else:
+                            setattr(content, field_name, field_value)
 
             for multi_field_name in multi_field_values.keys():
                 setattr(content, multi_field_name, multi_field_values[multi_field_name])
 
-            content.save()
+            if content_ids or content_query:
+                content_dict = content.to_dict()
+                bulk_edit_fields = {}
+                for field_name in bulk_edit_field_names:
+                    bulk_edit_fields[field_name] = content_dict[field_name]
+
+                run_job(corpus.queue_local_job(
+                    task_name='Bulk Edit Content',
+                    parameters={
+                        'content_type': content_type,
+                        'content_ids': content_ids,
+                        'content_query': content_query,
+                        'content_data': bulk_edit_fields
+                    }
+                ))
+
+                return redirect("/corpus/{0}/?msg=Bulk edit content job submitted.".format(corpus_id))
+            else:
+                content.save()
 
             if temp_file_fields:
                 for temp_file_field in temp_file_fields:
@@ -534,6 +558,8 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                 'content_type': content_type,
                 'edit_widget_url': edit_widget_url,
                 'content_id': content_id,
+                'content_ids': content_ids,
+                'content_query': content_query
             }
         )
     else:

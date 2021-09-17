@@ -420,7 +420,7 @@ class Job(object):
                     SET j.error = $job_error
                     SET j.percent_complete = $percent_complete
                     SET j.configuration = $job_configuration
-                    MERGE (c) -[:hasJob]-> (j) <-[:hasJob]- (d)
+                    MERGE (c) -[:hasJob]-> (j) -[:hasJobTarget]-> (d)
                 '''.format(self.content_type),
                 {
                     'corpus_uri': "/corpus/{0}".format(self.corpus_id),
@@ -684,7 +684,7 @@ class Job(object):
         elif corpus_id and content_type and not content_id:
             results = run_neo(
                 '''
-                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:_Job) <-[:hasJob]- (d:{0})
+                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:_Job) -[:hasJobTarget]-> (d:{0})
                     {1}
                 '''.format(content_type, return_statement),
                 {
@@ -694,7 +694,7 @@ class Job(object):
         elif corpus_id and content_type and content_id:
             results = run_neo(
                 '''
-                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:_Job) <-[:hasJob]- (d:{0} {{ uri: $content_uri }})
+                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:_Job) -[:hasJobTarget]-> (d:{0} {{ uri: $content_uri }})
                     {1}
                 '''.format(content_type, return_statement),
                 {

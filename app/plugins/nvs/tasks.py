@@ -369,7 +369,7 @@ def ensure_nvs_content_types(corpus):
 
     if nvs_doc_schema:
         nvs_doc_schema['fields'] += nvs_document_fields
-        nvs_doc_schema['templates']['Label']['template'] = "{{ Document.siglum_label|safe }}"
+        nvs_doc_schema['templates']['Label']['template'] = "{{ Document.siglum|safe }}"
 
         doc_schema_ensured = True
         if 'Document' in corpus.content_types:

@@ -38,6 +38,7 @@ REGISTRY = {
 @db_task(priority=2)
 def ocr_document_with_tesseract(job_id):
     job = Job(job_id)
+    job.set_status('running')
 
     try:
         page_file_collection_key = job.get_param_value('collection')
@@ -48,6 +49,11 @@ def ocr_document_with_tesseract(job_id):
         pages_per_worker = 5
         pages_allocated = 0
 
+        if primary_witness:
+            unset_primary(job.content, 'plain text')
+            unset_primary(job.content, 'hocr')
+            job.content.save()
+
         while pages_allocated < num_pages:
             starting_page = pages_allocated
             ending_page = starting_page + pages_per_worker
@@ -55,7 +61,6 @@ def ocr_document_with_tesseract(job_id):
             job.add_process(huey_task.id)
             pages_allocated = ending_page + 1
 
-        job.set_status('running')
     except:
         error = traceback.format_exc()
         print(error)
@@ -87,6 +92,7 @@ def ocr_pages_with_tesseract(job_id, starting_page, ending_page, primary_witness
                     file['path'],
                     page_file_results,
                     "-l", "eng",
+                    "--psm", "1",
                     "hocr", "txt"
                 ]
 
@@ -121,3 +127,11 @@ def complete_ocr_document_with_tesseract(job_id):
     job.content.save(index_pages=True)
     job.complete(status='complete')
 
+
+def unset_primary(doc, file_type):
+    page_keys = list(doc.pages.keys())
+    for page_key in page_keys:
+        file_keys = list(doc.pages[page_key].files.keys())
+        for file_key in file_keys:
+            if doc.pages[page_key].files[file_key].primary_witness and file_type.lower() in doc.pages[page_key].files[file_key].description.lower():
+                doc.pages[page_key].files[file_key].primary_witness = False

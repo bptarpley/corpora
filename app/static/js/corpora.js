@@ -459,7 +459,8 @@ class ContentTable {
                                     With selected:
                                     <select class="form-control-sm btn-primary ml-1 mr-1" id="ct-${ct.name}-selection-action-selector">
                                         <option value="explore" selected>Explore</option>
-                                        <option value="merge">Merge</option>
+                                        ${['Editor', 'Admin'].includes(role) ? '<option value="bulk-edit">Bulk Edit</option>' : ''}
+                                        ${['Editor', 'Admin'].includes(role) ? '<option value="merge">Merge</option>' : ''}
                                         ${['Editor', 'Admin'].includes(role) ? '<option value="create_view">Create View</option>' : ''}
                                         ${['Editor', 'Admin'].includes(role) ? '<option value="delete">Delete</option>' : ''}
                                     </select>
@@ -646,6 +647,13 @@ class ContentTable {
 
                 if (action === 'explore') {
                     multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/explore/`);
+                    multi_form.submit();
+                } else if (action === 'bulk-edit') {
+                    multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/`);
+                    if (selected_content.all) {
+                        multi_form.append(`<input id='multiselect-content-query' type='hidden' name='content-query'>`);
+                        $('#multiselect-content-query').val(JSON.stringify(search));
+                    }
                     multi_form.submit();
                 } else if (action === 'merge') {
                     multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/merge/`);
