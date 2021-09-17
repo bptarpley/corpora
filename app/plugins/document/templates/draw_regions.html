@@ -79,6 +79,8 @@
                 <h5 class="mt-3">Regions</h5>
                 <button id="draw-column" type="button" class="btn btn-primary m-1 mt-3">Draw</button>
                 <button id="edit-column" type="button" class="btn btn-primary m-1 d-none">Edit</button>
+                <button id="bolden" type="button" class="btn btn-primary m-1 d-none">Bolden</button>
+                <button id="italicize" type="button" class="btn btn-primary m-1 d-none">Italicize</button>
                 <button id="clear-columns" type="button" class="btn btn-secondary m-1">Clear</button>
                 <button id="reset-columns" type="button" class="btn btn-secondary m-1">Reset</button>
                 <button id="cancel-button" type="button" class="btn btn-secondary m-1">Cancel</button>
@@ -102,6 +104,7 @@
     <script src="{% static 'js/textFit.js' %}"></script>
     <script type="application/javascript">
         let delineate;
+        let viewbox;
         let canvas;
         let image;
         let column;
@@ -120,6 +123,7 @@
         let select_options = {
             pointSize: 10
         };
+        let selection;
         let image_width = {{ image_file.width }};
         let image_height = {{ image_file.height }};
         let ocr_lines = {{ page_regions|safe }};
@@ -133,7 +137,7 @@
                 .size("100%", "100%")
                 .attr('id', 'svg-delineator')
                 .panZoom(panzoom_options);
-            delineate.viewbox(0, 0, image_height, image_width);
+            viewbox = delineate.viewbox(0, 0, image_height, image_width);
             canvas = delineate.group().attr('class', 'delineator-canvas');
             image = canvas.image(corpora.image_url('{{ image_file.uri }}') + 'full/full/0/default.png').move(0, 0);
 
@@ -272,6 +276,30 @@
                     delete_column();
                     e.preventDefault();
                 }
+            });
+
+            document.addEventListener('selectionchange', function() {
+                selection = window.getSelection().getRangeAt(0);
+
+                /*
+                TO SURROUND SELECTED WITH TAG:
+
+                let r = selection.cloneRange();
+                r.surroundContents(document.createElement('i'));
+                 */
+                $('#bolden').removeClass('d-none');
+                $('#italicize').removeClass('d-none');
+
+            });
+
+            $('#bolden').click(function() {
+                let r = selection.cloneRange();
+                r.surroundContents(document.createElement('b'));
+            });
+
+            $('#italicize').click(function() {
+                let r = selection.cloneRange();
+                r.surroundContents(document.createElement('i'));
             });
 
             hide_loading_overlay();

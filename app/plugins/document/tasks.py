@@ -1,6 +1,8 @@
 import os
 import json
 import traceback
+import fitz
+from PIL import Image
 from subprocess import call
 from copy import deepcopy
 from datetime import datetime
@@ -10,7 +12,6 @@ from PyPDF2 import PdfFileReader
 from PyPDF2.pdf import ContentStream
 from PyPDF2.generic import TextStringObject, u_, b_
 from elasticsearch_dsl.connections import get_connection
-from django.conf import settings
 from django.utils.text import slugify
 from manager.utilities import _contains
 from zipfile import ZipFile
@@ -37,7 +38,7 @@ REGISTRY = {
         "functions": ['zip_up_page_file_collection']
     },
     "Import Document Pages from PDF": {
-        "version": "0.2",
+        "version": "0.3",
         "jobsite_type": "HUEY",
         "content_type": "Document",
         "track_provenance": True,
@@ -61,7 +62,28 @@ REGISTRY = {
             },
         },
         "module": 'plugins.document.tasks',
-        "functions": ['extract_pdf_pages', 'complete_pdf_page_extraction']
+        "functions": ['extract_pdf_pages']
+    },
+    "Import Document Pages from Images": {
+        "version": "0.0",
+        "jobsite_type": "HUEY",
+        "content_type": "Document",
+        "track_provenance": True,
+        "configuration": {
+            "parameters": {
+                "import_files_json": {
+                    "value": "",
+                },
+                "split_images": {
+                    "value": "No",
+                },
+                "primary_witness": {
+                    "value": "No"
+                },
+            },
+        },
+        "module": 'plugins.document.tasks',
+        "functions": ['import_page_images']
     },
     "Cache Page File Collections": {
         "version": "0",
@@ -218,254 +240,253 @@ def import_document(corpus_id, document_json_path):
                     print(json.dumps(doc.kvp, indent=4))
 
 
+
 ###############################
 #   PDF PAGE EXTRACTION JOBS
 ###############################
 @db_task(priority=2)
 def extract_pdf_pages(job_id):
     job = Job(job_id)
+    job.set_status('running')
+
     pdf_file_path = job.configuration['parameters']['pdf_file']['value']
     image_dpi = job.configuration['parameters']['image_dpi']['value']
     split_images = job.configuration['parameters']['split_images']['value'] == 'Yes'
     extract_text = job.configuration['parameters']['extract_text']['value'] == 'Yes'
     primary_witness = job.configuration['parameters']['primary_witness']['value'] == 'Yes'
+    page_file_label = os.path.basename(pdf_file_path).split('.')[0]
 
     if os.path.exists(pdf_file_path):
-        with open(pdf_file_path, 'rb') as pdf_in:
-            pdf_obj = PdfFileReader(pdf_in)
-            num_pages = pdf_obj.getNumPages()
+        if primary_witness:
+            unset_primary(job.content, 'image')
+            if extract_text:
+                unset_primary(job.content, 'text')
 
-        if num_pages > 0:
-            if extract_text and not split_images:
-                pages_created = False
-                for page_num in range(0, num_pages):
-                    ref_no = str(page_num + 1)
-                    if ref_no not in job.content.pages:
-                        page = Page()
-                        page.ref_no = ref_no
-                        job.content.pages[ref_no] = page
-                        page_path = "{0}/pages/{1}".format(job.content.path, ref_no)
-                        if not os.path.exists(page_path):
-                            os.makedirs(page_path, exist_ok=True)
-                        pages_created = True
-                if pages_created:
-                    job.content.save(perform_linking=True)
-
-                huey_task = extract_embedded_pdf_text(job_id, pdf_file_path, primary_witness)
-                job.add_process(huey_task.id)
-
-            # Determine whether to remove primary witness designation from existing images
-            # TODO: FIX THIS ONCE NEW PFC SYSTEM IS COMPLETE
-            '''
-            if primary_witness:
-                doc_changed = False
-                for ref_no in job.content.pages.keys():
-                    for file_key in job.content.pages[ref_no].files.keys():
-                        file = job.content.pages[ref_no].files[file_key]
-                        # In case this is a retry, check to make sure existing files aren't from previous job attempt
-                        if file.extension in settings.VALID_IMAGE_EXTENSIONS \
-                                and file.primary_witness \
-                                and not (file.provenance_type == 'PDF Page Extraction Job' and file.provenance_id == str(job.id)):
-                            job.content.pages[ref_no].files[file_key].primary_witness = False
-                            doc_changed = True
-                if doc_changed:
-                    job.content.save()
-            '''
-
-            for page_num in range(0, num_pages):
-                huey_task = extract_pdf_page(job_id, pdf_file_path, page_num, image_dpi, split_images, primary_witness)
-                job.add_process(huey_task.id)
-
-            job.set_status('running')
-
-
-# TODO: install PyMuPDF package
-# extract pages like so:
-'''
-import fitz
-doc = fitz.open('F1.pdf')
-for page in doc:
-    pix = page.getPixmap()
-    pix.writeImage('./F1_images/{0}.png'.format(page.number))
-'''
-@db_task(priority=1, context=True)
-def extract_pdf_page(job_id, pdf_file_path, page_num, image_dpi, split_images, primary_witness, task=None):
-    job = Job(job_id)
-
-    # Make file label by stripping off extension
-    file_label = os.path.basename(pdf_file_path).split('.')[0]
-
-    # Build page suffixes (page_b_suffix only needed if splitting image)
-    page_suffix = str(page_num + 1)
-    if split_images:
-        page_suffix = str(((page_num + 1) * 2) - 1)
-        page_b_suffix = str((page_num + 1) * 2)
-
-    destination_path = "{0}/pages/{1}".format(job.content.path, page_suffix)
-    if not os.path.exists(destination_path):
-        os.makedirs(destination_path, exist_ok=True)
-
-    if split_images:
-        destination_b_path = "{0}/pages/{1}".format(job.content.path, page_b_suffix)
-        if not os.path.exists(destination_b_path):
-            os.makedirs(destination_b_path, exist_ok=True)
-
-    command = [
-        "convert",
-        "-density", image_dpi,
-        pdf_file_path + "[" + str(page_num) + "]",
-        "-flatten"
-    ]
-
-    if split_images:
-        command.append("-crop")
-        command.append("50%x100%")
-        command.append("+repage")
-
-    page_filename = "{0}_{1}.png".format(file_label, page_suffix)
-    page_filepath = "{0}/{1}".format(destination_path, page_filename)
-    command.append(page_filepath)
-
-    if not os.path.exists(page_filepath) or split_images:
-        call(command)
-
+        pdf_obj = fitz.open(pdf_file_path)
+        num_pages = pdf_obj.page_count
         if split_images:
-            page_a_output_path = "{0}/{1}_{2}-{3}.png".format(destination_path, file_label, page_suffix, str(page_num))
-            page_b_output_path = "{0}/{1}_{2}-{3}.png".format(destination_path, file_label, page_suffix,
-                                                              str(page_num + 1))
-            page_b_filename = "{0}_{1}.png".format(file_label, page_b_suffix)
-            page_b_filepath = "{0}/{1}".format(destination_b_path, page_b_filename)
+            num_pages = num_pages * 2
 
-            if os.path.exists(page_a_output_path) and os.path.exists(page_b_output_path):
-                os.rename(page_a_output_path, page_filepath)
-                os.rename(page_b_output_path, page_b_filepath)
+        for page_num in range(0, num_pages):
+            ref_no = str(page_num + 1)
+            job.content.pages[ref_no] = Page()
+            job.content.pages[ref_no].ref_no = ref_no
 
-                # Make page_b file
-                page_b_fileobj = File.process(
-                    page_b_filepath,
-                    desc="PNG Page Image",
-                    prov_type="PDF Page Extraction Job",
-                    prov_id=str(job.id),
-                    primary=primary_witness
+        ref_no = 1
+        for pdf_page in pdf_obj:
+            pix = pdf_page.get_pixmap(matrix=fitz.Matrix(2, 2))
+            threshold = pix.width / 2
+
+            if split_images:
+                mode = "RGBA" if pix.alpha else "RGB"
+                img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+
+                img_a = img.crop((0, 0, threshold, pix.height))
+                process_page_file(
+                    job.content,
+                    str(ref_no),
+                    page_file_label,
+                    str(job.id),
+                    primary_witness,
+                    image=img_a
                 )
 
-                job.content.reload()
-                if page_b_suffix in job.content.pages:
-                    job.content.save_page_file(page_b_suffix, page_b_fileobj)
+                img_b = img.crop((threshold, 0, pix.width, pix.height))
+                process_page_file(
+                    job.content,
+                    str(ref_no + 1),
+                    page_file_label,
+                    str(job.id),
+                    primary_witness,
+                    image=img_b
+                )
+            else:
+                process_page_file(
+                    job.content,
+                    str(ref_no),
+                    page_file_label,
+                    str(job.id),
+                    primary_witness,
+                    image=pix
+                )
+
+            if extract_text:
+                page_dict = pdf_page.get_text("dict")
+                threshold = page_dict['width'] / 2
+                text_a = []
+                text_b = []
+
+                for block in page_dict['blocks']:
+                    if 'lines' in block:
+                        for line in block['lines']:
+                            if 'spans' in line:
+                                for span in line['spans']:
+                                    if 'text' in span and 'bbox' in span:
+                                        if split_images and 'bbox' in span:
+                                            x = span['bbox'][0]
+                                            if x >= threshold:
+                                                text_b.append(span['text'])
+                                            else:
+                                                text_a.append(span['text'])
+                                        elif not split_images:
+                                            text_a.append(span['text'])
+
+                process_page_file(
+                    job.content,
+                    str(ref_no),
+                    page_file_label,
+                    str(job.id),
+                    primary_witness,
+                    text=" ".join(text_a)
+                )
+
+                if split_images:
+                    process_page_file(
+                        job.content,
+                        str(ref_no + 1),
+                        page_file_label,
+                        str(job.id),
+                        primary_witness,
+                        text=" ".join(text_b)
+                    )
+
+            if split_images:
+                ref_no += 2
+            else:
+                ref_no += 1
+
+            job.set_status('running', percent_complete=int((ref_no / num_pages) * 100))
+        job.content.save()
+    job.complete(status='complete')
+
+
+@db_task(priority=2)
+def import_page_images(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+
+    import_files = natsorted(json.loads(job.configuration['parameters']['import_files_json']['value']))
+    split_images = job.configuration['parameters']['split_images']['value'] == 'Yes'
+    primary_witness = job.configuration['parameters']['primary_witness']['value'] == 'Yes'
+
+    if import_files:
+        if primary_witness:
+            unset_primary(job.content, 'image')
+
+        page_file_label = slugify(job.content.title.strip())
+        num_pages = len(import_files)
+        if split_images:
+            num_pages = num_pages * 2
+
+        for page_num in range(0, num_pages):
+            ref_no = str(page_num + 1)
+            job.content.pages[ref_no] = Page()
+            job.content.pages[ref_no].ref_no = ref_no
+
+        ref_no = 1
+        for import_file in import_files:
+            if os.path.exists(import_file):
+                full_image = Image.open(import_file)
+
+                if split_images:
+                    width, height = full_image.size
+                    threshold = width / 2
+
+                    img_a = full_image.crop((0, 0, threshold, height))
+                    process_page_file(
+                        job.content,
+                        str(ref_no),
+                        page_file_label,
+                        str(job.id),
+                        primary_witness,
+                        image=img_a,
+                        prov_type="Page Image Import Job"
+                    )
+
+                    img_b = full_image.crop((threshold, 0, width, height))
+                    process_page_file(
+                        job.content,
+                        str(ref_no + 1),
+                        page_file_label,
+                        str(job.id),
+                        primary_witness,
+                        image=img_b,
+                        prov_type="Page Image Import Job"
+                    )
+
+                    ref_no += 2
                 else:
-                    page_b_obj = Page()
-                    page_b_obj.ref_no = page_b_suffix
-                    job.content.save_page(page_b_obj)
-                    job.content.save_page_file(page_b_suffix, page_b_fileobj)
+                    process_page_file(
+                        job.content,
+                        str(ref_no),
+                        page_file_label,
+                        str(job.id),
+                        primary_witness,
+                        image=full_image,
+                        prov_type="Page Image Import Job"
+                    )
 
-    if os.path.exists(page_filepath):
-        register_file = True
-        file_key = File.generate_key(page_filepath)
+                    ref_no += 1
 
-        if page_suffix in job.content.pages:
-            if file_key in job.content.pages[page_suffix].files:
-                register_file = False
+                os.remove(import_file)
+                job.set_status('running', percent_complete=int((ref_no / num_pages) * 100))
+        job.content.save()
+    job.complete(status='complete')
 
-        if register_file:
-            # Make page file
-            page_fileobj = File.process(
-                page_filepath,
-                desc="PNG Page Image",
-                prov_type="PDF Page Extraction Job",
-                prov_id=str(job.id),
-                primary=primary_witness
+
+def unset_primary(doc, file_type):
+    page_keys = list(doc.pages.keys())
+    for page_key in page_keys:
+        file_keys = list(doc.pages[page_key].files.keys())
+        for file_key in file_keys:
+            if doc.pages[page_key].files[file_key].primary_witness and file_type.lower() in doc.pages[page_key].files[file_key].description.lower():
+                doc.pages[page_key].files[file_key].primary_witness = False
+
+
+def process_page_file(doc, ref_no, label, job_id, primary_witness, image=None, text=None, prov_type="PDF Page Extraction Job"):
+    extension = None
+    description = None
+
+    if image:
+        extension = "png"
+        description = "PNG Image"
+    if text:
+        extension = "txt"
+        description = "Plain Text"
+
+    if extension and description:
+        page_path = doc.pages[ref_no]._make_path(doc.path)
+        path = "{page_path}/{file_label}_{ref_no}.{extension}".format(
+            page_path=page_path,
+            file_label=label,
+            ref_no=ref_no,
+            extension=extension
+        )
+        label_version = 1
+        while os.path.exists(path):
+            label += str(label_version)
+            label_version += 1
+            path = "{page_path}/{file_label}_{ref_no}.{extension}".format(
+                page_path=page_path,
+                file_label=label,
+                ref_no=ref_no,
+                extension=extension
             )
 
-            job.content.reload()
-            if not page_suffix in job.content.pages:
-                job.content.save_page(Page(ref_no=page_suffix))
+        if image:
+            image.save(path)
+        elif text:
+            with open(path, 'w', encoding='utf-8') as txt_out:
+                txt_out.write(text)
 
-            job.content.save_page_file(page_suffix, page_fileobj)
-
-    if task:
-        job.complete_process(task.id)
-
-
-@db_task(priority=1, context=True)
-def extract_embedded_pdf_text(job_id, pdf_file_path, primary_witness, task=None):
-    job = Job(job_id)
-
-    if os.path.exists(pdf_file_path):
-        text_file_label = os.path.basename(pdf_file_path).split('.')[0]
-        with open(pdf_file_path, 'rb') as pdf_in:
-            pdf_obj = PdfFileReader(pdf_in)
-            for ref_no, page in job.content.ordered_pages:
-                pdf_page_num = int(ref_no) - 1
-                pdf_page_text = _extract_pdf_page_text(pdf_obj.getPage(pdf_page_num))
-                if pdf_page_text:
-                    text_file_path = "{0}/pages/{1}/{2}_{3}.txt".format(job.content.path, ref_no, text_file_label,
-                                                                        ref_no)
-                    with open(text_file_path, 'w', encoding="utf-8") as text_out:
-                        text_out.write(pdf_page_text)
-
-                    text_file_obj = File.process(
-                        text_file_path,
-                        desc='Plain Text',
-                        prov_type='PDF Page Extraction Job',
-                        prov_id=str(job.id),
-                        primary=primary_witness
-                    )
-                    if text_file_obj:
-                        job.content.save_page_file(ref_no, text_file_obj)
-
-    if task:
-        job.complete_process(task.id)
-
-
-# Modified from https://github.com/mstamy2/PyPDF2/blob/master/PyPDF2/pdf.py#L2647
-def _extract_pdf_page_text(pdf_page):
-    """
-    Locate all text drawing commands, in the order they are provided in the
-    content stream, and extract the text.  This works well for some PDF
-    files, but poorly for others, depending on the generator used.  This will
-    be refined in the future.  Do not rely on the order of text coming out of
-    this function, as it will change if this function is made more
-    sophisticated.
-    :return: a unicode string object.
-    """
-    text = u_("")
-    content = pdf_page["/Contents"].getObject()
-    if not isinstance(content, ContentStream):
-        content = ContentStream(content, pdf_page.pdf)
-    # Note: we check all strings are TextStringObjects.  ByteStringObjects
-    # are strings where the byte->string encoding was unknown, so adding
-    # them to the text here would be gibberish.
-    for operands, operator in content.operations:
-        if operator == b_("Tj"):
-            _text = operands[0]
-            if isinstance(_text, TextStringObject):
-                text += " " + _text
-                text += "\n"
-        elif operator == b_("T*"):
-            text += "\n"
-        elif operator == b_("'"):
-            text += "\n"
-            _text = operands[0]
-            if isinstance(_text, TextStringObject):
-                text += " " + _text
-        elif operator == b_('"'):
-            _text = operands[2]
-            if isinstance(_text, TextStringObject):
-                text += "\n"
-                text += " " + _text
-        elif operator == b_("TJ"):
-            for i in operands[0]:
-                if isinstance(i, TextStringObject):
-                    text += " " + i
-            text += "\n"
-    return text
-
-
-@db_task(priority=1)
-def complete_pdf_page_extraction(job_id):
-    job = Job(job_id)
-    job.content.save(index_pages=True, perform_linking=True)
-    job.complete(status='complete')
+        file_obj = File.process(
+            path,
+            desc=description,
+            prov_type=prov_type,
+            prov_id=job_id,
+            primary=primary_witness
+        )
+        doc.pages[ref_no].files[file_obj.key] = file_obj
 
 
 @db_task(priority=0)

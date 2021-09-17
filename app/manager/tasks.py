@@ -58,6 +58,38 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['bulk_launch_jobs']
     },
+    "Bulk Edit Content": {
+        "version": "0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "content_type": {
+                    "value": "",
+                    "type": "content_type",
+                    "label": "Content Type"
+                },
+                "content_ids": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Bulk Edit IDs"
+                },
+                "content_query": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Content Search Query JSON"
+                },
+                "content_data": {
+                    "value": "",
+                    "type": "dict",
+                    "label": "Content Data"
+                }
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['bulk_edit_content']
+    },
     "Adjust Content": {
         "version": "0.2",
         "jobsite_type": "HUEY",
@@ -329,7 +361,7 @@ def bulk_launch_jobs(job_id):
             results = corpus.search_content(content_type, **search_params)
             if results:
                 job_ids = []
-                if results['meta']['num_pages'] < num_pages:
+                if results['meta']['num_pages'] > num_pages:
                     num_pages = results['meta']['num_pages']
 
                 for record in results['records']:
@@ -348,6 +380,65 @@ def bulk_launch_jobs(job_id):
             page += 1
 
     job.complete('complete')
+
+
+@db_task(priority=3)
+def bulk_edit_content(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    if job:
+        corpus = job.corpus
+        content_type = job.get_param_value('content_type')
+        content_ids = job.get_param_value('content_ids')
+        content_query = job.get_param_value('content_query')
+        content_data = job.get_param_value('content_data')
+
+        if content_type in corpus.content_types:
+            attrs = {}
+            excluded_field_types = ['file', 'repo', 'embedded']
+            ct = corpus.content_types[content_type]
+            for field in ct.fields:
+                if field.type not in excluded_field_types and not field.unique and field.name in content_data:
+                    attrs[field.name] = content_data[field.name]
+
+            if attrs:
+                if content_ids:
+                    content_ids = content_ids.split(',')
+                    set_and_save_content(corpus, content_type, content_ids, attrs)
+                elif content_query:
+                    search_query = json.loads(content_query)
+                    search_params = build_search_params_from_dict(search_query)
+
+                    search_params['page_size'] = 100
+                    search_params['only'] = ['id']
+                    page = 1
+                    num_pages = 1
+
+                    while page <= num_pages:
+                        search_params['page'] = page
+                        results = corpus.search_content(content_type, **search_params)
+                        if results:
+                            if results['meta']['num_pages'] > num_pages:
+                                num_pages = results['meta']['num_pages']
+
+                            content_ids = []
+                            for record in results['records']:
+                                content_ids.append(record['id'])
+
+                            set_and_save_content(corpus, content_type, content_ids, attrs)
+
+                        page += 1
+
+    job.complete('complete')
+
+
+def set_and_save_content(corpus, content_type, content_ids, attrs):
+    for content_id in content_ids:
+        content = corpus.get_content(content_type, content_id, single_result=True)
+        if content:
+            for attr in attrs.keys():
+                setattr(content, attr, attrs[attr])
+                content.save()
 
 
 @db_periodic_task(crontab(minute='*'), priority=4)

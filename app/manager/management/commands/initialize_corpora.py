@@ -117,8 +117,8 @@ class Command(BaseCommand):
             constraints = ' '.join([r.get("description") for r in neo.run("CALL db.constraints")])
             constraint_created = False
 
-            if ":Scholar" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(s:Scholar) ASSERT s.uri IS UNIQUE")
+            if ":_Scholar" not in constraints:
+                neo.run("CREATE CONSTRAINT ON(s:_Scholar) ASSERT s.uri IS UNIQUE")
                 constraint_created = True
             if ":Corpus" not in constraints:
                 neo.run("CREATE CONSTRAINT ON(c:Corpus) ASSERT c.uri IS UNIQUE")

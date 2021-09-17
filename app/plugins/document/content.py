@@ -102,23 +102,6 @@ REGISTRY = [
             "Page",
             "PageFileCollection"
         ],
-        #"base_mongo_indexes": [
-        #    {
-        #        'fields': ['id', 'pages.ref_no'],
-        #        'unique': True,
-        #        'sparse': True
-        #    },
-        #    {
-        #        'fields': ['id', 'files.path'],
-        #        'unique': True,
-        #        'sparse': True
-        #    },
-        #    {
-        #        'fields': ['id', 'pages.files.path'],
-        #        'unique': True,
-        #        'sparse': True
-        #    }
-        #],
         "templates": {
             "Label": {
                 "template": "{{ Document.title }}{% if Document.author %} ({{ Document.author }}){% endif %}",
@@ -126,45 +109,284 @@ REGISTRY = [
             }
         }
     },
+    {
+        "name": "TranscriptionProject",
+        "plural_name": "Transcription Projects",
+        "fields": [
+            {
+                "name": "name",
+                "label": "Name",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "document",
+                "label": "Document",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "Document",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "pageset",
+                "label": "Page Set",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "image_pfc",
+                "label": "Image Page File Collection",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "ocr_pfc",
+                "label": "OCR Page File Collection",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "transcription_level",
+                "label": "Transcription Level",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "allow_markup",
+                "label": "Allow Markup?",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "boolean",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "markup_schema",
+                "label": "Markup Schema",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": False,
+                "type": "large_text",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "percent_complete",
+                "label": "Percent Complete",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "number",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            }
+        ],
+        "show_in_nav": True,
+        "proxy_field": "",
+        "templates": {
+            "Label": {
+                "template": "TranscriptionProject {{ TranscriptionProject.id }}",
+                "mime_type": "text/html"
+            }
+        },
+        "inherited": False,
+        "invalid_field_names": [
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri"
+        ],
+        "view_widget_url": None,
+        "edit_widget_url": None
+    },
+    {
+        "name": "Transcription",
+        "plural_name": "Transcriptions",
+        "fields": [
+            {
+                "name": "project",
+                "label": "Project",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "TranscriptionProject",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "page_refno",
+                "label": "Page",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "scholar",
+                "label": "Scholar",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "data",
+                "label": "Data",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": False,
+                "type": "large_text",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "complete",
+                "label": "Complete?",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "boolean",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            }
+        ],
+        "show_in_nav": True,
+        "proxy_field": "",
+        "templates": {
+            "Label": {
+                "template": "Transcription {{ Transcription.id }}",
+                "mime_type": "text/html"
+            }
+        },
+        "inherited": False,
+        "invalid_field_names": [
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri"
+        ],
+        "view_widget_url": None,
+        "edit_widget_url": None
+    }
 ]
 
-'''
-    def get_document_index_mapping(self):
-        corpora_analyzer = analyzer(
-            'corpora_analyzer',
-            tokenizer='classic',
-            filter=['stop', 'lowercase', 'classic']
-        )
-        mapping = Mapping()
-
-        page_field = Nested(
-            properties={
-                'ref_no': Integer(),
-                'contents': Text(analyzer=corpora_analyzer)
-            }
-        )
-        mapping.field('pages', page_field)
-
-        for field_name, field_setting in self.field_settings.items():
-            if field_setting['display']:
-                field_type = field_setting.get('type', 'keyword')
-                if field_type not in ['keyword', 'text', 'integer', 'date']:
-                    field_type = 'keyword'
-
-                if field_type == 'keyword' or (field_type == 'text' and not field_setting['search']):
-                    mapping.field(field_setting['es_field_name'], 'keyword')
-                elif field_type == 'text':
-                    subfields = {}
-                    if field_setting['sort']:
-                        subfields = { 'raw': Keyword() }
-                    mapping.field(field_setting['es_field_name'], 'text', analyzer=corpora_analyzer, fields=subfields)
-                elif field_type == 'integer':
-                    mapping.field(field_setting['es_field_name'], Integer())
-                elif field_type == 'date':
-                    mapping.field(field_setting['es_field_name'], Date())
-
-        return mapping
-'''
 
 class Page(mongoengine.EmbeddedDocument):
     instance = mongoengine.StringField()
@@ -220,6 +442,11 @@ class Page(mongoengine.EmbeddedDocument):
             for file_key, file in self.files.items():
                 file._do_linking(content_type='_Page', content_uri=page_uri)
 
+    def _make_path(self, parent_path):
+        page_path = "{0}/pages/{1}".format(parent_path, self.ref_no)
+        os.makedirs(page_path, exist_ok=True)
+        return page_path
+
     def to_dict(self, parent_uri):
         self_uri = "{0}/page/{1}".format(parent_uri, self.ref_no)
         self_dict = {
@@ -271,7 +498,7 @@ class PageSet(mongoengine.EmbeddedDocument):
             return self.ref_nos[-1]
         return None
 
-    def to_dict(self):
+    def to_dict(self, parent_uri=None):
         return {
             'label': self.label,
             'ref_nos': [ref_no for ref_no in self.ref_nos],
@@ -296,33 +523,9 @@ class Document(Content):
     def page_file_collections(self):
         if not hasattr(self, '_page_file_collections'):
             self._page_file_collections = {}
-            '''
-            cached_pfcs = run_neo(
-                # triple quotes
-                    MATCH (d:Document { uri: $doc_uri }) -[:hasPageFileCollection]-> (pfc:_PageFileCollection)
-                    RETURN pfc
-                # triple quotes
-                ,
-                {
-                    'doc_uri': "/corpus/{0}/Document/{1}".format(self.corpus_id, self.id)
-                }
-            )
-
-            if cached_pfcs:
-                for cached_pfc in cached_pfcs:
-                    created = datetime.fromtimestamp(cached_pfc['pfc']['created'])
-                    if created >= self.last_updated:
-                        label = cached_pfc['pfc']['label']
-                        slug = cached_pfc['pfc']['slug']
-                        page_file_dict = json.loads(cached_pfc['pfc']['page_file_dict_json'])
-                        self._page_file_collections[slug] = {
-                            'label': label,
-                            'page_files': PageNavigator(page_file_dict)
-                        }
-            '''
 
             if not self._page_file_collections:
-                for ref_no, page in self.ordered_pages:
+                for ref_no, page in self.ordered_pages():
                     for file_key, file in self.pages[ref_no].files.items():
                         slug = slugify(file.collection_label)
                         if slug not in self._page_file_collections:
@@ -331,17 +534,6 @@ class Document(Content):
                                 'page_files': {}
                             }
                         self._page_file_collections[slug]['page_files'][ref_no] = file.to_dict(self.uri + '/page/{0}'.format(ref_no))
-
-                '''
-                self._corpus.queue_local_job(
-                    content_type="Document",
-                    content_id=str(self.id),
-                    task_name="Cache Page File Collections",
-                    parameters={
-                        'page_file_collections': self._page_file_collections
-                    }
-                )
-                '''
 
                 for slug in self._page_file_collections:
                     self._page_file_collections[slug]['page_files'] = PageNavigator(self._page_file_collections[slug]['page_files'])
@@ -356,37 +548,25 @@ class Document(Content):
                     return True
         return False
 
-    @property
     def ordered_pages(self, pageset=None):
-        if not hasattr(self, '_page_navigator'):
-            if pageset and pageset in self.page_sets:
-                self._page_navigator = PageNavigator(self.pages, self.page_sets[pageset])
-            elif '_default_pageset' in self.kvp and self.kvp['_default_pageset'] in self.page_sets:
-                self._page_navigator = PageNavigator(self.pages, self.page_sets[self.kvp['_default_pageset']])
-            else:
-                self._page_navigator = PageNavigator(self.pages)
-        return self._page_navigator
+        if pageset and pageset in self.page_sets:
+            return PageNavigator(self.pages, self.page_sets[pageset])
+        elif '_default_pageset' in self.kvp and self.kvp['_default_pageset'] in self.page_sets:
+            return PageNavigator(self.pages, self.page_sets[self.kvp['_default_pageset']])
+        else:
+            return PageNavigator(self.pages)
 
-    @staticmethod
-    def get_page_file_collection(corpus_id, document_id, slug):
+    def get_page_file_collection(self, slug, pageset=None):
         pfc = {}
-        results = run_neo(
-            '''
-                MATCH (pfc:_PageFileCollection { uri: $pfc_uri })
-                RETURN pfc
-            '''
-            ,
-            {
-                'pfc_uri': "/corpus/{0}/Document/{1}/page-file-collection/{2}".format(corpus_id, document_id, slug)
-            }
-        )
+        for ref_no, page in self.ordered_pages(pageset):
+            for file_key, file in self.pages[ref_no].files.items():
+                collection_slug = slugify(file.collection_label)
+                if collection_slug == slug:
+                    if 'label' not in pfc:
+                        pfc['label'] = file.collection_label
+                        pfc['page_files'] = {}
 
-        if results:
-            pfc = {
-                'label': results[0]['pfc']['label'],
-                'page_files': PageNavigator(json.loads(results[0]['pfc']['page_file_dict_json']))
-            }
-
+                    pfc['page_files'][ref_no] = file.to_dict(self.uri + '/page/{0}'.format(ref_no))
         return pfc
 
     def save_file(self, file):
@@ -399,7 +579,7 @@ class Document(Content):
 
     def save_page_file(self, page_ref_no, file):
         self.modify(**{'set__pages__{0}__files__{1}'.format(page_ref_no, file.key): file})
-        file._do_linking(content_type='Page', content_uri="{0}/page/{1}".format(self.uri, page_ref_no))
+        file._do_linking(content_type='_Page', content_uri="{0}/page/{1}".format(self.uri, page_ref_no))
 
     def to_dict(self, ref_only=False):
         doc_dict = {}

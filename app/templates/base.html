@@ -31,9 +31,10 @@
             {% if not popup %}
             <div class="row">
                 <div class="col-12">
-                    <div class="brand align-items-center">
+                    <div class="brand d-flex align-items-center justify-content-between">
                         <a href="/"><img src="{% static 'img/logo.png' %}" class="logo" /></a>
-                        <div class="float-right mt-5">
+                        {% block top_bar %}{% endblock %}
+                        <span class="mt-5">
                             {% if response.scholar %}
                                 Hello, {{ response.scholar.fname }}!
                                 <a href="/scholar" class="btn btn-primary ml-1 mr-1">My Account</a>
@@ -41,7 +42,7 @@
                             {% else %}
                                 <a href="/scholar" class="btn btn-primary">Login</a>
                             {% endif %}
-                        </div>
+                        </span>
                     </div>
                 </div>
             </div>
