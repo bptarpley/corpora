@@ -18,120 +18,136 @@ REGISTRY = {
 }
 
 CERVANTES_DOCUMENT_FIELDS = [
-      {
+    {
         "name": "translator",
         "label": "Translator",
         "in_lists": False,
         "type": "text",
-      },
-      {
+    },
+    {
         "name": "editor",
         "label": "Editor",
         "in_lists": False,
         "type": "text",
-      },
-      {
+    },
+    {
         "name": "year_desc",
         "label": "Year",
         "in_lists": True,
         "type": "text",
-      },
-      {
+    },
+    {
         "name": "year",
         "label": "Year (number)",
         "in_lists": False,
         "type": "number",
-      },
-      {
+    },
+    {
         "name": "place",
         "label": "Place",
         "in_lists": True,
         "type": "text",
-      },
-      {
+    },
+    {
         "name": "publisher",
         "label": "Publisher",
         "in_lists": False,
         "type": "text",
-      },
-      {
+    },
+    {
         "name": "language",
         "label": "Language",
         "in_lists": False,
         "type": "text",
-      },
-      {
+    },
+    {
         "name": "volume",
         "label": "Volume",
         "in_lists": False,
         "type": "text",
-      },
-      {
+    },
+    {
         "name": "edition_size",
         "label": "Size",
         "in_lists": False,
         "type": "text",
-      },
-      {
+    },
+    {
         "name": "illustrations",
         "label": "Illustrations",
         "in_lists": False,
         "type": "text",
-      },
-      {
+    },
+    {
         "name": "reference",
         "label": "Reference",
         "type": "text",
-      },
-      {
+    },
+    {
         "name": "description",
         "label": "Description",
         "in_lists": False,
         "type": "text",
-      },
-      {
+    },
+    {
         "name": "urbina_id",
         "label": "Urbina ID",
         "in_lists": False,
         "type": "text",
-      },
-      {
+    },
+    {
         "name": "library",
         "label": "Library",
         "in_lists": False,
         "type": "text",
-      },
-      {
+    },
+    {
         "name": "country",
         "label": "Country",
         "in_lists": False,
         "type": "text",
-      },
-      {
+    },
+    {
         "name": "category",
         "label": "Category",
         "in_lists": True,
         "type": "cross_reference",
         "cross_reference_type": "EditionCategory",
-      },
-      {
+    },
+    {
         "name": "digitized",
         "label": "Digitized?",
         "in_lists": False,
         "type": "text",
-      },
-      {
+    },
+    {
         "name": "totalil",
         "label": "Total IL",
         "in_lists": False,
         "type": "number",
-      },
-      {
+    },
+    {
         "name": "obsolete",
         "label": "Obsolete?",
         "in_lists": False,
         "type": "text",
-      }
+    },
+    {
+        "name": "import_batch",
+        "label": "Import Batch",
+        "indexed": False,
+        "unique": False,
+        "multiple": False,
+        "in_lists": True,
+        "type": "cross_reference",
+        "choices": [],
+        "cross_reference_type": "ImportBatch",
+        "synonym_file": None,
+        "indexed_with": [],
+        "unique_with": [],
+        "stats": {},
+        "inherited": False
+    }
 ]
 
 

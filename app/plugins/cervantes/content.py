@@ -211,6 +211,48 @@ REGISTRY = [
                 "mime_type": "text/html"
             }
         }
+    },
+    {
+        "name": "ImportBatch",
+        "plural_name": "Import Batches",
+        "fields": [
+            {
+                "name": "name",
+                "label": "Name",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            }
+        ],
+        "show_in_nav": True,
+        "proxy_field": "",
+        "templates": {
+            "Label": {
+                "template": "{{ ImportBatch.name }}",
+                "mime_type": "text/html"
+            }
+        },
+        "inherited": False,
+        "invalid_field_names": [
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri"
+        ],
+        "view_widget_url": None,
+        "edit_widget_url": None
     }
 ]
 

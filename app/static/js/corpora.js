@@ -179,6 +179,15 @@ class Corpora {
         );
     }
 
+    get_plugin_schema(callback) {
+        this.make_request(
+            `/api/plugin-schema/`,
+            "GET",
+            {},
+            callback
+        );
+    }
+
     edit_content_types(corpus_id, schema, callback) {
         this.make_request(
             `/api/corpus/${corpus_id}/type/`,

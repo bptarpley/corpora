@@ -373,6 +373,11 @@
                     <div id="import-editor" style="height: 400px;"></div>
                 </div>
                 <div class="modal-footer">
+                    <div class="form-inline">
+                        <select class="form-control btn-primary" id="import-modal-ct-selector">
+                            <option selected>Import plugin schema...</option>
+                        </select>
+                    </div>
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-primary" id="import-button">Import</button>
                 </div>
@@ -685,6 +690,7 @@
         let jobsites = [];
         let local_jobsite_id = null;
         let tasks = [];
+        let plugin_schema = [];
         let ct_search = {};
         let selected_content = {};
         let import_editor;
@@ -1191,6 +1197,45 @@
                                 $('#launch-notebook-form').submit();
                             })
                         }
+                    });
+                });
+
+                // SETUP PLUGIN CONTENT SCHEMA IMPORT
+                corpora.get_plugin_schema(function(schemas) {
+                    plugin_schema = schemas;
+                    let ct_selector = $('#import-modal-ct-selector');
+                    schemas.map(schema => {
+                        let optgroup = `
+                            <optgroup label="${schema.plugin}">
+                                <option value="${schema.plugin}.all">All</option>
+                        `;
+                        schema.content_types.map(schema_ct => {
+                            optgroup += `
+                                <option value="${schema.plugin}.${schema_ct.name}">${schema_ct.name}</option>
+                            `;
+                        });
+                        optgroup += `</optgroup>`;
+                        ct_selector.append(optgroup);
+                    });
+
+                    ct_selector.change(function() {
+                        let selection = ct_selector.val();
+                        let [plugin, ct] = selection.split('.');
+                        plugin_schema.map(schema => {
+                            if (schema.plugin === plugin) {
+                                if (ct === 'all') {
+                                    import_editor.setValue(JSON.stringify(schema.content_types, null, 4));
+                                } else {
+                                    let single_ct_schema = [];
+                                    schema.content_types.map(ct_schema => {
+                                        if (ct_schema.name === ct) {
+                                            single_ct_schema.push(ct_schema);
+                                            import_editor.setValue(JSON.stringify(single_ct_schema, null, 4));
+                                        }
+                                    });
+                                }
+                            }
+                        });
                     });
                 });
 

@@ -51,6 +51,7 @@ urlpatterns += [
 
     path('api/scholar/', manager_views.api_scholar),
     path('api/scholar/<str:scholar_id>/', manager_views.api_scholar),
+    path('api/plugin-schema/', manager_views.api_plugin_schema),
 
     path('api/corpus/', manager_views.api_corpora),
     path('api/corpus/<str:corpus_id>/', manager_views.api_corpus),
