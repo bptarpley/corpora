@@ -63,7 +63,22 @@ def corpora(request):
 def corpus(request, corpus_id):
     response = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
+
     if corpus:
+        # ADMIN GET REQUESTS
+        if (response['scholar'].is_admin or role == 'Editor') and request.method == 'GET':
+
+            # schema export
+            if 'export' in request.GET and request.GET['export'] == 'schema':
+                schema = []
+                for ct_name in corpus.content_types.keys():
+                    schema.append(corpus.content_types[ct_name].to_dict())
+
+                return HttpResponse(
+                    json.dumps(schema, indent=4),
+                    content_type='application/json'
+                )
+
         # HANDLE ADMIN ONLY POST REQUESTS
         if (response['scholar'].is_admin or role == 'Editor') and request.method == 'POST':
 
@@ -77,7 +92,6 @@ def corpus(request, corpus_id):
                     fixed_basename = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', os.path.basename(import_file_path))
                     import_file_path = "{0}/{1}".format(os.path.dirname(import_file_path), fixed_basename)
 
-                    print(import_file_path)
                     if os.path.exists(import_file_path):
                         extension = import_file.split('.')[-1]
                         corpus.save_file(File.process(
@@ -180,7 +194,6 @@ def corpus(request, corpus_id):
             elif 'create-view' in request.POST:
                 new_view = json.loads(request.POST['create-view'])
                 exploration = corpus.make_exploration(**new_view)
-                print(exploration)
                 if exploration['status'] == 'performing':
                     run_job(exploration['job'])
                     response['messages'].append("View successfully created.")
@@ -388,17 +401,6 @@ def corpus(request, corpus_id):
                         corpus.name
                     ))
 
-        # HANDLE SCHEMA EXPORT
-        elif request.method == 'GET' and 'export' in request.GET and request.GET['export'] == 'schema':
-            schema = []
-            for ct_name in corpus.content_types.keys():
-                schema.append(corpus.content_types[ct_name].to_dict())
-
-            return HttpResponse(
-                json.dumps(schema, indent=4),
-                content_type='application/json'
-            )
-
     return render(
         request,
         'corpus.html',
@@ -486,7 +488,10 @@ def edit_content(request, corpus_id, content_type, content_id=None):
 
                         # set value for xref fields
                         elif ct_fields[field_name].type == 'cross_reference':
-                            field_value = corpus.get_content(ct_fields[field_name].cross_reference_type, field_value).to_dbref()
+                            if field_value:
+                                field_value = corpus.get_content(ct_fields[field_name].cross_reference_type, field_value).to_dbref()
+                            else:
+                                field_value = None
 
                         # set value for number/decimal fields
                         elif ct_fields[field_name].type in ['number', 'decimal'] and not field_value:
@@ -1293,6 +1298,29 @@ def api_content(request, corpus_id, content_type, content_id=None):
 
 
 @api_view(['GET'])
+def api_plugin_schema(request):
+    context = _get_context(request)
+    schema = []
+
+    if (context['scholar']):
+        plugins = [app for app in settings.INSTALLED_APPS if app.startswith('plugins.')]
+        for plugin in plugins:
+            plugin_name = plugin.split('.')[1]
+            if os.path.exists("{0}/plugins/{1}/content.py".format(settings.BASE_DIR, plugin_name)):
+                content_module = importlib.import_module(plugin + '.content')
+                if hasattr(content_module, 'REGISTRY'):
+                    schema.append({
+                        'plugin': plugin_name,
+                        'content_types': getattr(content_module, 'REGISTRY')
+                    })
+
+    return HttpResponse(
+        json.dumps(schema),
+        content_type='application/json'
+    )
+
+
+@api_view(['GET'])
 def api_network_json(request, corpus_id, content_type, content_id):
     context = _get_context(request)
     per_type_limit = int(request.GET.get('per_type_limit', '20'))
@@ -1691,9 +1719,6 @@ def api_scholar_preference(request, content_type, preference):
     value = None
 
     if request.method == 'GET' and 'content_uri' in request.GET:
-
-        print("uri: {0}".format(request.GET['content_uri']))
-
         value = context['scholar'].get_preference(
             content_type,
             request.GET['content_uri'],

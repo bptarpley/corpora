@@ -170,6 +170,10 @@
             var auth_token_ip_count = {% if response.scholar.auth_token_ips %}{{ response.scholar.auth_token_ips|length }}{% else %}0{% endif %};
             
             $(document).ready(function() {
+                {% if not response.scholar and not register %}
+                    $('#username-box').focus();
+                {% endif %}
+
                 $('#auth-token-ip-add-button').click(function() {
                     auth_token_ip_count += 1;
                     $('#auth-token-ips-div').append(`
