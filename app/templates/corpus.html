@@ -560,20 +560,19 @@
 
 
             <div class="col-6">
+                {% if response.scholar.is_admin or role == 'Editor' %}
                 <!-- JOBS -->
                 <div class="card mb-3">
                     <div class="card-header">
                         <div class="d-flex w-100 justify-content-between align-items-center">
                             <h4>Running Jobs</h4>
                             <span>
-                            {% if response.scholar.is_admin or role == 'Editor' %}
                                 <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
                                 <button id="launch-notebook-button" class="btn btn-primary rounded ml-1" type="button">Launch Notebook</button>
                                 <form id="launch-notebook-form" method="post">
                                     {% csrf_token %}
                                     <input type="hidden" name="launch-notebook" value="y" />
                                 </form>
-                            {% endif %}
                             </span>
                         </div>
                     </div>
@@ -581,6 +580,7 @@
                         <iframe src="/jobs/corpus/{{ corpus_id }}/" width="100%" height="100%" frameBorder="0"></iframe>
                     </div>
                 </div>
+                {% endif %}
 
                 <div class="card mb-3">
                     <div class="card-header">
