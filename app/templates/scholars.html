@@ -121,17 +121,20 @@
                     <div class="card-header">
                         <div class="d-flex w-100 justify-content-between align-items-center">
                             <h4>Scholars</h4>
-                            <input type="text" class="form-control form-control-sm" id="search-box" placeholder="Search" />
+                            <div class="form-inline">
+                                <input type="text" class="form-control" id="search-box" placeholder="Search" />
+                                <select id="page-selector" class="form-control btn-primary ml-2"></select>
+                            </div>
                         </div>
                     </div>
                     <div class="card-body">
                         <table class="table">
                             <thead class="thead-dark">
-                                <th scope="col">Username</th>
-                                <th scope="col">First Name</th>
-                                <th scope="col">Last Name</th>
-                                <th scope="col">Email</th>
-                                <th scope="col">Admin</th>
+                                <th scope="col"><a href="#" class="sort-link" data-field="username"><h5>Username</h5></a></th>
+                                <th scope="col"><a href="#" class="sort-link" data-field="fname"><h5>First Name</h5></a></th>
+                                <th scope="col"><a href="#" class="sort-link" data-field="lname"><h5>Last Name</h5></a></th>
+                                <th scope="col"><a href="#" class="sort-link" data-field="email"><h5>Email</h5></a></th>
+                                <th scope="col"><a href="#" class="sort-link" data-field="is_admin"><h5>Admin</h5></a></th>
                             </thead>
                             <tbody id="scholar-table">
                                 <tr>
@@ -153,7 +156,12 @@
     <script type="application/javascript">
         let scholars = [];
         let jobsites = [];
-        let scholar_search = {};
+        let scholar_search = {
+            q: '*',
+            page: 1,
+            'page-size': 50,
+            's_username': 'asc'
+        };
 
         $(document).ready(function() {
             corpora.get_jobsites(function(jobsite_data) {
@@ -188,15 +196,37 @@
 
             $("#search-box").keypress(function(e){
                 let key = e.which;
-                if (key == 13) {
+                if (key === 13) {
                     let query = $("#search-box").val();
                     if (query) {
                         scholar_search.q = query + '*';
                     } else {
-                        scholar_search = {};
+                        scholar_search.q = '*';
                     }
+                    scholar_search.page = 1;
                     load_scholars();
                 }
+            });
+
+            $('.sort-link').click(function() {
+                let field = $(this).data('field');
+                let setting = `s_${field}`;
+                let settings = Object.keys(scholar_search);
+                settings.map(old_setting => {
+                    if (old_setting !== setting && old_setting.startsWith('s_')) delete scholar_search[old_setting];
+                });
+
+                if (scholar_search.hasOwnProperty(setting)) {
+                    if (scholar_search[setting] === 'asc') scholar_search[setting] = 'desc';
+                    else scholar_search[setting] = 'asc';
+                } else scholar_search[setting] = 'asc';
+                scholar_search.page = 1;
+                load_scholars();
+            });
+
+            $('#page-selector').change(function() {
+                scholar_search.page = parseInt($('#page-selector').val());
+                load_scholars();
             });
         });
 
@@ -208,6 +238,12 @@
             scholars = scholar_data.records;
             let scholar_table = $("#scholar-table");
             if (scholar_data.meta.total > 0) {
+                let page_selector = $('#page-selector');
+                page_selector.html('');
+                for (let p = 0; p < scholar_data.meta.num_pages; p++) {
+                    page_selector.append(`<option value="${p + 1}" ${p + 1 === scholar_search.page ? 'selected': ''}>Page ${p + 1}</option>`);
+                }
+
                 scholar_table.html('');
                 scholars.forEach(scholar => {
                     scholar_table.append(`

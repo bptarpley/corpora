@@ -2907,31 +2907,35 @@ def get_corpus(corpus_id, only=[]):
         return None
 
 
-def search_corpora(page=1, page_size=50, general_query="", fields_query=[], fields_sort=[], only=[], ids=[], open_access_only=False):
+def search_corpora(
+        search_dict,
+        ids=[],
+        open_access_only=False
+):
     results = {
         'meta': {
             'content_type': 'Corpus',
             'total': 0,
-            'page': page,
-            'page_size': page_size,
+            'page': search_dict['page'],
+            'page_size': search_dict['page_size'],
             'num_pages': 1,
             'has_next_page': False
         },
         'records': []
     }
 
-    start_index = (page - 1) * page_size
-    end_index = page * page_size
+    start_index = (search_dict['page'] - 1) * search_dict['page_size']
+    end_index = search_dict['page'] * search_dict['page_size']
 
     index = "corpora"
     should = []
     must = []
-    if general_query:
-        should.append(SimpleQueryString(query=general_query))
+    if search_dict['general_query']:
+        should.append(SimpleQueryString(query=search_dict['general_query']))
 
-    if fields_query:
-        for search_field in fields_query.keys():
-            must.append(Q('match', **{search_field: fields_query[search_field]}))
+    if 'fields_query' in search_dict and search_dict['fields_query']:
+        for search_field in search_dict['fields_query'].keys():
+            must.append(Q('match', **{search_field: search_dict['fields_query'][search_field]}))
 
     if ids:
         must.append(Q('terms', _id=ids) | Q('match', open_access=True))
@@ -2942,8 +2946,8 @@ def search_corpora(page=1, page_size=50, general_query="", fields_query=[], fiel
         search_query = Q('bool', should=should, must=must)
         search_cmd = Search(using=get_connection(), index=index, extra={'track_total_hits': True}).query(search_query)
 
-        if fields_sort:
-            search_cmd = search_cmd.sort(*fields_sort)
+        if 'fields_sort' in search_dict and search_dict['fields_sort']:
+            search_cmd = search_cmd.sort(*search_dict['fields_sort'])
 
         search_cmd = search_cmd[start_index:end_index]
         search_results = search_cmd.execute().to_dict()
@@ -2960,7 +2964,13 @@ def search_corpora(page=1, page_size=50, general_query="", fields_query=[], fiel
     return results
 
 
-def search_scholars(page=1, page_size=50, general_query="", fields_query=[], fields_sort=[], only=[]):
+def search_scholars(search_dict):
+    page = search_dict.get('page', 1)
+    page_size = search_dict.get('page_size', 50)
+    general_query = search_dict.get('general_query', '*')
+    fields_query = search_dict.get('fields_query', None)
+    fields_sort = search_dict.get('fields_sort', None)
+
     results = {
         'meta': {
             'content_type': 'Scholar',

@@ -651,6 +651,7 @@
                     </div>
                     <div class="card-body">
                         <button type="button" class="btn btn-danger" id="corpus-show-delete-confirmation-button">Delete Corpus</button>
+                        <button type="button" class="btn btn-secondary ml-1" id="open-access-button">Make Open Access</button>
                         <div id="corpus-deletion-confirmation-div" class="alert alert-danger mt-3 d-none">
                             <strong>Warning:</strong> Should you delete this corpus, all data and linkages comprising it
                             will be deleted, and it will only be recoverable via backups. Depending on the size of your corpus,
@@ -667,6 +668,10 @@
                                 <button type="button" class="btn btn-danger" id="corpus-delete-button">Delete</button>
                             </form>
                         </div>
+                        <form id="open-access-toggle-form" method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="corpus-open-access-toggle" value="y" />
+                        </form>
                     </div>
                 </div>
             </div>
@@ -1111,6 +1116,11 @@
                     $('#corpus-delete-button').click(function () {
                         $('#corpus-deletion-form').submit();
                     });
+
+                    // OPEN ACCESS BUTTON
+                    let oa_button = $('#open-access-button');
+                    if (corpus.open_access) oa_button.html('Revoke Open Access');
+                    oa_button.click(function() { $('#open-access-toggle-form').submit(); })
                 }
 
                 // load first pages of 5 items for each content type; setup content type nav
