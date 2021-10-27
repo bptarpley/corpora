@@ -401,6 +401,17 @@ def corpus(request, corpus_id):
                         corpus.name
                     ))
 
+            # HANDLE OPEN ACCESS TOGGLE
+            elif 'corpus-open-access-toggle' in request.POST:
+                if corpus.open_access:
+                    corpus.open_access = False
+                    response['messages'].append('This corpus is no longer open access.')
+                else:
+                    corpus.open_access = True
+                    response['messages'].append('This corpus is now open access.')
+                get_open_access_corpora(False)  # to refresh redis cache
+                corpus.save()
+
     return render(
         request,
         'corpus.html',
@@ -1190,7 +1201,9 @@ def api_corpora(request):
 
     if not context['search']:
         context['search'] = {
-            'general_query': "*"
+            'general_query': "*",
+            'page': 1,
+            'page-size': 50
         }
 
     if context['scholar'] and context['scholar'].is_admin:
@@ -1198,7 +1211,7 @@ def api_corpora(request):
     elif context['scholar']:
         ids = [c_id for c_id in context['scholar'].available_corpora.keys()]
 
-    corpora = search_corpora(**context['search'], ids=ids, open_access_only=open_access_only)
+    corpora = search_corpora(context['search'], ids=ids, open_access_only=open_access_only)
 
     return HttpResponse(
         json.dumps(corpora),
@@ -1212,7 +1225,9 @@ def api_scholar(request, scholar_id=None):
 
     if not context['search']:
         context['search'] = {
-            'general_query': "*"
+            'general_query': "*",
+            'page': 1,
+            'page-size': 50
         }
 
     if context['scholar'] and context['scholar'].is_admin:
@@ -1242,7 +1257,7 @@ def api_scholar(request, scholar_id=None):
             )
 
         else:
-            scholars = search_scholars(**context['search'])
+            scholars = search_scholars(context['search'])
 
             return HttpResponse(
                 json.dumps(scholars),
