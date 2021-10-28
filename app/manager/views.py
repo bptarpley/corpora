@@ -82,7 +82,7 @@ def corpus(request, corpus_id):
         # HANDLE ADMIN ONLY POST REQUESTS
         if (response['scholar'].is_admin or role == 'Editor') and request.method == 'POST':
 
-            # HANDLE IMPORT DOCUMENT FILES FORM SUBMISSION
+            # HANDLE IMPORT CORPUS FILES FORM SUBMISSION
             if 'import-corpus-files' in request.POST:
                 import_files = json.loads(request.POST['import-corpus-files'])
                 upload_path = corpus.path + '/files'
@@ -101,6 +101,37 @@ def corpus(request, corpus_id):
                             response['scholar']['username'],
                             False
                         ))
+
+            # HANDLE CORPUS FILE DELETION
+            if 'corpus-files-to-delete' in request.POST:
+                files_to_delete = _clean(request.POST, 'corpus-files-to-delete')
+                files_dir = "{0}/files".format(corpus.path)
+
+                if corpus.files and os.path.exists(files_dir):
+                    if files_to_delete == 'ALL':
+                        shutil.rmtree(files_dir)
+
+                        run_neo('''
+                            MATCH (c:Corpus {uri: $corpus_uri}) -[rel:hasFile]-> (f:_File)
+                            DETACH DELETE f
+                        ''', {'corpus_uri': corpus.uri})
+
+                        corpus.files = {}
+                        corpus.save()
+
+                        os.makedirs(files_dir)
+                    else:
+                        files_to_delete = files_to_delete.split(',')
+                        for file_to_delete in files_to_delete:
+                            if file_to_delete in corpus.files:
+                                file = corpus.files[file_to_delete]
+                                if os.path.exists(file.path):
+                                    os.remove(file.path)
+                                    file._unlink(corpus.uri)
+                                    del corpus.files[file_to_delete]
+                        corpus.save()
+
+                    response['messages'].append("Corpus file(s) deleted successfully.")
 
             # HANDLE NEW REPO SUBMISSION
             if _contains(request.POST, ['new-repo-name', 'new-repo-url', 'new-repo-branch']):

@@ -536,6 +536,13 @@
                             There are currently no files for this corpus.
                         </div>
                     </div>
+                    <div id="corpus-files-footer" class="card-footer justify-content-between d-none">
+                        <button type="button" class="btn btn-sm btn-danger" id="corpus-files-delete-button" disabled>Delete Selected</button>
+                        <form id="corpus-files-delete-form" method="post">
+                            {% csrf_token %}
+                            <input type="hidden" id="corpus-files-to-delete" name="corpus-files-to-delete" value="" />
+                        </form>
+                    </div>
                 </div>
 
                 <!-- REPOS -->
@@ -817,6 +824,9 @@
                         <table class="table table-striped">
                             <thead class="thead-dark">
                                 <th scope="col">
+                                    <input type="checkbox" id="corpus-files-select-all-checkbox">
+                                </th>
+                                <th scope="col">
                                     File
                                 </th>
                                 <th scope="col">
@@ -851,6 +861,9 @@
                         corpus_files_tbody.append(`
                             <tr>
                                 <td>
+                                    <input type="checkbox" class="corpus-file-checkbox" data-file_key="${file_key}">
+                                </td>
+                                <td>
                                     <a href="${file_url}" target="_blank">${file.basename}</a>
                                 </td>
                                 <td>
@@ -865,6 +878,47 @@
                             </tr>
                         `);
                     }
+
+                    let files_footer = $('#corpus-files-footer');
+                    let select_all_box = $('#corpus-files-select-all-checkbox');
+                    let delete_button = $('#corpus-files-delete-button');
+                    files_footer.removeClass('d-none');
+                    files_footer.addClass('d-flex');
+
+                    select_all_box.change(function() {
+                        let is_selected = select_all_box.is(':checked');
+
+                        $('.corpus-file-checkbox').each(function() {
+                            $(this).prop("checked", is_selected);
+                            $(this).attr("disabled", is_selected);
+                        });
+                        delete_button.attr("disabled", !is_selected);
+                    });
+
+                    $('.corpus-file-checkbox').change(function() {
+                        let file_selected = false;
+                        $('.corpus-file-checkbox').each(function() {
+                            if ($(this).is(':checked')) file_selected = true;
+                        });
+                        if (file_selected) delete_button.attr('disabled', false);
+                        else delete_button.attr('disabled', true);
+                    });
+
+                    delete_button.click(function() {
+                        let files_to_delete = $('#corpus-files-to-delete');
+                        let file_keys = [];
+
+                        if (select_all_box.is(':checked')) files_to_delete.val('ALL');
+                        else {
+                            $('.corpus-file-checkbox').each(function() {
+                                let checkbox = $(this);
+                                if (checkbox.is(':checked')) file_keys.push(checkbox.data('file_key'));
+                            });
+                            files_to_delete.val(file_keys.join(','));
+                        }
+
+                        $('#corpus-files-delete-form').submit();
+                    });
                 }
 
                 // load corpus repos
