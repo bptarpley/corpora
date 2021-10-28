@@ -898,7 +898,24 @@
                     // setup the editor for importing a content type schema
                     import_editor = ace.edit("import-editor");
                     import_editor.setTheme("ace/theme/monokai");
-                    import_editor.getSession().setMode("ace/mode/json");
+                    let editor_session = import_editor.getSession();
+                    editor_session.setMode("ace/mode/json");
+                    // check for editor syntax errors (JSON) to disable import button
+                    editor_session.on('changeAnnotation', function() {
+                        let import_button = $('#import-button');
+                        let syntax_error = false;
+                        let annotations = import_editor.getSession().getAnnotations();
+                        annotations.map(ann => {
+                            if (ann.type === 'error') syntax_error = true;
+                        });
+                        if (syntax_error) {
+                            import_button.prop('disabled', true);
+                            import_button.html('Fix Syntax Error...');
+                        } else {
+                            import_button.prop('disabled', false);
+                            import_button.html('Import');
+                        }
+                    });
 
                     // setup the editor for editing template
                     template_editor = ace.edit("template-editor");
