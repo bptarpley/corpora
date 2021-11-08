@@ -185,8 +185,11 @@ try:
         "bolt://{0}".format(os.environ['CRP_NEO4J_HOST']),
         auth=(os.environ['CRP_NEO4J_USER'], os.environ['CRP_NEO4J_PWD'])
     )
+    with NEO4J.session() as test_session:
+        test_session.run("MATCH (n) RETURN count(n) as count")
 except:
     print("Neo4J database uninitialized.")
+    NEO4J = None
 
 # Elasticsearch configuration
 connections.configure(

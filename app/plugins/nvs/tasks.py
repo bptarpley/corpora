@@ -2195,6 +2195,10 @@ def handle_paratext_tag(tag, pt, pt_data):
                 html += handle_paratext_tag(child, pt, pt_data)
             html += "</{0}>".format(html_tag)
 
+        # ignore any <div type="levelX"> tags...
+        elif tag.name == "div" and 'type' in tag.attrs and tag['type'].startswith("level"):
+            pass
+
         elif tag.name == 'witness' and _contains(tag.attrs, ['corresp', 'xml:id', 'display']) and tag.attrs['display'] == 'book(suppress)':
             pass
 
@@ -2350,10 +2354,6 @@ def handle_paratext_tag(tag, pt, pt_data):
             for child in tag.children:
                 html += handle_paratext_tag(child, pt, pt_data)
             html += "</{0}>".format(html_tag)
-
-        # ignore any <div type="levelX"> tags...
-        elif tag.name == "div" and 'type' in tag.attrs and tag['type'].startswith("level"):
-            pass
 
         else:
             pt_data['unhandled'].append(tag.name)
