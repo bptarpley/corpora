@@ -136,6 +136,27 @@
                 letter-spacing: 0.02em;
             }
 
+            .dropdown-toggle::after, .dropright .dropdown-toggle::after {
+                display: none;
+            }
+
+            .dropdown-toggle svg, #play-title svg {
+                height: 9px;
+                width: auto;
+                margin: 6px 0 0 5px;
+                transform: rotate(90deg);
+                transform-origin: center center;
+            }
+
+            .dropright .dropdown-toggle svg {
+                transform: rotate(0deg);
+                float: right;
+            }
+
+            #active-menu-item {
+                font-weight: bold;
+            }
+
             @media (min-width: 950px) {
                 .edition-menu {
                     min-width: 300px;
@@ -185,6 +206,7 @@
 
             span.beta {
                 color: #808080;
+                font-weight: normal;
             }
 
             .dropdown-item {
@@ -201,7 +223,7 @@
 
             #play-title {
                 font-family: 'Roboto Condensed', sans-serif;
-                color: var(--nvs-dark-blue);
+                color: black;
                 text-transform: uppercase;
                 font-weight: bolder;
                 font-size: 25px;
@@ -209,9 +231,19 @@
                 line-height: 1;
             }
 
+            #play-title svg {
+                transform: rotate(0deg);
+                width: 10px;
+                height: auto;
+            }
+
+            .title-section {
+                color: var(--nvs-dark-blue);
+            }
+
             .byline-div {
-                border-top: solid 1px var(--nvs-lightest-blue);
-                border-left: solid 1px var(--nvs-lightest-blue);
+                /*border-top: solid 1px var(--nvs-lightest-blue);
+                border-left: solid 1px var(--nvs-lightest-blue);*/
             }
 
             .byline {
@@ -947,11 +979,11 @@
                         <div class="col-sm-12">
                             <ul class="nav">
                                 <li class="dropdown menu-shadow">
-                                    <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">NVS DIGITAL EDITIONS <span class="beta">(BETA)</span></a>
+                                    <a id="active-menu-item" class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">NVS DIGITAL EDITIONS <span class="beta">(BETA)</span> {% include 'svg/arrow.svg' %}</a>
                                     <ul class="dropdown-menu menu-shadow">
                                         <li class="dropdown-item">
                                             <div class="dropright">
-                                                <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">THE WINTER'S TALE</a>
+                                                <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">THE WINTER'S TALE {% include 'svg/arrow.svg' %}</a>
                                                 <ul class="dropdown-menu menu-shadow">
                                                     <li class="dropdown-item"><a href="{% if site_request %}/edition/wt/{% else %}/corpus/{{ corpus_id }}/play-viewer/wt/{% endif %}">VARIORUM READER</a></li>
                                                     <li class="dropdown-item"><a href="{% if site_request %}/front/wt/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/wt/Front Matter/{% endif %}">FRONT MATTER</a></li>
@@ -962,7 +994,7 @@
                                         </li>
                                         <li class="dropdown-item">
                                             <div class="dropright">
-                                                <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">A MIDSUMMER NIGHT'S DREAM</a>
+                                                <a class="dropdown-toggle edition-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">A MIDSUMMER NIGHT'S DREAM {% include 'svg/arrow.svg' %}</a>
                                                 <ul class="dropdown-menu menu-shadow">
                                                     <li class="dropdown-item"><a href="{% if site_request %}/edition/mnd/{% else %}/corpus/{{ corpus_id }}/play-viewer/mnd/{% endif %}">VARIORUM READER</a></li>
                                                     <li class="dropdown-item"><a href="{% if site_request %}/front/mnd/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/mnd/Front Matter/{% endif %}">FRONT MATTER</a></li>
@@ -974,7 +1006,7 @@
                                     </ul>
                                 </li>
                                 <li class="dropdown menu-shadow ml-auto">
-                                    <a class="dropdown-toggle info-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">NVS INFO</a>
+                                    <a class="dropdown-toggle info-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">NVS INFO {% include 'svg/arrow.svg' %}</a>
                                     <ul class="dropdown-menu info-menu menu-shadow">
                                         <li class="dropdown-item"><a href="{% if site_request %}/about/{% else %}/corpus/{{ corpus_id }}/about/{% endif %}">ABOUT</a></li>
                                         <li class="dropdown-item"><a href="{% if site_request %}/how-to/{% else %}/corpus/{{ corpus_id }}/how-to/{% endif %}">HOW TO DIGITAL NVS</a></li>
@@ -984,7 +1016,7 @@
                                     </ul>
                                 </li>
                                 <li class="dropdown menu-shadow">
-                                    <a class="dropdown-toggle tools-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">NVS TOOLS</a>
+                                    <a class="dropdown-toggle tools-menu" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">NVS TOOLS {% include 'svg/arrow.svg' %}</a>
                                     <ul class="dropdown-menu tools-menu menu-shadow">
                                         <li class="dropdown-item"><a href="{% if site_request %}/tools/{% else %}/corpus/{{ corpus_id }}/tools/{% endif %}">ABOUT</a></li>
                                     </ul>
@@ -993,16 +1025,14 @@
                         </div>
                     </div>
                     <div class="row no-gutters pt-3">
-                        <div class="col-sm-3">
-                            <div id="play-title" class="align-self-baseline">
-                                {{ play.title }}
+                        <div class="col-sm-7 d-flex align-items-end">
+                            <div id="play-title">
+                                {{ play.title }} {% include 'svg/arrow.svg' %} <span class="title-section">Variorum Reader</span>
                             </div>
                         </div>
-                        <div class="col-sm-9 byline-div">
-                            <div class="row">
-                                <div class="col-sm-6 offset-6 byline d-flex align-content-end pb-2">
-                                    EDITORS: {{ editors }}
-                                </div>
+                        <div class="col-sm-5 byline-div d-flex align-items-end">
+                            <div class="byline">
+                                EDITORS: {{ editors }}
                             </div>
                         </div>
                     </div>
