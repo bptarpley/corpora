@@ -271,13 +271,31 @@
                 `;
             },
             cross_reference: function(field, value, id_suffix) {
+                let intensity_controls = ''
+                if (field.has_intensity) {
+                    intensity_controls = `
+                        <div class="input-group ml-2">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text" id="${field.name}-value${id_suffix}-intensity-label">Intensity</span>
+                            </div>
+                            <input type="number"
+                                id="${field.name}-value${id_suffix}-intensity"
+                                name="${field.name}-value${id_suffix}-intensity"
+                                class="form-control" style="width: 100px;"
+                                aria-label="Intensity for ${field.name} value"
+                                aria-describedby="${field.name}-value${id_suffix}-intensity-label"
+                                value="${value.hasOwnProperty('intensity') ? value.intensity : 1}">
+                        </div>
+                    `;
+                }
+
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="btn-toolbar mb-2 edit-field-div" data-field="${field.name}" role="toolbar">
                         <div class="btn-group" role="group">
                             <button onclick="return false;" id="${field.name}-value${id_suffix}-select-button" class="xref-select-button btn btn-secondary ${field.name}-control" ${bulk_editing ? 'disabled' : ''}>Select</button>
                             <button onclick="return false;" id="${field.name}-value${id_suffix}-open-button" class="xref-open-button btn btn-warning" role="button">${value ? value.label : `No ${field.cross_reference_type} selected.`}</button>
                             <button onclick="return false;" id="${field.name}-value${id_suffix}-clear-button" class="xref-clear-button btn btn-danger ${value ? '' : 'd-none'}" role="button">${field.multiple ? 'Delete' : 'Clear'}</button>
-                        </div>
+                        </div>${intensity_controls}
                         <input type="hidden" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value ? value.id : ""}">
                         <input type="hidden" id="${field.name}-value${id_suffix}-xref-type" value="${field.cross_reference_type}">
                     </div>

@@ -63,10 +63,13 @@ def corpora(request):
 def corpus(request, corpus_id):
     response = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
+    content_views = []
 
     if corpus:
-        # ADMIN GET REQUESTS
-        if (response['scholar'].is_admin or role == 'Editor') and request.method == 'GET':
+        # ADMIN REQUESTS
+        if response['scholar'].is_admin or role == 'Editor':
+            # get content views
+            content_views = ContentView.objects(corpus=corpus).order_by('name')
 
             # schema export
             if 'export' in request.GET and request.GET['export'] == 'schema':
@@ -177,6 +180,15 @@ def corpus(request, corpus_id):
                             corpus.content_types[deletion_ct].plural_name,
                             '<br>'.join(deleted)
                         ))
+
+            # HANDLE CONTENT VIEW DELETION
+            elif _contains(request.POST, ['deletion-confirmed', 'content-view']):
+                cv_id = _clean(request.POST, 'content-view')
+                cv = ContentView.objects.get(id=cv_id)
+                cv_name = cv.name
+                cv.delete()
+                content_views = ContentView.objects(corpus=corpus).order_by('name')
+                response['messages'].append('The "{0}" Content View was successfully deleted.'.format(cv_name))
 
             # HANDLE JOB SUBMISSION
             elif _contains(request.POST, ['jobsite', 'task']):
@@ -449,6 +461,7 @@ def corpus(request, corpus_id):
         {
             'corpus_id': corpus_id,
             'role': role,
+            'content_views': content_views,
             'response': response,
             'available_jobsites': [str(js.id) for js in response['scholar']['available_jobsites']],
             'available_tasks': [str(t.id) for t in response['scholar']['available_tasks']],
@@ -493,7 +506,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
 
             # iterate over the POST params, assuming each one corresponds with a field value
             for field_param, field_value in request.POST.items():
-                if field_param not in ['corpora-content-edit', 'content-ids', 'content-query']:
+                if field_param not in ['corpora-content-edit', 'content-ids', 'content-query'] and not field_param.endswith('-intensity'):
                     param_parts = field_param.split('-')
                     field_name = param_parts[0]
 
@@ -558,13 +571,19 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                         else:
                             setattr(content, field_name, field_value)
 
+                        # check if this field has intensity, and if so, process corresponding POST param
+                        if ct_fields[field_name].type == 'cross_reference' and ct_fields[field_name].has_intensity:
+                            intensity_param = field_param + '-intensity'
+                            if intensity_param in request.POST:
+                                content.set_intensity(field_name, field_value, request.POST[intensity_param])
+
             for multi_field_name in multi_field_values.keys():
                 setattr(content, multi_field_name, multi_field_values[multi_field_name])
 
             if content_ids or content_query:
                 content_dict = content.to_dict()
                 bulk_edit_fields = {}
-                for field_name in bulk_edit_field_names:
+                for field_name in set(bulk_edit_field_names):
                     bulk_edit_fields[field_name] = content_dict[field_name]
 
                 run_job(corpus.queue_local_job(

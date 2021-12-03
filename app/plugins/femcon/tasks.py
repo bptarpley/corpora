@@ -2,9 +2,11 @@ import traceback
 
 from .content import REGISTRY as femcon_content_types
 from plugins.document.content import REGISTRY as document_content_types
+from django.utils.text import slugify
 from huey.contrib.djhuey import db_task
 from corpus import *
 from bs4 import BeautifulSoup
+from booknlp.booknlp import BookNLP
 
 
 REGISTRY = {
@@ -50,6 +52,41 @@ REGISTRY = {
         "module": 'plugins.femcon.tasks',
         "functions": ['ingest_catma_tei']
     },
+    "Run BookNLP": {
+        "version": "0.2",
+        "jobsite_type": "HUEY",
+        "track_provenance": True,
+        "content_type": "Document",
+        "configuration": {
+            "parameters": {
+                "text_file_key": {
+                    "value": "",
+                    "type": "document_file",
+                    "label": "Plain Text File",
+                },
+                "booknlp_model": {
+                    "value": "Small",
+                    "type": "choice",
+                    "choices": ["Small", "Big"],
+                    "label": "BookNLP Model",
+                    "note": "The small model is more appropriate for use on laptops. Only choose the big model for use in a large memory environment."
+                }
+            },
+        },
+        "module": 'plugins.femcon.tasks',
+        "functions": ['run_booknlp']
+    },
+    "Associate BookNLP Keywords": {
+        "version": "0.1",
+        "jobsite_type": "HUEY",
+        "track_provenance": True,
+        "content_type": "Document",
+        "configuration": {
+            "parameters": {},
+        },
+        "module": 'plugins.femcon.tasks',
+        "functions": ['associate_booknlp_keywords']
+    },
 }
 
 femcon_document_fields = [
@@ -59,6 +96,12 @@ femcon_document_fields = [
         "type": "large_text",
         "in_lists": True
     },
+    {
+        "name": "booknlp_dataset",
+        "label": "BookNLP Dataset",
+        "type": "keyword",
+        "in_lists": False
+    }
 ]
 
 
@@ -257,3 +300,97 @@ def ingest_catma_tei(job_id):
     })
 
     job.complete(status='complete')
+
+
+@db_task(priority=2)
+def run_booknlp(job_id):
+    job = Job(job_id)
+    document = job.content
+    booknlp_model = job.get_param_value('booknlp_model').lower()
+    text_file_key = job.get_param_value('text_file_key')
+    text_file = document.files[text_file_key]
+
+    job.set_status('running')
+
+    book_id = slugify(document.title)
+    results_path = document.path + '/files/booknlp'
+    if not os.path.exists(results_path):
+        os.makedirs(results_path)
+
+    booknlp = BookNLP(
+        "en",
+        {
+            "pipeline": "entity,quote,supersense,event,coref",
+            "model": booknlp_model,
+        }
+    )
+
+    booknlp.process(
+        text_file.path,
+        results_path,
+        book_id
+    )
+
+    document.booknlp_dataset = results_path
+    document.save()
+
+    job.complete(status='complete')
+
+
+@db_task(priority=2)
+def associate_booknlp_keywords(job_id):
+    job = Job(job_id)
+    corpus = job.corpus
+    document = job.content
+
+    job.set_status('running')
+
+    if document and \
+            hasattr(document, 'booknlp_dataset') and \
+            document.booknlp_dataset and \
+            os.path.exists(document.booknlp_dataset + '/character_map.json'):
+
+        booknlp_char_map = {}
+        booknlp_chars = {}
+        femcon_chars = {}
+
+        modes = ['agent', 'patient', 'mod', 'poss']
+
+        with open(document.booknlp_dataset + '/character_map.json', 'r', encoding='utf-8') as map_in:
+            booknlp_char_map = json.load(map_in)
+
+        booknlp_chars_file = None
+        files = os.listdir(document.booknlp_dataset)
+        for file in files:
+            if file.endswith('.book'):
+                booknlp_chars_file = "{0}/{1}".format(document.booknlp_dataset, file)
+                break
+        with open(booknlp_chars_file, 'r', encoding='utf-8') as chars_in:
+            booknlp_chars = json.load(chars_in)
+
+        for booknlp_char in booknlp_chars['characters']:
+            booknlp_id = str(booknlp_char['id'])
+            if booknlp_id in booknlp_char_map:
+                femcon_id = booknlp_char_map[booknlp_id]
+                if femcon_id not in femcon_chars:
+                    femcon_chars[femcon_id] = corpus.get_content('Character', femcon_id)
+
+                for mode in modes:
+                    for modeword in booknlp_char[mode]:
+                        word = modeword['w']
+                        intensity = modeword['i']
+
+                        if intensity >= 5:
+                            keyword = corpus.get_or_create_content('Keyword', {'word': word, 'mode': mode}, use_cache=True)
+                            if femcon_chars[femcon_id].id not in [c.id for c in keyword.characters]:
+                                keyword.characters.append(femcon_chars[femcon_id].id)
+
+                            keyword.set_intensity(
+                                'characters',
+                                femcon_id,
+                                keyword.get_intensity('characters', femcon_id) + intensity
+                            )
+                            keyword.save()
+
+    job.complete(status='complete')
+

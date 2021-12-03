@@ -321,6 +321,87 @@ class Corpora {
         )
     }
 
+    create_content_view(corpus, callback=null) {
+        let cv_modal = $('#cv-creation-modal');
+        let ct_keys = Object.keys(corpus.content_types);
+        let sender = this;
+
+        if (!cv_modal.length) {
+            $('body').append(`
+                <div class="modal fade" id="cv-creation-modal" tabindex="-1" role="dialog" aria-labelledby="cv-creation-modal-label" aria-hidden="true">
+                    <div class="modal-dialog modal-lg" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 id="cv-creation-modal-label" class="modal-title">Content View</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="alert alert-info">
+                                    A "Content View" is a defined subset of content for a particular content type. To define one,
+                                    start by giving it a name and choosing the content type. You may then start filtering content
+                                    by performing a search and/or creating a pattern of association. Once a Content View is created,
+                                    it will appear on the Corpus page, and may also be selected as a filtering criteria in any Explore
+                                    pane. 
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="cv-name-box">Name</label>
+                                    <input id="cv-name-box" type="text" class="form-control">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="cv-target-ct">Content Type</label>
+                                    <select id="cv-target-ct" class="form-control btn-primary"><option value="None">--select--</option></select>
+                                </div>
+                                
+                                <div id="cv-target-table-div"></div>
+                                
+                                <div id="cv-pattern-div" class="d-none">
+                                    <button type="button" class="btn btn-primary" id="cv-create-pattern-button">Create a Pattern of Association</button>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="cv-create-button" disabled>Create</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+
+            cv_modal = $('#cv-creation-modal');
+            let target_ct_selector = $('#cv-target-ct');
+            let target_table_div = $('#cv-target-table-div');
+
+            target_ct_selector.val('None');
+            target_table_div.html('');
+
+
+            ct_keys.map(ct_key => {
+                let ct = corpus.content_types[ct_key];
+                target_ct_selector.append(`<option value="${ct.name}">${ct.name}</option>`);
+            });
+
+            target_ct_selector.change(function() {
+                let target_ct = $(this).val();
+                target_table_div.html('');
+                $('#cv-pattern-div').removeClass('d-none');
+
+                let target_table = new ContentTable({
+                    container_id: 'cv-target-table-div',
+                    corpora: sender,
+                    corpus: corpus,
+                    content_type: target_ct,
+                    mode: 'view'
+                });
+            });
+        }
+
+        cv_modal.modal();
+    }
+
     file_url(uri) {
         return `/file/uri/${uri.split('/').join('|')}/`;
     }
@@ -346,14 +427,25 @@ class ContentTable {
         this.corpora = 'corpora' in config ? config.corpora : null;
         this.corpus = 'corpus' in config ? config.corpus : null;
         this.content_type = 'content_type' in config ? config.content_type : null;
+        this.mode = 'mode' in config ? config.mode : 'edit';
         this.search = 'search' in config ? config.search : {
             'page': 1,
             'page-size': 5,
         };
+        this.content_view = null;
+        this.content_view_id = null;
+        if ('content_view' in config && 'content_view_id' in config) {
+            this.content_view = config.content_view;
+            this.content_view_id = config.content_view_id;
+            this.search['content_view'] = config.content_view
+        }
+        this.id_suffix = 0;
         this.selected_content = {
             all: false,
             ids: []
         };
+
+
 
         if (this.container_id && this.corpora && this.corpus && this.content_type) {
             this.container = $(`#${this.container_id}`);
@@ -366,10 +458,14 @@ class ContentTable {
             let role = this.corpus.scholar_role;
             let search = this.search;
             let selected_content = this.selected_content;
+            this.label = 'label' in config ? config.label : ct.plural_name;
             let sender = this;
 
+            // ensure component ids will be unique
+            while ($(`#ct-${ct.name}${sender.id_suffix}-table-body`).length) sender.id_suffix += 1;
+
             // ensure multiselection form and deletion confirmation modal exist
-            if (!$('#multiselect-form').length) {
+            if (!$('#multiselect-form').length && sender.mode === 'edit') {
                 this.container.append(`
                     <form id="multiselect-form" method="post" action="/not/set">
                         <input type="hidden" name="csrfmiddlewaretoken" value="${this.corpora.csrf_token}">
@@ -377,7 +473,7 @@ class ContentTable {
                     </form>
                 `);
             }
-            if (!$('#deletion-confirmation-modal').length) {
+            if (!$('#deletion-confirmation-modal').length && sender.mode === 'edit') {
                 $('body').prepend(`
                     <div class="modal fade" id="deletion-confirmation-modal" tabindex="-1" role="dialog" aria-labelledby="deletion-confirmation-modal-label" aria-hidden="true">
                         <div class="modal-dialog">
@@ -410,6 +506,15 @@ class ContentTable {
                 });
             }
 
+            let edit_action = ``;
+            if (sender.mode === 'edit' && (role === 'Editor' || role === 'Admin')) {
+                if (sender.content_view) {
+                    edit_action = `<button role="button" id="ct-${ct.name}${sender.id_suffix}-delete-view-button" class="btn btn-primary rounded mr-2">Delete View</button>`;
+                } else {
+                    edit_action = `<a role="button" id="ct-${ct.name}${sender.id_suffix}-new-button" href="/corpus/${corpus_id}/${ct.name}/" class="btn btn-primary rounded mr-2">Create</a>`;
+                }
+            }
+
             this.container.append(`
                 <div class="row">
                     <div class="col-12">
@@ -417,63 +522,69 @@ class ContentTable {
                         <div class="card mt-4">
                             <div class="card-header" style="padding: 0 !important;">
                                 <div class="d-flex w-100 justify-content-between align-items-center text-nowrap p-2 ml-2">
-                                    <h4>${ct.plural_name}</h4>
+                                    <h4>${sender.label}</h4>
                                     <div class="input-group ml-2 mr-2">
                                         <div class="input-group-prepend">
-                                            <button id="ct-${ct.name}-search-type-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Text Search</button>
-                                            <div id="ct-${ct.name}-search-type-menu" class="dropdown-menu">
+                                            <button id="ct-${ct.name}${sender.id_suffix}-search-type-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Text Search</button>
+                                            <div id="ct-${ct.name}${sender.id_suffix}-search-type-menu" class="dropdown-menu">
                                                 <span class="p-2">Select a specific field from the dropdown to the right in order to choose a different search type.</span>
                                             </div>
-                                            <input type="hidden" id="ct-${ct.name}-search-type-value" value="default" />
+                                            <input type="hidden" id="ct-${ct.name}${sender.id_suffix}-search-type-value" value="default" />
                                         </div>
-                                        <input type="text" class="form-control" id="ct-${ct.name}-search-box" placeholder="Search" />
+                                        <input type="text" class="form-control" id="ct-${ct.name}${sender.id_suffix}-search-box" placeholder="Search" />
                                         <div class="input-group-append">
-                                            <button id="ct-${ct.name}-search-setting-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">All Fields</button>
-                                            <div id="ct-${ct.name}-search-settings-menu" class="dropdown-menu">
-                                                <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-default" href="#">All Fields</a>
+                                            <button id="ct-${ct.name}${sender.id_suffix}-search-setting-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">All Fields</button>
+                                            <div id="ct-${ct.name}${sender.id_suffix}-search-settings-menu" class="dropdown-menu">
+                                                <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-setting" id="ct-${ct.name}${sender.id_suffix}-search-setting-default" href="#">All Fields</a>
                                             </div>
-                                            <input type="hidden" id="ct-${ct.name}-search-setting-value" value="default" />
+                                            <input type="hidden" id="ct-${ct.name}${sender.id_suffix}-search-setting-value" value="default" />
                                         </div>
                                     </div>
 
-                                    <button id="ct-${ct.name}-search-clear-button" class="btn btn-primary rounded mr-2 d-none" type="button">Clear Search</button>
-                                    ${ (role === 'Editor' || role === 'Admin') ? `<a role="button" id="ct-${ct.name}-new-button" href="/corpus/${corpus_id}/${ct.name}/" class="btn btn-primary rounded mr-2">New ${ct.name}</a>` : ''}
+                                    <button id="ct-${ct.name}${sender.id_suffix}-search-clear-button" class="btn btn-primary rounded mr-2 d-none" type="button">Clear Search</button>
+                                    ${edit_action}
 
-                                    <div class="form-inline mr-2">
-                                        <select class="form-control btn-primary d-none" id="ct-${ct.name}-page-selector">
-                                        </select>
-                                    </div>
-
-                                    <div class="form-inline mr-2">
-                                        <select class="form-control btn-primary" id="ct-${ct.name}-per-page-selector">
-                                            <option selected>5</option>
-                                            <option>10</option>
-                                            <option>20</option>
-                                            <option>50</option>
-                                        </select>
-                                    </div>
+                                    
                                 </div>
-                                <div id="ct-${ct.name}-current-search-div" class="d-flex w-100 align-items-center p-2 pl-3 badge-secondary" style="padding-top: 12px !important;"></div>
+                                <div id="ct-${ct.name}${sender.id_suffix}-current-search-div" class="d-flex w-100 align-items-center p-2 pl-3 badge-secondary" style="padding-top: 12px !important;"></div>
                             </div>
-                            <div class="card-body">
-                                <table class="table table-striped">
+                            <div class="card-body p-0">
+                                <table class="table table-striped mb-0">
                                     <thead class="thead-dark">
-                                        <tr id="ct-${ct.name}-table-header-row">
+                                        <tr id="ct-${ct.name}${sender.id_suffix}-table-header-row">
                                         </tr>
                                     </thead>
-                                    <tbody id="ct-${ct.name}-table-body">
+                                    <tbody id="ct-${ct.name}${sender.id_suffix}-table-body">
                                     </tbody>
                                 </table>
-                                <div class="form-inline">
-                                    With selected:
-                                    <select class="form-control-sm btn-primary ml-1 mr-1" id="ct-${ct.name}-selection-action-selector">
-                                        <option value="explore" selected>Explore</option>
-                                        ${['Editor', 'Admin'].includes(role) ? '<option value="bulk-edit">Bulk Edit</option>' : ''}
-                                        ${['Editor', 'Admin'].includes(role) ? '<option value="merge">Merge</option>' : ''}
-                                        ${['Editor', 'Admin'].includes(role) ? '<option value="create_view">Create View</option>' : ''}
-                                        ${['Editor', 'Admin'].includes(role) ? '<option value="delete">Delete</option>' : ''}
-                                    </select>
-                                    <button type="button" class="btn btn-sm btn-secondary" id="ct-${ct.name}-selection-action-go-button" disabled>Go</button>
+                                <div class="row px-4">
+                                    <div class="col-sm-12 d-flex w-100 justify-content-between align-items-center text-nowrap p-2 ml-2">
+                                        ${ sender.mode === 'edit' ? `<div class="form-inline">
+                                            With selected:
+                                            <select class="form-control-sm btn-primary ml-1 mr-1" id="ct-${ct.name}${sender.id_suffix}-selection-action-selector" data-ct="${ct.name}">
+                                                <option value="explore" selected>Explore</option>
+                                                ${['Editor', 'Admin'].includes(role) ? '<option value="bulk-edit">Bulk Edit</option>' : ''}
+                                                ${['Editor', 'Admin'].includes(role) ? '<option value="merge">Merge</option>' : ''}
+                                                ${['Editor', 'Admin'].includes(role) ? '<option value="create_view">Create View</option>' : ''}
+                                                ${['Editor', 'Admin'].includes(role) ? '<option value="delete">Delete</option>' : ''}
+                                            </select>
+                                            <button type="button" class="btn btn-sm btn-secondary" id="ct-${ct.name}${sender.id_suffix}-selection-action-go-button" data-ct="${ct.name}" disabled>Go</button>
+                                        </div>` : ''}
+                                        
+                                        <div class="form-inline ml-auto mr-2">
+                                            <select class="form-control btn-primary d-none" id="ct-${ct.name}${sender.id_suffix}-page-selector">
+                                            </select>
+                                        </div>
+        
+                                        <div class="form-inline mr-2">
+                                            <select class="form-control btn-primary" id="ct-${ct.name}${sender.id_suffix}-per-page-selector">
+                                                <option value="5" selected>5 Per Page</option>
+                                                <option value="10">10 Per Page</option>
+                                                <option value="20">20 Per Page</option>
+                                                <option value="50">50 Per Page</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -481,40 +592,57 @@ class ContentTable {
                 </div>
             `);
 
+            // setup view deletion
+            if (sender.content_view) {
+                $(`#ct-${ct.name}${sender.id_suffix}-delete-view-button`).click(function() {
+                    let multi_form = $('#multiselect-form');
+                    $('#deletion-confirmation-modal-message').html(`
+                        Are you sure you want to delete the "${sender.label}" Content View?
+                    `);
+                    multi_form.append(`
+                        <input type='hidden' class="content-view-deletion-input" name='content-view' value='${sender.content_view_id}'/>
+                    `);
+                    let deletion_modal = $('#deletion-confirmation-modal');
+                    deletion_modal.modal();
+                    deletion_modal.on('hidden.bs.modal', function (e) {
+                        $('.content-view-deletion-input').remove();
+                    })
+                });
+            }
+
             // setup content type table headers
-            let table_header_row = $(`#ct-${ct.name}-table-header-row`);
+            let table_header_row = $(`#ct-${ct.name}${sender.id_suffix}-table-header-row`);
             table_header_row.append(`
                 <th scope="col">
-                    <input type="checkbox" id="ct_${ct.name}_select-all_box">
+                    ${ sender.mode === 'edit' ? `<input type="checkbox" id="ct_${ct.name}${sender.id_suffix}_select-all_box" data-ct="${ct.name}">` : '' }
                 </th>
             `);
             for (let x = 0; x < ct.fields.length; x++) {
                 if (ct.fields[x].in_lists) {
                     table_header_row.append(`
                         <th scope="col">
-                            <a href="#" class="${ct.name}-order-by" data-order-by="${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}"><h5>${ct.fields[x].label}</h5></a>
+                            <a href="#" class="${ct.name}${sender.id_suffix}-order-by" data-order-by="${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}"><h5>${ct.fields[x].label}</h5></a>
                         </th>
                     `);
                 }
             }
 
             // handle order by event
-            $(`.${ct.name}-order-by`).click(function(e) {
+            $(`.${ct.name}${sender.id_suffix}-order-by`).click(function(e) {
                 e.preventDefault();
                 sender.order_by($(this).data('order-by'));
             });
 
             // handle select all box checking/unchecking
-            $(`#ct_${ct.name}_select-all_box`).change(function() {
-                let id_parts = this.id.split('_');
-                let ct_name = id_parts[1];
-                let go_button = $(`#ct-${ct_name}-selection-action-go-button`);
+            $(`#ct_${ct.name}${sender.id_suffix}_select-all_box`).change(function() {
+                let ct_name = $(this).data('ct');
+                let go_button = $(`#ct-${ct_name}${sender.id_suffix}-selection-action-go-button`);
 
                 if ($(this).is(':checked')) {
                     selected_content.all = true;
                     selected_content.ids = [];
 
-                    $(`.ct-${ct_name}-selection-box`).each(function() {
+                    $(`.ct-${ct_name}${sender.id_suffix}-selection-box`).each(function() {
                         $(this).prop("checked", true);
                         $(this).attr("disabled", true);
                     });
@@ -522,7 +650,7 @@ class ContentTable {
                     go_button.removeAttr('disabled');
                 } else {
                     selected_content.all = false;
-                    $(`.ct-${ct_name}-selection-box`).each(function() {
+                    $(`.ct-${ct_name}${sender.id_suffix}-selection-box`).each(function() {
                         $(this).prop("checked", false);
                         $(this).removeAttr("disabled");
                     });
@@ -532,11 +660,11 @@ class ContentTable {
             });
 
             // setup content type search fields
-            let search_settings_menu = $(`#ct-${ct.name}-search-settings-menu`);
+            let search_settings_menu = $(`#ct-${ct.name}${sender.id_suffix}-search-settings-menu`);
             for (let x = 0; x < ct.fields.length; x++) {
                 if (ct.fields[x].in_lists) {
                     search_settings_menu.append(`
-                        <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}" href="#">${ct.fields[x].label}</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-setting" id="ct-${ct.name}${sender.id_suffix}-search-setting-${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}" href="#">${ct.fields[x].label}</a>
                     `);
 
                     // add cross reference sub field options
@@ -546,7 +674,7 @@ class ContentTable {
                             for (let y = 0; y < cx.fields.length; y++) {
                                 if (cx.fields[y].in_lists && cx.fields[y].type !== 'cross_reference') {
                                     search_settings_menu.append(`
-                                        <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-${ct.fields[x].name + '.' + cx.fields[y].name}" href="#">${ct.fields[x].label} -> ${cx.fields[y].label}</a>
+                                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-setting" id="ct-${ct.name}${sender.id_suffix}-search-setting-${ct.fields[x].name + '.' + cx.fields[y].name}" href="#">${ct.fields[x].label} -> ${cx.fields[y].label}</a>
                                     `);
                                 }
                             }
@@ -556,11 +684,11 @@ class ContentTable {
             }
 
             // event for selecting a specific field to search
-            $(`.ct-${ct.name}-search-setting`).click(function (event) {
+            $(`.ct-${ct.name}${sender.id_suffix}-search-setting`).click(function (event) {
                 event.preventDefault();
-                let field = event.target.id.replace(`ct-${ct.name}-search-setting-`, '');
+                let field = event.target.id.replace(`ct-${ct.name}${sender.id_suffix}-search-setting-`, '');
                 let label = $(this).text();
-                let search_type_menu = $(`#ct-${ct.name}-search-type-menu`);
+                let search_type_menu = $(`#ct-${ct.name}${sender.id_suffix}-search-type-menu`);
 
                 if (field === 'default') {
                     search_type_menu.html(`
@@ -568,48 +696,48 @@ class ContentTable {
                     `);
                 } else {
                     search_type_menu.html(`
-                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-default" href="#">Text Search</a>
-                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-exact" href="#">Exact Search</a>
-                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-term" href="#">Term Search</a>
-                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-phrase" href="#">Phrase Search</a>
-                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-wildcard" href="#">Wildcard Search</a>
-                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-range" href="#">Range Search</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-default" href="#">Text Search</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-exact" href="#">Exact Search</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-term" href="#">Term Search</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-phrase" href="#">Phrase Search</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-wildcard" href="#">Wildcard Search</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-range" href="#">Range Search</a>
                     `);
                 }
 
                 // event for selecting a search type
-                $(`.ct-${ct.name}-search-type`).click(function (event) {
+                $(`.ct-${ct.name}${sender.id_suffix}-search-type`).click(function (event) {
                     event.preventDefault();
-                    let search_type = event.target.id.replace(`ct-${ct.name}-search-type-`, '');
+                    let search_type = event.target.id.replace(`ct-${ct.name}${sender.id_suffix}-search-type-`, '');
                     let label = $(this).text();
 
-                    $(`#ct-${ct.name}-search-type-selection`).text(label);
-                    $(`#ct-${ct.name}-search-type-value`).val(search_type);
+                    $(`#ct-${ct.name}${sender.id_suffix}-search-type-selection`).text(label);
+                    $(`#ct-${ct.name}${sender.id_suffix}-search-type-value`).val(search_type);
                 });
 
-                $(`#ct-${ct.name}-search-setting-selection`).text(label);
-                $(`#ct-${ct.name}-search-setting-value`).val(field);
+                $(`#ct-${ct.name}${sender.id_suffix}-search-setting-selection`).text(label);
+                $(`#ct-${ct.name}${sender.id_suffix}-search-setting-value`).val(field);
             });
 
             // setup page selector events
-            $(`#ct-${ct.name}-page-selector`).on("change", function () {
-                search.page = parseInt($(`#ct-${ct.name}-page-selector`).val());
+            $(`#ct-${ct.name}${sender.id_suffix}-page-selector`).on("change", function () {
+                search.page = parseInt($(`#ct-${ct.name}${sender.id_suffix}-page-selector`).val());
                 corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content); });
             });
 
-            $(`#ct-${ct.name}-per-page-selector`).on("change", function () {
-                search['page-size'] = parseInt($(`#ct-${ct.name}-per-page-selector`).val());
+            $(`#ct-${ct.name}${sender.id_suffix}-per-page-selector`).on("change", function () {
+                search['page-size'] = parseInt($(`#ct-${ct.name}${sender.id_suffix}-per-page-selector`).val());
                 search['page'] = 1;
                 corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content); });
             });
 
             // setup search events
-            $(`#ct-${ct.name}-search-box`).keypress(function (e) {
+            $(`#ct-${ct.name}${sender.id_suffix}-search-box`).keypress(function (e) {
                 let key = e.which;
                 if (key === 13) {
-                    let query = $(`#ct-${ct.name}-search-box`).val();
-                    let field = $(`#ct-${ct.name}-search-setting-value`).val();
-                    let search_type = $(`#ct-${ct.name}-search-type-value`).val();
+                    let query = $(`#ct-${ct.name}${sender.id_suffix}-search-box`).val();
+                    let field = $(`#ct-${ct.name}${sender.id_suffix}-search-setting-value`).val();
+                    let search_type = $(`#ct-${ct.name}${sender.id_suffix}-search-type-value`).val();
                     let search_type_map = {
                         default: 'q',
                         exact: 'f',
@@ -626,13 +754,13 @@ class ContentTable {
                         search[`${param_prefix}_${field}`] = query;
                     }
 
-                    $(`#ct-${ct.name}-search-clear-button`).removeClass('d-none');
+                    $(`#ct-${ct.name}${sender.id_suffix}-search-clear-button`).removeClass('d-none');
                     corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content); });
                 }
             });
 
-            $(`#ct-${ct.name}-search-clear-button`).click(function (event) {
-                $(`#ct-${ct.name}-search-box`).val('');
+            $(`#ct-${ct.name}${sender.id_suffix}-search-clear-button`).click(function (event) {
+                $(`#ct-${ct.name}${sender.id_suffix}-search-box`).val('');
                 for (let param in search) {
                     if (search.hasOwnProperty(param)) {
                         if (param === 'q' || ['q_', 'f_', 't_', 'p_', 'w_', 'r_'].includes(param.slice(0, 2))) {
@@ -641,16 +769,15 @@ class ContentTable {
                     }
                 }
                 search.page = 1;
-                $(`#ct-${ct.name}-search-setting-selection`).text("All Fields");
-                $(`#ct-${ct.name}-search-setting-value`).val('default');
+                $(`#ct-${ct.name}${sender.id_suffix}-search-setting-selection`).text("All Fields");
+                $(`#ct-${ct.name}${sender.id_suffix}-search-setting-value`).val('default');
 
-                corpora.list_content(corpus_id, ct.name, search, sender.load_content);
+                corpora.list_content(corpus_id, ct.name, search, function(content) { sender.load_content(content); });
             });
 
-            $(`#ct-${ct.name}-selection-action-go-button`).click(function() {
-                let id_parts = this.id.split('-');
-                let ct_name = id_parts[1];
-                let action = $(`#ct-${ct.name}-selection-action-selector`).val();
+            $(`#ct-${ct.name}${sender.id_suffix}-selection-action-go-button`).click(function() {
+                let ct_name = $(this).data('ct');
+                let action = $(`#ct-${ct.name}${sender.id_suffix}-selection-action-selector`).val();
                 let multi_form = $('#multiselect-form');
                 $('#multiselect-content-ids').val(selected_content.ids.join(','));
 
@@ -735,7 +862,7 @@ class ContentTable {
                         }
                     });
                     task_selection_html += '</optgroup>';
-                    $(`#ct-${ct.name}-selection-action-selector`).append(task_selection_html);
+                    $(`#ct-${ct.name}${sender.id_suffix}-selection-action-selector`).append(task_selection_html);
                 }
             });
         }
@@ -750,10 +877,10 @@ class ContentTable {
         let sender = this;
 
         // instantiate some variables to keep track of elements
-        let ct_table_body = $(`#ct-${ct.name}-table-body`); // <-- the table body for listing results
-        let page_selector = $(`#ct-${ct.name}-page-selector`); // <-- the page select box
-        let per_page_selector = $(`#ct-${ct.name}-per-page-selector`); // <-- the page size select box
-        let current_search_div = $(`#ct-${ct.name}-current-search-div`); // <-- the search criteria div
+        let ct_table_body = $(`#ct-${ct.name}${sender.id_suffix}-table-body`); // <-- the table body for listing results
+        let page_selector = $(`#ct-${ct.name}${sender.id_suffix}-page-selector`); // <-- the page select box
+        let per_page_selector = $(`#ct-${ct.name}${sender.id_suffix}-per-page-selector`); // <-- the page size select box
+        let current_search_div = $(`#ct-${ct.name}${sender.id_suffix}-current-search-div`); // <-- the search criteria div
 
         // clear the table body, page selector, and search criteria div
         ct_table_body.html('');
@@ -762,7 +889,7 @@ class ContentTable {
 
         // add the total number of results to the search criteria div
         current_search_div.append(`
-            <span id="ct-${ct.name}-total-badge" class="badge badge-primary p-2 mr-2" data-total="${content.meta.total}" style="font-size: 12px;">
+            <span id="ct-${ct.name}${sender.id_suffix}-total-badge" class="badge badge-primary p-2 mr-2" data-total="${content.meta.total}" style="font-size: 12px;">
                 Total: ${content.meta.total.toLocaleString('en-US')}
             </span>
         `);
@@ -815,7 +942,7 @@ class ContentTable {
                 current_search_div.append(`
                     <span class="badge badge-primary p-2 mr-2" style="font-size: 12px;">
                         ${setting_type} ${field_name} "${search_value}"
-                        <a class="text-white ${ct.name}-remove-search-param" data-search-param="${search_setting}"><i class="far fa-times-circle"></i></a>
+                        <a class="text-white ${ct.name}${sender.id_suffix}-remove-search-param" data-search-param="${search_setting}"><i class="far fa-times-circle"></i></a>
                     </span>
                 `);
             }
@@ -834,13 +961,13 @@ class ContentTable {
             if (ct_views.length) {
                 current_search_div.append(`
                     <div class="form-inline ml-auto">
-                        <select id="${ct.name}-view-selector" class="form-control form-control-sm btn-primary">
+                        <select id="${ct.name}${sender.id_suffix}-view-selector" class="form-control form-control-sm btn-primary">
                             <option value="NONE">Default View</option>
                             ${ct_views.join('\n')}
                         </select>
                     </div>
                 `);
-                let view_selector = $(`#${ct.name}-view-selector`);
+                let view_selector = $(`#${ct.name}${sender.id_suffix}-view-selector`);
                 if (search.hasOwnProperty('exploration')) {
                     view_selector.val(search.exploration);
                 }
@@ -856,13 +983,13 @@ class ContentTable {
         }
 
         // remove search param event
-        $(`.${ct.name}-remove-search-param`).click(function() {
+        $(`.${ct.name}${sender.id_suffix}-remove-search-param`).click(function() {
             sender.remove_search_param($(this).data('search-param'));
         });
 
         // if there are no search results, show a default message
         if (content.records.length < 1) {
-            let no_records_msg = `There are currently no ${ct.plural_name} in this corpus. Click the "New ${ct.name}" button above to create one.`;
+            let no_records_msg = `There are currently no ${ct.plural_name} in this corpus. Click the "Create" button above to create one.`;
             if (has_filtering_criteria) {
                 no_records_msg = `No ${ct.plural_name} in this corpus match your search criteria.`;
             }
@@ -926,7 +1053,7 @@ class ContentTable {
                 let row_html = `
                     <tr>
                         <td class="ct-selection-cell">
-                            <input type="checkbox" id="ct_${ct.name}_${item.id}_selection-box" class="ct-${ct.name}-selection-box" ${selected}>
+                            ${ sender.mode === 'edit' ? `<input type="checkbox" id="ct_${ct.name}${sender.id_suffix}_${item.id}_selection-box" class="ct-${ct.name}${sender.id_suffix}-selection-box" data-ct="${ct.name}" data-id="${item.id}" ${selected}>` : '' }
                             <a href="${item.uri}" target="_blank">
                                 <span class="badge">Open <span class="fas fa-external-link-square-alt"></span></span>
                             </a>
@@ -995,11 +1122,10 @@ class ContentTable {
         }
 
         // handle checking/unchecking content selection boxes
-        $(`.ct-${ct.name}-selection-box`).change(function() {
-            let id_parts = this.id.split('_');
-            let ct_name = id_parts[1];
-            let content_id = id_parts[2];
-            let go_button = $(`#ct-${ct_name}-selection-action-go-button`);
+        $(`.ct-${ct.name}${sender.id_suffix}-selection-box`).change(function() {
+            let ct_name = $(this).data('ct');
+            let content_id = $(this).data('id');
+            let go_button = $(`#ct-${ct_name}${sender.id_suffix}-selection-action-go-button`);
 
             if($(this).is(':checked')) {
                 selected_content.ids.push(content_id);
@@ -1031,12 +1157,12 @@ class ContentTable {
 
 
     remove_search_param(param) {
-            if (this.search.hasOwnProperty(param)) {
-                delete this.search[param];
-                let sender = this;
+        if (this.search.hasOwnProperty(param)) {
+            delete this.search[param];
+            let sender = this;
 
-                this.corpora.list_content(this.corpus.id, this.content_type, this.search, function(content){ sender.load_content(content); });
-            }
+            this.corpora.list_content(this.corpus.id, this.content_type, this.search, function(content){ sender.load_content(content); });
+        }
     }
 
     strip_tags(label) {

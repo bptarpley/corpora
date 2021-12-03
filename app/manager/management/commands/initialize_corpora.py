@@ -204,6 +204,18 @@ class Command(BaseCommand):
             scholar_index.save()
             print("\t-- SCHOLAR INDEX CREATED :)")
 
+        # Ensure ContentView Elasticsearch index exists
+        if Index('content_view').exists():
+            print("\t-- CONTENT VIEW INDEX EXISTS :)")
+        else:
+            # Create ContentView Elasticsearch index
+            mapping = Mapping()
+            mapping.field('ids', 'keyword')
+            content_view_index = Index('content_view')
+            content_view_index.mapping(mapping)
+            content_view_index.save()
+            print("\t-- CONTENT VIEW INDEX CREATED :)")
+
         # Ensure a user exists
         if User.objects.filter(username=settings.DEFAULT_USER_USERNAME).count() > 0 and Scholar.objects(username=settings.DEFAULT_USER_USERNAME).count() > 0:
             print("\t-- USERS EXIST :)")

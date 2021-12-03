@@ -277,6 +277,10 @@
                             <option value="Document">Document</option>
                         </select>
                     </div>
+                    <div class="form-check d-none" id="new-f-has-intensity-div">
+                        <input id="new-f-has-intensity-checkbox" type="checkbox" value="" class="form-check-input">
+                        <label for="new-f-has-intensity-checkbox">Has Intensity?</label>
+                    </div>
                     <div class="form-group d-none" id="new-f-synonym-div">
                         <label for="new-f-synonym-box">Synonyms for Searching this Field</label>
                         <select id="new-f-synonym-box">
@@ -606,6 +610,46 @@
             </div>
 
         </div>
+
+        <div id="content-views-div" class="row">
+            <div class="col-sm-12">
+                <!-- CONTENT VIEWS -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <h4>Content Views</h4>
+                            {% if response.scholar.is_admin or role == 'Editor' %}
+                                <button id="new-content-view-button" class="btn btn-primary rounded" type="button">Create</button>
+                            {% else %}
+                                <span>&nbsp;</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            Content Views are subsets of content identified via a predefined search and/or pattern of association.
+                        </div>
+                        {% if content_views %}
+                            {% for cv in content_views %}
+                                <div
+                                    id="content-view-table-{{ cv.id }}"
+                                    class="content-view-table"
+                                    data-ct="{{ cv.target_ct }}"
+                                    data-es-doc-id="{{ cv.es_document_id }}"
+                                    data-name="{{ cv.name }}"
+                                    data-id="{{ cv.id }}">
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="alert alert-info">
+                                There are currently no content views for this corpus. Click the "Create" button above to create one.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="content-types-div">
 
             <!-- CONTENT TYPES LISTED HERE -->
@@ -947,6 +991,24 @@
                     }
                 }
 
+                // load content views
+                $('.content-view-table').each(function() {
+                    let table_div = $(this);
+                    console.log(table_div[0].id);
+                    let table = new ContentTable({
+                        container_id: table_div[0].id,
+                        corpora: corpora,
+                        corpus: corpus,
+                        content_type: table_div.data('ct'),
+                        content_view: table_div.data('es-doc-id'),
+                        content_view_id: table_div.data('id'),
+                        label: table_div.data('name')
+                    });
+                });
+                $('#new-content-view-button').click(function() {
+                    corpora.create_content_view(corpus)
+                });
+
                 // setup content type manager
                 if (role === 'Editor' || role === 'Admin') {
                     // setup the editor for importing a content type schema
@@ -1076,8 +1138,10 @@
 
                         if (selection === 'cross_reference') {
                             $('#new-f-cross-reference-box').removeClass('d-none');
+                            $('#new-f-has-intensity-div').removeClass('d-none');
                         } else {
                             $('#new-f-cross-reference-box').addClass('d-none');
+                            $('#new-f-has-intensity-div').addClass('d-none');
                         }
 
                         if (['text', 'large_text', 'html'].includes(selection)) {
@@ -1127,6 +1191,7 @@
                             unique_with: $('#new-f-unique-with-box').val(),
                             multiple: $('#new-f-multiple-checkbox').is(':checked'),
                             cross_reference_type: cross_reference_type,
+                            has_intensity: $('#new-f-has-intensity-checkbox').is(':checked'),
                             synonym_file: synonym_file !== 'None' ? synonym_file : null,
                             type: $('#new-f-type-box').val(),
                         };
@@ -1565,6 +1630,7 @@
                     $('#new-f-type-box').val('keyword');
                     $('#new-f-synonym-box').val('None');
                     $('#new-f-synonym-div').addClass('d-none');
+                    $('#new-f-has-intensity-checkbox').prop('checked', false);
                     $('#new-f-in-lists-checkbox').prop('checked', true);
                     $('#new-f-indexed-checkbox').prop('checked', false);
                     $('#new-f-unique-checkbox').prop('checked', false);
@@ -1585,6 +1651,7 @@
                     $('#new-f-unique-with-div').removeClass('d-flex');
                     $('#new-f-unique-with-div').addClass('d-none');
                     $('#new-f-cross-reference-box').addClass('d-none');
+                    $('#new-f-has-intensity-div').addClass('d-none');
 
                     $('#new-f-create-button').html('Create');
                     $('#new-f-modal').modal();
@@ -1639,6 +1706,9 @@
             switch (ct.fields[f_index].type) {
                 case 'cross_reference':
                     field_type_display = ct.fields[f_index].cross_reference_type;
+                    if (ct.fields[f_index].has_intensity) {
+                        field_type_display += '+';
+                    }
                     break;
                 case 'text':
                     field_type_display = 'Text';
@@ -1714,8 +1784,10 @@
                     if (ct.fields[f_index].type === 'cross_reference') {
                         $('#new-f-cross-reference-box').removeClass('d-none');
                         $('#new-f-cross-reference-box').val(ct.fields[f_index].cross_reference_type);
+                        $('#new-f-has-intensity-div').removeClass('d-none');
                     } else {
                         $('#new-f-cross-reference-box').addClass('d-none');
+                        $('#new-f-has-intensity-div').addClass('d-none');
                     }
 
                     $('#new-f-synonym-box').val(ct.fields[f_index].synonym_file == null ? 'None' : ct.fields[f_index].synonym_file);
@@ -1734,6 +1806,7 @@
                         }
                     }
 
+                    $('#new-f-has-intensity-checkbox').prop('checked', ct.fields[f_index].has_intensity)
                     $('#new-f-indexed-checkbox').prop('checked', ct.fields[f_index].indexed);
                     $('#new-f-indexed-with-box').val(ct.fields[f_index].indexed_with);
                     if (ct.fields[f_index].indexed) {

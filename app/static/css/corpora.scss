@@ -3,6 +3,8 @@ $body-bg: #FFFFFF;
 $body-color: #091540;
 $card-border-color: #091540;
 $input-border-color: #EF3E36;
+$input-btn-padding-y: .25rem;
+$input-btn-padding-x: .7rem;
 $font-size-base: 0.8rem;
 
 $theme-colors: (
@@ -24,6 +26,14 @@ $theme-colors: (
 html, body {
   height: 100%;
   width: 100%;
+}
+
+h4 {
+  font-size: 1rem;
+}
+
+h5 {
+  font-size: .9rem;
 }
 
 .brand {
@@ -101,12 +111,12 @@ html, body {
 
 .table .thead-dark th {
   border-top: none !important;
-  background-color: #091540;
-  border-bottom: solid 4px #17BEBB;
+  background-color: #17BEBB;
+  padding: 5px;
 }
 
-.table .thead-dark th:first-child {
-  border-top-left-radius: 10px !important;
+.table .thead-dark th a {
+  color: white;
 }
 
 table.table {

@@ -180,9 +180,11 @@
                 `;
             },
             cross_reference: function(field, value) {
+                let intensity_indicator = '';
+                if (field.has_intensity && value.hasOwnProperty('intensity')) intensity_indicator = ` (${value.intensity})`;
                 return `
                     <div class="col-10 d-flex align-left field-value ${field.type}-value">
-                        <a href="${value.uri}" target="_blank">${value.label}</a>
+                        <a href="${value.uri}" target="_blank">${value.label}</a>${intensity_indicator}
                     </div>
                 `;
             }
