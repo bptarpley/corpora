@@ -2,7 +2,12 @@
 {% load static %}
 
 {% block headrefs %}
-<!-- This goes inside the head tag specific for this page -->
+    <style>
+        .nvs-video {
+            margin-top: 15px;
+            margin-bottom: 20px;
+        }
+    </style>
 {% endblock %}
 
 {% block main %}
@@ -46,6 +51,11 @@
             criticism
             available world-wide.
           </p>
+          <div class="nvs-video">
+            <video poster="https://newvariorumshakespeare.org/static/videos/wsc_2021_exhibit_poster.png" controls="controls">
+                <source src="https://newvariorumshakespeare.org/static/videos/wsc_2021_exhibit.mp4" type="video/mp4">
+            </video>
+          </div>
         </div>
         <div class="anchor" id="nvs-history">
           <h2>NVS History</h2>
