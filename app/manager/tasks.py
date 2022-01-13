@@ -8,7 +8,7 @@ import logging
 import math
 import redis
 from copy import deepcopy
-from corpus import Corpus, Job, get_corpus, File, run_neo
+from corpus import Corpus, Job, get_corpus, File, run_neo, ContentView
 from huey.contrib.djhuey import db_task, db_periodic_task
 from huey import crontab
 from bson.objectid import ObjectId
@@ -291,6 +291,28 @@ REGISTRY = {
         },
         "module": 'manager.tasks',
         "functions": ['perform_exploration']
+    },
+    "Content View Lifecycle": {
+        "version": "0.0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "cv_id": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Content View ID"
+                },
+                "stage": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Content View Lifecycle Stage"
+                }
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['content_view_lifecycle']
     }
 }
 
@@ -894,3 +916,27 @@ def perform_exploration(job_id):
         )
 
     job.complete(status='complete')
+
+
+@db_task(priority=5)
+def content_view_lifecycle(job_id):
+    job = Job(job_id)
+    cv_id = job.get_param_value('cv_id')
+    cv_stage = job.get_param_value('stage')
+    job.set_status('running')
+
+    try:
+        cv = ContentView.objects.get(id=cv_id)
+        if cv_stage == 'populate':
+            cv.populate()
+        elif cv_stage == 'refresh':
+            cv.clear()
+            cv.populate()
+        elif cv_stage == 'delete':
+            cv.clear()
+            cv.delete()
+
+        job.complete(status='complete')
+    except:
+        print(traceback.format_exc())
+        job.complete(status='error')

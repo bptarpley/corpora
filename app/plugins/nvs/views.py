@@ -147,8 +147,8 @@ def playviewer(request, corpus_id=None, play_prefix=None):
                 as_parts = act_scene.split('|||')
                 act = as_parts[0]
                 scene = as_parts[1]
-                act_label = to_roman(int(act))
-                act_scene_label = "{0}.{1}".format(act_label, scene)
+                # act_label = to_roman(int(act))
+                act_scene_label = "{0}.{1}".format(act, scene)
                 act_scenes[act_scene_label] = "{0}.{1}".format(act, scene)
 
         if 'Trailer|||0' in as_results['meta']['aggregations']['act_scenes']:

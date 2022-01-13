@@ -147,3 +147,43 @@ h1, h2, h3, h4, h5, h6 {
   padding: 10px;
   z-index: 10;
 }
+
+// Pattern of association styles
+#patass-canvas {
+  padding: 10px;
+  background-color: #BFC0C0;
+}
+
+.patass-ct-circle {
+  width: 150px;
+  height: 150px;
+  background: #EF3E36;
+  border-radius: 50%;
+  color: white;
+  font-weight: bold;
+}
+
+.patass-ct-circle a {
+  color: white;
+}
+
+.patass-add-circle {
+  width: 150px;
+  height: 150px;
+  background: #17BEBB;
+  border-radius: 50%;
+  color: white;
+  font-weight: bold;
+}
+
+.patass-pipe {
+  border-left: dashed 2px #091540;
+  height: 50px;
+  width: 10px;
+  margin-left: 10px;
+}
+
+.patass-ct-controls {
+  margin-top: -55px;
+  margin-bottom: 30px;
+}

@@ -253,7 +253,7 @@
             }
 
             .heading-label {
-                font-family: 'Roboto Condensed', sans-serif;
+                font-family: "HalyardTextSemiBold", sans-serif;
                 color: var(--nvs-mid-gray);
                 font-size: 14px;
             }
@@ -449,6 +449,7 @@
             }
 
             .vertical {
+                font-family: "Roboto Condensed";
                 font-size: 12px;
                 position: relative;
                 transform: rotate(-90deg);
@@ -682,6 +683,10 @@
                 color: #000000;
             }
 
+            .comm-heading > .comm-indicator {
+                font-family: "Roboto Condensed", sans-serif;
+            }
+
             .comm-heading:hover {
                 color: var(--nvs-light-blue);
             }
@@ -880,6 +885,8 @@
             .ref-modal-control {
                 cursor: pointer;
                 height: 20px;
+                width: 20px;
+                display: inline-block;
                 margin-left: 5px;
                 text-decoration: none;
                 color: var(--nvs-mid-gray);
@@ -889,11 +896,43 @@
                 text-decoration: none;
             }
 
+            .ref-modal-control.new-tab {
+                background-image: url("{% static 'img/controls/Modal-NEWTAB.svg' %}");
+            }
+
+            .ref-modal-control.new-tab:hover {
+                background-image: url("{% static 'img/controls/Modal-NEWTAB-all-ROLL.svg' %}");
+            }
+
+            .ref-modal-control.go-to {
+                background-image: url("{% static 'img/controls/Modal-GOTO.svg' %}");
+            }
+
+            .ref-modal-control.go-to:hover {
+                background-image: url("{% static 'img/controls/Modal-GOTO-ALL-ROLL.svg' %}");
+            }
+
+            .ref-modal-control.close {
+                background-image: url("{% static 'img/controls/Modal-CLOSE.svg' %}");
+            }
+
+            .ref-modal-control.close:hover {
+                background-image: url("{% static 'img/controls/Modal-CLOSE-ALL-ROLL.svg' %}");
+            }
+
             .ref-modal-content {
                 padding: 10px;
                 font-family: 'HalyardTextBook';
                 max-height: calc(40vh);
                 overflow-y: scroll;
+            }
+
+            .ref-modal-content .comm-heading {
+                cursor: unset;
+            }
+
+            .ref-modal-content .comm-heading:hover {
+                color: #000000;
             }
 
             .ref-row {
@@ -1320,11 +1359,11 @@
         <div id="search-widget" class="d-none ref-modal">
             <div id="search-results-div" class="arrow-top">
                 <div class="ref-modal-header d-flex justify-content-between">
-                    <span id="search-widget-header" class="w-100">
+                    <span id="search-widget-header">
                         SEARCH RESULTS
                     </span>
                     <span style="white-space: nowrap;">
-                        <i id="search-widget-close-button" class="fas fa-times ref-modal-control"></i>
+                        <i id="search-widget-close-button" class="ref-modal-control close"></i>
                     </span>
                 </div>
                 <div class="ref-modal-content d-flex">
@@ -2179,7 +2218,7 @@
                 comm_id,
                 function (comm) {
                     if (!content_div.html()) {
-                        header_div.append(`n. ${comm.line_label}: ${comm.subject_matter}`);
+                        header_div.append(`<span class="comm-indicator">n. ${comm.line_label}:</span> ${comm.subject_matter}`);
                         if (comm.lines.length) header_div.data('first_line', comm.lines[0].label);
                         content_div.append(`${comm.contents}`);
                     }
@@ -2365,14 +2404,8 @@
                 } else lines_label += ' ' + line_row.data('line_label');
 
                 let controls = `
-                        <img src="{% static 'img/controls/Modal-GOTO.svg' %}"
-                            class="ref-modal-control"
-                            onClick="javascript: $('#${start_id}-row')[0].scrollIntoView({behavior: 'smooth'});"
-                        >
-                        <a href="${playviewer_url}#${line_row.attr('id')}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}"
-                            class="ref-modal-control"
-                            border="0"
-                        ></a>
+                        <i class="ref-modal-control go-to" onClick="javascript: $('#${start_id}-row')[0].scrollIntoView({behavior: 'smooth'});"></i>
+                        <a href="${playviewer_url}#${line_row.attr('id')}" target="_blank"><i class="ref-modal-control new-tab"></i></a>
                 `;
                 display_nav_modal(lines_label, lines_html, link, controls);
             }
@@ -2389,7 +2422,7 @@
                     } else {
                         biblio_url = `/front/${play_prefix}/#${xml_id}`;
                     }
-                    let controls = `<a href="${biblio_url}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}" class="ref-modal-control" border="0"></a>`;
+                    let controls = `<a href="${biblio_url}" target="_blank"><i class="ref-modal-control new-tab"></i></a>`;
                     display_nav_modal(title, witnesses[xml_id].bibliographic_entry, link, controls);
                 }
             } else {
@@ -2443,7 +2476,7 @@
                         if (nav_type === 'note_cn') {
                             nav_content += `
                                 <div class="comm-heading">
-                                    n. ${content.line_label}: ${content.subject_matter}
+                                    <span class="comm-indicator">n. ${content.line_label}:</span> ${content.subject_matter}
                                 </div>
                             `;
                         } else if (nav_type === 'bibl' && first_xml_id && !controls) {
@@ -2461,7 +2494,7 @@
                                     biblio_url = `/front/${play_prefix}/#${first_xml_id}`;
                                 }
                             }
-                            controls += `<a href="${biblio_url}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}" class="ref-modal-control" border="0"></a>`;
+                            controls += `<a href="${biblio_url}" target="_blank"><i class="ref-modal-control new-tab"></i></a>`;
                         } else if (nav_type === 'anchor') {
                             if (content_index === 0) {
                                 nav_title = `
@@ -2491,7 +2524,7 @@
                             paratext_url += `#paratext-${content.id}`;
 
                             if (!controls) {
-                                controls += `<a href="${paratext_url}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}" class="ref-modal-control" border="0"></a>`;
+                                controls += `<a href="${paratext_url}" target="_blank"><i class="ref-modal-control new-tab"></i></a>`;
                             }
                         }
 
@@ -2525,12 +2558,12 @@
                 >
                     <div class="arrow-${arrow_side}">
                         <div class="ref-modal-header d-flex justify-content-between">
-                            <span id="${modal_id}-header" class="w-100">
+                            <span id="${modal_id}-header">
                                 ${title}
                             </span>
                             <span style="white-space: nowrap;">
                                 ${controls}
-                                <i id="${modal_id}-close-button" class="fas fa-times ref-modal-control" data-modal-id="${modal_id}" aria-label="Close"></i>
+                                <i id="${modal_id}-close-button" class="ref-modal-control close" data-modal-id="${modal_id}" aria-label="Close"></i>
                             </span>
                         </div>
                         <div class="ref-modal-content">${content}</div>
@@ -2566,10 +2599,11 @@
 
     function make_draggable(elmnt) {
         var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-        if (document.getElementById(elmnt.id + "-header")) {
+        let handle = $(`#${elmnt.id} .ref-modal-header`);
+        if (handle.length) {
             // if present, the header is where you move the DIV from:
-            document.getElementById(elmnt.id + "-header").onmousedown = dragMouseDown;
-            document.getElementById(elmnt.id + "-header").ontouchstart = dragMouseDown;
+            handle[0].onmousedown = dragMouseDown;
+            handle[0].ontouchstart = dragMouseDown;
         } else {
             // otherwise, move the DIV from anywhere inside the DIV:
             elmnt.onmousedown = dragMouseDown;

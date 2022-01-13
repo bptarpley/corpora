@@ -625,10 +625,7 @@
                             {% endif %}
                         </div>
                     </div>
-                    <div class="card-body">
-                        <div class="alert alert-info">
-                            Content Views are subsets of content identified via a predefined search and/or pattern of association.
-                        </div>
+                    <div id="content-views-body" class="card-body">
                         {% if content_views %}
                             {% for cv in content_views %}
                                 <div
@@ -642,7 +639,8 @@
                             {% endfor %}
                         {% else %}
                             <div class="alert alert-info">
-                                There are currently no content views for this corpus. Click the "Create" button above to create one.
+                                Content Views are subsets of content identified via a predefined search and/or pattern of association.
+                                Click the "Create" button above to create one.
                             </div>
                         {% endif %}
                     </div>
@@ -1006,7 +1004,28 @@
                     });
                 });
                 $('#new-content-view-button').click(function() {
-                    corpora.create_content_view(corpus)
+                    corpora.create_content_view(corpus, function(data) {
+                        $('#content-views-body').append(`
+                            <div
+                                id="content-view-table-${data.id}"
+                                class="content-view-table"
+                                data-ct="${data.target_ct}"
+                                data-es-doc-id="${data.es_document_id}"
+                                data-name="${data.name}"
+                                data-id="${data.id}">
+                            </div>
+                        `);
+                        let table = new ContentTable({
+                            container_id: `content-view-table-${data.id}`,
+                            corpora: corpora,
+                            corpus: corpus,
+                            content_type: data.target_ct,
+                            content_view: data.es_document_id,
+                            content_view_id: data.id,
+                            label: data.name
+                        });
+                        $(`#content-view-table-${data.id}`)[0].scrollIntoView();
+                    });
                 });
 
                 // setup content type manager

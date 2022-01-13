@@ -337,7 +337,7 @@ class Corpora {
                                 <span aria-hidden="true">&times;</span>
                                 </button>
                             </div>
-                            <div class="modal-body">
+                            <div class="modal-body" style="max-height: 70vh; overflow-y: scroll;">
                                 <div class="alert alert-info">
                                     A "Content View" is a defined subset of content for a particular content type. To define one,
                                     start by giving it a name and choosing the content type. You may then start filtering content
@@ -358,13 +358,13 @@ class Corpora {
                                 
                                 <div id="cv-target-table-div"></div>
                                 
-                                <div id="cv-pattern-div" class="d-none">
-                                    <button type="button" class="btn btn-primary" id="cv-create-pattern-button">Create a Pattern of Association</button>
+                                <div id="cv-pattern-div" class="d-none mt-3">
+                                    
                                 </div>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                                <button type="button" class="btn btn-primary" id="cv-create-button" disabled>Create</button>
+                                <button type="button" class="btn btn-primary" id="cv-create-button">Create</button>
                             </div>
                         </div>
                     </div>
@@ -386,8 +386,12 @@ class Corpora {
 
             target_ct_selector.change(function() {
                 let target_ct = $(this).val();
+                let patass_div = $('#cv-pattern-div');
+
                 target_table_div.html('');
-                $('#cv-pattern-div').removeClass('d-none');
+                patass_div.removeClass('d-none');
+                patass_div.html('');
+                patass_div.append('<button type="button" class="btn btn-primary" id="cv-create-pattern-button">Create a Pattern of Association</button>');
 
                 let target_table = new ContentTable({
                     container_id: 'cv-target-table-div',
@@ -396,10 +400,246 @@ class Corpora {
                     content_type: target_ct,
                     mode: 'view'
                 });
+
+                $('#cv-create-pattern-button').click(function() {
+                    let pattern_div = $('#cv-pattern-div');
+                    let target_ct = corpus.content_types[target_ct_selector.val()];
+                    pattern_div.append(`<div id="patass-canvas" class="d-flex flex-column"></div>`);
+                    let canvas = $('#patass-canvas');
+
+                    let patass_step = (step, ct) => {
+                        let next_ct_options = [];
+                        ct.fields.map(field => {
+                            if (field.type === 'cross_reference') {
+                                let next_ct = field.cross_reference_type;
+                                next_ct_options.push(`<option value="${next_ct}">${next_ct}</option>`);
+                            }
+                        });
+                        for (let ct_name in corpus.content_types) {
+                            if (ct_name !== ct.name) {
+                                corpus.content_types[ct_name].fields.map(field => {
+                                    if (field.type === 'cross_reference' && field.cross_reference_type === ct.name) {
+                                        next_ct_options.push(`<option value="${ct_name}">${ct_name}</option>`);
+                                    }
+                                });
+                            }
+                        }
+
+                        let next_selector = `<select class="patass-next-selector form-control-sm btn-secondary d-flex align-self-center" data-step="${step}"><option value="--">Select...</option>${next_ct_options}</select>`;
+
+                        canvas.append(`
+                            ${ step > 0 ? ` <div class="patass-pipe patass-step-${step} d-flex align-self-center">&nbsp;</div>` : '' }
+                            <div id="patass-step-${step}-circle" class="patass-ct-circle patass-step-${step} d-flex justify-content-center align-self-center" data-step="${step}" data-ct="${ct.name}" data-ids=""><span class="mx-auto my-auto">${ct.plural_name}</span></div>
+                            ${ step > 0 ? `<div class="patass-ct-controls d-flex justify-content-center align-self-center"><button role="button" class="btn btn-sm btn-secondary patass-specific-ids-button" data-step="${step}">Specify</button></div>` : '' }
+                            <div class="patass-pipe patass-from-ct-to-add patass-step-${step} d-flex align-self-center">&nbsp;</div>
+                            <div class="patass-add-circle patass-step-${step} d-flex justify-content-center align-self-center" data-step="${step}" data-origin-ct="${ct.name}">${next_selector}</div>
+                        `);
+
+                        $('.patass-next-selector').off('change').on('change', function() {
+                            if ($(this).val() !== '--') {
+                                let step = parseInt($(this).data('step'));
+                                let next_ct = corpus.content_types[$(this).val()];
+                                $('.patass-add-circle').remove();
+                                $('.patass-from-ct-to-add').remove();
+                                patass_step(step + 1, next_ct, []);
+                            }
+                        });
+
+                        $('.patass-specific-ids-button').off('click').on('click', function() {
+                            let step = $(this).data('step');
+                            let ct_circle = $(`#patass-step-${step}-circle`);
+                            let ids = ct_circle.data('ids').split(',');
+                            if (ids[0] === '') ids = [];
+                            let ct_circle_span = $(`#patass-step-${step}-circle > span`);
+
+                            sender.select_content(corpus_id, ct.name, function(new_id, new_label) {
+                                ids.push(new_id);
+                                ct_circle.data('ids', ids.join(','));
+                                let label = ct_circle_span.html();
+                                if (!label.includes(' (')) label += ' (';
+                                else label = label.slice(0, -1) + ', ';
+                                label += `<a href="/corpus/${corpus_id}/${ct.name}/${new_id}/" target="_blank">${new_label}</a>)`;
+                                ct_circle_span.html(label);
+                            });
+                        });
+                    };
+
+                    patass_step(0, target_ct, []);
+
+
+                    $(this).remove();
+                });
+
+                $('#cv-create-button').click(function() {
+                    let patass = '';
+                    $('.patass-ct-circle').each(function() {
+                        let step = parseInt($(this).data('step'));
+                        if (step > 0) {
+                            let ct = $(this).data('ct');
+                            let ids = $(this).data('ids');
+                            if (ids) ids = ids.split(',');
+                            else ids = [];
+
+                            patass += `-(${ct}${ ids.length ? ` [${ids.join(',')}]` : '' })`
+                        }
+                    });
+
+                    if (patass.length) {
+                        patass = patass.slice(1);
+                    }
+
+                    let submission = {
+                        'cv-name': $('#cv-name-box').val(),
+                        'cv-target-ct': target_ct_selector.val(),
+                        'cv-search-json': JSON.stringify(target_table.search),
+                        'cv-patass': patass
+                    }
+
+                    sender.make_request(
+                        `/api/corpus/${corpus.id}/content-view/`,
+                        'POST',
+                        submission,
+                        function (data) {
+                            if (data.status === 'populating') {
+                                let create_button = $('#cv-create-button');
+                                create_button.html('Populating...');
+                                create_button.attr('disabled', true);
+                                sender.await_content_view_population(corpus.id, data.id, function(data) {
+                                    cv_modal.modal('hide');
+                                    callback(data);
+                                });
+                            } else {
+                                cv_modal.modal('hide');
+                                callback(data);
+                            }
+                        }
+                    );
+                });
             });
         }
 
         cv_modal.modal();
+        cv_modal.on('hidden.bs.modal', function() { cv_modal.remove(); });
+    }
+
+    await_content_view_population(corpus_id, content_view_id, callback) {
+        let sender = this;
+        sender.make_request(
+            `/api/corpus/${corpus.id}/content-view/${content_view_id}/`,
+            'GET',
+            {},
+            function (data) {
+                if (data.status === 'populating') {
+                    setTimeout(function() {
+                        sender.await_content_view_population(corpus_id, content_view_id, callback);
+                    }, 5000);
+                } else {
+                    callback(data);
+                }
+            }
+        );
+    }
+
+    select_content(corpus_id, content_type, callback, new_selection=true) {
+        let sender = this;
+        let modal = $('#content-selection-modal');
+
+        if (new_selection) {
+            modal.remove();
+            modal = $('#content-selection-modal');
+        }
+
+        if (!modal.length) {
+            $('body').append(`
+                <div class="modal fade" id="content-selection-modal" tabindex="-1" role="dialog" aria-labelledby="content-selection-modal-label" aria-hidden="true">
+                    <div class="modal-dialog modal-lg" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="content-selection-modal-label">Select ContentType</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="alert alert-light">
+                                    <div class="mb-2">
+                                        <input type="text" class="form-control" id="content-selection-modal-filter-box" aria-placeholder="Search" placeholder="Search">
+                                    </div>
+                                    <table class="table table-striped">
+                                        <thead class="thead-dark">
+                                            <th scope="col" id="content-selection-modal-table-header">ContentType</th>
+                                        </thead>
+                                        <tbody id="content-selection-modal-table-body">
+                                            <tr><td>Loading...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <input type="hidden" id="content-selection-search-params" data-page-size="10" data-page="1" data-q="*" />
+                                <button type="button" id="content-selection-modal-prev-page-button" class="btn btn-secondary"><span class="fas fa-angle-left"></span></button>
+                                <button type="button" id="content-selection-modal-next-page-button" class="btn btn-secondary"><span class="fas fa-angle-right"></span></button>
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+            modal = $('#content-selection-modal');
+        }
+
+        let search_param_input = $('#content-selection-search-params');
+
+        let content_selection_params = {
+            q: search_param_input.data('q'),
+            only: 'label',
+            s_label: 'asc',
+            'page-size': search_param_input.data('page-size'),
+            page: search_param_input.data('page')
+        };
+
+        corpora.list_content(corpus_id, content_type, content_selection_params, function(data){
+            $('#content-selection-modal-prev-page-button').prop('disabled', content_selection_params.page <= 1);
+            $('#content-selection-modal-next-page-button').prop('disabled', !data.meta.has_next_page);
+
+            $('#content-selection-modal-label').html(`Select ${content_type}`);
+            $('#content-selection-modal-table-header').html(content_type);
+            $('#content-selection-modal-table-body').html('');
+            for (let x = 0; x < data.records.length; x++) {
+                $('#content-selection-modal-table-body').append(`
+                    <tr><td><a class="content-selection-item" data-id="${data.records[x].id}" data-label="${data.records[x].label}">${data.records[x].label}</a></td></tr>
+                `);
+            }
+
+            // HANDLE ITEM CLICKING
+            $('.content-selection-item').click(function() {
+                modal.modal('hide');
+                callback($(this).data('id'), $(this).data('label'));
+            });
+
+            // HANDLE SEARCH BOX
+            $('#content-selection-modal-filter-box').keypress(function (e) {
+                let key = e.which;
+                if (key === 13) {
+                    search_param_input.data('q', $('#content-selection-modal-filter-box').val());
+                    sender.select_content(corpus_id, content_type, callback, false);
+                }
+            });
+
+            // previous select content page click event
+            $('#content-selection-modal-prev-page-button').click(function() {
+                search_param_input.data('page', content_selection_params.page - 1);
+                sender.select_content(corpus_id, content_type, callback, false);
+            });
+
+            // next select content page click event
+            $('#content-selection-modal-next-page-button').click(function() {
+                search_param_input.data('page', content_selection_params.page + 1);
+                sender.select_content(corpus_id, content_type, callback, false);
+            });
+
+            $('#content-selection-modal').modal();
+        });
     }
 
     file_url(uri) {
@@ -1180,6 +1420,7 @@ class ContentGraph {
         this.edges = new vis.DataSet([]);
         this.groups = {};
         this.selected_uris = [];
+        this.filtering_views = {};
         this.collapsed_relationships = [];
         this.hidden_cts = ['Corpus', 'File'];
         this.extruded_nodes = [];
@@ -1187,6 +1428,9 @@ class ContentGraph {
         this.seed_uris = [];
         this.sprawls = [];
         this.sprawl_timer = null;
+        this.click_timer = null;
+        this.click_registered = false;
+        this.hide_singletons = false;
         this.per_type_limit = 'per_type_limit' in config ? config['per_type_limit'] : 20;
         this.max_mass = 'max_node_mass' in config ? config['max_node_mass'] : 100;
         this.vis_div_id = vis_div_id;
@@ -1216,6 +1460,10 @@ class ContentGraph {
                                 </button>
                             </div>
                             <div class="modal-body">
+                            
+                                <h5>Filter by View</h5>
+                                <div id="explore-ct-cv-div" class="mb-4 p-2"></div>
+                                
                                 <h5>Collapse Relationship</h5>
                                 <div id="explore-ct-modal-collapse-div" class="p-2">
                                     <div class="row">
@@ -1398,6 +1646,19 @@ class ContentGraph {
                 },
             }
         );
+
+        // ADD WHITE BACKGROUND
+        this.network.on("beforeDrawing",  function(ctx) {
+            // save current translate/zoom
+            ctx.save();
+            // reset transform to identity
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            // fill background with solid white
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+            // restore old transform
+            ctx.restore();
+        })
 
         // CUSTOM PHYSICS
         this.network.physics._performStep = function(nodeId) {
@@ -1627,6 +1888,36 @@ class ContentGraph {
             </select>
         `);
 
+        // SPRAWL OPTIONS
+        legend.append(`
+            <label for="explore-sprawl-opt" class="mr-1 mb-0">Sprawl Size:</label>
+            <select id="explore-sprawl-opt" class="mr-2">
+                <option value="5" ${sender.per_type_limit === 5 ? 'selected' : ''}>5</option>
+                <option value="10" ${sender.per_type_limit === 10 ? 'selected' : ''}>10</option>
+                <option value="20" ${sender.per_type_limit === 20 ? 'selected' : ''}>20</option>
+                <option value="40" ${sender.per_type_limit === 40 ? 'selected' : ''}>40</option>
+                <option value="80" ${sender.per_type_limit === 80 ? 'selected' : ''}>80</option>
+            </select>
+        `);
+
+        // SINGLETON HIDING
+        legend.append(`
+            <button id="explore-hide-singletons" class="btn btn-sm btn-primary mr-2">Hide Singletons</button>
+        `);
+
+        // HIDE SINGLETONS CLICK
+        $('#explore-hide-singletons').click(function() {
+            let singletons = [];
+            sender.nodes.map(n => {
+                if (sender.network.getConnectedNodes(n.id).length === 1) singletons.push(n.id);
+            });
+            singletons.map(uri => {
+                let edge_ids = sender.network.getConnectedEdges(uri);
+                edge_ids.map(edge_id => sender.edges.remove(edge_id));
+                sender.nodes.remove(uri);
+            });
+        });
+
         // SELECTED OPTIONS
         if (this.selected_uris.length) {
             legend.append(`
@@ -1685,35 +1976,90 @@ class ContentGraph {
             });
         }
 
+        // LEGEND CLICK EVENTS
         $('.ct-legend-badge').click(function() {
-            let explore_ct = $(this).html();
-            $('#explore-ct-modal-label').html(`${explore_ct} Options`);
-            $('.modal-proxy-ct').html(explore_ct);
+            clearTimeout(sender.click_timer);
+            let click_target = this;
 
-            let collapsible = true;
-            let hideable = !sender.hidden_cts.includes(explore_ct);
-
-            sender.collapsed_relationships.map(col_rel => {
-                if (col_rel.proxy_ct === explore_ct) {
-                    collapsible = false;
-                }
-            });
-
-            if (collapsible) {
-                $('#explore-ct-modal-already-collapsed-div').addClass('d-none');
-                $('#explore-ct-modal-collapse-div').removeClass('d-none');
+            // DOUBLE CLICK
+            if (sender.click_registered) {
+                sender.click_registered = false;
+                let explore_ct = $(click_target).html();
+                sender.nodes.map(n => {
+                    if (n.id.includes(`/${explore_ct}/`)) {
+                        sender.sprawl_node(n.id);
+                    }
+                });
+            // SINGLE CLICK
             } else {
-                $('#explore-ct-modal-already-collapsed-div').removeClass('d-none');
-                $('#explore-ct-modal-collapse-div').addClass('d-none');
-            }
+                sender.click_registered = true;
+                sender.click_timer = setTimeout(function() {
+                    sender.click_registered = false;
 
-            if (hideable) {
-                $('#explore-ct-hide-button').attr('disabled', false);
-            } else {
-                $('#explore-ct-hide-button').attr('disabled', true);
-            }
+                    let explore_ct = $(click_target).html();
+                    $('#explore-ct-modal-label').html(`${explore_ct} Options`);
+                    $('.modal-proxy-ct').html(explore_ct);
 
-            $('#explore-ct-modal').modal();
+                    let collapsible = true;
+                    let hideable = !sender.hidden_cts.includes(explore_ct);
+
+                    let cv_div = $('#explore-ct-cv-div');
+                    cv_div.html('');
+                    if (Object.keys(sender.corpus.content_types[explore_ct]).includes('views')) {
+                        cv_div.append(`<select id="cv-selector" class="form-control" data-ct="${explore_ct}"><option value="--">None</option></select>`);
+                        let cv_selector = $('#cv-selector');
+                        sender.corpus.content_types[explore_ct].views.map(cv => {
+                            let selected_indicator = '';
+                            if (sender.filtering_views.hasOwnProperty(explore_ct) && sender.filtering_views[explore_ct] === cv.neo_super_node_uri) {
+                                selected_indicator = ' selected'
+                            }
+                            cv_selector.append(`<option value="${cv.neo_super_node_uri}"${selected_indicator}>${cv.name}</option>`);
+                        });
+
+                        cv_selector.change(function() {
+                            let ct = cv_selector.data('ct');
+                            let cv_supernode = cv_selector.val();
+                            if (cv_supernode === '--' && Object.keys(sender.filtering_views).includes(ct)) {
+                                delete sender.filtering_views[ct];
+                            } else {
+                                sender.filtering_views[ct] = cv_supernode;
+                            }
+
+                            sender.reset_graph();
+                            $('#explore-ct-modal').modal('hide');
+                        });
+                    } else {
+                        cv_div.append(`
+                            <div class="alert alert-info">
+                                No Content Views exist for this content type. Click <a id="create-cv-button" role="button">here</a> to create one. 
+                            </div>
+                        `);
+                    }
+
+                    sender.collapsed_relationships.map(col_rel => {
+                        if (col_rel.proxy_ct === explore_ct) {
+                            collapsible = false;
+                        }
+                    });
+
+                    if (collapsible) {
+                        $('#explore-ct-modal-already-collapsed-div').addClass('d-none');
+                        $('#explore-ct-modal-collapse-div').removeClass('d-none');
+                    } else {
+                        $('#explore-ct-modal-already-collapsed-div').removeClass('d-none');
+                        $('#explore-ct-modal-collapse-div').addClass('d-none');
+                    }
+
+                    if (hideable) {
+                        $('#explore-ct-hide-button').attr('disabled', false);
+                    } else {
+                        $('#explore-ct-hide-button').attr('disabled', true);
+                    }
+
+                    $('#explore-ct-modal').modal();
+
+                }, 700);
+            }
         });
 
         $('.uncollapse-link').click(function(e) {
@@ -1748,6 +2094,10 @@ class ContentGraph {
                 sender.format_label(n);
                 sender.nodes.update(n);
             });
+        });
+
+        $('#explore-sprawl-opt').change(function() {
+            sender.per_type_limit = parseInt($(this).val());
         });
     }
 
@@ -1793,6 +2143,9 @@ class ContentGraph {
             per_type_skip: skip,
             per_type_limit: this.per_type_limit
         };
+
+        let filter_param = Object.keys(this.filtering_views).map(ct => `${ct}:${sender.filtering_views[ct]}`).join(',');
+        if (filter_param) { net_json_params['filters'] = filter_param; }
 
         let collapse_param = this.collapsed_relationships.map(rel => `${rel.from_ct}-${rel.proxy_ct}-${rel.to_ct}`).join(',');
         if (collapse_param) { net_json_params['collapses'] = collapse_param; }

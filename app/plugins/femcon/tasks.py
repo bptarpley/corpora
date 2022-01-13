@@ -350,6 +350,10 @@ def associate_booknlp_keywords(job_id):
             document.booknlp_dataset and \
             os.path.exists(document.booknlp_dataset + '/character_map.json'):
 
+        es_logger = logging.getLogger('elasticsearch')
+        es_log_level = es_logger.getEffectiveLevel()
+        es_logger.setLevel(logging.WARNING)
+
         booknlp_char_map = {}
         booknlp_chars = {}
         femcon_chars = {}
@@ -393,4 +397,4 @@ def associate_booknlp_keywords(job_id):
                             keyword.save()
 
     job.complete(status='complete')
-
+    es_logger.setLevel(es_log_level)

@@ -61,7 +61,7 @@
                         </div>
                         {% if not popup %}
                         <div class="tab-pane fade" id="explore" role="tabpanel" aria-labelledby="explore-tab" style="height: 825px;">
-                            <div id="explore-legend" class="d-inline-flex align-items-start"></div>
+                            <div id="explore-legend" class="d-inline-flex align-items-center"></div>
                             <div id="explore-div" style="height: 800px;"></div>
                         </div>
                         <div class="tab-pane fade" id="associated" role="tabpanel" aria-labelledby="associated-tab">
@@ -257,7 +257,7 @@
                         $('#explore-tab').removeClass('disabled');
                     }
                 });
-            });
+            }, true);
         });
 
         function build_content_div() {

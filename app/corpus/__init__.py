@@ -1907,12 +1907,9 @@ class Corpus(mongoengine.Document):
             new_content_type.plural_name = schema['plural_name']
             new_content_type.show_in_nav = schema['show_in_nav']
             new_content_type.proxy_field = schema['proxy_field']
-
-            if 'view_widgel_url' in schema:
-                new_content_type.view_widget_url = schema['view_widget_url']
-            if 'edit_widget_url' in schema:
-                new_content_type.edit_widget_url = schema['edit_widget_url']
-
+            new_content_type.has_file_field = schema.get('has_file_field', False)
+            new_content_type.view_widget_url = schema.get('view_widget_url', None)
+            new_content_type.edit_widget_url = schema.get('edit_widget_url', None)
             new_content_type.invalid_field_names = invalid_field_names
 
             if 'templates' in schema:
@@ -2585,7 +2582,12 @@ class Corpus(mongoengine.Document):
             corpus_dict['content_types'][ct_name] = self.content_types[ct_name].to_dict()
 
         if include_views:
-            corpus_dict['views'] = self.views
+            content_views = ContentView.objects(corpus=self.id, status='populated').order_by('name')
+            for cv in content_views:
+                if cv.target_ct in corpus_dict['content_types']:
+                    if 'views' not in corpus_dict['content_types'][cv.target_ct]:
+                        corpus_dict['content_types'][cv.target_ct]['views'] = []
+                    corpus_dict['content_types'][cv.target_ct]['views'].append(cv.to_dict())
 
         corpus_dict['provenance'] = [prov.to_dict() for prov in self.provenance]
 
@@ -2650,9 +2652,11 @@ class Content(mongoengine.Document):
 
     def save(self, do_indexing=True, do_linking=True, **kwargs):
         super().save(**kwargs)
-        modified = self._make_path() | self._make_label() | self._make_uri()
+        path_created = self._make_path()
+        label_created = self._make_label()
+        uri_created = self._make_uri()
 
-        if modified:
+        if path_created or label_created or uri_created:
             self.update(
                 set__path=self.path,
                 set__label=self.label,
@@ -2720,6 +2724,7 @@ class Content(mongoengine.Document):
 
     def _make_path(self, force=False):
         if not self.path and (self._ct.has_file_field or force):
+            print('##**##**## MAKING PATH')
             breakout_dir = str(self.id)[-6:-2]
             self.path = "/corpora/{0}/{1}/{2}/{3}".format(self.corpus_id, self.content_type, breakout_dir, self.id)
             os.makedirs(self.path + "/files", exist_ok=True)
@@ -3160,6 +3165,30 @@ class ContentView(mongoengine.Document):
 
             self.save()
 
+    def clear(self):
+        # delete ES content_view document
+        Search(index='content_view').query('match', _id=self.es_document_id).delete()
+
+        # delete Neo super node
+        run_neo(
+            '''
+                MATCH (cv:_ContentView { uri: $cv_uri })
+                DETACH DELETE cv
+            ''',
+            {
+                'cv_uri': self.neo_super_node_uri
+            }
+        )
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'name': self.name,
+            'es_document_id': self.es_document_id,
+            'neo_super_node_uri': self.neo_super_node_uri,
+            'target_ct': self.target_ct,
+            'status': self.status
+        }
 
 # SIGNALS FOR HANDLING MONGOENGINE DOCUMENT PRE/POST-DELETION (mostly for deleting Neo4J nodes)
 mongoengine.signals.post_save.connect(Corpus._post_save, sender=Corpus)
