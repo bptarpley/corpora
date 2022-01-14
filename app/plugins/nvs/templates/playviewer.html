@@ -679,12 +679,14 @@
                 background-color: var(--nvs-dark-yellow);
                 font-family: 'Baskerville', serif;
                 font-variant-numeric: oldstyle-nums;
+                font-size: clamp(1.125rem, 1.2vw, 1.5rem);
                 cursor: pointer;
                 color: #000000;
             }
 
             .comm-heading > .comm-indicator {
                 font-family: "Roboto Condensed", sans-serif;
+                font-size: 14px;
             }
 
             .comm-heading:hover {
@@ -2121,12 +2123,6 @@
             commentary_observer = new IntersectionObserver(function(entries) {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
-                        /*
-                        $(entries[0].target).remove();
-                        if (remaining_commentaries) {
-                            last_visible_line += 20;
-                            load_commentary();
-                        }*/
                         let comm_xml_id = entry.target.id.replace('commentary-note-', '');
                         let comm_content_div = $(`#commentary-content-${comm_xml_id}`);
                         if (!comm_content_div.html()) {
@@ -2140,73 +2136,6 @@
                 commentary_observer.observe(this);
             });
         }
-        /*
-        let comm_frame = $('#commentary-frame');
-        let comm_search = {
-            'f_play.id': play_id,
-            'r_lines.line_number': `${last_commentary_line}__${last_visible_line + 20}`,
-            's_lines.line_number': 'asc',
-            's_xml_id': 'asc',
-            'page-size': 500
-        };
-
-        corpora.list_content(
-            corpus_id,
-            'Commentary',
-            comm_search,
-            function(comm_data) {
-                if (comm_data.records.length) {
-                    let comm_blocks = [];
-                    let comm_counter = 0;
-                    comm_data.records.map(comm => {
-                        if (!commentaries.hasOwnProperty(comm.id)) {
-                            comm_counter += 1;
-                            // onClick="document.getElementById('${comm.lines[0].xml_id}-row').scrollIntoView();"
-                            comm_blocks.push(`
-                                <div class="row">
-                                    <div id="commentary-note-${comm.xml_id}" class="col-sm-12 comm-heading" onClick="document.getElementById('${comm.lines[0].xml_id}-row').scrollIntoView();">
-                                        <a name="commentary-note-${comm.xml_id}"></a>
-                                        n. ${comm.line_label}: ${comm.subject_matter}
-                                    </div>
-                                </div>
-                                <div class="row">
-                                    <div id="commentary-content-${comm.xml_id}" class="col-sm-12 comm-block">
-                                        ${comm.contents}
-                                    </div>
-                                </div>
-                            `);
-                            commentaries[comm.id] = true;
-
-                            if (comm_counter % 100 === 0) {
-                                comm_frame[0].innerHTML += comm_blocks.join('');
-                                comm_blocks = [];
-                            }
-                        }
-                    });
-                    if (comm_blocks.length) {
-                        comm_frame[0].innerHTML += comm_blocks.join('');
-                        comm_blocks = [];
-                    }
-                    let comm_spinner = $('#commentary-spinner');
-                    if (comm_spinner.length) comm_spinner.remove();
-                    comm_frame.append(`
-                        <div id="commentary-spinner" class="row">
-                            <div class="col-sm-12">
-                                <i class="fas fa-spinner"></i>
-                            </div>
-                        </div>
-                    `);
-                    commentary_observer.observe($('#commentary-spinner')[0]);
-                } else {
-                    remaining_commentaries = false;
-                }
-
-                commentary_loaded = true;
-            },
-            true
-        );
-        last_commentary_line = last_visible_line + 20;
-         */
     }
 
     function show_commentary(header_div, content_div, result=null, result_num=null) {
