@@ -672,6 +672,8 @@ class ContentTable {
             'page': 1,
             'page-size': 5,
         };
+        this.on_load = 'on_load' in config ? config.on_load : null;
+        this.meta = null;
         this.content_view = null;
         this.content_view_id = null;
         if ('content_view' in config && 'content_view_id' in config) {
@@ -684,8 +686,6 @@ class ContentTable {
             all: false,
             ids: []
         };
-
-
 
         if (this.container_id && this.corpora && this.corpus && this.content_type) {
             this.container = $(`#${this.container_id}`);
@@ -861,7 +861,7 @@ class ContentTable {
                 if (ct.fields[x].in_lists) {
                     table_header_row.append(`
                         <th scope="col">
-                            <a href="#" class="${ct.name}${sender.id_suffix}-order-by" data-order-by="${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}"><h5>${ct.fields[x].label}</h5></a>
+                            <a href="#" class="${ct.name}${sender.id_suffix}-order-by" data-order-by="${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}">${ct.fields[x].label}</a>
                         </th>
                     `);
                 }
@@ -1034,40 +1034,6 @@ class ContentTable {
                 } else if (action === 'merge') {
                     multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/merge/`);
                     multi_form.submit();
-                } else if (action === 'create_view') {
-                    let steps_counter = 0;
-                    let ct_options = '';
-                    for (let ct_name in corpus.content_types) {
-                        ct_options += `<option value="${ct_name}">${corpus.content_types[ct_name].plural_name}</option>\n`;
-                    }
-                    $('#exploration-start-ct').html(ct_options);
-                    $('#exploration-end-ct').html(ct_options);
-                    $('#exploration-end-ct').val(ct_name);
-
-                    $('#exploration-end-uris').prop('checked', true);
-                    $('#exploration-end-uris-div').html('');
-
-                    selected_content.ids.map(id => {
-                        let exp_uri = `/corpus/${corpus_id}/${ct_name}/${id}`;
-                        $('#exploration-end-uris-div').append(`
-                            <iframe class="exploration-uri" src="${exp_uri}/?popup=y" frameborder="0" width="200px" height="200px" data-uri="${exp_uri}"></iframe>
-                        `);
-                    });
-
-                    $('#exploration-steps-div').html('');
-                    $('#exploration-steps-add-button').off('click').on('click', function() {
-                        $('#exploration-steps-div').append(`
-                            <div id="exploration-step-${steps_counter}">
-                                <select class="exploration-step form-control-sm btn-primary">${ct_options}</select>
-                                <button id="exploration-step-${steps_counter}-remove-button" role="button" class="btn btn-sm btn-primary">-</button>
-                            </div>
-                        `);
-                        $(`#exploration-step-${steps_counter}-remove-button`).click(function() {
-                            $(`#exploration-step-${steps_counter}`).remove();
-                        });
-                    });
-
-                    $('#find-connected-modal').modal();
                 } else if (action === 'delete') {
                     $('#deletion-confirmation-modal-message').html(`
                         Are you sure you want to delete the selected ${corpus.content_types[ct_name].plural_name}?
@@ -1188,44 +1154,12 @@ class ContentTable {
             }
         }
 
-        // setup view selector if views for this ct exist
-        if (corpus.hasOwnProperty('views')) {
-            let ct_views = [];
-            corpus.views.map(view => {
-                if (view.primary_ct === ct.name) {
-                    ct_views.push(`
-                        <option value="${view.name}">${view.label}</option>
-                    `);
-                }
-            });
-            if (ct_views.length) {
-                current_search_div.append(`
-                    <div class="form-inline ml-auto">
-                        <select id="${ct.name}${sender.id_suffix}-view-selector" class="form-control form-control-sm btn-primary">
-                            <option value="NONE">Default View</option>
-                            ${ct_views.join('\n')}
-                        </select>
-                    </div>
-                `);
-                let view_selector = $(`#${ct.name}${sender.id_suffix}-view-selector`);
-                if (search.hasOwnProperty('exploration')) {
-                    view_selector.val(search.exploration);
-                }
-                view_selector.change(function() {
-                    if (view_selector.val() === 'NONE') {
-                        sender.remove_search_param('exploration');
-                    } else {
-                        search['exploration'] = view_selector.val();
-                        corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content); });
-                    }
-                });
-            }
-        }
-
         // remove search param event
         $(`.${ct.name}${sender.id_suffix}-remove-search-param`).click(function() {
             sender.remove_search_param($(this).data('search-param'));
         });
+
+        if (content.hasOwnProperty('meta')) sender.meta = content.meta;
 
         // if there are no search results, show a default message
         if (content.records.length < 1) {
@@ -1376,6 +1310,9 @@ class ContentTable {
             if (selected_content.ids.length > 0) { go_button.removeAttr('disabled'); }
             else { go_button.attr('disabled', true); }
         });
+
+        // callback if set by config
+        if (typeof sender.on_load === 'function') sender.on_load(content.meta);
     }
 
 
@@ -1404,6 +1341,7 @@ class ContentTable {
             this.corpora.list_content(this.corpus.id, this.content_type, this.search, function(content){ sender.load_content(content); });
         }
     }
+
 
     strip_tags(label) {
         return label.replace(/(<([^>]+)>)/gi, "");
@@ -2238,6 +2176,9 @@ class ContentGraph {
                 this.seed_uris.map(seed_uri => {
                     this.nodes.update([{id: seed_uri, fixed: true}]);
                 });
+
+                // FIT NETWORK
+                this.network.fit();
 
                 this.first_start = false;
             }

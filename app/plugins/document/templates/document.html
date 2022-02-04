@@ -389,7 +389,7 @@
 {% endblock %}
 
 {% block main %}
-    <div class="container-fluid mt-4">
+    <div class="container-fluid">
         <ul id="content-nav-tabs" class="nav nav-tabs" role="tablist">
             <li class="nav-item" role="presentation">
                 <a class="nav-link active" id="metadata-tab" data-toggle="tab" href="#metadata" role="tab" aria-controls="metadata" aria-selected="true">Document</a>
@@ -413,11 +413,6 @@
                         <div class="card mb-3">
                             <div class="card-header">
                                 <h4 class="float-left">Metadata</h4>
-                                {% if response.scholar.is_admin or role == 'Editor' %}
-                                    <a href="/corpus/{{ corpus_id }}/Document/{{ document_id }}/edit/" class="float-right">
-                                        <span class="fas fa-edit"></span>
-                                    </a>
-                                {% endif %}
                             </div>
                             <div class="card-body">
                                 <div class="row">
@@ -488,7 +483,7 @@
                                     </span>
                                 </div>
                             </div>
-                            <div id="page-viewer-control-div" class="d-flex w-100 justify-content-between align-items-center p-3 control-div">
+                            <div id="page-viewer-control-div" class="d-flex w-100 justify-content-between align-items-center p-2 control-div">
                                 <div class="form-inline">
                                     <button id="go-prev-page-button" type="button" class="btn btn-primary rounded" disabled><span class="fas fa-caret-left"></span></button>
                                     <input id="go-page-box" type="text" class="form-control" style="width: 60px;" value="1">
@@ -497,13 +492,13 @@
 
                                 <ul id="page-viewer-controls" class="nav nav-pills">
                                     <li class="nav-item dropleft">
-                                        <a class="nav-link dropdown-toggle active" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Image Collection</a>
+                                        <a class="nav-link dropdown-toggle active" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false" style="padding-top: 5px; padding-bottom: 5px;">Image Collection</a>
                                         <div class="dropdown-menu" id="page-viewer-left-options">
                                         </div>
                                     </li>
 
-                                    <li class="nav-item dropleft ml-2 d-none">
-                                        <a class="nav-link dropdown-toggle active" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Witness</a>
+                                    <li class="nav-item dropleft ml-2 d-none" style="padding-top: 5px; padding-bottom: 5px;">
+                                        <a class="nav-link dropdown-toggle active" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false" style="padding-top: 5px; padding-bottom: 5px;">Witness</a>
                                         <div class="dropdown-menu" id="page-viewer-right-options">
                                             <a class="dropdown-item" href="javascript: set_collection('right', '');">None</a>
                                         </div>
@@ -695,6 +690,16 @@
                         corpora.get_content(corpus_id, 'Document', document_id, function (document_data) {
                             doc = document_data;
                             add_breadcrumb(doc.label, document_uri);
+
+                            let page_title = $('#page-title');
+                            page_title.html(doc.label);
+                            if (['Editor', 'Admin'].includes(corpus.scholar_role)) {
+                                page_title.append(`
+                                    <a href="/corpus/${corpus_id}/Document/${doc.id}/edit/">
+                                        <span class="fas fa-edit"></span>
+                                    </a>
+                                `);
+                            }
 
                             // LOAD DOCUMENT METADATA
                             let doc_metadata_list = $('#doc-metadata-list');

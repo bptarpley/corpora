@@ -23,7 +23,7 @@ $theme-colors: (
 
 
 // Custom CSS
-html, body {
+html:not(.compact), body:not(.compact) {
   height: 100%;
   width: 100%;
 }
@@ -48,8 +48,16 @@ h5 {
 }
 
 .logo {
-  height: 60px;
-  margin-top: 40px;
+  height: 50px;
+}
+
+.logo-small {
+  height: 25px;
+}
+
+.brand {
+  padding-top: 35px;
+  margin-bottom: 15px;
 }
 
 #loading-overlay {
@@ -93,8 +101,17 @@ h5 {
   overflow: hidden;
 }
 
+.sticky-nav {
+    position: -webkit-sticky;
+    position: sticky;
+    top: -2px;
+    z-index: 500;
+    margin-left: -10px;
+    margin-right: -10px;
+}
+
 .card-header {
-  padding: 10px !important;
+  padding: 8px !important;
   border-bottom: solid 4px #091540;
   background-image: url("/static/img/lines.png");
   background-repeat: repeat-x;
@@ -113,6 +130,11 @@ h5 {
   border-top: none !important;
   background-color: #17BEBB;
   padding: 5px;
+  padding-left: 10px;
+}
+
+.table .thead-dark th:hover {
+  background-color: #12918F;
 }
 
 .table .thead-dark th a {
@@ -121,6 +143,12 @@ h5 {
 
 table.table {
   border-bottom: solid 4px #17BEBB;
+}
+
+.corpora-content-cell {
+  max-height: 100px;
+  overflow: auto;
+  -ms-overflow-style: -ms-autohiding-scrollbar;
 }
 
 h1, h2, h3, h4, h5, h6 {

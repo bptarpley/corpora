@@ -259,6 +259,7 @@ def document(request, corpus_id, document_id):
         request,
         'document.html',
         {
+            'page_title': 'Document',
             'corpus_id': corpus_id,
             'role': role,
             'document_id': document_id,

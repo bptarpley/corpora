@@ -241,14 +241,6 @@ def corpus(request, corpus_id):
                 job = Job(kill_job_id)
                 job.kill()
 
-            # HANDLE VIEW CREATION
-            elif 'create-view' in request.POST:
-                new_view = json.loads(request.POST['create-view'])
-                exploration = corpus.make_exploration(**new_view)
-                if exploration['status'] == 'performing':
-                    run_job(exploration['job'])
-                    response['messages'].append("View successfully created.")
-
             # HANDLE CONTENT TYPE SCHEMA SUBMISSION
             elif 'schema' in request.POST:
                 schema = json.loads(request.POST['schema'])
@@ -467,6 +459,7 @@ def corpus(request, corpus_id):
         request,
         'corpus.html',
         {
+            'page_title': corpus.name,
             'corpus_id': corpus_id,
             'role': role,
             'content_views': content_views,
@@ -627,6 +620,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
             request,
             'content_edit.html',
             {
+                'page_title': content_type,
                 'corpus_id': corpus_id,
                 'response': context,
                 'content_type': content_type,
@@ -673,6 +667,7 @@ def view_content(request, corpus_id, content_type, content_id):
         request,
         'content_view.html',
         {
+            'page_title': content_type,
             'response': context,
             'corpus_id': corpus_id,
             'role': role,

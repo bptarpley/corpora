@@ -1311,7 +1311,6 @@ class Corpus(mongoengine.Document):
             fields_sort=[],
             only=[],
             excludes=[],
-            explorations=[],
             content_view=None,
             operator="and",
             highlight_num_fragments=5,
@@ -1612,19 +1611,7 @@ class Corpus(mongoengine.Document):
                     else:
                         filter.append(range_query)
 
-            # todo: get rid of exploration code below
-            # EXPLORATIONS (TERMS LOOKUP)
-            if explorations:
-                exploration_index = self._get_exploration_index()
-                for exploration_name in explorations:
-                    exploration = self.get_exploration(exploration_name)
-                    if exploration:
-                        filter.append(Q('terms', **{'_id': {
-                            'index': exploration_index._name,
-                            'id': exploration_name,
-                            'path': 'ids'
-                        }}))
-
+            # CONTENT VIEW
             if content_view:
                 filter.append(Q('terms', **{'_id': {
                     'index': 'content_view',
@@ -2192,7 +2179,7 @@ class Corpus(mongoengine.Document):
                 'decimal': 'float',
                 'boolean': 'boolean',
                 'date': 'date',
-                'file': 'text',
+                'file': 'keyword',
                 'image': 'keyword',
                 'iiif-image': 'keyword',
                 'link': 'keyword',
@@ -2303,89 +2290,6 @@ class Corpus(mongoengine.Document):
                 return job.id
         return None
 
-    def get_exploration(self, name, include_ids=False):
-        index = self._get_exploration_index()
-        conn = get_connection()
-        exclusions = ['ids']
-        if include_ids:
-            exclusions = []
-
-        try:
-            exploration = conn.get(index._name, name, _source_excludes=exclusions)
-            return exploration['_source']
-        except:
-            return None
-
-    def make_exploration(self, name, path, label, scholar_id=None, connected_to_uris=[]):
-        exploration = {
-            'name': name,
-            'path': path,
-            'label': label,
-            'scholar_id': scholar_id,
-            'connected_to_uris': connected_to_uris,
-            'status': 'invalid',
-            'content_types': [],
-            'job': None
-        }
-
-        if '-' in path:
-            path_parts = path.split('-')
-            if path_parts == 3:
-                nested_path = path_parts[1]
-                nested_parts = nested_path.split('.')
-                exploration['content_types'].append(path_parts[0])
-                for nested_part in nested_parts:
-                    exploration['content_types'].append(nested_part)
-                exploration['content_types'].append(path_parts[2])
-            else:
-                exploration['content_types'] = path_parts
-
-            exploration['status'] = 'valid'
-            for ct in exploration['content_types']:
-                if ct not in self.content_types:
-                    exploration['status'] = 'invalid'
-
-        if exploration['status'] == 'valid':
-            index = self._get_exploration_index()
-            conn = get_connection()
-            exploration['status'] = 'performing'
-            conn.index(
-                index=index._name,
-                id=name,
-                body={
-                    'path': exploration['path'],
-                    'label': exploration['label'],
-                    'ids': [],
-                    'scholar_id': exploration['scholar_id'],
-                    'connected_to_uris': exploration['connected_to_uris'],
-                    'content_types': exploration['content_types'],
-                    'status': exploration['status']
-                }
-            )
-            exploration['job'] = self.queue_local_job(task_name="Perform Exploration", parameters={
-                'name': exploration['name']
-            })
-
-        return exploration
-
-    def _get_exploration_index(self):
-        index_name = "corpus-{0}-exploration".format(self.id)
-        index = Index(index_name)
-        if not index.exists():
-            mapping = Mapping()
-            mapping.field('path', 'keyword')
-            mapping.field('ids', 'keyword')
-            mapping.field('label', 'keyword')
-            mapping.field('scholar_id', 'keyword')
-            mapping.field('connected_to_uris', 'keyword')
-            mapping.field('content_types', 'keyword')
-            mapping.field('status', 'keyword')
-
-            index.mapping(mapping)
-            index.save()
-
-        return index
-
     def running_jobs(self):
         return Job.get_jobs(corpus_id=str(self.id))
 
@@ -2457,22 +2361,6 @@ class Corpus(mongoengine.Document):
         return corpus_path
 
     @property
-    def views(self):
-        if not hasattr(self, '_views'):
-            setattr(self, '_views', [])
-            conn = get_connection()
-            index = self._get_exploration_index()
-            search = Search(using=conn, index=index._name).source(excludes=['ids'])
-            for hit in search.scan():
-                self._views.append({
-                    'name': hit.meta.id,
-                    'label': hit.label,
-                    'primary_ct': hit.content_types[0],
-                    'status': hit.status
-                })
-        return self._views
-
-    @property
     def redis_cache(self):
         if not hasattr(self, '_redis_cache'):
             setattr(self, '_redis_cache', redis.Redis(host=settings.REDIS_HOST, decode_responses=True))
@@ -2496,9 +2384,6 @@ class Corpus(mongoengine.Document):
                 'corpus_title': document.name
             }
         )
-
-        # Ensure exploration index for this corpus exists
-        document._get_exploration_index()
 
         # Add this corpus to Corpora Elasticsearch index
         get_connection().index(
@@ -2675,6 +2560,7 @@ class Content(mongoengine.Document):
 
     @classmethod
     def _pre_delete(cls, sender, document, **kwargs):
+        # delete Neo4J node
         run_neo(
             '''
                 MATCH (d:{content_type} {{ uri: $content_uri }})
@@ -2685,8 +2571,20 @@ class Content(mongoengine.Document):
             }
         )
 
+        # delete from ES index
         es_index = "corpus-{0}-{1}".format(document.corpus_id, document.content_type.lower())
         Search(index=es_index).query("match", _id=str(document.id)).delete()
+
+        # mark any relevant content views as needs_refresh
+        cvs = ContentView.objects(corpus=document._corpus, status='populated', relevant_cts=document.content_type)
+        for cv in cvs:
+            print(cv.name)
+            cv.set_status('needs_refresh')
+            cv.save()
+
+        # delete any files
+        if document.path and os.path.exists(document.path):
+            document._corpus.queue_local_job(task_name="Content Deletion Cleanup", parameters={'content_path': document.path})
 
     def _make_label(self):
         if not self.label:
@@ -2724,7 +2622,6 @@ class Content(mongoengine.Document):
 
     def _make_path(self, force=False):
         if not self.path and (self._ct.has_file_field or force):
-            print('##**##**## MAKING PATH')
             breakout_dir = str(self.id)[-6:-2]
             self.path = "/corpora/{0}/{1}/{2}/{3}".format(self.corpus_id, self.content_type, breakout_dir, self.id)
             os.makedirs(self.path + "/files", exist_ok=True)
@@ -2748,7 +2645,7 @@ class Content(mongoengine.Document):
 
                 new_path = old_path.replace(
                     temp_uploads_dir,
-                    self.path
+                    self.path + "/files"
                 )
 
                 os.rename(old_path, new_path)
@@ -2813,6 +2710,9 @@ class Content(mongoengine.Document):
                                     field_value[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
 
                         index_obj[field.name] = field_value
+
+                    elif field.type == 'file' and hasattr(field_value, 'path'):
+                        index_obj[field.name] = field_value.path
 
                     elif field.type not in ['file']:
                         index_obj[field.name] = field.get_dict_value(field_value, self.uri)
@@ -3066,10 +2966,9 @@ class ContentView(mongoengine.Document):
                                 "','".join(step_uris)
                             ))
 
-                    match_statement = "MATCH (target:{0}) -- {1}".format(self.target_ct, " -- ".join(match_nodes))
-                    where_statement = "WHERE {0}".format(" AND ".join(where_clauses))
-
-                    cypher = "{0} {1}".format(match_statement, where_statement)
+                    cypher = "MATCH (target:{0}) -- {1}".format(self.target_ct, " -- ".join(match_nodes))
+                    if where_clauses:
+                        cypher += "\nWHERE {0}".format(" AND ".join(where_clauses))
 
                     count_cypher = cypher + "\nRETURN count(distinct target)"
                     data_cypher = cypher + "\nRETURN distinct target.uri"
