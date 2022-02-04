@@ -253,7 +253,7 @@
             }
 
             .heading-label {
-                font-family: 'Roboto Condensed', sans-serif;
+                font-family: "HalyardTextSemiBold", sans-serif;
                 color: var(--nvs-mid-gray);
                 font-size: 14px;
             }
@@ -294,6 +294,10 @@
                 padding-left: 55px;
                 overflow-x: hidden;
                 overflow-y: auto;
+            }
+
+            .nvs-search:hover {
+                background-image: url({% static 'img/controls/VAR-bar-search-ROLL.svg' %});
             }
 
             .nvs-search:focus, .nvs-search.not-empty {
@@ -344,9 +348,9 @@
                 padding-left: 38px;
             }
 
-            .nvs-tln:focus {
+            .nvs-tln:focus, .nvs-tln:hover {
                 background-image: url({% static 'img/controls/tln.svg' %});
-                background-size: 35px;
+                background-size: 30px;
             }
 
             input[type=radio], input[type=checkbox] {
@@ -445,6 +449,7 @@
             }
 
             .vertical {
+                font-family: "Roboto Condensed";
                 font-size: 12px;
                 position: relative;
                 transform: rotate(-90deg);
@@ -492,8 +497,13 @@
             }
 
             #act-scene-frame {
+                height: 100%;
+                margin: 0px;
+                padding: 0px;
                 background-color: var(--nvs-lightest-gray);
                 overflow-x: hidden;
+                display: flex;
+                flex-direction: column;
             }
 
             #commentary-frame {
@@ -608,7 +618,25 @@
 
             .variant-toggler {
                 margin: 0px;
-                margin-right: 8px;
+                margin-right: 9px;
+                width: 33px;
+                height: 38px;
+            }
+
+            .variant-toggler[aria-expanded=false] {
+                background-image: url("{% static 'img/controls/TV-expand-variants.svg' %}");
+            }
+
+            .variant-toggler[aria-expanded=false]:hover {
+                background-image: url("{% static 'img/controls/TV-expand-variants-ROLL.svg' %}");
+            }
+
+            .variant-toggler[aria-expanded=true] {
+                background-image: url("{% static 'img/controls/TV-collapse-variants.svg' %}");
+            }
+
+            .variant-toggler[aria-expanded=true]:hover {
+                background-image: url("{% static 'img/controls/TV-collapse-variants-ROLL.svg' %}");
             }
 
             .variant-row {
@@ -651,8 +679,18 @@
                 background-color: var(--nvs-dark-yellow);
                 font-family: 'Baskerville', serif;
                 font-variant-numeric: oldstyle-nums;
+                font-size: clamp(1.125rem, 1.2vw, 1.5rem);
                 cursor: pointer;
                 color: #000000;
+            }
+
+            .comm-heading > .comm-indicator {
+                font-family: "Roboto Condensed", sans-serif;
+                font-size: 14px;
+            }
+
+            .comm-heading:hover {
+                color: var(--nvs-light-blue);
             }
 
             .comm-block {
@@ -671,11 +709,24 @@
                 color: var(--nvs-mid-gray);
                 font-size: 12px;
                 cursor: pointer;
+                flex-grow: 1;
+                flex-shrink: 1;
+                flex-basis: auto;
+                display: flex;
+                justify-content: center;
+                border-top: solid 1px var(--nvs-lighter-gray);
+                padding-top: 2px;
             }
 
             .actscene-indicator.active {
                 font-weight: bold;
-                color: var(--nvs-dark-blue);
+                background-color: var(--nvs-light-blue);
+                color: white;
+            }
+
+            .actscene-indicator:hover {
+                background-color: var(--nvs-dark-blue);
+                color: white;
             }
 
             .actscene-divider {
@@ -836,12 +887,39 @@
             .ref-modal-control {
                 cursor: pointer;
                 height: 20px;
+                width: 20px;
+                display: inline-block;
                 margin-left: 5px;
                 text-decoration: none;
+                color: var(--nvs-mid-gray);
             }
 
             .ref-modal-control:hover {
                 text-decoration: none;
+            }
+
+            .ref-modal-control.new-tab {
+                background-image: url("{% static 'img/controls/Modal-NEWTAB.svg' %}");
+            }
+
+            .ref-modal-control.new-tab:hover {
+                background-image: url("{% static 'img/controls/Modal-NEWTAB-all-ROLL.svg' %}");
+            }
+
+            .ref-modal-control.go-to {
+                background-image: url("{% static 'img/controls/Modal-GOTO.svg' %}");
+            }
+
+            .ref-modal-control.go-to:hover {
+                background-image: url("{% static 'img/controls/Modal-GOTO-ALL-ROLL.svg' %}");
+            }
+
+            .ref-modal-control.close {
+                background-image: url("{% static 'img/controls/Modal-CLOSE.svg' %}");
+            }
+
+            .ref-modal-control.close:hover {
+                background-image: url("{% static 'img/controls/Modal-CLOSE-all-ROLL.svg' %}");
             }
 
             .ref-modal-content {
@@ -849,6 +927,14 @@
                 font-family: 'HalyardTextBook';
                 max-height: calc(40vh);
                 overflow-y: scroll;
+            }
+
+            .ref-modal-content .comm-heading {
+                cursor: unset;
+            }
+
+            .ref-modal-content .comm-heading:hover {
+                color: #000000;
             }
 
             .ref-row {
@@ -970,7 +1056,7 @@
             <div id="main-header" class="row">
                 <!-- LOGO -->
                 <div class="col-sm-2 pt-2">
-                    <a href="{% if site_request %}/{% else %}/corpus/{{ corpus_id }}/home/{% endif %}"><img src="{% static 'img/nvs-logo.png'%}" class="img-fluid m-0" style="max-height: 90px;"></a>
+                    <a href="{% if site_request %}/{% else %}/corpus/{{ corpus_id }}/home/{% endif %}"><img src="{% static 'img/nvs-logo.png'%}" class="img-fluid m-0" style="max-width: 57px;"></a>
                 </div>
 
                 <!-- NAV -->
@@ -1212,9 +1298,7 @@
                                                    href="#{{ line.xml_id }}-variant-div"
                                                    role="button"
                                                    aria-expanded="false"
-                                                   aria-controls="{{ line.xml_id }}-variant-div"
-                                                >
-                                                <img id="{{ line.xml_id }}-variant-toggle" src="{% static 'img/nvs-variants-expand.png' %}" />
+                                                   aria-controls="{{ line.xml_id }}-variant-div">
                                             </a>
                                         {% endif %}
                                         <div class="w-100">{{ line.rendered_html|safe }}</div>
@@ -1238,15 +1322,11 @@
                         <div id="act-scene-commentary-col" class="col-sm-4 act-scene-comm-col">
                             <div class="row">
                                 <div class="col-sm-1 p-0 m-0 act-scene-col">
-                                    <div id="act-scene-frame" class="d-flex flex-column h-100 align-self-center p-0 m-0">
+                                    <div id="act-scene-frame">
                                         {% for label, actscene in act_scenes.items %}
-                                            <div class="actscene-indicator{% if forloop.first %} active{% endif %} my-auto mx-0 px-0 align-self-center" data-actscene="{{ actscene }}">
+                                            <div class="actscene-indicator{% if forloop.first %} active{% endif %}" data-actscene="{{ actscene }}">
                                                 {{ label }}
                                             </div>
-
-                                            {% if not forloop.last %}
-                                                <hr class="actscene-divider" />
-                                            {% endif %}
                                         {% endfor %}
                                     </div>
                                 </div>
@@ -1281,11 +1361,11 @@
         <div id="search-widget" class="d-none ref-modal">
             <div id="search-results-div" class="arrow-top">
                 <div class="ref-modal-header d-flex justify-content-between">
-                    <span id="search-widget-header" class="w-100">
+                    <span id="search-widget-header">
                         SEARCH RESULTS
                     </span>
                     <span style="white-space: nowrap;">
-                        <i id="search-widget-close-button" class="fas fa-times ref-modal-control"></i>
+                        <i id="search-widget-close-button" class="ref-modal-control close"></i>
                     </span>
                 </div>
                 <div class="ref-modal-content d-flex">
@@ -1686,6 +1766,8 @@
             let scene = actscene_parts[1];
 
             $(`.play-row[data-act="${act}"][data-scene="${scene}"]:first`)[0].scrollIntoView({behavior: 'smooth'});
+            $('.actscene-indicator.active').removeClass('active');
+            $(this).addClass('active');
         });
     }
 
@@ -1903,16 +1985,6 @@
                                 </div>
                             `);
 
-                            $(`#${line.xml_id}-variant-div`).on('shown.bs.collapse', function (event) {
-                                let indicator = $(`#${event.target.id.replace('-div', '-toggle')}`);
-                                indicator.attr('src', "{% static 'img/nvs-variants-collapse.png' %}")
-                            });
-
-                            $(`#${line.xml_id}-variant-div`).on('hidden.bs.collapse', function (event) {
-                                let indicator = $(`#${event.target.id.replace('-div', '-toggle')}`);
-                                indicator.attr('src', "{% static 'img/nvs-variants-expand.png' %}")
-                            });
-
                             let variant_col_width = $(`#${line.xml_id}-witness-col`).outerWidth();
                             draw_witness_meter(
                                 variant.witness_meter,
@@ -2051,12 +2123,6 @@
             commentary_observer = new IntersectionObserver(function(entries) {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
-                        /*
-                        $(entries[0].target).remove();
-                        if (remaining_commentaries) {
-                            last_visible_line += 20;
-                            load_commentary();
-                        }*/
                         let comm_xml_id = entry.target.id.replace('commentary-note-', '');
                         let comm_content_div = $(`#commentary-content-${comm_xml_id}`);
                         if (!comm_content_div.html()) {
@@ -2070,73 +2136,6 @@
                 commentary_observer.observe(this);
             });
         }
-        /*
-        let comm_frame = $('#commentary-frame');
-        let comm_search = {
-            'f_play.id': play_id,
-            'r_lines.line_number': `${last_commentary_line}__${last_visible_line + 20}`,
-            's_lines.line_number': 'asc',
-            's_xml_id': 'asc',
-            'page-size': 500
-        };
-
-        corpora.list_content(
-            corpus_id,
-            'Commentary',
-            comm_search,
-            function(comm_data) {
-                if (comm_data.records.length) {
-                    let comm_blocks = [];
-                    let comm_counter = 0;
-                    comm_data.records.map(comm => {
-                        if (!commentaries.hasOwnProperty(comm.id)) {
-                            comm_counter += 1;
-                            // onClick="document.getElementById('${comm.lines[0].xml_id}-row').scrollIntoView();"
-                            comm_blocks.push(`
-                                <div class="row">
-                                    <div id="commentary-note-${comm.xml_id}" class="col-sm-12 comm-heading" onClick="document.getElementById('${comm.lines[0].xml_id}-row').scrollIntoView();">
-                                        <a name="commentary-note-${comm.xml_id}"></a>
-                                        n. ${comm.line_label}: ${comm.subject_matter}
-                                    </div>
-                                </div>
-                                <div class="row">
-                                    <div id="commentary-content-${comm.xml_id}" class="col-sm-12 comm-block">
-                                        ${comm.contents}
-                                    </div>
-                                </div>
-                            `);
-                            commentaries[comm.id] = true;
-
-                            if (comm_counter % 100 === 0) {
-                                comm_frame[0].innerHTML += comm_blocks.join('');
-                                comm_blocks = [];
-                            }
-                        }
-                    });
-                    if (comm_blocks.length) {
-                        comm_frame[0].innerHTML += comm_blocks.join('');
-                        comm_blocks = [];
-                    }
-                    let comm_spinner = $('#commentary-spinner');
-                    if (comm_spinner.length) comm_spinner.remove();
-                    comm_frame.append(`
-                        <div id="commentary-spinner" class="row">
-                            <div class="col-sm-12">
-                                <i class="fas fa-spinner"></i>
-                            </div>
-                        </div>
-                    `);
-                    commentary_observer.observe($('#commentary-spinner')[0]);
-                } else {
-                    remaining_commentaries = false;
-                }
-
-                commentary_loaded = true;
-            },
-            true
-        );
-        last_commentary_line = last_visible_line + 20;
-         */
     }
 
     function show_commentary(header_div, content_div, result=null, result_num=null) {
@@ -2148,7 +2147,7 @@
                 comm_id,
                 function (comm) {
                     if (!content_div.html()) {
-                        header_div.append(`n. ${comm.line_label}: ${comm.subject_matter}`);
+                        header_div.append(`<span class="comm-indicator">n. ${comm.line_label}:</span> ${comm.subject_matter}`);
                         if (comm.lines.length) header_div.data('first_line', comm.lines[0].label);
                         content_div.append(`${comm.contents}`);
                     }
@@ -2334,14 +2333,8 @@
                 } else lines_label += ' ' + line_row.data('line_label');
 
                 let controls = `
-                        <img src="{% static 'img/controls/Modal-GOTO.svg' %}"
-                            class="ref-modal-control"
-                            onClick="javascript: $('#${start_id}-row')[0].scrollIntoView({behavior: 'smooth'});"
-                        >
-                        <a href="${playviewer_url}#${line_row.attr('id')}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}"
-                            class="ref-modal-control"
-                            border="0"
-                        ></a>
+                        <i class="ref-modal-control go-to" onClick="javascript: $('#${start_id}-row')[0].scrollIntoView({behavior: 'smooth'});"></i>
+                        <a href="${playviewer_url}#${line_row.attr('id')}" target="_blank"><i class="ref-modal-control new-tab"></i></a>
                 `;
                 display_nav_modal(lines_label, lines_html, link, controls);
             }
@@ -2358,7 +2351,7 @@
                     } else {
                         biblio_url = `/front/${play_prefix}/#${xml_id}`;
                     }
-                    let controls = `<a href="${biblio_url}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}" class="ref-modal-control" border="0"></a>`;
+                    let controls = `<a href="${biblio_url}" target="_blank"><i class="ref-modal-control new-tab"></i></a>`;
                     display_nav_modal(title, witnesses[xml_id].bibliographic_entry, link, controls);
                 }
             } else {
@@ -2412,7 +2405,7 @@
                         if (nav_type === 'note_cn') {
                             nav_content += `
                                 <div class="comm-heading">
-                                    n. ${content.line_label}: ${content.subject_matter}
+                                    <span class="comm-indicator">n. ${content.line_label}:</span> ${content.subject_matter}
                                 </div>
                             `;
                         } else if (nav_type === 'bibl' && first_xml_id && !controls) {
@@ -2430,7 +2423,7 @@
                                     biblio_url = `/front/${play_prefix}/#${first_xml_id}`;
                                 }
                             }
-                            controls += `<a href="${biblio_url}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}" class="ref-modal-control" border="0"></a>`;
+                            controls += `<a href="${biblio_url}" target="_blank"><i class="ref-modal-control new-tab"></i></a>`;
                         } else if (nav_type === 'anchor') {
                             if (content_index === 0) {
                                 nav_title = `
@@ -2460,7 +2453,7 @@
                             paratext_url += `#paratext-${content.id}`;
 
                             if (!controls) {
-                                controls += `<a href="${paratext_url}" target="_blank"><img src="{% static 'img/controls/Modal-NEWTAB.svg' %}" class="ref-modal-control" border="0"></a>`;
+                                controls += `<a href="${paratext_url}" target="_blank"><i class="ref-modal-control new-tab"></i></a>`;
                             }
                         }
 
@@ -2494,12 +2487,12 @@
                 >
                     <div class="arrow-${arrow_side}">
                         <div class="ref-modal-header d-flex justify-content-between">
-                            <span id="${modal_id}-header" class="w-100">
+                            <span id="${modal_id}-header">
                                 ${title}
                             </span>
                             <span style="white-space: nowrap;">
                                 ${controls}
-                                <i id="${modal_id}-close-button" class="fas fa-times ref-modal-control" data-modal-id="${modal_id}" aria-label="Close"></i>
+                                <i id="${modal_id}-close-button" class="ref-modal-control close" data-modal-id="${modal_id}" aria-label="Close"></i>
                             </span>
                         </div>
                         <div class="ref-modal-content">${content}</div>
@@ -2535,10 +2528,11 @@
 
     function make_draggable(elmnt) {
         var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-        if (document.getElementById(elmnt.id + "-header")) {
+        let handle = $(`#${elmnt.id} .ref-modal-header`);
+        if (handle.length) {
             // if present, the header is where you move the DIV from:
-            document.getElementById(elmnt.id + "-header").onmousedown = dragMouseDown;
-            document.getElementById(elmnt.id + "-header").ontouchstart = dragMouseDown;
+            handle[0].onmousedown = dragMouseDown;
+            handle[0].ontouchstart = dragMouseDown;
         } else {
             // otherwise, move the DIV from anywhere inside the DIV:
             elmnt.onmousedown = dragMouseDown;

@@ -23,6 +23,9 @@ lxml
 python-dateutil
 rdflib
 ipykernel
+ipywidgets
 viapy
 GitPython
 chardet
+spacy
+booknlp

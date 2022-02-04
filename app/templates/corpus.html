@@ -10,19 +10,13 @@
             height: 300px;
         }
 
-        .corpora-content-cell {
-            max-height: 100px;
-            overflow: scroll;
-            -ms-overflow-style: -ms-autohiding-scrollbar;
-        }
-
         .ct-selection-cell {
             white-space: nowrap;
         }
 
         #provenance-div {
             max-height: 200px;
-            overflow: scroll;
+            overflow: auto;
             -ms-overflow-style: -ms-autohiding-scrollbar;
         }
 
@@ -35,6 +29,10 @@
             white-space: -pre-wrap;
             white-space: -o-pre-wrap;
             word-wrap: break-word;
+        }
+
+        #content-types-graph {
+            background-color: #F7F7F7;
         }
     </style>
 {% endblock %}
@@ -277,6 +275,10 @@
                             <option value="Document">Document</option>
                         </select>
                     </div>
+                    <div class="form-check d-none" id="new-f-has-intensity-div">
+                        <input id="new-f-has-intensity-checkbox" type="checkbox" value="" class="form-check-input">
+                        <label for="new-f-has-intensity-checkbox">Has Intensity?</label>
+                    </div>
                     <div class="form-group d-none" id="new-f-synonym-div">
                         <label for="new-f-synonym-box">Synonyms for Searching this Field</label>
                         <select id="new-f-synonym-box">
@@ -432,67 +434,86 @@
             </div>
         </div>
     </div>
-
-    <!-- CREATE VIEW MODAL -->
-    <div class="modal fade" id="find-connected-modal" tabindex="-1" role="dialog" aria-labelledby="find-connected-modal-label" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="find-connected-modal-label">Create a View</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="new-view-name-box">View Name</label>
-                        <input id="new-view-name-box" type="text" class="form-control">
-                    </div>
-
-                    <div class="form-group row">
-                        <label class="col-sm-3 col-form-label" for="exploration-start-ct">Find:</label>
-                        <div class="col-sm-9">
-                            <select id="exploration-start-ct" class="form-control-sm btn-primary"></select>
-                        </div>
-                    </div>
-
-                    <div class="form-group row">
-                        <label class="col-sm-3 col-form-label" for="exploration-end-ct">Connected to:</label>
-                        <div class="col-sm-9">
-                            <select id="exploration-end-ct" class="form-control-sm btn-primary"></select>
-                        </div>
-                    </div>
-
-                    <div class="form-group ml-3">
-                        <input type="checkbox" id="exploration-end-uris"> Specifically:
-                        <div id="exploration-end-uris-div"></div>
-                        <button id="exploration-end-uris-add-button" role="button" class="btn btn-secondary">Add</button>
-                    </div>
-
-                    <div class="form-group">
-                        <label>With intermediary steps:</label>
-                        <div id="exploration-steps-div"></div>
-                        <button id="exploration-steps-add-button" role="button" class="btn btn-secondary">Add</button>
-                    </div>
-                    <form id="create-view-form" method="post">
-                        {% csrf_token %}
-                        <input id="create-view-data" name="create-view" type="hidden" value="{}">
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="create-view-button">Create</button>
-                </div>
-            </div>
-        </div>
-    </div>
 {% endblock %}
 
 {% block main %}
-        <div class="row mt-4">
+        <ul id="content-nav-tabs" class="nav nav-tabs mt-0" role="tablist">
+            <li class="nav-item" role="presentation">
+                <a class="nav-link active" id="content-tab" data-toggle="tab" href="#content-tab-contents" role="tab" aria-controls="content-tab-contents" aria-selected="true">Content</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" id="views-tab" data-toggle="tab" href="#views-tab-contents" role="tab" aria-controls="views-tab-contents" aria-selected="false">Views</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" id="metadata-tab" data-toggle="tab" href="#metadata-tab-contents" role="tab" aria-controls="metadata-tab-contents" aria-selected="false">Metadata</a>
+            </li>
+            {% if response.scholar.is_admin or role == 'Editor' %}
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" id="admin-tab" data-toggle="tab" href="#admin-tab-contents" role="tab" aria-controls="admin-tab-contents" aria-selected="false">Admin</a>
+            </li>
+            {% endif %}
+        </ul>
+        <div class="tab-content h-100 p-3">
+            <div class="tab-pane fade show active" id="content-tab-contents" role="tabpanel" aria-labelledby="content-tab">
+                <!-- CONTENT TAB CONTENTS -->
+                <div id="content-types-nav" class="alert alert-info sticky-nav">
+                    <a href="#breadcrumb"><i class="fas fa-sort-up"></i> Top</a>
+                </div>
+                <div id="content-types-div">
 
-            <!-- METADATA -->
-            <div class="col-6">
+                    <!-- CONTENT TYPES LISTED HERE -->
+
+                    <form id="multiselect-form" method="post" action="/not/set">
+                        {% csrf_token %}
+                        <input id="multiselect-content-ids" name="content-ids" type="hidden" value="">
+                    </form>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="views-tab-contents" role="tabpanel" aria-labelledby="views-tab">
+                <!-- VIEWS TAB CONTENTS -->
+                <div id="views-nav" class="alert alert-info sticky-nav">
+                    <a href="#breadcrumb"><i class="fas fa-sort-up"></i> Top</a>
+                </div>
+                <div id="content-views-div" class="row">
+                    <div class="col-sm-12">
+                        <!-- CONTENT VIEWS -->
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <div class="d-flex w-100 justify-content-between align-items-center">
+                                    <h4>Content Views</h4>
+                                    {% if response.scholar.is_admin or role == 'Editor' %}
+                                        <button id="new-content-view-button" class="btn btn-primary rounded" type="button">Create</button>
+                                    {% else %}
+                                        <span>&nbsp;</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div id="content-views-body" class="card-body">
+                                {% if content_views %}
+                                    {% for cv in content_views %}
+                                        <div
+                                            id="content-view-table-{{ cv.id }}"
+                                            class="content-view-table"
+                                            data-ct="{{ cv.target_ct }}"
+                                            data-es-doc-id="{{ cv.es_document_id }}"
+                                            data-name="{{ cv.name }}"
+                                            data-id="{{ cv.id }}">
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="alert alert-info">
+                                        Content Views are subsets of content identified via a predefined search and/or pattern of association.
+                                        Click the "Create" button above to create one.
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="metadata-tab-contents" role="tabpanel" aria-labelledby="metadata-tab">
+                <!-- METADATA TAB CONTENTS -->
+
                 <div class="card mb-3">
                     <div class="card-header">
                         <h4>Metadata</h4>
@@ -564,126 +585,104 @@
                     </div>
                 </div>
             </div>
+            <div class="tab-pane fade" id="admin-tab-contents" role="tabpanel" aria-labelledby="admin-tab">
+                <!-- ADMIN TAB CONTENTS -->
 
-
-            <div class="col-6">
                 {% if response.scholar.is_admin or role == 'Editor' %}
-                <!-- JOBS -->
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <div class="d-flex w-100 justify-content-between align-items-center">
-                            <h4>Running Jobs</h4>
-                            <span>
-                                <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
-                                <button id="launch-notebook-button" class="btn btn-primary rounded ml-1" type="button">Launch Notebook</button>
-                                <form id="launch-notebook-form" method="post">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="launch-notebook" value="y" />
-                                </form>
-                            </span>
+                    <!-- JOBS -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                <h4>Running Jobs</h4>
+                                <span>
+                                    <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
+                                    <button id="launch-notebook-button" class="btn btn-primary rounded ml-1" type="button">Launch Notebook</button>
+                                    <form id="launch-notebook-form" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="launch-notebook" value="y" />
+                                    </form>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <iframe id="job-iframe" src="/jobs/corpus/{{ corpus_id }}/" width="100%" frameBorder="0"></iframe>
                         </div>
                     </div>
-                    <div class="card-body">
-                        <iframe src="/jobs/corpus/{{ corpus_id }}/" width="100%" height="100%" frameBorder="0"></iframe>
-                    </div>
-                </div>
-                {% endif %}
 
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h4>Provenance</h4>
-                    </div>
-                    <div class="card-body">
-                        <div id="provenance-div">
-                            <div class="alert alert-info">
-                                No jobs have been completed for this corpus.
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h4>Provenance</h4>
+                        </div>
+                        <div class="card-body">
+                            <div id="provenance-div">
+                                <div class="alert alert-info">
+                                    No jobs have been completed for this corpus.
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-
-            </div>
-
-        </div>
-        <div id="content-types-div">
-
-            <!-- CONTENT TYPES LISTED HERE -->
-
-            <form id="multiselect-form" method="post" action="/not/set">
-                {% csrf_token %}
-                <input id="multiselect-content-ids" name="content-ids" type="hidden" value="">
-            </form>
-        </div>
-
-        {% if response.scholar.is_admin or role == 'Editor' %}
-        <div class="row">
-            <!-- CONTENT TYPE MANAGER -->
-            <div class="col">
-                <a name="ct_manager_div"></a>
-                <div id="type-manager-div" class="card mt-4">
-                    <div class="card-header">
-                        <h4>Content Type Manager</h4>
-                    </div>
-                    <div class="card-body">
-                        <div class="list-group" id="tm-ct-group">
-                            <div class="alert alert-info">No Content Types have been defined.</div>
+                    <!-- CONTENT TYPE MANAGER -->
+                    <div id="type-manager-div" class="card mt-4">
+                        <div class="card-header">
+                            <h4>Content Type Manager</h4>
                         </div>
-                    </div>
-                    <div class="card-footer d-flex justify-content-between">
-                        <span>
-                            <button type="button" class="btn btn-primary mr-2" id="new-ct-button">New Content Type</button>
-                            <button type="button" title="Import Schema" class="btn btn-secondary" id="show-import-modal-button"><span class="fas fa-file-import"></span></button>
-                            <a role="button" title="Export Schema" class="btn btn-secondary" href="/corpus/{{ corpus_id }}/?export=schema" download="schema"><span class="fas fa-file-export"></span></a>
-                        </span>
-                        <span>
-                            <button type="button" class="btn btn-primary" id="save-content-type-schema-button">Save Changes</button>
-                        </span>
-                    </div>
-                </div>
-            </div>
-            <form id="ct-schema-form" method="post">
-                {% csrf_token %}
-                <input type="hidden" name="schema" id="ct-schema" value="">
-            </form>
-        </div>
-        {% endif %}
-
-    {% if response.scholar.is_admin %}
-        <div class="row">
-            <div class="col">
-                <div id="type-manager-div" class="card mt-4">
-                    <div class="card-header">
-                        <h4>Corpus Management</h4>
-                    </div>
-                    <div class="card-body">
-                        <button type="button" class="btn btn-danger" id="corpus-show-delete-confirmation-button">Delete Corpus</button>
-                        <button type="button" class="btn btn-secondary ml-1" id="open-access-button">Make Open Access</button>
-                        <div id="corpus-deletion-confirmation-div" class="alert alert-danger mt-3 d-none">
-                            <strong>Warning:</strong> Should you delete this corpus, all data and linkages comprising it
-                            will be deleted, and it will only be recoverable via backups. Depending on the size of your corpus,
-                            deletion could take some time. <strong>If you are certain you'd like to delete this corpus,
-                            type its name (<span id="corpus-deletion-name-span"></span>) in the box below and click the
-                            "Delete" button</strong>:
-
-                            <form id="corpus-deletion-form" method="post">
-                                {% csrf_token %}
-                                <div class="form-group mt-3">
-                                    <label for="corpus-deletion-confirmation-box" class="sr-only">Corpus Name</label>
-                                    <input type="text" class="form-control" id="corpus-deletion-confirmation-box" name="corpus-deletion-name" placeholder="Corpus Name">
-                                </div>
-                                <button type="button" class="btn btn-danger" id="corpus-delete-button">Delete</button>
-                            </form>
+                        <div class="card-body p-0">
+                            <div id="content-types-graph" class="d-none" style="height: 300px"></div>
+                            <div class="list-group p-3" id="tm-ct-group">
+                                <div class="alert alert-info">No Content Types have been defined.</div>
+                            </div>
                         </div>
-                        <form id="open-access-toggle-form" method="post">
+                        <div class="card-footer d-flex justify-content-between">
+                            <span>
+                                <button type="button" class="btn btn-primary mr-2" id="new-ct-button">New Content Type</button>
+                                <button type="button" title="Import Schema" class="btn btn-secondary" id="show-import-modal-button"><span class="fas fa-file-import"></span></button>
+                                <a role="button" title="Export Schema" class="btn btn-secondary" href="/corpus/{{ corpus_id }}/?export=schema" download="schema"><span class="fas fa-file-export"></span></a>
+                            </span>
+                            <span>
+                                <button type="button" class="btn btn-primary" id="save-content-type-schema-button">Save Changes</button>
+                            </span>
+                        </div>
+                        <form id="ct-schema-form" method="post">
                             {% csrf_token %}
-                            <input type="hidden" name="corpus-open-access-toggle" value="y" />
+                            <input type="hidden" name="schema" id="ct-schema" value="">
                         </form>
                     </div>
-                </div>
+                {% endif %}
+
+                {% if response.scholar.is_admin %}
+                    <div id="corpus-manager-div" class="card mt-4">
+                        <div class="card-header">
+                            <h4>Corpus Management</h4>
+                        </div>
+                        <div class="card-body">
+                            <button type="button" class="btn btn-danger" id="corpus-show-delete-confirmation-button">Delete Corpus</button>
+                            <button type="button" class="btn btn-secondary ml-1" id="open-access-button">Make Open Access</button>
+                            <div id="corpus-deletion-confirmation-div" class="alert alert-danger mt-3 d-none">
+                                <strong>Warning:</strong> Should you delete this corpus, all data and linkages comprising it
+                                will be deleted, and it will only be recoverable via backups. Depending on the size of your corpus,
+                                deletion could take some time. <strong>If you are certain you'd like to delete this corpus,
+                                type its name (<span id="corpus-deletion-name-span"></span>) in the box below and click the
+                                "Delete" button</strong>:
+
+                                <form id="corpus-deletion-form" method="post">
+                                    {% csrf_token %}
+                                    <div class="form-group mt-3">
+                                        <label for="corpus-deletion-confirmation-box" class="sr-only">Corpus Name</label>
+                                        <input type="text" class="form-control" id="corpus-deletion-confirmation-box" name="corpus-deletion-name" placeholder="Corpus Name">
+                                    </div>
+                                    <button type="button" class="btn btn-danger" id="corpus-delete-button">Delete</button>
+                                </form>
+                            </div>
+                            <form id="open-access-toggle-form" method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="corpus-open-access-toggle" value="y" />
+                            </form>
+                        </div>
+                    </div>
+                {% endif %}
             </div>
         </div>
-    {% endif %}
 {% endblock %}
 
 {% block js %}
@@ -692,6 +691,7 @@
     <script src={% static 'js/beautify/beautify.js' %}></script>
     <script src={% static 'js/beautify/beautify-css.js' %}></script>
     <script src={% static 'js/beautify/beautify-html.js' %}></script>
+    <script src="{% static 'js/vis-network.js' %}"></script>
     <script type="application/javascript">
         let corpus_id = "{{ corpus_id }}";
         let role = "{{ role }}";
@@ -703,7 +703,8 @@
         let local_jobsite_id = null;
         let tasks = [];
         let plugin_schema = [];
-        let ct_search = {};
+        let ct_tables = {};
+        let ct_graph = null;
         let selected_content = {};
         let import_editor;
         let template_editor;
@@ -947,6 +948,47 @@
                     }
                 }
 
+                // load content views
+                let cv_sticky_nav = $('#views-nav');
+                $('.content-view-table').each(function() {
+                    let table_div = $(this);
+                    console.log(table_div[0].id);
+                    let table = new ContentTable({
+                        container_id: table_div[0].id,
+                        corpora: corpora,
+                        corpus: corpus,
+                        content_type: table_div.data('ct'),
+                        content_view: table_div.data('es-doc-id'),
+                        content_view_id: table_div.data('id'),
+                        label: table_div.data('name')
+                    });
+                    cv_sticky_nav.append(` | <a href="#${table_div[0].id}">${table_div.data('name')}</a>`);
+                });
+                $('#new-content-view-button').click(function() {
+                    corpora.create_content_view(corpus, function(data) {
+                        $('#content-views-body').append(`
+                            <div
+                                id="content-view-table-${data.id}"
+                                class="content-view-table"
+                                data-ct="${data.target_ct}"
+                                data-es-doc-id="${data.es_document_id}"
+                                data-name="${data.name}"
+                                data-id="${data.id}">
+                            </div>
+                        `);
+                        let table = new ContentTable({
+                            container_id: `content-view-table-${data.id}`,
+                            corpora: corpora,
+                            corpus: corpus,
+                            content_type: data.target_ct,
+                            content_view: data.es_document_id,
+                            content_view_id: data.id,
+                            label: data.name
+                        });
+                        $(`#content-view-table-${data.id}`)[0].scrollIntoView();
+                    });
+                });
+
                 // setup content type manager
                 if (role === 'Editor' || role === 'Admin') {
                     // setup the editor for importing a content type schema
@@ -1076,8 +1118,10 @@
 
                         if (selection === 'cross_reference') {
                             $('#new-f-cross-reference-box').removeClass('d-none');
+                            $('#new-f-has-intensity-div').removeClass('d-none');
                         } else {
                             $('#new-f-cross-reference-box').addClass('d-none');
+                            $('#new-f-has-intensity-div').addClass('d-none');
                         }
 
                         if (['text', 'large_text', 'html'].includes(selection)) {
@@ -1127,6 +1171,7 @@
                             unique_with: $('#new-f-unique-with-box').val(),
                             multiple: $('#new-f-multiple-checkbox').is(':checked'),
                             cross_reference_type: cross_reference_type,
+                            has_intensity: $('#new-f-has-intensity-checkbox').is(':checked'),
                             synonym_file: synonym_file !== 'None' ? synonym_file : null,
                             type: $('#new-f-type-box').val(),
                         };
@@ -1194,21 +1239,27 @@
                     oa_button.click(function() { $('#open-access-toggle-form').submit(); })
                 }
 
+                add_breadcrumb(corpus.name, `/corpus/${corpus.id}/`);
+
                 // load first pages of 5 items for each content type; setup content type nav
-                let breadcrumb = $('#breadcrumb');
-                let breadcrumb_inner = $('#breadcrumb-inner');
-                let ct_nav = `
-                    <ul class="nav">
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle p-0 mr-2" id="ct_nav_dropdown" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">Content Types</a>
-                            <div class="dropdown-menu" aria-labelledby="ct_nav_dropdown">
-                `;
+                let ct_sticky_nav = $('#content-types-nav');
                 for (let ct_name in corpus.content_types) {
-                    let content_table = new ContentTable({
+                    ct_tables[ct_name] = new ContentTable({
                         container_id: 'content-types-div',
                         corpora: corpora,
                         corpus: corpus,
-                        content_type: ct_name
+                        content_type: ct_name,
+                        on_load: function(meta) {
+                            if (['Admin', 'Editor'].includes(corpus.scholar_role) && Object.keys(corpus.content_types).length > 1) {
+                                if (Object.keys(ct_tables).length === Object.keys(corpus.content_types).length) {
+                                    let tables_loaded = true;
+                                    Object.keys(ct_tables).map(ct_name => {
+                                        if (!ct_tables[ct_name].meta) tables_loaded = false;
+                                    });
+                                    if (tables_loaded) draw_ct_graph();
+                                }
+                            }
+                        }
                     });
 
                     if (role === 'Editor' || role === 'Admin') {
@@ -1217,22 +1268,9 @@
 
                     let ct_plural_name = corpus.content_types[ct_name].plural_name;
                     if (corpus.content_types[ct_name].show_in_nav) {
-                        ct_nav += `<a class="dropdown-item" href="#${ct_plural_name}">${ct_plural_name}</a>`;
+                        ct_sticky_nav.append(` | <a href="#${ct_plural_name}">${ct_plural_name}</a>`);
                     }
                 }
-                ct_nav += `</div></li>`;
-                if (role === 'Editor' || role === 'Admin') {
-                    ct_nav += `
-                        <li class="nav-item">
-                            <a class="nav-link p-0" href="#ct_manager_div">Content Type Manager</a>
-                        </li>
-                    `;
-                }
-                ct_nav += `</ul>`;
-                breadcrumb_inner.append(ct_nav);
-                breadcrumb_inner.css('overflow', 'unset');
-                breadcrumb.removeClass('d-none');
-                breadcrumb.css('position', 'fixed');
 
                 // SETUP JOBS
                 corpora.get_jobsites(function (jobsites_data) {
@@ -1330,37 +1368,6 @@
                     multi_form.submit();
                 });
 
-                // VIEW CREATION BUTTON
-                $('#create-view-button').click(function() {
-                    let name_box = $('#new-view-name-box');
-                    let exploration_start_ct = $('#exploration-start-ct');
-                    let exploration_end_ct = $('#exploration-end-ct');
-
-                    let steps = '';
-                    $('.exploration-step').each(function() {
-                        if (steps) steps += '.' + $(this).val();
-                        else steps += $(this).val();
-                    });
-
-                    let path = `${exploration_start_ct.val()}-${steps}-${exploration_end_ct.val()}`;
-
-                    let connected_uris = [];
-                    if ($('#exploration-end-uris').is(':checked')) {
-                        $('.exploration-uri').each(function () {
-                            connected_uris.push($(this).data('uri'));
-                        });
-                    }
-
-                    let view_data = {
-                        name: pep8_variable_format(name_box.val()),
-                        path: path,
-                        label: name_box.val(),
-                        connected_to_uris: connected_uris
-                    }
-                    $('#create-view-data').val(JSON.stringify(view_data));
-                    $('#create-view-form').submit();
-                });
-
                 let scroll_location = location.hash;
                 location.hash = '';
                 location.hash = scroll_location;
@@ -1368,6 +1375,108 @@
 
             hide_loading_overlay();
         });
+
+        function draw_ct_graph() {
+            let graph_div = $('#content-types-graph');
+            let nodes = new vis.DataSet();
+            let edges = new vis.DataSet();
+            let node_ids = [];
+            let ct_colors = [
+                '#EF3E36',
+                '#091540',
+                '#17BEBB',
+                '#BFC0C0',
+                '#2191FB',
+                '#297045',
+                '#9448BC',
+                '#FFB627',
+                '#CCC9E7',
+                '#E9E3B4',
+            ];
+            let color_cursor = 0;
+            let min_size = 25;
+            let max_size = 200;
+
+            // determine node size range
+            let min_count = 9999999999999999999999;
+            let max_count = 1;
+            for (let ct_name in ct_tables) {
+                if (ct_tables[ct_name].meta.total < min_count) min_count = ct_tables[ct_name].meta.total;
+                if (ct_tables[ct_name].meta.total > max_count) max_count = ct_tables[ct_name].meta.total;
+            }
+
+            // build nodes and edges
+            for (let ct_name in ct_tables) {
+                // determine normalized size
+                let ct_count = ct_tables[ct_name].meta.total;
+                let mx = (ct_count - min_count) / (max_count - min_count);
+                let preshiftNorm = mx * (max_size - min_size);
+                let node_size = parseInt(preshiftNorm + min_size);
+
+                nodes.add({
+                    id: ct_name,
+                    label: `${corpus.content_types[ct_name].plural_name}: ${ct_tables[ct_name].meta.total}`,
+                    size: node_size,
+                    color: ct_colors[color_cursor],
+                });
+                color_cursor += 1;
+                if (color_cursor >= ct_colors.length) color_cursor = 0;
+                node_ids.push(ct_name);
+
+                corpus.content_types[ct_name].fields.map(field => {
+                    if (field.type === 'cross_reference') edges.add({
+                        'from': ct_name,
+                        'to': field.cross_reference_type
+                    });
+                });
+            }
+
+            graph_div.removeClass('d-none');
+            ct_graph = new vis.Network(
+                graph_div[0],
+                {
+                    nodes: nodes,
+                    edges: edges
+                },
+                {
+                    nodes: {
+                        shape: 'dot',
+                        font: {
+                            background: 'white',
+                            size: 30,
+                        }
+                    },
+                    edges: {
+                        smooth: {
+                            type: "continuous"
+                        }
+                    },
+                    interaction: {
+                        zoomSpeed: 0.4,
+                    },
+                    physics: {
+                        solver: 'barnesHut',
+                        barnesHut: {
+                            springConstant: .01,
+                            damping: 0.8,
+                            avoidOverlap: 1,
+                            springLength: 200
+                        },
+                        stabilization: {
+                            enabled: true,
+                            fit: true
+                        }
+                    },
+                }
+            );
+
+            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+                console.log(e.target.id);
+                if (e.target.id === 'admin-tab') {
+                    ct_graph.fit({nodes: node_ids});
+                }
+            });
+        }
 
         function manage_content_type(ct_name) {
             let ct_div_prefix = `tm-ct-${ct_name}`;
@@ -1565,6 +1674,7 @@
                     $('#new-f-type-box').val('keyword');
                     $('#new-f-synonym-box').val('None');
                     $('#new-f-synonym-div').addClass('d-none');
+                    $('#new-f-has-intensity-checkbox').prop('checked', false);
                     $('#new-f-in-lists-checkbox').prop('checked', true);
                     $('#new-f-indexed-checkbox').prop('checked', false);
                     $('#new-f-unique-checkbox').prop('checked', false);
@@ -1585,6 +1695,7 @@
                     $('#new-f-unique-with-div').removeClass('d-flex');
                     $('#new-f-unique-with-div').addClass('d-none');
                     $('#new-f-cross-reference-box').addClass('d-none');
+                    $('#new-f-has-intensity-div').addClass('d-none');
 
                     $('#new-f-create-button').html('Create');
                     $('#new-f-modal').modal();
@@ -1639,6 +1750,9 @@
             switch (ct.fields[f_index].type) {
                 case 'cross_reference':
                     field_type_display = ct.fields[f_index].cross_reference_type;
+                    if (ct.fields[f_index].has_intensity) {
+                        field_type_display += '+';
+                    }
                     break;
                 case 'text':
                     field_type_display = 'Text';
@@ -1714,8 +1828,10 @@
                     if (ct.fields[f_index].type === 'cross_reference') {
                         $('#new-f-cross-reference-box').removeClass('d-none');
                         $('#new-f-cross-reference-box').val(ct.fields[f_index].cross_reference_type);
+                        $('#new-f-has-intensity-div').removeClass('d-none');
                     } else {
                         $('#new-f-cross-reference-box').addClass('d-none');
+                        $('#new-f-has-intensity-div').addClass('d-none');
                     }
 
                     $('#new-f-synonym-box').val(ct.fields[f_index].synonym_file == null ? 'None' : ct.fields[f_index].synonym_file);
@@ -1734,6 +1850,7 @@
                         }
                     }
 
+                    $('#new-f-has-intensity-checkbox').prop('checked', ct.fields[f_index].has_intensity)
                     $('#new-f-indexed-checkbox').prop('checked', ct.fields[f_index].indexed);
                     $('#new-f-indexed-with-box').val(ct.fields[f_index].indexed_with);
                     if (ct.fields[f_index].indexed) {
@@ -2118,6 +2235,12 @@
 
         function job_finished() {
             $('#job-finished-modal').modal();
+        }
+
+        // THIS GETS CALLED BY JOB WIDGET IN IFRAME
+        function resize_job_widget() {
+            let job_widget = document.getElementById("job-iframe");
+            job_widget.style.height = job_widget.contentWindow.document.body.scrollHeight + 'px';
         }
     </script>
 {% endblock %}

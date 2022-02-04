@@ -321,6 +321,327 @@ class Corpora {
         )
     }
 
+    create_content_view(corpus, callback=null) {
+        let cv_modal = $('#cv-creation-modal');
+        let ct_keys = Object.keys(corpus.content_types);
+        let sender = this;
+
+        if (!cv_modal.length) {
+            $('body').append(`
+                <div class="modal fade" id="cv-creation-modal" tabindex="-1" role="dialog" aria-labelledby="cv-creation-modal-label" aria-hidden="true">
+                    <div class="modal-dialog modal-lg" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 id="cv-creation-modal-label" class="modal-title">Content View</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body" style="max-height: 70vh; overflow-y: scroll;">
+                                <div class="alert alert-info">
+                                    A "Content View" is a defined subset of content for a particular content type. To define one,
+                                    start by giving it a name and choosing the content type. You may then start filtering content
+                                    by performing a search and/or creating a pattern of association. Once a Content View is created,
+                                    it will appear on the Corpus page, and may also be selected as a filtering criteria in any Explore
+                                    pane. 
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="cv-name-box">Name</label>
+                                    <input id="cv-name-box" type="text" class="form-control">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="cv-target-ct">Content Type</label>
+                                    <select id="cv-target-ct" class="form-control btn-primary"><option value="None">--select--</option></select>
+                                </div>
+                                
+                                <div id="cv-target-table-div"></div>
+                                
+                                <div id="cv-pattern-div" class="d-none mt-3">
+                                    
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="cv-create-button">Create</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+
+            cv_modal = $('#cv-creation-modal');
+            let target_ct_selector = $('#cv-target-ct');
+            let target_table_div = $('#cv-target-table-div');
+
+            target_ct_selector.val('None');
+            target_table_div.html('');
+
+
+            ct_keys.map(ct_key => {
+                let ct = corpus.content_types[ct_key];
+                target_ct_selector.append(`<option value="${ct.name}">${ct.name}</option>`);
+            });
+
+            target_ct_selector.change(function() {
+                let target_ct = $(this).val();
+                let patass_div = $('#cv-pattern-div');
+
+                target_table_div.html('');
+                patass_div.removeClass('d-none');
+                patass_div.html('');
+                patass_div.append('<button type="button" class="btn btn-primary" id="cv-create-pattern-button">Create a Pattern of Association</button>');
+
+                let target_table = new ContentTable({
+                    container_id: 'cv-target-table-div',
+                    corpora: sender,
+                    corpus: corpus,
+                    content_type: target_ct,
+                    mode: 'view'
+                });
+
+                $('#cv-create-pattern-button').click(function() {
+                    let pattern_div = $('#cv-pattern-div');
+                    let target_ct = corpus.content_types[target_ct_selector.val()];
+                    pattern_div.append(`<div id="patass-canvas" class="d-flex flex-column"></div>`);
+                    let canvas = $('#patass-canvas');
+
+                    let patass_step = (step, ct) => {
+                        let next_ct_options = [];
+                        ct.fields.map(field => {
+                            if (field.type === 'cross_reference') {
+                                let next_ct = field.cross_reference_type;
+                                next_ct_options.push(`<option value="${next_ct}">${next_ct}</option>`);
+                            }
+                        });
+                        for (let ct_name in corpus.content_types) {
+                            if (ct_name !== ct.name) {
+                                corpus.content_types[ct_name].fields.map(field => {
+                                    if (field.type === 'cross_reference' && field.cross_reference_type === ct.name) {
+                                        next_ct_options.push(`<option value="${ct_name}">${ct_name}</option>`);
+                                    }
+                                });
+                            }
+                        }
+
+                        let next_selector = `<select class="patass-next-selector form-control-sm btn-secondary d-flex align-self-center" data-step="${step}"><option value="--">Select...</option>${next_ct_options}</select>`;
+
+                        canvas.append(`
+                            ${ step > 0 ? ` <div class="patass-pipe patass-step-${step} d-flex align-self-center">&nbsp;</div>` : '' }
+                            <div id="patass-step-${step}-circle" class="patass-ct-circle patass-step-${step} d-flex justify-content-center align-self-center" data-step="${step}" data-ct="${ct.name}" data-ids=""><span class="mx-auto my-auto">${ct.plural_name}</span></div>
+                            ${ step > 0 ? `<div class="patass-ct-controls d-flex justify-content-center align-self-center"><button role="button" class="btn btn-sm btn-secondary patass-specific-ids-button" data-step="${step}">Specify</button></div>` : '' }
+                            <div class="patass-pipe patass-from-ct-to-add patass-step-${step} d-flex align-self-center">&nbsp;</div>
+                            <div class="patass-add-circle patass-step-${step} d-flex justify-content-center align-self-center" data-step="${step}" data-origin-ct="${ct.name}">${next_selector}</div>
+                        `);
+
+                        $('.patass-next-selector').off('change').on('change', function() {
+                            if ($(this).val() !== '--') {
+                                let step = parseInt($(this).data('step'));
+                                let next_ct = corpus.content_types[$(this).val()];
+                                $('.patass-add-circle').remove();
+                                $('.patass-from-ct-to-add').remove();
+                                patass_step(step + 1, next_ct, []);
+                            }
+                        });
+
+                        $('.patass-specific-ids-button').off('click').on('click', function() {
+                            let step = $(this).data('step');
+                            let ct_circle = $(`#patass-step-${step}-circle`);
+                            let ids = ct_circle.data('ids').split(',');
+                            if (ids[0] === '') ids = [];
+                            let ct_circle_span = $(`#patass-step-${step}-circle > span`);
+
+                            sender.select_content(corpus_id, ct.name, function(new_id, new_label) {
+                                ids.push(new_id);
+                                ct_circle.data('ids', ids.join(','));
+                                let label = ct_circle_span.html();
+                                if (!label.includes(' (')) label += ' (';
+                                else label = label.slice(0, -1) + ', ';
+                                label += `<a href="/corpus/${corpus_id}/${ct.name}/${new_id}/" target="_blank">${new_label}</a>)`;
+                                ct_circle_span.html(label);
+                            });
+                        });
+                    };
+
+                    patass_step(0, target_ct, []);
+
+
+                    $(this).remove();
+                });
+
+                $('#cv-create-button').click(function() {
+                    let patass = '';
+                    $('.patass-ct-circle').each(function() {
+                        let step = parseInt($(this).data('step'));
+                        if (step > 0) {
+                            let ct = $(this).data('ct');
+                            let ids = $(this).data('ids');
+                            if (ids) ids = ids.split(',');
+                            else ids = [];
+
+                            patass += `-(${ct}${ ids.length ? ` [${ids.join(',')}]` : '' })`
+                        }
+                    });
+
+                    if (patass.length) {
+                        patass = patass.slice(1);
+                    }
+
+                    let submission = {
+                        'cv-name': $('#cv-name-box').val(),
+                        'cv-target-ct': target_ct_selector.val(),
+                        'cv-search-json': JSON.stringify(target_table.search),
+                        'cv-patass': patass
+                    }
+
+                    sender.make_request(
+                        `/api/corpus/${corpus.id}/content-view/`,
+                        'POST',
+                        submission,
+                        function (data) {
+                            if (data.status === 'populating') {
+                                let create_button = $('#cv-create-button');
+                                create_button.html('Populating...');
+                                create_button.attr('disabled', true);
+                                sender.await_content_view_population(corpus.id, data.id, function(data) {
+                                    cv_modal.modal('hide');
+                                    callback(data);
+                                });
+                            } else {
+                                cv_modal.modal('hide');
+                                callback(data);
+                            }
+                        }
+                    );
+                });
+            });
+        }
+
+        cv_modal.modal();
+        cv_modal.on('hidden.bs.modal', function() { cv_modal.remove(); });
+    }
+
+    await_content_view_population(corpus_id, content_view_id, callback) {
+        let sender = this;
+        sender.make_request(
+            `/api/corpus/${corpus.id}/content-view/${content_view_id}/`,
+            'GET',
+            {},
+            function (data) {
+                if (data.status === 'populating') {
+                    setTimeout(function() {
+                        sender.await_content_view_population(corpus_id, content_view_id, callback);
+                    }, 5000);
+                } else {
+                    callback(data);
+                }
+            }
+        );
+    }
+
+    select_content(corpus_id, content_type, callback, new_selection=true) {
+        let sender = this;
+        let modal = $('#content-selection-modal');
+
+        if (new_selection) {
+            modal.remove();
+            modal = $('#content-selection-modal');
+        }
+
+        if (!modal.length) {
+            $('body').append(`
+                <div class="modal fade" id="content-selection-modal" tabindex="-1" role="dialog" aria-labelledby="content-selection-modal-label" aria-hidden="true">
+                    <div class="modal-dialog modal-lg" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="content-selection-modal-label">Select ContentType</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="alert alert-light">
+                                    <div class="mb-2">
+                                        <input type="text" class="form-control" id="content-selection-modal-filter-box" aria-placeholder="Search" placeholder="Search">
+                                    </div>
+                                    <table class="table table-striped">
+                                        <thead class="thead-dark">
+                                            <th scope="col" id="content-selection-modal-table-header">ContentType</th>
+                                        </thead>
+                                        <tbody id="content-selection-modal-table-body">
+                                            <tr><td>Loading...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <input type="hidden" id="content-selection-search-params" data-page-size="10" data-page="1" data-q="*" />
+                                <button type="button" id="content-selection-modal-prev-page-button" class="btn btn-secondary"><span class="fas fa-angle-left"></span></button>
+                                <button type="button" id="content-selection-modal-next-page-button" class="btn btn-secondary"><span class="fas fa-angle-right"></span></button>
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+            modal = $('#content-selection-modal');
+        }
+
+        let search_param_input = $('#content-selection-search-params');
+
+        let content_selection_params = {
+            q: search_param_input.data('q'),
+            only: 'label',
+            s_label: 'asc',
+            'page-size': search_param_input.data('page-size'),
+            page: search_param_input.data('page')
+        };
+
+        corpora.list_content(corpus_id, content_type, content_selection_params, function(data){
+            $('#content-selection-modal-prev-page-button').prop('disabled', content_selection_params.page <= 1);
+            $('#content-selection-modal-next-page-button').prop('disabled', !data.meta.has_next_page);
+
+            $('#content-selection-modal-label').html(`Select ${content_type}`);
+            $('#content-selection-modal-table-header').html(content_type);
+            $('#content-selection-modal-table-body').html('');
+            for (let x = 0; x < data.records.length; x++) {
+                $('#content-selection-modal-table-body').append(`
+                    <tr><td><a class="content-selection-item" data-id="${data.records[x].id}" data-label="${data.records[x].label}">${data.records[x].label}</a></td></tr>
+                `);
+            }
+
+            // HANDLE ITEM CLICKING
+            $('.content-selection-item').click(function() {
+                modal.modal('hide');
+                callback($(this).data('id'), $(this).data('label'));
+            });
+
+            // HANDLE SEARCH BOX
+            $('#content-selection-modal-filter-box').keypress(function (e) {
+                let key = e.which;
+                if (key === 13) {
+                    search_param_input.data('q', $('#content-selection-modal-filter-box').val());
+                    sender.select_content(corpus_id, content_type, callback, false);
+                }
+            });
+
+            // previous select content page click event
+            $('#content-selection-modal-prev-page-button').click(function() {
+                search_param_input.data('page', content_selection_params.page - 1);
+                sender.select_content(corpus_id, content_type, callback, false);
+            });
+
+            // next select content page click event
+            $('#content-selection-modal-next-page-button').click(function() {
+                search_param_input.data('page', content_selection_params.page + 1);
+                sender.select_content(corpus_id, content_type, callback, false);
+            });
+
+            $('#content-selection-modal').modal();
+        });
+    }
+
     file_url(uri) {
         return `/file/uri/${uri.split('/').join('|')}/`;
     }
@@ -346,10 +667,21 @@ class ContentTable {
         this.corpora = 'corpora' in config ? config.corpora : null;
         this.corpus = 'corpus' in config ? config.corpus : null;
         this.content_type = 'content_type' in config ? config.content_type : null;
+        this.mode = 'mode' in config ? config.mode : 'edit';
         this.search = 'search' in config ? config.search : {
             'page': 1,
             'page-size': 5,
         };
+        this.on_load = 'on_load' in config ? config.on_load : null;
+        this.meta = null;
+        this.content_view = null;
+        this.content_view_id = null;
+        if ('content_view' in config && 'content_view_id' in config) {
+            this.content_view = config.content_view;
+            this.content_view_id = config.content_view_id;
+            this.search['content_view'] = config.content_view
+        }
+        this.id_suffix = 0;
         this.selected_content = {
             all: false,
             ids: []
@@ -366,10 +698,14 @@ class ContentTable {
             let role = this.corpus.scholar_role;
             let search = this.search;
             let selected_content = this.selected_content;
+            this.label = 'label' in config ? config.label : ct.plural_name;
             let sender = this;
 
+            // ensure component ids will be unique
+            while ($(`#ct-${ct.name}${sender.id_suffix}-table-body`).length) sender.id_suffix += 1;
+
             // ensure multiselection form and deletion confirmation modal exist
-            if (!$('#multiselect-form').length) {
+            if (!$('#multiselect-form').length && sender.mode === 'edit') {
                 this.container.append(`
                     <form id="multiselect-form" method="post" action="/not/set">
                         <input type="hidden" name="csrfmiddlewaretoken" value="${this.corpora.csrf_token}">
@@ -377,7 +713,7 @@ class ContentTable {
                     </form>
                 `);
             }
-            if (!$('#deletion-confirmation-modal').length) {
+            if (!$('#deletion-confirmation-modal').length && sender.mode === 'edit') {
                 $('body').prepend(`
                     <div class="modal fade" id="deletion-confirmation-modal" tabindex="-1" role="dialog" aria-labelledby="deletion-confirmation-modal-label" aria-hidden="true">
                         <div class="modal-dialog">
@@ -410,6 +746,15 @@ class ContentTable {
                 });
             }
 
+            let edit_action = ``;
+            if (sender.mode === 'edit' && (role === 'Editor' || role === 'Admin')) {
+                if (sender.content_view) {
+                    edit_action = `<button role="button" id="ct-${ct.name}${sender.id_suffix}-delete-view-button" class="btn btn-primary rounded mr-2">Delete View</button>`;
+                } else {
+                    edit_action = `<a role="button" id="ct-${ct.name}${sender.id_suffix}-new-button" href="/corpus/${corpus_id}/${ct.name}/" class="btn btn-primary rounded mr-2">Create</a>`;
+                }
+            }
+
             this.container.append(`
                 <div class="row">
                     <div class="col-12">
@@ -417,63 +762,69 @@ class ContentTable {
                         <div class="card mt-4">
                             <div class="card-header" style="padding: 0 !important;">
                                 <div class="d-flex w-100 justify-content-between align-items-center text-nowrap p-2 ml-2">
-                                    <h4>${ct.plural_name}</h4>
+                                    <h4>${sender.label}</h4>
                                     <div class="input-group ml-2 mr-2">
                                         <div class="input-group-prepend">
-                                            <button id="ct-${ct.name}-search-type-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Text Search</button>
-                                            <div id="ct-${ct.name}-search-type-menu" class="dropdown-menu">
+                                            <button id="ct-${ct.name}${sender.id_suffix}-search-type-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Text Search</button>
+                                            <div id="ct-${ct.name}${sender.id_suffix}-search-type-menu" class="dropdown-menu">
                                                 <span class="p-2">Select a specific field from the dropdown to the right in order to choose a different search type.</span>
                                             </div>
-                                            <input type="hidden" id="ct-${ct.name}-search-type-value" value="default" />
+                                            <input type="hidden" id="ct-${ct.name}${sender.id_suffix}-search-type-value" value="default" />
                                         </div>
-                                        <input type="text" class="form-control" id="ct-${ct.name}-search-box" placeholder="Search" />
+                                        <input type="text" class="form-control" id="ct-${ct.name}${sender.id_suffix}-search-box" placeholder="Search" />
                                         <div class="input-group-append">
-                                            <button id="ct-${ct.name}-search-setting-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">All Fields</button>
-                                            <div id="ct-${ct.name}-search-settings-menu" class="dropdown-menu">
-                                                <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-default" href="#">All Fields</a>
+                                            <button id="ct-${ct.name}${sender.id_suffix}-search-setting-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">All Fields</button>
+                                            <div id="ct-${ct.name}${sender.id_suffix}-search-settings-menu" class="dropdown-menu">
+                                                <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-setting" id="ct-${ct.name}${sender.id_suffix}-search-setting-default" href="#">All Fields</a>
                                             </div>
-                                            <input type="hidden" id="ct-${ct.name}-search-setting-value" value="default" />
+                                            <input type="hidden" id="ct-${ct.name}${sender.id_suffix}-search-setting-value" value="default" />
                                         </div>
                                     </div>
 
-                                    <button id="ct-${ct.name}-search-clear-button" class="btn btn-primary rounded mr-2 d-none" type="button">Clear Search</button>
-                                    ${ (role === 'Editor' || role === 'Admin') ? `<a role="button" id="ct-${ct.name}-new-button" href="/corpus/${corpus_id}/${ct.name}/" class="btn btn-primary rounded mr-2">New ${ct.name}</a>` : ''}
+                                    <button id="ct-${ct.name}${sender.id_suffix}-search-clear-button" class="btn btn-primary rounded mr-2 d-none" type="button">Clear Search</button>
+                                    ${edit_action}
 
-                                    <div class="form-inline mr-2">
-                                        <select class="form-control btn-primary d-none" id="ct-${ct.name}-page-selector">
-                                        </select>
-                                    </div>
-
-                                    <div class="form-inline mr-2">
-                                        <select class="form-control btn-primary" id="ct-${ct.name}-per-page-selector">
-                                            <option selected>5</option>
-                                            <option>10</option>
-                                            <option>20</option>
-                                            <option>50</option>
-                                        </select>
-                                    </div>
+                                    
                                 </div>
-                                <div id="ct-${ct.name}-current-search-div" class="d-flex w-100 align-items-center p-2 pl-3 badge-secondary" style="padding-top: 12px !important;"></div>
+                                <div id="ct-${ct.name}${sender.id_suffix}-current-search-div" class="d-flex w-100 align-items-center p-2 pl-3 badge-secondary" style="padding-top: 12px !important;"></div>
                             </div>
-                            <div class="card-body">
-                                <table class="table table-striped">
+                            <div class="card-body p-0">
+                                <table class="table table-striped mb-0">
                                     <thead class="thead-dark">
-                                        <tr id="ct-${ct.name}-table-header-row">
+                                        <tr id="ct-${ct.name}${sender.id_suffix}-table-header-row">
                                         </tr>
                                     </thead>
-                                    <tbody id="ct-${ct.name}-table-body">
+                                    <tbody id="ct-${ct.name}${sender.id_suffix}-table-body">
                                     </tbody>
                                 </table>
-                                <div class="form-inline">
-                                    With selected:
-                                    <select class="form-control-sm btn-primary ml-1 mr-1" id="ct-${ct.name}-selection-action-selector">
-                                        <option value="explore" selected>Explore</option>
-                                        ${['Editor', 'Admin'].includes(role) ? '<option value="bulk-edit">Bulk Edit</option>' : ''}
-                                        ${['Editor', 'Admin'].includes(role) ? '<option value="merge">Merge</option>' : ''}
-                                        ${['Editor', 'Admin'].includes(role) ? '<option value="create_view">Create View</option>' : ''}
-                                        ${['Editor', 'Admin'].includes(role) ? '<option value="delete">Delete</option>' : ''}
-                                    </select>
-                                    <button type="button" class="btn btn-sm btn-secondary" id="ct-${ct.name}-selection-action-go-button" disabled>Go</button>
+                                <div class="row px-4">
+                                    <div class="col-sm-12 d-flex w-100 justify-content-between align-items-center text-nowrap p-2 ml-2">
+                                        ${ sender.mode === 'edit' ? `<div class="form-inline">
+                                            With selected:
+                                            <select class="form-control-sm btn-primary ml-1 mr-1" id="ct-${ct.name}${sender.id_suffix}-selection-action-selector" data-ct="${ct.name}">
+                                                <option value="explore" selected>Explore</option>
+                                                ${['Editor', 'Admin'].includes(role) ? '<option value="bulk-edit">Bulk Edit</option>' : ''}
+                                                ${['Editor', 'Admin'].includes(role) ? '<option value="merge">Merge</option>' : ''}
+                                                ${['Editor', 'Admin'].includes(role) ? '<option value="create_view">Create View</option>' : ''}
+                                                ${['Editor', 'Admin'].includes(role) ? '<option value="delete">Delete</option>' : ''}
+                                            </select>
+                                            <button type="button" class="btn btn-sm btn-secondary" id="ct-${ct.name}${sender.id_suffix}-selection-action-go-button" data-ct="${ct.name}" disabled>Go</button>
+                                        </div>` : ''}
+                                        
+                                        <div class="form-inline ml-auto mr-2">
+                                            <select class="form-control btn-primary d-none" id="ct-${ct.name}${sender.id_suffix}-page-selector">
+                                            </select>
+                                        </div>
+        
+                                        <div class="form-inline mr-2">
+                                            <select class="form-control btn-primary" id="ct-${ct.name}${sender.id_suffix}-per-page-selector">
+                                                <option value="5" selected>5 Per Page</option>
+                                                <option value="10">10 Per Page</option>
+                                                <option value="20">20 Per Page</option>
+                                                <option value="50">50 Per Page</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -481,40 +832,57 @@ class ContentTable {
                 </div>
             `);
 
+            // setup view deletion
+            if (sender.content_view) {
+                $(`#ct-${ct.name}${sender.id_suffix}-delete-view-button`).click(function() {
+                    let multi_form = $('#multiselect-form');
+                    $('#deletion-confirmation-modal-message').html(`
+                        Are you sure you want to delete the "${sender.label}" Content View?
+                    `);
+                    multi_form.append(`
+                        <input type='hidden' class="content-view-deletion-input" name='content-view' value='${sender.content_view_id}'/>
+                    `);
+                    let deletion_modal = $('#deletion-confirmation-modal');
+                    deletion_modal.modal();
+                    deletion_modal.on('hidden.bs.modal', function (e) {
+                        $('.content-view-deletion-input').remove();
+                    })
+                });
+            }
+
             // setup content type table headers
-            let table_header_row = $(`#ct-${ct.name}-table-header-row`);
+            let table_header_row = $(`#ct-${ct.name}${sender.id_suffix}-table-header-row`);
             table_header_row.append(`
                 <th scope="col">
-                    <input type="checkbox" id="ct_${ct.name}_select-all_box">
+                    ${ sender.mode === 'edit' ? `<input type="checkbox" id="ct_${ct.name}${sender.id_suffix}_select-all_box" data-ct="${ct.name}">` : '' }
                 </th>
             `);
             for (let x = 0; x < ct.fields.length; x++) {
                 if (ct.fields[x].in_lists) {
                     table_header_row.append(`
                         <th scope="col">
-                            <a href="#" class="${ct.name}-order-by" data-order-by="${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}"><h5>${ct.fields[x].label}</h5></a>
+                            <a href="#" class="${ct.name}${sender.id_suffix}-order-by" data-order-by="${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}">${ct.fields[x].label}</a>
                         </th>
                     `);
                 }
             }
 
             // handle order by event
-            $(`.${ct.name}-order-by`).click(function(e) {
+            $(`.${ct.name}${sender.id_suffix}-order-by`).click(function(e) {
                 e.preventDefault();
                 sender.order_by($(this).data('order-by'));
             });
 
             // handle select all box checking/unchecking
-            $(`#ct_${ct.name}_select-all_box`).change(function() {
-                let id_parts = this.id.split('_');
-                let ct_name = id_parts[1];
-                let go_button = $(`#ct-${ct_name}-selection-action-go-button`);
+            $(`#ct_${ct.name}${sender.id_suffix}_select-all_box`).change(function() {
+                let ct_name = $(this).data('ct');
+                let go_button = $(`#ct-${ct_name}${sender.id_suffix}-selection-action-go-button`);
 
                 if ($(this).is(':checked')) {
                     selected_content.all = true;
                     selected_content.ids = [];
 
-                    $(`.ct-${ct_name}-selection-box`).each(function() {
+                    $(`.ct-${ct_name}${sender.id_suffix}-selection-box`).each(function() {
                         $(this).prop("checked", true);
                         $(this).attr("disabled", true);
                     });
@@ -522,7 +890,7 @@ class ContentTable {
                     go_button.removeAttr('disabled');
                 } else {
                     selected_content.all = false;
-                    $(`.ct-${ct_name}-selection-box`).each(function() {
+                    $(`.ct-${ct_name}${sender.id_suffix}-selection-box`).each(function() {
                         $(this).prop("checked", false);
                         $(this).removeAttr("disabled");
                     });
@@ -532,11 +900,11 @@ class ContentTable {
             });
 
             // setup content type search fields
-            let search_settings_menu = $(`#ct-${ct.name}-search-settings-menu`);
+            let search_settings_menu = $(`#ct-${ct.name}${sender.id_suffix}-search-settings-menu`);
             for (let x = 0; x < ct.fields.length; x++) {
                 if (ct.fields[x].in_lists) {
                     search_settings_menu.append(`
-                        <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}" href="#">${ct.fields[x].label}</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-setting" id="ct-${ct.name}${sender.id_suffix}-search-setting-${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}" href="#">${ct.fields[x].label}</a>
                     `);
 
                     // add cross reference sub field options
@@ -546,7 +914,7 @@ class ContentTable {
                             for (let y = 0; y < cx.fields.length; y++) {
                                 if (cx.fields[y].in_lists && cx.fields[y].type !== 'cross_reference') {
                                     search_settings_menu.append(`
-                                        <a class="dropdown-item ct-${ct.name}-search-setting" id="ct-${ct.name}-search-setting-${ct.fields[x].name + '.' + cx.fields[y].name}" href="#">${ct.fields[x].label} -> ${cx.fields[y].label}</a>
+                                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-setting" id="ct-${ct.name}${sender.id_suffix}-search-setting-${ct.fields[x].name + '.' + cx.fields[y].name}" href="#">${ct.fields[x].label} -> ${cx.fields[y].label}</a>
                                     `);
                                 }
                             }
@@ -556,11 +924,11 @@ class ContentTable {
             }
 
             // event for selecting a specific field to search
-            $(`.ct-${ct.name}-search-setting`).click(function (event) {
+            $(`.ct-${ct.name}${sender.id_suffix}-search-setting`).click(function (event) {
                 event.preventDefault();
-                let field = event.target.id.replace(`ct-${ct.name}-search-setting-`, '');
+                let field = event.target.id.replace(`ct-${ct.name}${sender.id_suffix}-search-setting-`, '');
                 let label = $(this).text();
-                let search_type_menu = $(`#ct-${ct.name}-search-type-menu`);
+                let search_type_menu = $(`#ct-${ct.name}${sender.id_suffix}-search-type-menu`);
 
                 if (field === 'default') {
                     search_type_menu.html(`
@@ -568,48 +936,48 @@ class ContentTable {
                     `);
                 } else {
                     search_type_menu.html(`
-                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-default" href="#">Text Search</a>
-                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-exact" href="#">Exact Search</a>
-                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-term" href="#">Term Search</a>
-                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-phrase" href="#">Phrase Search</a>
-                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-wildcard" href="#">Wildcard Search</a>
-                        <a class="dropdown-item ct-${ct.name}-search-type" id="ct-${ct.name}-search-type-range" href="#">Range Search</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-default" href="#">Text Search</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-exact" href="#">Exact Search</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-term" href="#">Term Search</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-phrase" href="#">Phrase Search</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-wildcard" href="#">Wildcard Search</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-range" href="#">Range Search</a>
                     `);
                 }
 
                 // event for selecting a search type
-                $(`.ct-${ct.name}-search-type`).click(function (event) {
+                $(`.ct-${ct.name}${sender.id_suffix}-search-type`).click(function (event) {
                     event.preventDefault();
-                    let search_type = event.target.id.replace(`ct-${ct.name}-search-type-`, '');
+                    let search_type = event.target.id.replace(`ct-${ct.name}${sender.id_suffix}-search-type-`, '');
                     let label = $(this).text();
 
-                    $(`#ct-${ct.name}-search-type-selection`).text(label);
-                    $(`#ct-${ct.name}-search-type-value`).val(search_type);
+                    $(`#ct-${ct.name}${sender.id_suffix}-search-type-selection`).text(label);
+                    $(`#ct-${ct.name}${sender.id_suffix}-search-type-value`).val(search_type);
                 });
 
-                $(`#ct-${ct.name}-search-setting-selection`).text(label);
-                $(`#ct-${ct.name}-search-setting-value`).val(field);
+                $(`#ct-${ct.name}${sender.id_suffix}-search-setting-selection`).text(label);
+                $(`#ct-${ct.name}${sender.id_suffix}-search-setting-value`).val(field);
             });
 
             // setup page selector events
-            $(`#ct-${ct.name}-page-selector`).on("change", function () {
-                search.page = parseInt($(`#ct-${ct.name}-page-selector`).val());
+            $(`#ct-${ct.name}${sender.id_suffix}-page-selector`).on("change", function () {
+                search.page = parseInt($(`#ct-${ct.name}${sender.id_suffix}-page-selector`).val());
                 corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content); });
             });
 
-            $(`#ct-${ct.name}-per-page-selector`).on("change", function () {
-                search['page-size'] = parseInt($(`#ct-${ct.name}-per-page-selector`).val());
+            $(`#ct-${ct.name}${sender.id_suffix}-per-page-selector`).on("change", function () {
+                search['page-size'] = parseInt($(`#ct-${ct.name}${sender.id_suffix}-per-page-selector`).val());
                 search['page'] = 1;
                 corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content); });
             });
 
             // setup search events
-            $(`#ct-${ct.name}-search-box`).keypress(function (e) {
+            $(`#ct-${ct.name}${sender.id_suffix}-search-box`).keypress(function (e) {
                 let key = e.which;
                 if (key === 13) {
-                    let query = $(`#ct-${ct.name}-search-box`).val();
-                    let field = $(`#ct-${ct.name}-search-setting-value`).val();
-                    let search_type = $(`#ct-${ct.name}-search-type-value`).val();
+                    let query = $(`#ct-${ct.name}${sender.id_suffix}-search-box`).val();
+                    let field = $(`#ct-${ct.name}${sender.id_suffix}-search-setting-value`).val();
+                    let search_type = $(`#ct-${ct.name}${sender.id_suffix}-search-type-value`).val();
                     let search_type_map = {
                         default: 'q',
                         exact: 'f',
@@ -626,13 +994,13 @@ class ContentTable {
                         search[`${param_prefix}_${field}`] = query;
                     }
 
-                    $(`#ct-${ct.name}-search-clear-button`).removeClass('d-none');
+                    $(`#ct-${ct.name}${sender.id_suffix}-search-clear-button`).removeClass('d-none');
                     corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content); });
                 }
             });
 
-            $(`#ct-${ct.name}-search-clear-button`).click(function (event) {
-                $(`#ct-${ct.name}-search-box`).val('');
+            $(`#ct-${ct.name}${sender.id_suffix}-search-clear-button`).click(function (event) {
+                $(`#ct-${ct.name}${sender.id_suffix}-search-box`).val('');
                 for (let param in search) {
                     if (search.hasOwnProperty(param)) {
                         if (param === 'q' || ['q_', 'f_', 't_', 'p_', 'w_', 'r_'].includes(param.slice(0, 2))) {
@@ -641,16 +1009,15 @@ class ContentTable {
                     }
                 }
                 search.page = 1;
-                $(`#ct-${ct.name}-search-setting-selection`).text("All Fields");
-                $(`#ct-${ct.name}-search-setting-value`).val('default');
+                $(`#ct-${ct.name}${sender.id_suffix}-search-setting-selection`).text("All Fields");
+                $(`#ct-${ct.name}${sender.id_suffix}-search-setting-value`).val('default');
 
-                corpora.list_content(corpus_id, ct.name, search, sender.load_content);
+                corpora.list_content(corpus_id, ct.name, search, function(content) { sender.load_content(content); });
             });
 
-            $(`#ct-${ct.name}-selection-action-go-button`).click(function() {
-                let id_parts = this.id.split('-');
-                let ct_name = id_parts[1];
-                let action = $(`#ct-${ct.name}-selection-action-selector`).val();
+            $(`#ct-${ct.name}${sender.id_suffix}-selection-action-go-button`).click(function() {
+                let ct_name = $(this).data('ct');
+                let action = $(`#ct-${ct.name}${sender.id_suffix}-selection-action-selector`).val();
                 let multi_form = $('#multiselect-form');
                 $('#multiselect-content-ids').val(selected_content.ids.join(','));
 
@@ -667,40 +1034,6 @@ class ContentTable {
                 } else if (action === 'merge') {
                     multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/merge/`);
                     multi_form.submit();
-                } else if (action === 'create_view') {
-                    let steps_counter = 0;
-                    let ct_options = '';
-                    for (let ct_name in corpus.content_types) {
-                        ct_options += `<option value="${ct_name}">${corpus.content_types[ct_name].plural_name}</option>\n`;
-                    }
-                    $('#exploration-start-ct').html(ct_options);
-                    $('#exploration-end-ct').html(ct_options);
-                    $('#exploration-end-ct').val(ct_name);
-
-                    $('#exploration-end-uris').prop('checked', true);
-                    $('#exploration-end-uris-div').html('');
-
-                    selected_content.ids.map(id => {
-                        let exp_uri = `/corpus/${corpus_id}/${ct_name}/${id}`;
-                        $('#exploration-end-uris-div').append(`
-                            <iframe class="exploration-uri" src="${exp_uri}/?popup=y" frameborder="0" width="200px" height="200px" data-uri="${exp_uri}"></iframe>
-                        `);
-                    });
-
-                    $('#exploration-steps-div').html('');
-                    $('#exploration-steps-add-button').off('click').on('click', function() {
-                        $('#exploration-steps-div').append(`
-                            <div id="exploration-step-${steps_counter}">
-                                <select class="exploration-step form-control-sm btn-primary">${ct_options}</select>
-                                <button id="exploration-step-${steps_counter}-remove-button" role="button" class="btn btn-sm btn-primary">-</button>
-                            </div>
-                        `);
-                        $(`#exploration-step-${steps_counter}-remove-button`).click(function() {
-                            $(`#exploration-step-${steps_counter}`).remove();
-                        });
-                    });
-
-                    $('#find-connected-modal').modal();
                 } else if (action === 'delete') {
                     $('#deletion-confirmation-modal-message').html(`
                         Are you sure you want to delete the selected ${corpus.content_types[ct_name].plural_name}?
@@ -735,7 +1068,7 @@ class ContentTable {
                         }
                     });
                     task_selection_html += '</optgroup>';
-                    $(`#ct-${ct.name}-selection-action-selector`).append(task_selection_html);
+                    $(`#ct-${ct.name}${sender.id_suffix}-selection-action-selector`).append(task_selection_html);
                 }
             });
         }
@@ -750,10 +1083,10 @@ class ContentTable {
         let sender = this;
 
         // instantiate some variables to keep track of elements
-        let ct_table_body = $(`#ct-${ct.name}-table-body`); // <-- the table body for listing results
-        let page_selector = $(`#ct-${ct.name}-page-selector`); // <-- the page select box
-        let per_page_selector = $(`#ct-${ct.name}-per-page-selector`); // <-- the page size select box
-        let current_search_div = $(`#ct-${ct.name}-current-search-div`); // <-- the search criteria div
+        let ct_table_body = $(`#ct-${ct.name}${sender.id_suffix}-table-body`); // <-- the table body for listing results
+        let page_selector = $(`#ct-${ct.name}${sender.id_suffix}-page-selector`); // <-- the page select box
+        let per_page_selector = $(`#ct-${ct.name}${sender.id_suffix}-per-page-selector`); // <-- the page size select box
+        let current_search_div = $(`#ct-${ct.name}${sender.id_suffix}-current-search-div`); // <-- the search criteria div
 
         // clear the table body, page selector, and search criteria div
         ct_table_body.html('');
@@ -762,7 +1095,7 @@ class ContentTable {
 
         // add the total number of results to the search criteria div
         current_search_div.append(`
-            <span id="ct-${ct.name}-total-badge" class="badge badge-primary p-2 mr-2" data-total="${content.meta.total}" style="font-size: 12px;">
+            <span id="ct-${ct.name}${sender.id_suffix}-total-badge" class="badge badge-primary p-2 mr-2" data-total="${content.meta.total}" style="font-size: 12px;">
                 Total: ${content.meta.total.toLocaleString('en-US')}
             </span>
         `);
@@ -815,54 +1148,22 @@ class ContentTable {
                 current_search_div.append(`
                     <span class="badge badge-primary p-2 mr-2" style="font-size: 12px;">
                         ${setting_type} ${field_name} "${search_value}"
-                        <a class="text-white ${ct.name}-remove-search-param" data-search-param="${search_setting}"><i class="far fa-times-circle"></i></a>
+                        <a class="text-white ${ct.name}${sender.id_suffix}-remove-search-param" data-search-param="${search_setting}"><i class="far fa-times-circle"></i></a>
                     </span>
                 `);
             }
         }
 
-        // setup view selector if views for this ct exist
-        if (corpus.hasOwnProperty('views')) {
-            let ct_views = [];
-            corpus.views.map(view => {
-                if (view.primary_ct === ct.name) {
-                    ct_views.push(`
-                        <option value="${view.name}">${view.label}</option>
-                    `);
-                }
-            });
-            if (ct_views.length) {
-                current_search_div.append(`
-                    <div class="form-inline ml-auto">
-                        <select id="${ct.name}-view-selector" class="form-control form-control-sm btn-primary">
-                            <option value="NONE">Default View</option>
-                            ${ct_views.join('\n')}
-                        </select>
-                    </div>
-                `);
-                let view_selector = $(`#${ct.name}-view-selector`);
-                if (search.hasOwnProperty('exploration')) {
-                    view_selector.val(search.exploration);
-                }
-                view_selector.change(function() {
-                    if (view_selector.val() === 'NONE') {
-                        sender.remove_search_param('exploration');
-                    } else {
-                        search['exploration'] = view_selector.val();
-                        corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content); });
-                    }
-                });
-            }
-        }
-
         // remove search param event
-        $(`.${ct.name}-remove-search-param`).click(function() {
+        $(`.${ct.name}${sender.id_suffix}-remove-search-param`).click(function() {
             sender.remove_search_param($(this).data('search-param'));
         });
 
+        if (content.hasOwnProperty('meta')) sender.meta = content.meta;
+
         // if there are no search results, show a default message
         if (content.records.length < 1) {
-            let no_records_msg = `There are currently no ${ct.plural_name} in this corpus. Click the "New ${ct.name}" button above to create one.`;
+            let no_records_msg = `There are currently no ${ct.plural_name} in this corpus. Click the "Create" button above to create one.`;
             if (has_filtering_criteria) {
                 no_records_msg = `No ${ct.plural_name} in this corpus match your search criteria.`;
             }
@@ -926,7 +1227,7 @@ class ContentTable {
                 let row_html = `
                     <tr>
                         <td class="ct-selection-cell">
-                            <input type="checkbox" id="ct_${ct.name}_${item.id}_selection-box" class="ct-${ct.name}-selection-box" ${selected}>
+                            ${ sender.mode === 'edit' ? `<input type="checkbox" id="ct_${ct.name}${sender.id_suffix}_${item.id}_selection-box" class="ct-${ct.name}${sender.id_suffix}-selection-box" data-ct="${ct.name}" data-id="${item.id}" ${selected}>` : '' }
                             <a href="${item.uri}" target="_blank">
                                 <span class="badge">Open <span class="fas fa-external-link-square-alt"></span></span>
                             </a>
@@ -995,11 +1296,10 @@ class ContentTable {
         }
 
         // handle checking/unchecking content selection boxes
-        $(`.ct-${ct.name}-selection-box`).change(function() {
-            let id_parts = this.id.split('_');
-            let ct_name = id_parts[1];
-            let content_id = id_parts[2];
-            let go_button = $(`#ct-${ct_name}-selection-action-go-button`);
+        $(`.ct-${ct.name}${sender.id_suffix}-selection-box`).change(function() {
+            let ct_name = $(this).data('ct');
+            let content_id = $(this).data('id');
+            let go_button = $(`#ct-${ct_name}${sender.id_suffix}-selection-action-go-button`);
 
             if($(this).is(':checked')) {
                 selected_content.ids.push(content_id);
@@ -1010,6 +1310,9 @@ class ContentTable {
             if (selected_content.ids.length > 0) { go_button.removeAttr('disabled'); }
             else { go_button.attr('disabled', true); }
         });
+
+        // callback if set by config
+        if (typeof sender.on_load === 'function') sender.on_load(content.meta);
     }
 
 
@@ -1031,13 +1334,14 @@ class ContentTable {
 
 
     remove_search_param(param) {
-            if (this.search.hasOwnProperty(param)) {
-                delete this.search[param];
-                let sender = this;
+        if (this.search.hasOwnProperty(param)) {
+            delete this.search[param];
+            let sender = this;
 
-                this.corpora.list_content(this.corpus.id, this.content_type, this.search, function(content){ sender.load_content(content); });
-            }
+            this.corpora.list_content(this.corpus.id, this.content_type, this.search, function(content){ sender.load_content(content); });
+        }
     }
+
 
     strip_tags(label) {
         return label.replace(/(<([^>]+)>)/gi, "");
@@ -1054,6 +1358,7 @@ class ContentGraph {
         this.edges = new vis.DataSet([]);
         this.groups = {};
         this.selected_uris = [];
+        this.filtering_views = {};
         this.collapsed_relationships = [];
         this.hidden_cts = ['Corpus', 'File'];
         this.extruded_nodes = [];
@@ -1061,6 +1366,9 @@ class ContentGraph {
         this.seed_uris = [];
         this.sprawls = [];
         this.sprawl_timer = null;
+        this.click_timer = null;
+        this.click_registered = false;
+        this.hide_singletons = false;
         this.per_type_limit = 'per_type_limit' in config ? config['per_type_limit'] : 20;
         this.max_mass = 'max_node_mass' in config ? config['max_node_mass'] : 100;
         this.vis_div_id = vis_div_id;
@@ -1090,6 +1398,10 @@ class ContentGraph {
                                 </button>
                             </div>
                             <div class="modal-body">
+                            
+                                <h5>Filter by View</h5>
+                                <div id="explore-ct-cv-div" class="mb-4 p-2"></div>
+                                
                                 <h5>Collapse Relationship</h5>
                                 <div id="explore-ct-modal-collapse-div" class="p-2">
                                     <div class="row">
@@ -1272,6 +1584,19 @@ class ContentGraph {
                 },
             }
         );
+
+        // ADD WHITE BACKGROUND
+        this.network.on("beforeDrawing",  function(ctx) {
+            // save current translate/zoom
+            ctx.save();
+            // reset transform to identity
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            // fill background with solid white
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+            // restore old transform
+            ctx.restore();
+        })
 
         // CUSTOM PHYSICS
         this.network.physics._performStep = function(nodeId) {
@@ -1501,6 +1826,36 @@ class ContentGraph {
             </select>
         `);
 
+        // SPRAWL OPTIONS
+        legend.append(`
+            <label for="explore-sprawl-opt" class="mr-1 mb-0">Sprawl Size:</label>
+            <select id="explore-sprawl-opt" class="mr-2">
+                <option value="5" ${sender.per_type_limit === 5 ? 'selected' : ''}>5</option>
+                <option value="10" ${sender.per_type_limit === 10 ? 'selected' : ''}>10</option>
+                <option value="20" ${sender.per_type_limit === 20 ? 'selected' : ''}>20</option>
+                <option value="40" ${sender.per_type_limit === 40 ? 'selected' : ''}>40</option>
+                <option value="80" ${sender.per_type_limit === 80 ? 'selected' : ''}>80</option>
+            </select>
+        `);
+
+        // SINGLETON HIDING
+        legend.append(`
+            <button id="explore-hide-singletons" class="btn btn-sm btn-primary mr-2">Hide Singletons</button>
+        `);
+
+        // HIDE SINGLETONS CLICK
+        $('#explore-hide-singletons').click(function() {
+            let singletons = [];
+            sender.nodes.map(n => {
+                if (sender.network.getConnectedNodes(n.id).length === 1) singletons.push(n.id);
+            });
+            singletons.map(uri => {
+                let edge_ids = sender.network.getConnectedEdges(uri);
+                edge_ids.map(edge_id => sender.edges.remove(edge_id));
+                sender.nodes.remove(uri);
+            });
+        });
+
         // SELECTED OPTIONS
         if (this.selected_uris.length) {
             legend.append(`
@@ -1559,35 +1914,90 @@ class ContentGraph {
             });
         }
 
+        // LEGEND CLICK EVENTS
         $('.ct-legend-badge').click(function() {
-            let explore_ct = $(this).html();
-            $('#explore-ct-modal-label').html(`${explore_ct} Options`);
-            $('.modal-proxy-ct').html(explore_ct);
+            clearTimeout(sender.click_timer);
+            let click_target = this;
 
-            let collapsible = true;
-            let hideable = !sender.hidden_cts.includes(explore_ct);
-
-            sender.collapsed_relationships.map(col_rel => {
-                if (col_rel.proxy_ct === explore_ct) {
-                    collapsible = false;
-                }
-            });
-
-            if (collapsible) {
-                $('#explore-ct-modal-already-collapsed-div').addClass('d-none');
-                $('#explore-ct-modal-collapse-div').removeClass('d-none');
+            // DOUBLE CLICK
+            if (sender.click_registered) {
+                sender.click_registered = false;
+                let explore_ct = $(click_target).html();
+                sender.nodes.map(n => {
+                    if (n.id.includes(`/${explore_ct}/`)) {
+                        sender.sprawl_node(n.id);
+                    }
+                });
+            // SINGLE CLICK
             } else {
-                $('#explore-ct-modal-already-collapsed-div').removeClass('d-none');
-                $('#explore-ct-modal-collapse-div').addClass('d-none');
-            }
+                sender.click_registered = true;
+                sender.click_timer = setTimeout(function() {
+                    sender.click_registered = false;
 
-            if (hideable) {
-                $('#explore-ct-hide-button').attr('disabled', false);
-            } else {
-                $('#explore-ct-hide-button').attr('disabled', true);
-            }
+                    let explore_ct = $(click_target).html();
+                    $('#explore-ct-modal-label').html(`${explore_ct} Options`);
+                    $('.modal-proxy-ct').html(explore_ct);
 
-            $('#explore-ct-modal').modal();
+                    let collapsible = true;
+                    let hideable = !sender.hidden_cts.includes(explore_ct);
+
+                    let cv_div = $('#explore-ct-cv-div');
+                    cv_div.html('');
+                    if (Object.keys(sender.corpus.content_types[explore_ct]).includes('views')) {
+                        cv_div.append(`<select id="cv-selector" class="form-control" data-ct="${explore_ct}"><option value="--">None</option></select>`);
+                        let cv_selector = $('#cv-selector');
+                        sender.corpus.content_types[explore_ct].views.map(cv => {
+                            let selected_indicator = '';
+                            if (sender.filtering_views.hasOwnProperty(explore_ct) && sender.filtering_views[explore_ct] === cv.neo_super_node_uri) {
+                                selected_indicator = ' selected'
+                            }
+                            cv_selector.append(`<option value="${cv.neo_super_node_uri}"${selected_indicator}>${cv.name}</option>`);
+                        });
+
+                        cv_selector.change(function() {
+                            let ct = cv_selector.data('ct');
+                            let cv_supernode = cv_selector.val();
+                            if (cv_supernode === '--' && Object.keys(sender.filtering_views).includes(ct)) {
+                                delete sender.filtering_views[ct];
+                            } else {
+                                sender.filtering_views[ct] = cv_supernode;
+                            }
+
+                            sender.reset_graph();
+                            $('#explore-ct-modal').modal('hide');
+                        });
+                    } else {
+                        cv_div.append(`
+                            <div class="alert alert-info">
+                                No Content Views exist for this content type. Click <a id="create-cv-button" role="button">here</a> to create one. 
+                            </div>
+                        `);
+                    }
+
+                    sender.collapsed_relationships.map(col_rel => {
+                        if (col_rel.proxy_ct === explore_ct) {
+                            collapsible = false;
+                        }
+                    });
+
+                    if (collapsible) {
+                        $('#explore-ct-modal-already-collapsed-div').addClass('d-none');
+                        $('#explore-ct-modal-collapse-div').removeClass('d-none');
+                    } else {
+                        $('#explore-ct-modal-already-collapsed-div').removeClass('d-none');
+                        $('#explore-ct-modal-collapse-div').addClass('d-none');
+                    }
+
+                    if (hideable) {
+                        $('#explore-ct-hide-button').attr('disabled', false);
+                    } else {
+                        $('#explore-ct-hide-button').attr('disabled', true);
+                    }
+
+                    $('#explore-ct-modal').modal();
+
+                }, 700);
+            }
         });
 
         $('.uncollapse-link').click(function(e) {
@@ -1622,6 +2032,10 @@ class ContentGraph {
                 sender.format_label(n);
                 sender.nodes.update(n);
             });
+        });
+
+        $('#explore-sprawl-opt').change(function() {
+            sender.per_type_limit = parseInt($(this).val());
         });
     }
 
@@ -1667,6 +2081,9 @@ class ContentGraph {
             per_type_skip: skip,
             per_type_limit: this.per_type_limit
         };
+
+        let filter_param = Object.keys(this.filtering_views).map(ct => `${ct}:${sender.filtering_views[ct]}`).join(',');
+        if (filter_param) { net_json_params['filters'] = filter_param; }
 
         let collapse_param = this.collapsed_relationships.map(rel => `${rel.from_ct}-${rel.proxy_ct}-${rel.to_ct}`).join(',');
         if (collapse_param) { net_json_params['collapses'] = collapse_param; }
@@ -1759,6 +2176,9 @@ class ContentGraph {
                 this.seed_uris.map(seed_uri => {
                     this.nodes.update([{id: seed_uri, fixed: true}]);
                 });
+
+                // FIT NETWORK
+                this.network.fit();
 
                 this.first_start = false;
             }

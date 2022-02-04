@@ -9,6 +9,7 @@ import shutil
 import logging
 import redis
 import git
+import re
 from math import ceil
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -17,6 +18,7 @@ from bson.objectid import ObjectId
 from bson import DBRef
 from PIL import Image
 from django.conf import settings
+from django.utils.text import slugify
 from elasticsearch_dsl import Index, Mapping, analyzer, Keyword, Text, Integer, Date, \
     Nested, token_filter, char_filter, Q, Search
 from elasticsearch_dsl.query import SimpleQueryString, Ids
@@ -38,13 +40,14 @@ class Field(mongoengine.EmbeddedDocument):
     type = mongoengine.StringField(choices=FIELD_TYPES)
     choices = mongoengine.ListField()
     cross_reference_type = mongoengine.StringField()
+    has_intensity = mongoengine.BooleanField(default=False)
     synonym_file = mongoengine.StringField(choices=list(settings.ES_SYNONYM_OPTIONS.keys()))
     indexed_with = mongoengine.ListField()
     unique_with = mongoengine.ListField()
     stats = mongoengine.DictField()
     inherited = mongoengine.BooleanField(default=False)
 
-    def get_dict_value(self, value, parent_uri):
+    def get_dict_value(self, value, parent_uri, field_intensities={}):
         dict_value = None
 
         if self.multiple:
@@ -55,19 +58,25 @@ class Field(mongoengine.EmbeddedDocument):
             else:
                 dict_value = []
                 for val in value:
-                    dict_value.append(self.to_primitive(val, parent_uri))
+                    dict_value.append(self.to_primitive(val, parent_uri, field_intensities))
         else:
-            dict_value = self.to_primitive(value, parent_uri)
+            dict_value = self.to_primitive(value, parent_uri, field_intensities)
 
         return dict_value
 
-    def to_primitive(self, value, parent_uri):
+    def to_primitive(self, value, parent_uri, field_intensities={}):
         if value:
             if self.type == 'date':
                 dt = datetime.combine(value, datetime.min.time())
                 return int(dt.timestamp())
             elif self.type == 'cross_reference':
-                return value.to_dict(ref_only=True)
+                value_dict = value.to_dict(ref_only=True)
+                if self.has_intensity and 'id' in value_dict:
+                    value_dict['intensity'] = field_intensities.get(
+                        '{field_name}-{val_id}'.format(field_name=self.name, val_id=value_dict['id']),
+                        1
+                    )
+                return value_dict
             elif self.type == 'repo':
                 return value.to_dict()
             elif self.type in ['embedded', 'file']:
@@ -143,6 +152,7 @@ class Field(mongoengine.EmbeddedDocument):
             'type': self.type,
             'choices': [choice for choice in self.choices],
             'cross_reference_type': self.cross_reference_type,
+            'has_intensity': self.has_intensity,
             'synonym_file': self.synonym_file,
             'indexed_with': [index for index in self.indexed_with],
             'unique_with': [unq for unq in self.unique_with],
@@ -946,6 +956,12 @@ class ContentType(mongoengine.EmbeddedDocument):
 
         return ct_class
 
+    def _has_intensity_field(self):
+        for field in self.fields:
+            if field.has_intensity:
+                return True
+        return False
+
     def to_dict(self):
         ct_dict = {
             'name': self.name,
@@ -1295,7 +1311,7 @@ class Corpus(mongoengine.Document):
             fields_sort=[],
             only=[],
             excludes=[],
-            explorations=[],
+            content_view=None,
             operator="and",
             highlight_num_fragments=5,
             highlight_fragment_size=100,
@@ -1595,17 +1611,13 @@ class Corpus(mongoengine.Document):
                     else:
                         filter.append(range_query)
 
-            # EXPLORATIONS (TERMS LOOKUP)
-            if explorations:
-                exploration_index = self._get_exploration_index()
-                for exploration_name in explorations:
-                    exploration = self.get_exploration(exploration_name)
-                    if exploration:
-                        filter.append(Q('terms', **{'_id': {
-                            'index': exploration_index._name,
-                            'id': exploration_name,
-                            'path': 'ids'
-                        }}))
+            # CONTENT VIEW
+            if content_view:
+                filter.append(Q('terms', **{'_id': {
+                    'index': 'content_view',
+                    'id': content_view,
+                    'path': 'ids'
+                }}))
 
             if should or must or filter:
 
@@ -1855,6 +1867,7 @@ class Corpus(mongoengine.Document):
             'proxy_field': "",
             'inherited': False,
             'cross_reference_type': '',
+            'has_intensity': False,
             'synonym_file': None
         }
 
@@ -1863,6 +1876,7 @@ class Corpus(mongoengine.Document):
             'content_type',
             'last_updated',
             'provenance',
+            'field_intensities',
             'path',
             'label',
             'uri',
@@ -1880,12 +1894,9 @@ class Corpus(mongoengine.Document):
             new_content_type.plural_name = schema['plural_name']
             new_content_type.show_in_nav = schema['show_in_nav']
             new_content_type.proxy_field = schema['proxy_field']
-
-            if 'view_widgel_url' in schema:
-                new_content_type.view_widget_url = schema['view_widget_url']
-            if 'edit_widget_url' in schema:
-                new_content_type.edit_widget_url = schema['edit_widget_url']
-
+            new_content_type.has_file_field = schema.get('has_file_field', False)
+            new_content_type.view_widget_url = schema.get('view_widget_url', None)
+            new_content_type.edit_widget_url = schema.get('edit_widget_url', None)
             new_content_type.invalid_field_names = invalid_field_names
 
             if 'templates' in schema:
@@ -1921,6 +1932,7 @@ class Corpus(mongoengine.Document):
                     new_field.multiple = field['multiple']
                     new_field.type = field['type']
                     new_field.cross_reference_type = field['cross_reference_type']
+                    new_field.has_intensity = field['has_intensity']
                     new_field.inherited = field['inherited']
                     new_field.synonym_file = field['synonym_file']
 
@@ -1976,15 +1988,17 @@ class Corpus(mongoengine.Document):
                         new_field = Field()
                         new_field.name = schema['fields'][x]['name']
                         new_field.label = schema['fields'][x]['label']
-                        new_field.in_lists = schema['fields'][x]['in_lists']
-                        new_field.indexed = schema['fields'][x]['indexed']
-                        new_field.indexed_with = schema['fields'][x]['indexed_with']
-                        new_field.unique = schema['fields'][x]['unique']
-                        new_field.unique_with = schema['fields'][x]['unique_with']
-                        new_field.multiple = schema['fields'][x]['multiple']
                         new_field.type = schema['fields'][x]['type']
-                        new_field.cross_reference_type = schema['fields'][x]['cross_reference_type']
-                        new_field.synonym_file = schema['fields'][x]['synonym_file']
+                        new_field.in_lists = schema['fields'][x].get('in_lists', default_field_values['in_lists'])
+                        new_field.indexed = schema['fields'][x].get('indexed', default_field_values['indexed'])
+                        new_field.indexed_with = schema['fields'][x].get('indexed_with', default_field_values['indexed_with'])
+                        new_field.unique = schema['fields'][x].get('unique', default_field_values['unique'])
+                        new_field.unique_with = schema['fields'][x].get('unique_with', default_field_values['unique_with'])
+                        new_field.multiple = schema['fields'][x].get('multiple', default_field_values['multiple'])
+                        new_field.inherited = schema['fields'][x].get('inherited', default_field_values['inherited'])
+                        new_field.cross_reference_type = schema['fields'][x].get('cross_reference_type', default_field_values['cross_reference_type'])
+                        new_field.has_intensity = schema['fields'][x].get('has_intensity', default_field_values['has_intensity'])
+                        new_field.synonym_file = schema['fields'][x].get('synonym_file', default_field_values['synonym_file'])
 
                         self.content_types[ct_name].fields.append(new_field)
                         if new_field.in_lists:
@@ -1993,20 +2007,21 @@ class Corpus(mongoengine.Document):
                         field_index = old_fields[schema['fields'][x]['name']]
                         self.content_types[ct_name].fields[field_index].label = schema['fields'][x]['label']
 
-                        if self.content_types[ct_name].fields[field_index].in_lists != schema['fields'][x]['in_lists'] and \
+                        if self.content_types[ct_name].fields[field_index].in_lists != schema['fields'][x].get('in_lists', default_field_values['in_lists']) and \
                                 self.content_types[ct_name].fields[field_index].type != 'embedded':
-                            self.content_types[ct_name].fields[field_index].in_lists = schema['fields'][x]['in_lists']
+                            self.content_types[ct_name].fields[field_index].in_lists = schema['fields'][x].get('in_lists', default_field_values['in_lists'])
                             reindex = True
 
                         if not self.content_types[ct_name].fields[field_index].inherited:
-                            self.content_types[ct_name].fields[field_index].indexed = schema['fields'][x]['indexed']
-                            self.content_types[ct_name].fields[field_index].indexed_with = schema['fields'][x]['indexed_with']
-                            self.content_types[ct_name].fields[field_index].unique = schema['fields'][x]['unique']
-                            self.content_types[ct_name].fields[field_index].unique_with = schema['fields'][x]['unique_with']
-                            self.content_types[ct_name].fields[field_index].multiple = schema['fields'][x]['multiple']
                             self.content_types[ct_name].fields[field_index].type = schema['fields'][x]['type']
-                            self.content_types[ct_name].fields[field_index].cross_reference_type = schema['fields'][x]['cross_reference_type']
-                            self.content_types[ct_name].fields[field_index].synonym_file = schema['fields'][x]['synonym_file']
+                            self.content_types[ct_name].fields[field_index].indexed = schema['fields'][x].get('indexed', default_field_values['indexed'])
+                            self.content_types[ct_name].fields[field_index].indexed_with = schema['fields'][x].get('indexed_with', default_field_values['indexed_with'])
+                            self.content_types[ct_name].fields[field_index].unique = schema['fields'][x].get('unique', default_field_values['unique'])
+                            self.content_types[ct_name].fields[field_index].unique_with = schema['fields'][x].get('unique_with', default_field_values['unique_with'])
+                            self.content_types[ct_name].fields[field_index].multiple = schema['fields'][x].get('multiple', default_field_values['multiple'])
+                            self.content_types[ct_name].fields[field_index].cross_reference_type = schema['fields'][x].get('cross_reference_type', default_field_values['cross_reference_type'])
+                            self.content_types[ct_name].fields[field_index].has_intensity = schema['fields'][x].get('has_intensity', default_field_values['has_intensity'])
+                            self.content_types[ct_name].fields[field_index].synonym_file = schema['fields'][x].get('synonym_file', default_field_values['synonym_file'])
 
             if not valid:
                 self.reload()
@@ -2164,7 +2179,7 @@ class Corpus(mongoengine.Document):
                 'decimal': 'float',
                 'boolean': 'boolean',
                 'date': 'date',
-                'file': 'text',
+                'file': 'keyword',
                 'image': 'keyword',
                 'iiif-image': 'keyword',
                 'link': 'keyword',
@@ -2206,6 +2221,9 @@ class Corpus(mongoengine.Document):
                             },
                             'uri': 'keyword'
                         }
+
+                        if field.has_intensity:
+                            xref_mapping_props['intensity'] = 'integer'
 
                         for xref_field in xref_ct.fields:
                             if xref_field.in_lists and not xref_field.type == 'cross_reference':
@@ -2271,89 +2289,6 @@ class Corpus(mongoengine.Document):
                 job.save()
                 return job.id
         return None
-
-    def get_exploration(self, name, include_ids=False):
-        index = self._get_exploration_index()
-        conn = get_connection()
-        exclusions = ['ids']
-        if include_ids:
-            exclusions = []
-
-        try:
-            exploration = conn.get(index._name, name, _source_excludes=exclusions)
-            return exploration['_source']
-        except:
-            return None
-
-    def make_exploration(self, name, path, label, scholar_id=None, connected_to_uris=[]):
-        exploration = {
-            'name': name,
-            'path': path,
-            'label': label,
-            'scholar_id': scholar_id,
-            'connected_to_uris': connected_to_uris,
-            'status': 'invalid',
-            'content_types': [],
-            'job': None
-        }
-
-        if '-' in path:
-            path_parts = path.split('-')
-            if path_parts == 3:
-                nested_path = path_parts[1]
-                nested_parts = nested_path.split('.')
-                exploration['content_types'].append(path_parts[0])
-                for nested_part in nested_parts:
-                    exploration['content_types'].append(nested_part)
-                exploration['content_types'].append(path_parts[2])
-            else:
-                exploration['content_types'] = path_parts
-
-            exploration['status'] = 'valid'
-            for ct in exploration['content_types']:
-                if ct not in self.content_types:
-                    exploration['status'] = 'invalid'
-
-        if exploration['status'] == 'valid':
-            index = self._get_exploration_index()
-            conn = get_connection()
-            exploration['status'] = 'performing'
-            conn.index(
-                index=index._name,
-                id=name,
-                body={
-                    'path': exploration['path'],
-                    'label': exploration['label'],
-                    'ids': [],
-                    'scholar_id': exploration['scholar_id'],
-                    'connected_to_uris': exploration['connected_to_uris'],
-                    'content_types': exploration['content_types'],
-                    'status': exploration['status']
-                }
-            )
-            exploration['job'] = self.queue_local_job(task_name="Perform Exploration", parameters={
-                'name': exploration['name']
-            })
-
-        return exploration
-
-    def _get_exploration_index(self):
-        index_name = "corpus-{0}-exploration".format(self.id)
-        index = Index(index_name)
-        if not index.exists():
-            mapping = Mapping()
-            mapping.field('path', 'keyword')
-            mapping.field('ids', 'keyword')
-            mapping.field('label', 'keyword')
-            mapping.field('scholar_id', 'keyword')
-            mapping.field('connected_to_uris', 'keyword')
-            mapping.field('content_types', 'keyword')
-            mapping.field('status', 'keyword')
-
-            index.mapping(mapping)
-            index.save()
-
-        return index
 
     def running_jobs(self):
         return Job.get_jobs(corpus_id=str(self.id))
@@ -2426,22 +2361,6 @@ class Corpus(mongoengine.Document):
         return corpus_path
 
     @property
-    def views(self):
-        if not hasattr(self, '_views'):
-            setattr(self, '_views', [])
-            conn = get_connection()
-            index = self._get_exploration_index()
-            search = Search(using=conn, index=index._name).source(excludes=['ids'])
-            for hit in search.scan():
-                self._views.append({
-                    'name': hit.meta.id,
-                    'label': hit.label,
-                    'primary_ct': hit.content_types[0],
-                    'status': hit.status
-                })
-        return self._views
-
-    @property
     def redis_cache(self):
         if not hasattr(self, '_redis_cache'):
             setattr(self, '_redis_cache', redis.Redis(host=settings.REDIS_HOST, decode_responses=True))
@@ -2465,9 +2384,6 @@ class Corpus(mongoengine.Document):
                 'corpus_title': document.name
             }
         )
-
-        # Ensure exploration index for this corpus exists
-        document._get_exploration_index()
 
         # Add this corpus to Corpora Elasticsearch index
         get_connection().index(
@@ -2551,7 +2467,12 @@ class Corpus(mongoengine.Document):
             corpus_dict['content_types'][ct_name] = self.content_types[ct_name].to_dict()
 
         if include_views:
-            corpus_dict['views'] = self.views
+            content_views = ContentView.objects(corpus=self.id, status='populated').order_by('name')
+            for cv in content_views:
+                if cv.target_ct in corpus_dict['content_types']:
+                    if 'views' not in corpus_dict['content_types'][cv.target_ct]:
+                        corpus_dict['content_types'][cv.target_ct]['views'] = []
+                    corpus_dict['content_types'][cv.target_ct]['views'].append(cv.to_dict())
 
         corpus_dict['provenance'] = [prov.to_dict() for prov in self.provenance]
 
@@ -2584,9 +2505,31 @@ class Content(mongoengine.Document):
     content_type = mongoengine.StringField(required=True)
     last_updated = mongoengine.DateTimeField(default=datetime.now())
     provenance = mongoengine.EmbeddedDocumentListField(CompletedTask)
+    field_intensities = mongoengine.DictField(default={})
     path = mongoengine.StringField()
     label = mongoengine.StringField()
     uri = mongoengine.StringField()
+
+    def get_intensity(self, field_name, value):
+        if hasattr(self, field_name):
+            if type(value) is ObjectId:
+                value = str(ObjectId)
+            elif hasattr(value, 'id'):
+                value = str(value.id)
+
+            if type(value) is str:
+                return self.field_intensities.get('{field_name}-{value}'.format(field_name=field_name, value=value), 0)
+        return 0
+
+    def set_intensity(self, field_name, value, intensity):
+        if hasattr(self, field_name):
+            if type(value) is ObjectId:
+                value = str(ObjectId)
+            elif hasattr(value, 'id'):
+                value = str(value.id)
+
+            if type(value) is str:
+                self.field_intensities['{field_name}-{value}'.format(field_name=field_name, value=value)] = int(intensity)
 
     @classmethod
     def _pre_save(cls, sender, document, **kwargs):
@@ -2594,9 +2537,11 @@ class Content(mongoengine.Document):
 
     def save(self, do_indexing=True, do_linking=True, **kwargs):
         super().save(**kwargs)
-        modified = self._make_path() | self._make_label() | self._make_uri()
+        path_created = self._make_path()
+        label_created = self._make_label()
+        uri_created = self._make_uri()
 
-        if modified:
+        if path_created or label_created or uri_created:
             self.update(
                 set__path=self.path,
                 set__label=self.label,
@@ -2615,6 +2560,7 @@ class Content(mongoengine.Document):
 
     @classmethod
     def _pre_delete(cls, sender, document, **kwargs):
+        # delete Neo4J node
         run_neo(
             '''
                 MATCH (d:{content_type} {{ uri: $content_uri }})
@@ -2625,8 +2571,20 @@ class Content(mongoengine.Document):
             }
         )
 
+        # delete from ES index
         es_index = "corpus-{0}-{1}".format(document.corpus_id, document.content_type.lower())
         Search(index=es_index).query("match", _id=str(document.id)).delete()
+
+        # mark any relevant content views as needs_refresh
+        cvs = ContentView.objects(corpus=document._corpus, status='populated', relevant_cts=document.content_type)
+        for cv in cvs:
+            print(cv.name)
+            cv.set_status('needs_refresh')
+            cv.save()
+
+        # delete any files
+        if document.path and os.path.exists(document.path):
+            document._corpus.queue_local_job(task_name="Content Deletion Cleanup", parameters={'content_path': document.path})
 
     def _make_label(self):
         if not self.label:
@@ -2687,7 +2645,7 @@ class Content(mongoengine.Document):
 
                 new_path = old_path.replace(
                     temp_uploads_dir,
-                    self.path
+                    self.path + "/files"
                 )
 
                 os.rename(old_path, new_path)
@@ -2723,6 +2681,12 @@ class Content(mongoengine.Document):
                                     'uri': xref.uri
                                 }
 
+                                if field.has_intensity:
+                                    xref_dict['intensity'] = self.field_intensities.get(
+                                        '{field_name}-{val_id}'.format(field_name=field.name, val_id=xref.id),
+                                        1
+                                    )
+
                                 for xref_field in self._corpus.content_types[field.cross_reference_type].fields:
                                     if xref_field.in_lists and not xref_field.cross_reference_type:
                                         xref_dict[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
@@ -2735,11 +2699,20 @@ class Content(mongoengine.Document):
                                 'uri': xref.uri
                             }
 
+                            if field.has_intensity:
+                                field_value['intensity'] = self.field_intensities.get(
+                                    '{field_name}-{val_id}'.format(field_name=field.name, val_id=xref.id),
+                                    1
+                                )
+
                             for xref_field in self._corpus.content_types[field.cross_reference_type].fields:
                                 if xref_field.in_lists and xref_field.type != "cross_reference":
                                     field_value[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
 
                         index_obj[field.name] = field_value
+
+                    elif field.type == 'file' and hasattr(field_value, 'path'):
+                        index_obj[field.name] = field_value.path
 
                     elif field.type not in ['file']:
                         index_obj[field.name] = field.get_dict_value(field_value, self.uri)
@@ -2799,43 +2772,67 @@ class Content(mongoengine.Document):
                     if field.multiple:
                         nodes[cross_ref_type] = []
                         for cross_ref in field_value:
-                            nodes[cross_ref_type].append({
+                            node_dict = {
                                 'id': cross_ref.id,
                                 'uri': cross_ref.uri,
                                 'label': cross_ref.label,
                                 'field': field.name
-                            })
+                            }
+
+                            if field.has_intensity:
+                                node_dict['intensity'] = self.field_intensities.get(
+                                    '{field_name}-{val_id}'.format(field_name=field.name, val_id=cross_ref.id),
+                                    1
+                                )
+
+                            nodes[cross_ref_type].append(node_dict)
                     else:
-                        nodes[cross_ref_type].append({
+                        node_dict = {
                             'id': field_value.id,
                             'uri': field_value.uri,
                             'label': field_value.label,
                             'field': field.name
-                        })
+                        }
+
+                        if field.has_intensity:
+                            node_dict['intensity'] = self.field_intensities.get(
+                                '{field_name}-{val_id}'.format(field_name=field.name, val_id=field_value.id),
+                                1
+                            )
+
+                        nodes[cross_ref_type].append(node_dict)
+
                 elif field.multiple and hasattr(field_value, 'keys'):
                     for field_key in field_value.keys():
                         mapped_value = field_value[field_key]
                         if hasattr(mapped_value, '_do_linking'):
                             mapped_value._do_linking(self._ct.name, self.uri)
+
                 elif field.multiple:
                     for list_value in field_value:
                         if hasattr(list_value, '_do_linking'):
                             list_value._do_linking(self._ct.name, self.uri)
+
                 elif hasattr(field_value, '_do_linking'):
                     field_value._do_linking(self._ct.name, self.uri)
 
         if nodes:
             for node_label in nodes.keys():
                 for node in nodes[node_label]:
+                    intensity_specifier = ''
+                    if 'intensity' in node:
+                        intensity_specifier = ' {{ intensity: {0} }}'.format(node['intensity'])
+
                     run_neo(
                         '''
                             MERGE (a:{content_type} {{ uri: $content_uri }})
                             MERGE (b:{cx_type} {{ uri: $cx_uri }})
-                            MERGE (a)-[rel:has{field}]->(b)
+                            MERGE (a)-[rel:has{field}{intensity_specifier}]->(b)
                         '''.format(
                             content_type=self.content_type,
                             cx_type=node_label,
                             field=node['field'],
+                            intensity_specifier=intensity_specifier
                         ),
                         {
                             'content_uri': self.uri,
@@ -2857,7 +2854,7 @@ class Content(mongoengine.Document):
             content_dict['provenance'] = [prov.to_dict() for prov in self.provenance]
 
             for field in self._ct.fields:
-                content_dict[field.name] = field.get_dict_value(getattr(self, field.name), self.uri)
+                content_dict[field.name] = field.get_dict_value(getattr(self, field.name), self.uri, self.field_intensities)
 
         return content_dict
 
@@ -2869,7 +2866,7 @@ class Content(mongoengine.Document):
 
     def crystalize(self):
         if not self.path:
-            _make_path(force=True)
+            self._make_path(force=True)
             self.update(set__path=self.path)
 
         make_crystal = True
@@ -2887,6 +2884,210 @@ class Content(mongoengine.Document):
         'abstract': True
     }
 
+
+class ContentView(mongoengine.Document):
+    corpus = mongoengine.ReferenceField(Corpus)
+    created_by = mongoengine.ReferenceField(Scholar)
+    name = mongoengine.StringField(unique_with='corpus')
+    target_ct = mongoengine.StringField()
+    relevant_cts = mongoengine.ListField(mongoengine.StringField())
+    search_filter = mongoengine.StringField()
+    graph_path = mongoengine.StringField()
+    es_document_id = mongoengine.StringField()
+    neo_super_node_uri = mongoengine.StringField()
+    status = mongoengine.StringField()
+    status_date = mongoengine.DateTimeField(default=datetime.now())
+
+    def set_status(self, status):
+        self.status = status
+        self.status_date = datetime.now()
+
+    def populate(self):
+        valid_spec = True
+        filtered_with_graph_path = False
+        es_conn = get_connection()
+        index = Index('content_view')
+
+        if index.exists() and \
+                self.name and \
+                self.corpus and \
+                self.target_ct in self.corpus.content_types:
+
+            ids = []
+            graph_steps = {}
+
+            if not self.es_document_id or not self.neo_super_node_uri:
+                name_slug = slugify(self.name).replace('-', '_')
+                view_identifier = "corpus_{0}_{1}".format(self.corpus.id, name_slug)
+                self.es_document_id = view_identifier
+                self.neo_super_node_uri = "/contentview/{0}".format(view_identifier)
+            else:
+                run_neo("MATCH (supernode:ContentView { uri: $cv_uri }) DETACH DELETE supernode", {'cv_uri': self.neo_super_node_uri})
+
+            self.relevant_cts = [self.target_ct]
+            self.set_status("populating")
+            self.save()
+
+            if self.graph_path:
+                ct_pattern = re.compile(r'\(([a-zA-Z]*)')
+                ids_pattern = re.compile(r'\[([^\]]*)\]')
+
+                graph_step_specs = [step for step in self.graph_path.split('-') if step]
+                for step_index in range(0, len(graph_step_specs)):
+                    step_spec = graph_step_specs[step_index]
+                    step_ct = None
+                    step_ids = []
+
+                    ct_match = re.search(ct_pattern, step_spec)
+                    if ct_match:
+                        step_ct = ct_match.group(1)
+
+                    ids_match = re.search(ids_pattern, step_spec)
+                    if ids_match:
+                        step_ids = [ct_id for ct_id in ids_match.group(1).split(',') if ct_id]
+
+                    if step_ct and step_ct in self.corpus.content_types:
+                        graph_steps[step_index] = {'ct': step_ct, 'ids': step_ids}
+                        self.relevant_cts.append(step_ct)
+                    else:
+                        valid_spec = False
+                        break
+
+                if graph_steps and valid_spec:
+                    match_nodes = []
+                    where_clauses = []
+
+                    for step_index, step_info in graph_steps.items():
+                        match_nodes.append("(ct{0}:{1})".format(step_index, step_info['ct']))
+                        if step_info['ids']:
+                            step_uris = ['/corpus/{0}/{1}/{2}'.format(self.corpus.id, step_info['ct'], ct_id) for ct_id in step_info['ids']]
+                            where_clauses.append("ct{0}.uri in ['{1}']".format(
+                                step_index,
+                                "','".join(step_uris)
+                            ))
+
+                    cypher = "MATCH (target:{0}) -- {1}".format(self.target_ct, " -- ".join(match_nodes))
+                    if where_clauses:
+                        cypher += "\nWHERE {0}".format(" AND ".join(where_clauses))
+
+                    count_cypher = cypher + "\nRETURN count(distinct target)"
+                    data_cypher = cypher + "\nRETURN distinct target.uri"
+
+                    try:
+                        count_results = run_neo(count_cypher, {})
+                        count = count_results[0].value()
+
+                        if count <= 60000:
+                            data_results = run_neo(data_cypher, {})
+                            ids = [res.value().split('/')[-1] for res in data_results]
+                            es_conn.index(
+                                index='content_view',
+                                id=self.es_document_id,
+                                body={
+                                    'ids': ids,
+                                }
+                            )
+
+                            filtered_with_graph_path = True
+                        else:
+                            valid_spec = False
+                            self.set_status("error: content views must contain less than 60,000 results")
+
+                    except:
+                        print(traceback.format_exc())
+                        valid_spec = False
+                        self.set_status("error")
+                        self.save()
+
+            if self.search_filter and valid_spec and self.status == 'populating':
+
+                search_dict = json.loads(self.search_filter)
+                if filtered_with_graph_path:
+                    search_dict['content_view'] = self.es_document_id
+
+                search_dict['page_size'] = 1000
+                search_dict['only'] = ['id']
+
+                ids = []
+                page = 1
+                num_pages = 1
+
+                while page <= num_pages and valid_spec:
+                    search_dict['page'] = page
+                    results = self.corpus.search_content(self.target_ct, **search_dict)
+                    if results:
+                        if results['meta']['num_pages'] > num_pages:
+                            num_pages = results['meta']['num_pages']
+
+                        if results['meta']['total'] <= 60000:
+                            for record in results['records']:
+                                ids.append(record['id'])
+                        else:
+                            valid_spec = False
+                            self.set_status("error: content views must contain less than 60,000 results")
+
+                    page += 1
+
+                if valid_spec:
+                    es_conn.index(
+                        index='content_view',
+                        id=self.es_document_id,
+                        body={
+                            'ids': ids,
+                        }
+                    )
+
+            if valid_spec and ids:
+                total = len(ids)
+                cursor = 0
+                window = 1000
+
+                run_neo("MERGE (cv:_ContentView { uri: $cv_uri })", {'cv_uri': self.neo_super_node_uri})
+
+                supernode_cypher = '''
+                    MATCH (cv:_ContentView {{ uri: $cv_uri }}), (target:{0})
+                    WHERE target.uri IN $uris 
+                    MERGE (cv) -[rel:hasContent]-> (target)
+                '''.format(self.target_ct)
+
+                while cursor < total:
+                    uris = ["/corpus/{0}/{1}/{2}".format(self.corpus.id, self.target_ct, id) for id in ids[cursor:window]]
+                    run_neo(
+                        supernode_cypher,
+                        {
+                            'cv_uri': self.neo_super_node_uri,
+                            'uris': uris
+                        }
+                    )
+                    cursor += window
+                self.set_status("populated")
+
+            self.save()
+
+    def clear(self):
+        # delete ES content_view document
+        Search(index='content_view').query('match', _id=self.es_document_id).delete()
+
+        # delete Neo super node
+        run_neo(
+            '''
+                MATCH (cv:_ContentView { uri: $cv_uri })
+                DETACH DELETE cv
+            ''',
+            {
+                'cv_uri': self.neo_super_node_uri
+            }
+        )
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'name': self.name,
+            'es_document_id': self.es_document_id,
+            'neo_super_node_uri': self.neo_super_node_uri,
+            'target_ct': self.target_ct,
+            'status': self.status
+        }
 
 # SIGNALS FOR HANDLING MONGOENGINE DOCUMENT PRE/POST-DELETION (mostly for deleting Neo4J nodes)
 mongoengine.signals.post_save.connect(Corpus._post_save, sender=Corpus)
@@ -3058,7 +3259,7 @@ def run_neo(cypher, params={}, tries=0):
 def get_network_json(cypher):
     net_json = {
         'nodes': [],
-        'edges': []
+        'edges': [],
     }
 
     node_id_to_uri_map = {}
@@ -3068,6 +3269,7 @@ def get_network_json(cypher):
 
     for result in results:
         graph = result.items()[0][1].graph
+
         for node in graph.nodes:
             if node.id not in node_id_to_uri_map:
                 node_props = {}
@@ -3091,12 +3293,18 @@ def get_network_json(cypher):
 
         for rel in graph.relationships:
             if rel.id not in rel_ids and rel.start_node.id in node_id_to_uri_map and rel.end_node.id in node_id_to_uri_map:
-                net_json['edges'].append({
+                edge_dict = {
                     'id': str(rel.id),
                     'title': rel.type,
                     'from': node_id_to_uri_map[rel.start_node.id],
                     'to': node_id_to_uri_map[rel.end_node.id],
-                })
+                }
+
+                intensity = rel.get('intensity')
+                if intensity:
+                    edge_dict['value'] = intensity
+
+                net_json['edges'].append(edge_dict)
 
                 rel_ids.append(rel.id)
 

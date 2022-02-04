@@ -41,7 +41,7 @@
 {% endblock %}
 
 {% block main %}
-        <div class="row mt-4">
+        <div class="row">
             <div class="col-12">
                 <div class="card mb-3">
                     <div class="card-header">
@@ -53,7 +53,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-0">
                         <div class="row">
                             <div class="col-sm-12">
                                 <table class="table">
@@ -75,9 +75,9 @@
                             </div>
                         </div>
                         {% if response.scholar.is_admin %}
-                        <div class="row">
+                        <div class="row px-4">
                             <div class="col-sm-12">
-                                <iframe src="/jobs/" width="100%" height="100%" frameBorder="0"></iframe>
+                                <iframe id="job-iframe" src="/jobs/" width="100%" frameBorder="0"></iframe>
                             </div>
                         </div>
                         {% endif %}
@@ -180,6 +180,12 @@
             }
 
             hide_loading_overlay();
+        }
+
+        // THIS GETS CALLED BY JOB WIDGET IN IFRAME
+        function resize_job_widget() {
+            let job_widget = document.getElementById("job-iframe");
+            job_widget.style.height = job_widget.contentWindow.document.body.scrollHeight + 'px';
         }
     </script>
 

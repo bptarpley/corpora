@@ -766,6 +766,11 @@ def handle_playtext_tag(corpus, play, tag, line_info):
 
         # div for act/scene
         elif tag.name == 'div' and _contains(tag.attrs, ['type', 'n']):
+            # if this is the first act/scene, make sure last line of DP is created
+            if line_info['line_xml_id'] and line_info['make_next_line']:
+                make_playtext_line(corpus, play, line_info)
+                line_info['line_xml_id'] = None
+
             line_info[tag['type']] = tag['n']
 
             for child in tag.children:

@@ -18,68 +18,48 @@
 {% endblock %}
 
 {% block main %}
-    <div class="row {% if popup %}p-0 m-0{% else %}mt-4{% endif %}">
+    <div class="row {% if popup %}p-0 m-0{% endif %}">
         <div class="col-12 {% if popup %}p-0 m-0{% endif %}">
-
-            <!-- CONTENT CARD -->
-            <div class="card h-100 {% if popup %}p-0 m-0{% endif %}">
-                <div class="card-header">
-                    <h4 id="header-label">
-                        <!-- title -->
-                    </h4>
-                </div>
-                <div class="card-body h-100 {% if popup %}p-0 m-0{% endif %}">
-                    <ul id="content-nav-tabs" class="nav nav-tabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <a class="nav-link active" id="metadata-tab" data-toggle="tab" href="#metadata" role="tab" aria-controls="metadata" aria-selected="true">Metadata</a>
-                        </li>
-                        {% if not popup %}
-                        <li class="nav-item" role="presentation">
-                            <a class="nav-link disabled" id="explore-tab" data-toggle="tab" href="#explore" role="tab" aria-controls="explore" aria-selected="false">Explore</a>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <a class="nav-link" id="associated-tab" data-toggle="tab" href="#associated" role="tab" aria-controls="associated" aria-selected="false">Associated Content</a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                    <div class="tab-content h-100 {% if popup %}p-0 m-0{% else %}p-3{% endif %}">
-                        <div class="tab-pane fade show active" id="metadata" role="tabpanel" aria-labelledby="metadata-tab">
-                            {% if view_widget_url %}
-                                <div class="row">
-                                    <div class="col-sm-12 col-md-6">
-                            {% endif %}
-                            <div class="content-type-card" id="content-div">
-                                <!-- content metadata -->
-                            </div>
-                            {% if view_widget_url %}
-                                    </div>
-                                    <div class="col-sm-12 col-md-6">
-                                        <iframe id="view-widget-iframe" src="" height="100%" width="100%" frameBorder="0"></iframe>
-                                    </div>
-                                </div>
-                            {% endif %}
-                        </div>
-                        {% if not popup %}
-                        <div class="tab-pane fade" id="explore" role="tabpanel" aria-labelledby="explore-tab" style="height: 825px;">
-                            <div id="explore-legend" class="d-inline-flex align-items-start"></div>
-                            <div id="explore-div" style="height: 800px;"></div>
-                        </div>
-                        <div class="tab-pane fade" id="associated" role="tabpanel" aria-labelledby="associated-tab">
-                            <div id="associated-div"></div>
-                        </div>
-                        {% endif %}
+            <ul id="content-nav-tabs" class="nav nav-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link active" id="metadata-tab" data-toggle="tab" href="#metadata" role="tab" aria-controls="metadata" aria-selected="true">Metadata</a>
+                </li>
+                {% if not popup %}
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link disabled" id="explore-tab" data-toggle="tab" href="#explore" role="tab" aria-controls="explore" aria-selected="false">Explore</a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link" id="associated-tab" data-toggle="tab" href="#associated" role="tab" aria-controls="associated" aria-selected="false">Associated Content</a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="tab-content h-100 {% if popup %}p-0 m-0{% else %}p-3{% endif %}">
+                <div class="tab-pane fade show active" id="metadata" role="tabpanel" aria-labelledby="metadata-tab">
+                    {% if view_widget_url %}
+                        <div class="row">
+                            <div class="col-sm-12 col-md-6">
+                    {% endif %}
+                    <div class="content-type-card" id="content-div">
+                        <!-- content metadata -->
                     </div>
-                </div>
-
-                <div class="card-footer" id="content-footer">
-                    {% if response.scholar.is_admin or role == 'Editor' %}
-                        <a href="/corpus/{{ corpus_id }}/{{ content_type }}/{{ content_id }}/edit/">
-                            <span class="fas fa-edit"></span>
-                        </a>
+                    {% if view_widget_url %}
+                            </div>
+                            <div class="col-sm-12 col-md-6">
+                                <iframe id="view-widget-iframe" src="" height="100%" width="100%" frameBorder="0"></iframe>
+                            </div>
+                        </div>
                     {% endif %}
                 </div>
+                {% if not popup %}
+                <div class="tab-pane fade" id="explore" role="tabpanel" aria-labelledby="explore-tab" style="height: 825px;">
+                    <div id="explore-legend" class="d-inline-flex align-items-center"></div>
+                    <div id="explore-div" style="height: 800px;"></div>
+                </div>
+                <div class="tab-pane fade" id="associated" role="tabpanel" aria-labelledby="associated-tab">
+                    <div id="associated-div"></div>
+                </div>
+                {% endif %}
             </div>
-
         </div>
     </div>
 {% endblock %}
@@ -91,6 +71,7 @@
     <script type="application/javascript">
         let corpus_id = '{{ corpus_id }}';
         let corpus_uri = `/corpus/${corpus_id}`;
+        let corpus = null;
         let content_type_name = '{{ content_type }}';
         let content_id = '{% if content_id %}{{ content_id }}{% endif %}';
         let content_uri = `${corpus_uri}/${content_type_name}/${content_id}`;
@@ -180,15 +161,19 @@
                 `;
             },
             cross_reference: function(field, value) {
+                let intensity_indicator = '';
+                if (field.has_intensity && value.hasOwnProperty('intensity')) intensity_indicator = ` (${value.intensity})`;
                 return `
                     <div class="col-10 d-flex align-left field-value ${field.type}-value">
-                        <a href="${value.uri}" target="_blank">${value.label}</a>
+                        <a href="${value.uri}" target="_blank">${value.label}</a>${intensity_indicator}
                     </div>
                 `;
             }
         };
 
         $(document).ready(function() {
+            if (popup) $('#content-nav-tabs').addClass('d-none');
+
             $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
                 if (e.target.id === 'explore-tab') {
                     network.network.fit({nodes: [content.uri]});
@@ -196,6 +181,7 @@
             });
 
             corpora.get_corpus(corpus_id, function(corpus_data) {
+                corpus = corpus_data;
                 content_type = corpus_data.content_types[content_type_name];
                 build_content_div();
                 corpora.get_content(corpus_id, content_type_name, content_id, function(content_data) {
@@ -255,7 +241,7 @@
                         $('#explore-tab').removeClass('disabled');
                     }
                 });
-            });
+            }, true);
         });
 
         function build_content_div() {
@@ -277,26 +263,38 @@
         }
 
         function inject_content() {
-            $('#header-label').html(content.label);
+            let page_title = $('#page-title');
+            page_title.html(content.label);
+            if (['Editor', 'Admin'].includes(corpus.scholar_role)) {
+                page_title.append(`
+                    <a href="/corpus/${corpus_id}/${content_type_name}/${content_id}/edit/">
+                        <span class="fas fa-edit"></span>
+                    </a>
+                `);
+            }
 
             for (let f_index = 0; f_index < content_type.fields.length; f_index++) {
                 let field = content_type.fields[f_index];
+                let field_div = $(`#${field.name}-content`);
 
                 if (field.type !== 'embedded') {
-                    let field_div = $(`#${field.name}-content`);
-                    if (field.type === 'link') { field_div.html(''); }
+                    if (content && (content[field.name] || content[field.name] === 0)) {
+                        if (field.type === 'link') {
+                            field_div.html('');
+                        }
 
-                    if (field.multiple) {
-                        if (content && content[field.name]) {
-                            content[field.name].forEach( function(value, index) {
+                        if (field.multiple) {
+                            content[field.name].forEach(function (value, index) {
                                 if (field.type !== 'link' && index !== 0) {
                                     field_div.append('<div class="col-xs-12 col-sm-2">&nbsp;</div>');
                                 }
                                 field_div.append(field_templates[field.type](field, value));
                             });
+                        } else {
+                            field_div.append(field_templates[field.type](field, (content[field.name] || content[field.name] === 0) ? content[field.name] : "", ""));
                         }
                     } else {
-                        field_div.append(field_templates[field.type](field, (content[field.name] || content[field.name] === 0) ? content[field.name] : "", ""));
+                        field_div.append(`<div class="col-10 d-flex align-left field-value ${field.type}-value"><span class="badge badge-secondary">Not set</span></div>`);
                     }
                 }
             }

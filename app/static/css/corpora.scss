@@ -3,6 +3,8 @@ $body-bg: #FFFFFF;
 $body-color: #091540;
 $card-border-color: #091540;
 $input-border-color: #EF3E36;
+$input-btn-padding-y: .25rem;
+$input-btn-padding-x: .7rem;
 $font-size-base: 0.8rem;
 
 $theme-colors: (
@@ -21,9 +23,17 @@ $theme-colors: (
 
 
 // Custom CSS
-html, body {
+html:not(.compact), body:not(.compact) {
   height: 100%;
   width: 100%;
+}
+
+h4 {
+  font-size: 1rem;
+}
+
+h5 {
+  font-size: .9rem;
 }
 
 .brand {
@@ -38,8 +48,16 @@ html, body {
 }
 
 .logo {
-  height: 60px;
-  margin-top: 40px;
+  height: 50px;
+}
+
+.logo-small {
+  height: 25px;
+}
+
+.brand {
+  padding-top: 35px;
+  margin-bottom: 15px;
 }
 
 #loading-overlay {
@@ -83,8 +101,17 @@ html, body {
   overflow: hidden;
 }
 
+.sticky-nav {
+    position: -webkit-sticky;
+    position: sticky;
+    top: -2px;
+    z-index: 500;
+    margin-left: -10px;
+    margin-right: -10px;
+}
+
 .card-header {
-  padding: 10px !important;
+  padding: 8px !important;
   border-bottom: solid 4px #091540;
   background-image: url("/static/img/lines.png");
   background-repeat: repeat-x;
@@ -101,16 +128,27 @@ html, body {
 
 .table .thead-dark th {
   border-top: none !important;
-  background-color: #091540;
-  border-bottom: solid 4px #17BEBB;
+  background-color: #17BEBB;
+  padding: 5px;
+  padding-left: 10px;
 }
 
-.table .thead-dark th:first-child {
-  border-top-left-radius: 10px !important;
+.table .thead-dark th:hover {
+  background-color: #12918F;
+}
+
+.table .thead-dark th a {
+  color: white;
 }
 
 table.table {
   border-bottom: solid 4px #17BEBB;
+}
+
+.corpora-content-cell {
+  max-height: 100px;
+  overflow: auto;
+  -ms-overflow-style: -ms-autohiding-scrollbar;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -136,4 +174,44 @@ h1, h2, h3, h4, h5, h6 {
   border-top-left-radius: 10px !important;
   padding: 10px;
   z-index: 10;
+}
+
+// Pattern of association styles
+#patass-canvas {
+  padding: 10px;
+  background-color: #BFC0C0;
+}
+
+.patass-ct-circle {
+  width: 150px;
+  height: 150px;
+  background: #EF3E36;
+  border-radius: 50%;
+  color: white;
+  font-weight: bold;
+}
+
+.patass-ct-circle a {
+  color: white;
+}
+
+.patass-add-circle {
+  width: 150px;
+  height: 150px;
+  background: #17BEBB;
+  border-radius: 50%;
+  color: white;
+  font-weight: bold;
+}
+
+.patass-pipe {
+  border-left: dashed 2px #091540;
+  height: 50px;
+  width: 10px;
+  margin-left: 10px;
+}
+
+.patass-ct-controls {
+  margin-top: -55px;
+  margin-bottom: 30px;
 }

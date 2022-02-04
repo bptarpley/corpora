@@ -1,4 +1,5 @@
 import os
+import shutil
 import json
 import importlib
 import time
@@ -8,7 +9,7 @@ import logging
 import math
 import redis
 from copy import deepcopy
-from corpus import Corpus, Job, get_corpus, File, run_neo
+from corpus import Corpus, Job, get_corpus, File, run_neo, ContentView
 from huey.contrib.djhuey import db_task, db_periodic_task
 from huey import crontab
 from bson.objectid import ObjectId
@@ -180,6 +181,23 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['delete_corpus']
     },
+    "Content Deletion Cleanup": {
+        "version": "0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "content_path": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Content Path"
+                }
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['content_deletion_cleanup']
+    },
     "Merge Content": {
         "version": "0",
         "jobsite_type": "HUEY",
@@ -275,22 +293,27 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['pull_repo']
     },
-    "Perform Exploration": {
+    "Content View Lifecycle": {
         "version": "0.0",
         "jobsite_type": "HUEY",
         "track_provenance": False,
         "content_type": "Corpus",
         "configuration": {
             "parameters": {
-                "name": {
+                "cv_id": {
                     "value": "",
                     "type": "text",
-                    "label": "Exploration Name"
+                    "label": "Content View ID"
+                },
+                "stage": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Content View Lifecycle Stage"
                 }
             }
         },
         "module": 'manager.tasks',
-        "functions": ['perform_exploration']
+        "functions": ['content_view_lifecycle']
     }
 }
 
@@ -568,6 +591,17 @@ def delete_content_type(job_id):
 
 
 @db_task(priority=5)
+def content_deletion_cleanup(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    cleanup_path = job.get_param_value('content_path')
+    if os.path.exists(cleanup_path):
+        shutil.rmtree(cleanup_path)
+
+    job.complete(status='complete')
+
+
+@db_task(priority=5)
 def delete_content_type_field(job_id):
     job = Job(job_id)
     job.set_status('running')
@@ -830,67 +864,46 @@ def pull_repo(job_id):
 
 
 @db_task(priority=5)
-def perform_exploration(job_id):
+def content_view_lifecycle(job_id):
     job = Job(job_id)
+    cv_id = job.get_param_value('cv_id')
+    cv_stage = job.get_param_value('stage')
     job.set_status('running')
-    name = job.configuration['parameters']['name']['value']
-    exploration = job.corpus.get_exploration(name)
-    conn = get_connection()
-    index = job.corpus._get_exploration_index()
-    path = exploration['path'].split('-')
-    step_parts = path[1].split('.')
-    steps = []
-    for step_index in range(0, len(step_parts)):
-        steps.append("(b{0}:{1})".format(step_index, step_parts[step_index]))
 
-    cypher = "MATCH (a:{origin}) -- {steps} -- (c:{target})".format(
-        origin=path[0],
-        steps=" -- ".join(steps),
-        target=path[2]
-    )
+    try:
+        cv = ContentView.objects.get(id=cv_id)
+        if cv_stage == 'populate':
+            cv.populate()
+        elif cv_stage == 'refresh':
+            cv.clear()
+            cv.populate()
+        elif cv_stage == 'delete':
+            cv.clear()
+            cv.delete()
 
-    if exploration['connected_to_uris']:
-        cypher += "\nWHERE c.uri in [{connected_to_uris}]".format(
-            connected_to_uris=', '.join(["'{0}'".format(ct_uri) for ct_uri in exploration['connected_to_uris']])
-        )
+        job.complete(status='complete')
+    except:
+        print(traceback.format_exc())
+        job.complete(status='error')
 
-    count_cypher = cypher + "\nRETURN count(distinct a)"
-    data_cypher = cypher + "\nRETURN distinct a.uri"
 
-    print(count_cypher)
+@db_periodic_task(crontab(minute=1, hour='*'), priority=4)
+def audit_content_views():
+    print('Auditing content views...')
+    cvs = ContentView.objects(status='populated')
 
-    count_results = run_neo(count_cypher, {})
-    count = count_results[0].value()
+    for cv in cvs:
+        print(cv.name)
+        needs_refresh = False
+        for relevant_ct in cv.relevant_cts:
+            if relevant_ct in cv.corpus.content_types:
+                latest_content = cv.corpus.get_content(relevant_ct, all=True).order_by('-last_updated').first()
+                if latest_content:
+                    if cv.status_date < latest_content.last_updated:
+                        needs_refresh = True
+                        break
 
-    if count <= 60000:
-        data_results = run_neo(data_cypher, {})
-        ids = [res.value().split('/')[-1] for res in data_results]
-        conn.index(
-            index=index._name,
-            id=name,
-            body={
-                'path': exploration['path'],
-                'label': exploration['label'],
-                'ids': ids,
-                'scholar_id': exploration['scholar_id'],
-                'connected_to_uris': exploration['connected_to_uris'],
-                'content_types': exploration['content_types'],
-                'status': 'successful'
-            }
-        )
-    else:
-        conn.index(
-            index=index._name,
-            id=name,
-            body={
-                'path': exploration['path'],
-                'label': exploration['label'],
-                'ids': [],
-                'scholar_id': exploration['scholar_id'],
-                'connected_to_uris': exploration['connected_to_uris'],
-                'content_types': exploration['content_types'],
-                'status': 'too large'
-            }
-        )
+        if needs_refresh:
+            print("NEEDS REFRESH")
+            cv.populate()
 
-    job.complete(status='complete')

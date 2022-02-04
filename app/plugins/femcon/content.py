@@ -400,5 +400,79 @@ REGISTRY = [
         ],
         "view_widget_url": None,
         "edit_widget_url": None
-    }
+    },
+    {
+        "name": "Keyword",
+        "plural_name": "BookNLP Keywords",
+        "fields": [
+            {
+                "name": "word",
+                "label": "Word",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "mode",
+                "label": "Mode",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "characters",
+                "label": "Characters",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "Character",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+        ],
+        "show_in_nav": True,
+        "proxy_field": "",
+        "templates": {
+            "Label": {
+                "template": "{{ Keyword.word }} ({{ Keyword.mode }})",
+                "mime_type": "text/html"
+            }
+        },
+        "inherited": False,
+        "invalid_field_names": [
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "path",
+            "label",
+            "uri"
+        ],
+        "view_widget_url": None,
+        "edit_widget_url": None
+    },
 ]

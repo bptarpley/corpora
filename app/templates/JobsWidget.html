@@ -24,6 +24,8 @@
         let running_jobs = [];
 
         $(document).ready(function() {
+            $('html').addClass('compact');
+            $('body').addClass('compact');
             update_jobs();
             hide_loading_overlay();
         });
@@ -122,6 +124,10 @@
                             There are currently no jobs running.
                         </div>
                     `);
+                }
+
+                if (window.parent.hasOwnProperty('resize_job_widget')) {
+                    window.parent.resize_job_widget();
                 }
             });
 

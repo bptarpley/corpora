@@ -85,17 +85,8 @@
 {% endblock %}
 
 {% block main %}
-    <div class="row mt-4">
+    <div class="row">
         <div class="col-12">
-
-            <!-- CONTENT CARD -->
-            <div class="card">
-                <div class="card-header">
-                    <h4 id="header-label">
-                        <!-- title -->
-                    </h4>
-                </div>
-                <div class="card-body">
                     {% if content_ids or content_query %}
                         <div class="alert alert-info">
                             To set the value for a given field across your selected content, check the box to the left of that field's label.
@@ -114,6 +105,10 @@
                             <input type="hidden" id="content-query-input" name="content-query" value=''>
                         {% endif %}
                     </form>
+                    <div class="alert alert-info">
+                        <button type="button" class="btn btn-primary" id="content-save-button">Save</button>
+                        <a role="button" href="/corpus/{{ corpus_id }}/" class="btn btn-secondary">Cancel</a>
+                    </div>
                     {% if edit_widget_url %}
                             </div>
                             <div class="col-sm-12 col-md-6">
@@ -121,10 +116,6 @@
                             </div>
                         </div>
                     {% endif %}
-                </div>
-                <div class="card-footer">
-                    <button type="button" class="btn btn-primary" id="content-save-button">Save</button>
-                    <a role="button" href="/corpus/{{ corpus_id }}/" class="btn btn-secondary">Cancel</a>
                 </div>
             </div>
 
@@ -237,6 +228,7 @@
                 `;
             },
             file: function(field, value, id_suffix) {
+                console.log(value);
                 let sub_path = '';
                 let multi_remove = '';
 
@@ -271,13 +263,31 @@
                 `;
             },
             cross_reference: function(field, value, id_suffix) {
+                let intensity_controls = ''
+                if (field.has_intensity) {
+                    intensity_controls = `
+                        <div class="input-group ml-2">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text" id="${field.name}-value${id_suffix}-intensity-label">Intensity</span>
+                            </div>
+                            <input type="number"
+                                id="${field.name}-value${id_suffix}-intensity"
+                                name="${field.name}-value${id_suffix}-intensity"
+                                class="form-control" style="width: 100px;"
+                                aria-label="Intensity for ${field.name} value"
+                                aria-describedby="${field.name}-value${id_suffix}-intensity-label"
+                                value="${value.hasOwnProperty('intensity') ? value.intensity : 1}">
+                        </div>
+                    `;
+                }
+
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="btn-toolbar mb-2 edit-field-div" data-field="${field.name}" role="toolbar">
                         <div class="btn-group" role="group">
                             <button onclick="return false;" id="${field.name}-value${id_suffix}-select-button" class="xref-select-button btn btn-secondary ${field.name}-control" ${bulk_editing ? 'disabled' : ''}>Select</button>
                             <button onclick="return false;" id="${field.name}-value${id_suffix}-open-button" class="xref-open-button btn btn-warning" role="button">${value ? value.label : `No ${field.cross_reference_type} selected.`}</button>
                             <button onclick="return false;" id="${field.name}-value${id_suffix}-clear-button" class="xref-clear-button btn btn-danger ${value ? '' : 'd-none'}" role="button">${field.multiple ? 'Delete' : 'Clear'}</button>
-                        </div>
+                        </div>${intensity_controls}
                         <input type="hidden" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value ? value.id : ""}">
                         <input type="hidden" id="${field.name}-value${id_suffix}-xref-type" value="${field.cross_reference_type}">
                     </div>
@@ -413,17 +423,17 @@
 
         function inject_content(content_data) {
             content = content_data;
+            let page_title = $('#page-title');
             let has_html_field = false;
             let has_file_field = false;
             let has_xref_field = false;
 
             if (bulk_editing) {
-                $('#header-label').html(`Bulk Editing ${content_type}(s)`);
-
+                page_title.html(`Bulk Editing ${content_type}(s)`);
             } else if (!content) {
-                $('#header-label').html(`New ${content_type}`);
+                page_title.html(`New ${content_type}`);
             } else {
-                $('#header-label').html(content.label);
+                page_title.html(content.label);
                 add_breadcrumb(content.label, `/corpus/${corpus_id}/${content_type}/${content_id}/`);
             }
 

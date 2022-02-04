@@ -1,6 +1,7 @@
 import re
 import subprocess
 import mimetypes
+import urllib.parse
 from ipaddress import ip_address
 from django.shortcuts import render, redirect, HttpResponse
 from django.http import Http404
@@ -63,10 +64,13 @@ def corpora(request):
 def corpus(request, corpus_id):
     response = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
+    content_views = []
 
     if corpus:
-        # ADMIN GET REQUESTS
-        if (response['scholar'].is_admin or role == 'Editor') and request.method == 'GET':
+        # ADMIN REQUESTS
+        if response['scholar'].is_admin or role == 'Editor':
+            # get content views
+            content_views = ContentView.objects(corpus=corpus, status='populated').order_by('name')
 
             # schema export
             if 'export' in request.GET and request.GET['export'] == 'schema':
@@ -178,6 +182,22 @@ def corpus(request, corpus_id):
                             '<br>'.join(deleted)
                         ))
 
+            # HANDLE CONTENT VIEW DELETION
+            elif _contains(request.POST, ['deletion-confirmed', 'content-view']):
+                cv_id = _clean(request.POST, 'content-view')
+                cv = ContentView.objects.get(id=cv_id)
+                cv_name = cv.name
+                cv.set_status('deleting')
+                cv.save()
+
+                run_job(corpus.queue_local_job(task_name="Content View Lifecycle", parameters={
+                    'cv_id': cv_id,
+                    'stage': 'delete',
+                }))
+
+                content_views = ContentView.objects(corpus=corpus, status='populated').order_by('name')
+                response['messages'].append('The "{0}" Content View is being deleted.'.format(cv_name))
+
             # HANDLE JOB SUBMISSION
             elif _contains(request.POST, ['jobsite', 'task']):
                 jobsite = JobSite.objects(id=_clean(request.POST, 'jobsite'))[0]
@@ -220,14 +240,6 @@ def corpus(request, corpus_id):
                 kill_job_id = _clean(request.POST, 'kill-job-id')
                 job = Job(kill_job_id)
                 job.kill()
-
-            # HANDLE VIEW CREATION
-            elif 'create-view' in request.POST:
-                new_view = json.loads(request.POST['create-view'])
-                exploration = corpus.make_exploration(**new_view)
-                if exploration['status'] == 'performing':
-                    run_job(exploration['job'])
-                    response['messages'].append("View successfully created.")
 
             # HANDLE CONTENT TYPE SCHEMA SUBMISSION
             elif 'schema' in request.POST:
@@ -447,8 +459,10 @@ def corpus(request, corpus_id):
         request,
         'corpus.html',
         {
+            'page_title': corpus.name,
             'corpus_id': corpus_id,
             'role': role,
+            'content_views': content_views,
             'response': response,
             'available_jobsites': [str(js.id) for js in response['scholar']['available_jobsites']],
             'available_tasks': [str(t.id) for t in response['scholar']['available_tasks']],
@@ -466,7 +480,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
     bulk_edit_field_names = []
 
     if (context['scholar'].is_admin or role == 'Editor') and corpus and content_type in corpus.content_types:
-        if corpus.content_types[content_type].edit_widget_url:
+        if corpus.content_types[content_type].edit_widget_url and content_id:
             edit_widget_url = corpus.content_types[content_type].edit_widget_url.format(
                 corpus_id=corpus_id,
                 content_type=content_type,
@@ -493,7 +507,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
 
             # iterate over the POST params, assuming each one corresponds with a field value
             for field_param, field_value in request.POST.items():
-                if field_param not in ['corpora-content-edit', 'content-ids', 'content-query']:
+                if field_param not in ['corpora-content-edit', 'content-ids', 'content-query'] and not field_param.endswith('-intensity'):
                     param_parts = field_param.split('-')
                     field_name = param_parts[0]
 
@@ -558,13 +572,19 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                         else:
                             setattr(content, field_name, field_value)
 
+                        # check if this field has intensity, and if so, process corresponding POST param
+                        if ct_fields[field_name].type == 'cross_reference' and ct_fields[field_name].has_intensity:
+                            intensity_param = field_param + '-intensity'
+                            if intensity_param in request.POST:
+                                content.set_intensity(field_name, field_value, request.POST[intensity_param])
+
             for multi_field_name in multi_field_values.keys():
                 setattr(content, multi_field_name, multi_field_values[multi_field_name])
 
             if content_ids or content_query:
                 content_dict = content.to_dict()
                 bulk_edit_fields = {}
-                for field_name in bulk_edit_field_names:
+                for field_name in set(bulk_edit_field_names):
                     bulk_edit_fields[field_name] = content_dict[field_name]
 
                 run_job(corpus.queue_local_job(
@@ -600,6 +620,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
             request,
             'content_edit.html',
             {
+                'page_title': content_type,
                 'corpus_id': corpus_id,
                 'response': context,
                 'content_type': content_type,
@@ -646,6 +667,7 @@ def view_content(request, corpus_id, content_type, content_id):
         request,
         'content_view.html',
         {
+            'page_title': content_type,
             'response': context,
             'corpus_id': corpus_id,
             'role': role,
@@ -1343,6 +1365,41 @@ def api_content(request, corpus_id, content_type, content_id=None):
     )
 
 
+@api_view(['GET', 'POST'])
+def api_content_view(request, corpus_id, content_view_id=None):
+    context = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+
+    if corpus:
+        cv_dict = {}
+        if request.method == 'GET' and content_view_id:
+            cv = ContentView.objects.get(id=content_view_id)
+            cv_dict = cv.to_dict()
+        elif request.method == 'POST' and _contains(request.POST, ['cv-name', 'cv-target-ct', 'cv-search-json', 'cv-patass']) and (context['scholar'].is_admin or role == 'Editor'):
+            cv_search_params = json.loads(unescape(_clean(request.POST, 'cv-search-json')))
+            cv_search_params = build_search_params_from_dict(cv_search_params)
+
+            cv = ContentView()
+            cv.name = _clean(request.POST, 'cv-name')
+            cv.corpus = corpus
+            cv.target_ct = _clean(request.POST, 'cv-target-ct')
+            cv.search_filter = json.dumps(cv_search_params)
+            cv.graph_path = _clean(request.POST, 'cv-patass')
+            cv.set_status('populating')
+            cv.save()
+            cv_dict = cv.to_dict()
+
+            run_job(corpus.queue_local_job(task_name="Content View Lifecycle", parameters={
+                'cv_id': str(cv.id),
+                'stage': 'populate',
+            }))
+
+        return HttpResponse(
+            json.dumps(cv_dict),
+            content_type='application/json'
+        )
+
+
 @api_view(['GET'])
 def api_plugin_schema(request):
     context = _get_context(request)
@@ -1379,8 +1436,15 @@ def api_network_json(request, corpus_id, content_type, content_id):
         'edges': [],
         'meta': {}
     }
+    filters = {}
     collapses = []
     excluded_cts = []
+
+    if 'filters' in request.GET:
+        filter_specs = request.GET['filters'].split(',')
+        for filter_spec in filter_specs:
+            if ':' in filter_spec:
+                filters[filter_spec.split(':')[0]] = filter_spec.split(':')[1]
 
     if 'collapses' in request.GET:
         collapse_params = request.GET['collapses'].split(',')
@@ -1447,10 +1511,16 @@ def api_network_json(request, corpus_id, content_type, content_id):
 
         for relationship in distinct_relationships:
             if not meta_only and (not target_ct or target_ct == relationship.get('CT')[0]):
+                filter_clause = ''
+                if content_type in filters:
+                    filter_clause += " AND (a) <-[:hasContent]- (:`_ContentView` {{ uri: '{0}' }})".format(filters[content_type])
+                if relationship.get('CT')[0] in filters:
+                    filter_clause += " AND (c) <-[:hasContent]- (:`_ContentView` {{ uri: '{0}' }})".format(filters[relationship.get('CT')[0]])
+
                 rel_net_json = get_network_json(
                     '''
                         MATCH path = (a:{origin}) -[b:{relationship}]- (c:{destination})
-                        WHERE a.uri = '{uri}' {exclusions} 
+                        WHERE a.uri = '{uri}' {exclusions}{filters} 
                         RETURN path
                         SKIP {skip}
                         LIMIT {limit}
@@ -1460,6 +1530,7 @@ def api_network_json(request, corpus_id, content_type, content_id):
                         destination=relationship.get('CT')[0],
                         uri=content_uri,
                         exclusions=exclusion_clause,
+                        filters=filter_clause,
                         skip=per_type_skip,
                         limit=per_type_limit
                     )
@@ -1480,6 +1551,12 @@ def api_network_json(request, corpus_id, content_type, content_id):
         node_uris = [n['id'] for n in network_json['nodes']]
 
         for collapse in collapses:
+            filter_clause = ''
+            if collapse['from_ct'] in filters:
+                filter_clause += " AND (a) <-[:hasContent]- (:`_ContentView` {{ uri: '{0}' }})".format(filters[collapse['from_ct']])
+            if collapse['to_ct'] in filters:
+                filter_clause += " AND (c) <-[:hasContent]- (:`_ContentView` {{ uri: '{0}' }})".format(filters[collapse['to_ct']])
+
             path_key = "{0}-{1}-{2}".format(
                 collapse['from_ct'],
                 collapse['proxy_ct'],
@@ -1493,12 +1570,14 @@ def api_network_json(request, corpus_id, content_type, content_id):
 
             proxied_cypher = '''
                 MATCH path = (a:{origin}) -- {proxy_path} -- (c:{destination})
-                WHERE a.uri = '{uri}'
+                WHERE a.uri = '{uri}' {exclusions}{filters}
             '''.format(
                 origin=collapse['from_ct'],
                 proxy_path=proxy_path,
                 destination=collapse['to_ct'],
-                uri=content_uri
+                uri=content_uri,
+                exclusions=exclusion_clause,
+                filters=filter_clause
             )
 
             proxied_count = run_neo('''
