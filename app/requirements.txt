@@ -28,4 +28,3 @@ viapy
 GitPython
 chardet
 spacy
-booknlp
