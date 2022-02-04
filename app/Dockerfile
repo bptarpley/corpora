@@ -15,8 +15,9 @@ WORKDIR /apps
 RUN mkdir corpora
 COPY . corpora/
 
-RUN pip3 install -r /apps/corpora/requirements.txt
-RUN pip3 install --no-input booknlp
+RUN pip3 install --no-cache-dir -r /apps/corpora/requirements.txt
+RUN pip3 install --no-cache-dir --no-input spacy
+RUN pip3 install --no-cache-dir --no-input booknlp
 RUN python3 -m nltk.downloader punkt stopwords wordnet averaged_perceptron_tagger
 RUN python3 -m spacy download en_core_web_sm
 

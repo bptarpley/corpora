@@ -27,4 +27,3 @@ ipywidgets
 viapy
 GitPython
 chardet
-spacy
