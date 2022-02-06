@@ -132,6 +132,7 @@ def setup_femcon_content_types(job_id):
 
         if femcon_doc_schema:
             femcon_doc_schema['fields'] += femcon_document_fields
+            femcon_doc_schema['edit_widget_url'] = "/corpus/{corpus_id}/Document/{content_id}/booknlp-widget/"
             corpus.save_content_type(femcon_doc_schema)
     except:
         print(traceback.format_exc())
