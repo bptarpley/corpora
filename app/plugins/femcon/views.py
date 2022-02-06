@@ -28,7 +28,7 @@ def booknlp_widget(request, corpus_id, document_id):
     if corpus:
         doc = corpus.get_content('Document', document_id)
         if doc:
-            femcon_chars = corpus.get_content('Character', {'novels': doc.id})
+            femcon_chars = corpus.get_content('Character', {'novels': doc.id}).order_by('name')
 
             if femcon_chars and hasattr(doc, 'booknlp_dataset') and doc.booknlp_dataset and os.path.exists(doc.booknlp_dataset):
                 character_map_file = "{0}/character_map.json".format(doc.booknlp_dataset)
