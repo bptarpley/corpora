@@ -15,10 +15,11 @@ from viapy.api import ViafAPI
 
 REGISTRY = {
     "Index ARC Archive(s)": {
-        "version": "0.2",
+        "version": "0.3",
         "jobsite_type": "HUEY",
         "track_provenance": True,
         "content_type": "Corpus",
+        "create_report": True,
         "configuration": {
             "parameters": {
                 "archive_handle": {
@@ -110,17 +111,8 @@ def index_archives(job_id):
     new_only = job.configuration['parameters']['new_only']['value'].strip() == 'Yes'
     archives = []
 
-    '''
-    for arc_content_type in ARC_CONTENT_TYPE_SCHEMA:
-        if delete_existing and arc_content_type['name'] in corpus.content_types:
-            corpus.delete_content_type(arc_content_type['name'])
-            corpus.save_content_type(arc_content_type)
-        elif arc_content_type['name'] not in corpus.content_types:
-            corpus.save_content_type(arc_content_type)
-    '''
-
     es_logger = logging.getLogger('elasticsearch')
-    es_log_level = es_logger.getEffectiveLevel()
+    #es_log_level = es_logger.getEffectiveLevel()
     es_logger.setLevel(logging.WARNING)
 
     if archive_handle:
@@ -163,7 +155,7 @@ def index_archives(job_id):
         print("No valid candidates for indexing found. Completing job.")
         job.complete(status='complete')
 
-    es_logger.setLevel(es_log_level)
+    #es_logger.setLevel(es_log_level)
 
 
 def get_or_create_archive(corpus, handle):
@@ -217,10 +209,10 @@ def index_archive(job_id, archive_id, task=None):
     archive = corpus.get_content('ArcArchive', archive_id)
 
     es_logger = logging.getLogger('elasticsearch')
-    es_log_level = es_logger.getEffectiveLevel()
+    #es_log_level = es_logger.getEffectiveLevel()
     es_logger.setLevel(logging.WARNING)
 
-    print("Indexing {0} archive...".format(archive.handle))
+    job.report("Indexing {0} archive...".format(archive.handle))
     artifacts_indexed = 0
     indexing_started = time.time()
     try:
@@ -244,10 +236,25 @@ def index_archive(job_id, archive_id, task=None):
 
             for rdf_file in rdf_files:
                 if num_failures > 50:
+                    job.report('''
+                    
+FATAL ERROR indexing the {0} archive: over 50 errors encountered--halting indexing task.
+                    
+                    '''.format(archive.handle))
                     break
 
                 artifacts = parse_rdf(rdf_file.strip())
+
                 for art in artifacts:
+                    if 'uri' not in art:
+                        job.report('''
+                        
+ERROR indexing an artifact in the {0} archive: URI missing!
+
+                        '''.format(archive.handle))
+                        num_failures += 1
+                        continue
+
                     cached_art_id = get_reference(corpus, art['uri'], 'ArcArtifact', cache, make_new=False)
 
                     a = None
@@ -373,7 +380,12 @@ def index_archive(job_id, archive_id, task=None):
                             a.save()
 
                         except:
-                            print(traceback.format_exc())
+                            job.report('''
+                            
+ERROR occurred while indexing artifact with URI {0} from the {1} archive:
+{2}
+
+                            '''.format(art['uri'], archive.handle, traceback.format_exc()))
                             num_failures += 1
 
                 artifacts_indexed += len(artifacts)
@@ -381,10 +393,15 @@ def index_archive(job_id, archive_id, task=None):
             archive.last_indexed = datetime.now()
             archive.save()
     except:
-        print(traceback.format_exc())
+        job.report('''
+                            
+ERROR occurred while readying the {0} archive for indexing:
+{1}
 
-    print("Indexed {0} items in {1} seconds.".format(artifacts_indexed, time.time() - indexing_started))
-    es_logger.setLevel(es_log_level)
+        '''.format(archive.handle, traceback.format_exc()))
+
+    job.report("FINISHED indexing the {0} archive (indexed {1} artifacts in {2} seconds).".format(archive.handle, artifacts_indexed, time.time() - indexing_started))
+    #es_logger.setLevel(es_log_level)
 
     if task:
         job.complete_process(task.id)
