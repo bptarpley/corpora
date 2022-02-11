@@ -231,10 +231,13 @@ def index_archive(job_id, archive_id, task=None):
             if os.path.exists(temp_file):
                 with open(temp_file, 'r') as temp_in:
                     rdf_files = temp_in.readlines()
+                rdf_files = [f.strip() for f in rdf_files if f]
 
             num_failures = 0
 
             for rdf_file in rdf_files:
+                rdf_file_relative = rdf_file.replace(archive_dir, '')
+
                 if num_failures > 50:
                     job.report('''
                     
@@ -243,15 +246,27 @@ FATAL ERROR indexing the {0} archive: over 50 errors encountered--halting indexi
                     '''.format(archive.handle))
                     break
 
-                artifacts = parse_rdf(rdf_file.strip())
+                artifacts, errors, warnings = parse_rdf(rdf_file)
+
+                if errors:
+                    job.report('''
+ERROR(s) prevented the parsing of {0} from {1}:
+{2}
+                    '''.format(rdf_file_relative, archive.handle, "\n".join(errors)))
+                    num_failures += len(errors)
+                    continue
+
+                if warnings:
+                    job.report('''
+WARNING(s) encountered while parsing {0} from {1}:
+{2}
+                    '''.format(rdf_file_relative, archive.handle, "\n".join(warnings)))
 
                 for art in artifacts:
                     if 'uri' not in art:
                         job.report('''
-                        
-ERROR indexing an artifact in the {0} archive: URI missing!
-
-                        '''.format(archive.handle))
+ERROR indexing an artifact in {0} from {1}: URI missing!
+                        '''.format(rdf_file_relative, archive.handle))
                         num_failures += 1
                         continue
 
@@ -382,10 +397,10 @@ ERROR indexing an artifact in the {0} archive: URI missing!
                         except:
                             job.report('''
                             
-ERROR occurred while indexing artifact with URI {0} from the {1} archive:
-{2}
+ERROR occurred while indexing artifact with URI {0} in {1} from {2}:
+{3}
 
-                            '''.format(art['uri'], archive.handle, traceback.format_exc()))
+                            '''.format(art['uri'], rdf_file_relative, archive.handle, traceback.format_exc()))
                             num_failures += 1
 
                 artifacts_indexed += len(artifacts)
@@ -393,11 +408,9 @@ ERROR occurred while indexing artifact with URI {0} from the {1} archive:
             archive.last_indexed = datetime.now()
             archive.save()
     except:
-        job.report('''
-                            
+        job.report('''                         
 ERROR occurred while readying the {0} archive for indexing:
 {1}
-
         '''.format(archive.handle, traceback.format_exc()))
 
     job.report("FINISHED indexing the {0} archive (indexed {1} artifacts in {2} seconds).".format(archive.handle, artifacts_indexed, time.time() - indexing_started))
@@ -474,6 +487,9 @@ def _get_date_range(val):
 
 def parse_rdf(rdf_file):
     artifacts = []
+    errors = []
+    warnings = []
+    unhandled_properties = {}
 
     graph = rdflib.Graph()
     graph.parse(rdf_file)
@@ -493,173 +509,188 @@ def parse_rdf(rdf_file):
     artifact_uris = list(set(artifact_uris))
 
     for artifact_uri in artifact_uris:
+        try:
+            # DEFAULT VALUES FOR AN ARC ARCHIVE
+            art = {
+                'uri': str(artifact_uri),
+                'free_culture': True,
+                'federations': [],
+                'types': [],
+                'people': [],
+                'disciplines': [],
+                'genres': [],
+                'years': [],
+                'sources': [],
+                'subjects': [],
+                'coverages': [],
+                'has_parts': [],
+                'is_part_ofs': [],
+                'relateds': []
+            }
 
-        # DEFAULT VALUES FOR AN ARC ARCHIVE
-        art = {
-            'uri': str(artifact_uri),
-            'free_culture': True,
-            'federations': [],
-            'types': [],
-            'people': [],
-            'disciplines': [],
-            'genres': [],
-            'years': [],
-            'sources': [],
-            'subjects': [],
-            'coverages': [],
-            'has_parts': [],
-            'is_part_ofs': [],
-            'relateds': []
-        }
+            for property_uri, value in graph[artifact_uri]:
+                prop = str(property_uri)
 
-        for property_uri, value in graph[artifact_uri]:
-            prop = str(property_uri)
+                # BROWSER URL
+                if prop == 'http://www.w3.org/2000/01/rdf-schema#seeAlso':
+                    art['url'] = str(value)
 
-            # BROWSER URL
-            if prop == 'http://www.w3.org/2000/01/rdf-schema#seeAlso':
-                art['url'] = str(value)
+                # ARCHIVE
+                elif prop == 'http://www.collex.org/schema#archive':
+                    art['archive'] = str(value)
 
-            # ARCHIVE
-            elif prop == 'http://www.collex.org/schema#archive':
-                art['archive'] = str(value)
+                # TITLE
+                elif prop == "http://purl.org/dc/elements/1.1/title":
+                    art['title'] = str(value)
 
-            # TITLE
-            elif prop == "http://purl.org/dc/elements/1.1/title":
-                art['title'] = str(value)
+                # FEDERATION
+                elif prop == 'http://www.collex.org/schema#federation':
+                    art['federations'].append(str(value))
 
-            # FEDERATION
-            elif prop == 'http://www.collex.org/schema#federation':
-                art['federations'].append(str(value))
+                # TYPE
+                elif prop == 'http://purl.org/dc/elements/1.1/type':
+                    art['types'].append(str(value))
 
-            # TYPE
-            elif prop == 'http://purl.org/dc/elements/1.1/type':
-                art['types'].append(str(value))
+                # HANDLE ROLE CODES AND PEOPLE
+                elif prop.startswith('http://www.loc.gov/loc.terms/relators/'):
+                    art['people'].append({
+                        'name': str(value),
+                        'role_code': prop.replace('http://www.loc.gov/loc.terms/relators/', '')
+                    })
 
-            # HANDLE ROLE CODES AND PEOPLE
-            elif prop.startswith('http://www.loc.gov/loc.terms/relators/'):
-                art['people'].append({
-                    'name': str(value),
-                    'role_code': prop.replace('http://www.loc.gov/loc.terms/relators/', '')
-                })
+                # DISCIPLINE
+                elif prop == 'http://www.collex.org/schema#discipline':
+                    art['disciplines'].append(str(value))
 
-            # DISCIPLINE
-            elif prop == 'http://www.collex.org/schema#discipline':
-                art['disciplines'].append(str(value))
+                # GENRE
+                elif prop == 'http://www.collex.org/schema#genre':
+                    art['genres'].append(str(value))
 
-            # GENRE
-            elif prop == 'http://www.collex.org/schema#genre':
-                art['genres'].append(str(value))
+                # DATE
+                elif prop == 'http://purl.org/dc/elements/1.1/date':
+                    if isinstance(value, rdflib.term.BNode) and str(value) in bnodes:
+                        art['date_label'] = bnodes[str(value)]['label'].strip()
+                        art['date_value'] = bnodes[str(value)]['value'].strip()
+                    elif isinstance(value, rdflib.term.Literal):
+                        art['date_label'] = str(value).strip()
+                        art['date_value'] = str(value).strip()
 
-            # DATE
-            elif prop == 'http://purl.org/dc/elements/1.1/date':
-                if isinstance(value, rdflib.term.BNode) and str(value) in bnodes:
-                    art['date_label'] = bnodes[str(value)]['label'].strip()
-                    art['date_value'] = bnodes[str(value)]['value'].strip()
-                elif isinstance(value, rdflib.term.Literal):
-                    art['date_label'] = str(value).strip()
-                    art['date_value'] = str(value).strip()
+                    # simple 4 digit year
+                    if str.isdigit(art['date_value']) and len(art['date_value']) == 4:
+                        art['years'].append(int(art['date_value']))
 
-                if str.isdigit(art['date_value']) and len(art['date_value']) == 4:
-                    art['years'].append(int(art['date_value']))
-                elif 'u' in art['date_value']:
-                    art['years'] += _get_wildcard_dates(art['date_value'])
-                elif ',' in art['date_value']:
-                    art['years'] += _get_date_range(art['date_value'])
+                    # range with wildcards, i.e. 198u,199u
+                    elif art['date_value'].count(',') == 1 and \
+                        art['date_value'].count('u') == 2 and \
+                        art['date_value'].index('u') < art['date_value'].index(',') and \
+                        art['date_value'].index('u', art['date_value'].index(',')) > art['date_value'].index(','):
 
-            # ALT TITLE
-            elif prop == "http://purl.org/dc/terms/alternative":
-                art['alt_title'] = str(value)
+                        art['years'] = _get_date_range(art['date_value'].replace('u', '0', 1).replace('u', '9'))
 
-            # DESCRIPTION
-            elif prop == "http://purl.org/dc/elements/1.1/description":
-                art['description'] = str(value)
+                    # wildcard date, i.e. 19uu
+                    elif 'u' in art['date_value']:
+                        art['years'] += _get_wildcard_dates(art['date_value'])
 
-            # DATE OF EDITION
-            elif prop == 'http://www.collex.org/schema#dateofedition':
-                art['date_of_edition'] = str(value)
+                    # date range, i.e. 1980,1999
+                    elif ',' in art['date_value']:
+                        art['years'] += _get_date_range(art['date_value'])
 
-            # DATE OF REVIEW
-            elif prop == 'http://www.collex.org/schema#reviewdate':
-                art['date_of_review'] = str(value)
+                # ALT TITLE
+                elif prop == "http://purl.org/dc/terms/alternative":
+                    art['alt_title'] = str(value)
 
-            # LANGUAGE
-            elif prop == "http://purl.org/dc/elements/1.1/language":
-                art['language'] = str(value)
+                # DESCRIPTION
+                elif prop == "http://purl.org/dc/elements/1.1/description":
+                    art['description'] = str(value)
 
-            # SOURCE
-            elif prop == "http://purl.org/dc/elements/1.1/source":
-                art['sources'].append(str(value))
+                # DATE OF EDITION
+                elif prop == 'http://www.collex.org/schema#dateofedition':
+                    art['date_of_edition'] = str(value)
 
-            # SUBJECTS
-            elif prop == "http://purl.org/dc/elements/1.1/subject":
-                art['subjects'].append(str(value))
+                # DATE OF REVIEW
+                elif prop == 'http://www.collex.org/schema#reviewdate':
+                    art['date_of_review'] = str(value)
 
-            # COVERAGES
-            elif prop in ["http://purl.org/dc/terms/coverage", "http://purl.org/dc/elements/1.1/coverage"]:
-                art['coverages'].append(str(value))
+                # LANGUAGE
+                elif prop == "http://purl.org/dc/elements/1.1/language":
+                    art['language'] = str(value)
 
-            # FREE CULTURE
-            elif prop == "http://www.collex.org/schema#freeculture":
-                art['free_culture'] = str(value).lower() != 'false'
+                # SOURCE
+                elif prop == "http://purl.org/dc/elements/1.1/source":
+                    art['sources'].append(str(value))
 
-            # OCR
-            elif prop == "http://www.collex.org/schema#ocr":
-                art['ocr'] = str(value).lower() != 'false'
+                # SUBJECTS
+                elif prop == "http://purl.org/dc/elements/1.1/subject":
+                    art['subjects'].append(str(value))
 
-            # FULL TEXT (y/n)
-            elif prop == "http://www.collex.org/schema#fulltext":
-                art['full_text'] = str(value).lower() != 'false'
+                # COVERAGES
+                elif prop in ["http://purl.org/dc/terms/coverage", "http://purl.org/dc/elements/1.1/coverage"]:
+                    art['coverages'].append(str(value))
 
-            # TEXT (contents)
-            elif prop == "http://www.collex.org/schema#text":
-                txt = str(value).strip()
-                if txt:
-                    if txt.startswith('http') and ' ' not in txt:
-                        art['full_text_url'] = txt
-                    else:
-                        art['full_text_contents'] = txt
+                # FREE CULTURE
+                elif prop == "http://www.collex.org/schema#freeculture":
+                    art['free_culture'] = str(value).lower() != 'false'
 
-            # SOURCE CODES
-            elif prop == "http://www.collex.org/schema#source_xml":
-                art['source_xml'] = str(value)
-            elif prop == "http://www.collex.org/schema#source_html":
-                art['source_html'] = str(value)
-            elif prop == "http://www.collex.org/schema#source_sgml":
-                art['source_sgml'] = str(value)
+                # OCR
+                elif prop == "http://www.collex.org/schema#ocr":
+                    art['ocr'] = str(value).lower() != 'false'
 
-            # IMAGE URL
-            elif prop == "http://www.collex.org/schema#image":
-                if not str(value).startswith('file://'):
-                    art['image_url'] = str(value)
+                # FULL TEXT (y/n)
+                elif prop == "http://www.collex.org/schema#fulltext":
+                    art['full_text'] = str(value).lower() != 'false'
 
-            # THUMBNAIL URL
-            elif prop == "http://www.collex.org/schema#thumbnail":
-                if not str(value).startswith('file://'):
-                    art['thumbnail_url'] = str(value)
+                # TEXT (contents)
+                elif prop == "http://www.collex.org/schema#text":
+                    txt = str(value).strip()
+                    if txt:
+                        if txt.startswith('http') and ' ' not in txt:
+                            art['full_text_url'] = txt
+                        else:
+                            art['full_text_contents'] = txt
 
-            # HAS PART
-            elif prop == "http://purl.org/dc/terms/hasPart":
-                art['has_parts'].append(str(value))
+                # SOURCE CODES
+                elif prop == "http://www.collex.org/schema#source_xml":
+                    art['source_xml'] = str(value)
+                elif prop == "http://www.collex.org/schema#source_html":
+                    art['source_html'] = str(value)
+                elif prop == "http://www.collex.org/schema#source_sgml":
+                    art['source_sgml'] = str(value)
 
-            # IS PART OF
-            elif prop == "http://purl.org/dc/terms/isPartOf":
-                art['is_part_ofs'].append(str(value))
+                # IMAGE URL
+                elif prop == "http://www.collex.org/schema#image":
+                    if not str(value).startswith('file://'):
+                        art['image_url'] = str(value)
 
-            # RELATION(s)
-            elif prop == "http://purl.org/dc/elements/1.1/relation":
-                art['relateds'].append(str(value))
+                # THUMBNAIL URL
+                elif prop == "http://www.collex.org/schema#thumbnail":
+                    if not str(value).startswith('file://'):
+                        art['thumbnail_url'] = str(value)
 
-            # IGNORE RDF TYPE OF ARTIFACT (not collex type)
-            elif prop == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
-                pass
+                # HAS PART
+                elif prop == "http://purl.org/dc/terms/hasPart":
+                    art['has_parts'].append(str(value))
 
-            else:
-                print("UNHANDLED PROPERTY in {0}".format(rdf_file))
-                print("{0} ::: {1}".format(prop, value))
+                # IS PART OF
+                elif prop == "http://purl.org/dc/terms/isPartOf":
+                    art['is_part_ofs'].append(str(value))
 
-        artifacts.append(art)
+                # RELATION(s)
+                elif prop == "http://purl.org/dc/elements/1.1/relation":
+                    art['relateds'].append(str(value))
 
-    return artifacts
+                # IGNORE RDF TYPE OF ARTIFACT (not collex type)
+                elif prop == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
+                    pass
+
+                else:
+                    warnings.append("INVALID PROPERTY {0} with value {1} for URI {2}".format(prop, value, artifact_uri))
+
+
+            artifacts.append(art)
+        except:
+            errors.append('''URI {0}: {1}'''.format(artifact_uri, traceback.format_exc()))
+
+    return artifacts, errors, warnings
 
 
 def get_reference(corpus, value, ref_type, cache, make_new=True):
