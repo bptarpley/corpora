@@ -209,12 +209,14 @@ def index_archive(job_id, archive_id, task=None):
     archive = corpus.get_content('ArcArchive', archive_id)
 
     es_logger = logging.getLogger('elasticsearch')
-    #es_log_level = es_logger.getEffectiveLevel()
     es_logger.setLevel(logging.WARNING)
 
     job.report("Indexing {0} archive...".format(archive.handle))
     artifacts_indexed = 0
     indexing_started = time.time()
+    parse_times = []
+    save_times = []
+
     try:
         cache = redis.Redis(host='redis', decode_responses=True)
 
@@ -246,7 +248,10 @@ FATAL ERROR indexing the {0} archive: over 50 errors encountered--halting indexi
                     '''.format(archive.handle))
                     break
 
+                # parse the RDF using RDF lib
+                parse_start = time.time()
                 artifacts, errors, warnings = parse_rdf(rdf_file)
+                parse_times.append(time.time() - parse_start)
 
                 if errors:
                     job.report('''
@@ -263,6 +268,8 @@ WARNING(s) encountered while parsing {0} from {1}:
                     '''.format(rdf_file_relative, archive.handle, "\n".join(warnings)))
 
                 for art in artifacts:
+                    save_start = time.time()
+
                     if 'uri' not in art:
                         job.report('''
 ERROR indexing an artifact in {0} from {1}: URI missing!
@@ -403,6 +410,8 @@ ERROR occurred while indexing artifact with URI {0} in {1} from {2}:
                             '''.format(art['uri'], rdf_file_relative, archive.handle, traceback.format_exc()))
                             num_failures += 1
 
+                    save_times.append(time.time() - save_start)
+
                 artifacts_indexed += len(artifacts)
 
             archive.last_indexed = datetime.now()
@@ -414,6 +423,10 @@ ERROR occurred while readying the {0} archive for indexing:
         '''.format(archive.handle, traceback.format_exc()))
 
     job.report("FINISHED indexing the {0} archive (indexed {1} artifacts in {2} seconds).".format(archive.handle, artifacts_indexed, time.time() - indexing_started))
+    job.report("Avg parse time: {0} seconds; Avg save time: {1} seconds".format(
+        sum(parse_times) / len(parse_times),
+        sum(save_times) / len(save_times)
+    ))
     #es_logger.setLevel(es_log_level)
 
     if task:
@@ -739,11 +752,28 @@ def get_reference(corpus, value, ref_type, cache, make_new=True):
 
                 if ref_type in single_key_reference_fields:
                     query = {}
+
                     for field_name in single_key_reference_fields[ref_type].keys():
                         query[field_name] = single_key_reference_fields[ref_type][field_name].format(value)
 
-                    ref_obj = corpus.get_content(ref_type, query, single_result=True)
-                    if not ref_obj:
+                    hits = corpus.search_content(
+                        ref_type,
+                        page_size=5,
+                        fields_query=query,
+                        only=list(query.keys())
+                    )
+
+                    for hit in hits['records']:
+                        found_hit = True
+                        for field_name in query.keys():
+                            if not (field_name in hit and hit[field_name].strip() == query[field_name].strip()):
+                                found_hit = False
+                                break
+                        if found_hit:
+                            ref = hit['id']
+                            break
+
+                    if not ref:
                         if ref_type == 'ArcEntity':
                             alt_ent = corpus.search_content('ArcEntity', page_size=1, fields_filter={'alternate_names': value}, only=['id'])
                             if alt_ent and 'records' in alt_ent and len(alt_ent['records']) == 1:
@@ -756,11 +786,7 @@ def get_reference(corpus, value, ref_type, cache, make_new=True):
                                 if hasattr(ref_obj, field_name):
                                     setattr(ref_obj, field_name, single_key_reference_fields[ref_type][field_name].format(value))
                             ref_obj.save()
-                        else:
-                            ref_obj = None
-
-                    if ref_obj:
-                        ref = str(ref_obj.id)
+                            ref = str(ref_obj.id)
 
                 elif ref_type == 'ArcAgent': # need to speak entities instead of people
                     vals = value.split('_|_')

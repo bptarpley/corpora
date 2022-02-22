@@ -107,6 +107,7 @@
                     </form>
                     <div class="alert alert-info">
                         <button type="button" class="btn btn-primary" id="content-save-button">Save</button>
+                        <button type="button" class="btn btn-primary" id="content-save-and-create-button">Save and Create New</button>
                         <a role="button" href="/corpus/{{ corpus_id }}/" class="btn btn-secondary">Cancel</a>
                     </div>
                     {% if edit_widget_url %}
@@ -325,6 +326,8 @@
                 {% if edit_widget_url %}
                 $('#edit-widget-iframe').attr('src', '{{ edit_widget_url }}');
                 {% endif %}
+
+                if (bulk_editing) $('#content-save-and-create-button').addClass('d-none');
             });
 
             // SETUP FILE SEARCH BOX
@@ -398,6 +401,12 @@
                 }
 
                 $('#content-form').submit();
+            });
+
+            $('#content-save-and-create-button').click(function() {
+                let content_form = $('#content-form');
+                content_form.append('<input type="hidden" name="save-and-create" value="y" />');
+                content_form.submit();
             });
 
             $('.add_multi_field_button').click(function() {
