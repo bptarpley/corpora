@@ -244,17 +244,44 @@ def corpus(request, corpus_id):
             # HANDLE CONTENT TYPE SCHEMA SUBMISSION
             elif 'schema' in request.POST:
                 schema = json.loads(request.POST['schema'])
-                for ct_schema in schema:
-                    queued_job_ids = corpus.save_content_type(ct_schema)
-                    for queued_job_id in queued_job_ids:
-                        run_job(queued_job_id)
 
-                response['messages'].append('''
-                    Content type(s) successfully saved. Due to the setting/unsetting of fields as being in lists, or the 
-                    changing of label templates, <strong>reindexing of existing content may occur</strong>, which can 
-                    result in the temporary unavailability of content in lists or searches. All existing content will be 
-                    made available once reindexing completes.  
-                ''')
+                # reorder schema according to dependencies
+                ordered_schema = []
+                ordering = True
+                while ordering:
+                    num_ordered_cts = len(ordered_schema)
+                    ordered_ct_names = [ct['name'] for ct in ordered_schema]
+
+                    for ct_spec in schema:
+                        independent = True
+                        for field in ct_spec['fields']:
+                            if field['type'] == 'cross_reference' and field['cross_reference_type'] != ct_spec['name'] and field['cross_reference_type'] not in ordered_ct_names:
+                                independent = False
+                                break
+                        if independent and ct_spec['name'] not in ordered_ct_names:
+                            ordered_schema.append(ct_spec)
+                            ordered_ct_names.append(ct_spec['name'])
+
+                    if num_ordered_cts == len(ordered_schema) or len(schema) == len(ordered_schema):
+                        ordering = False
+
+                # if no problems with dependencies, save the content types in correct order
+                if len(ordered_schema) == len(schema):
+
+                    run_job(corpus.queue_local_job(task_name="Save Content Type Schema", parameters={
+                        'schema': json.dumps(ordered_schema),
+                    }))
+
+                    response['messages'].append('''
+                        The content type schema for this corpus is being saved, and once this task is completed, you'll need to refresh this page to see those changes. Due to the setting/unsetting of fields as being in lists, or the 
+                        changing of label templates, <strong>reindexing of existing content may occur</strong>, which can 
+                        result in the temporary unavailability of content in lists or searches. All existing content will be 
+                        made available once reindexing completes.  
+                    ''')
+                else:
+                    response['errors'].append('''
+                        Unable to save content type schema! There may be an issue with circular dependencies.
+                    ''')
 
             # HANDLE CONTENT_TYPE/FIELD ACTIONS THAT REQUIRE CONFIRMATION
             elif _contains(request.POST, [
@@ -506,17 +533,27 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                     setattr(content, ct_field_name, False)
 
             # iterate over the POST params, assuming each one corresponds with a field value
+            control_params = ['corpora-content-edit', 'content-ids', 'content-query', 'save-and-create']
             for field_param, field_value in request.POST.items():
-                if field_param not in ['corpora-content-edit', 'content-ids', 'content-query'] and not field_param.endswith('-intensity'):
+                if field_param not in control_params and not field_param.endswith('-intensity'):
                     param_parts = field_param.split('-')
                     field_name = param_parts[0]
 
                     if field_name in ct_fields:
                         bulk_edit_field_names.append(field_name)
 
-                        # set value for file fields
-                        if ct_fields[field_name].type == 'file':
-                            if field_value:
+                        if field_value == '':
+                            field_value = None
+
+                        # set value for boolean fields
+                        if ct_fields[field_name].type == 'boolean':
+                            field_value = True
+
+                        # set value for other kinds of field if field_value exists
+                        elif field_value or field_value == 0:
+
+                            # set value for file fields
+                            if ct_fields[field_name].type == 'file':
                                 base_path = "{corpus_path}/{content_type}/temporary_uploads".format(
                                     corpus_path=corpus.path,
                                     content_type=content_type
@@ -539,31 +576,18 @@ def edit_content(request, corpus_id, content_type, content_id=None):
 
                                     if not content.id and field_name not in temp_file_fields:
                                         temp_file_fields.append(field_name)
-                            else:
-                                field_value = None
 
-                        # set value for xref fields
-                        elif ct_fields[field_name].type == 'cross_reference':
-                            if field_value:
+                            # set value for xref fields
+                            elif ct_fields[field_name].type == 'cross_reference':
                                 field_value = corpus.get_content(ct_fields[field_name].cross_reference_type, field_value).to_dbref()
-                            else:
-                                field_value = None
 
-                        # set value for number/decimal fields
-                        elif ct_fields[field_name].type in ['number', 'decimal'] and not field_value:
-                            field_value = None
-                        elif ct_fields[field_name].type == 'decimal':
-                            field_value = float(field_value)
+                            # set value for decimal fields
+                            elif ct_fields[field_name].type == 'decimal':
+                                field_value = float(field_value)
 
-                        # set value for boolean fields
-                        elif ct_fields[field_name].type == 'boolean':
-                            field_value = True
-
-                        # set value for date fields
-                        elif ct_fields[field_name].type == 'date' and not field_value:
-                            field_value = None
-                        elif ct_fields[field_name].type == 'date':
-                            field_value = parse_date_string(field_value)
+                            # set value for date fields
+                            elif ct_fields[field_name].type == 'date':
+                                field_value = parse_date_string(field_value)
 
                         # having parsed the value correctly depending on data type, now actually set the field value for
                         # our content
@@ -610,11 +634,17 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                         content._move_temp_file(temp_file_field)
                 content.save()
 
-            return redirect("/corpus/{0}/{1}/{2}".format(
-                corpus_id,
-                content_type,
-                str(content.id)
-            ))
+            if 'save-and-create' in request.POST:
+                return redirect("/corpus/{0}/{1}/?msg={1} saved.".format(
+                    corpus_id,
+                    content_type
+                ))
+            else:
+                return redirect("/corpus/{0}/{1}/{2}".format(
+                    corpus_id,
+                    content_type,
+                    str(content.id)
+                ))
 
         return render(
             request,

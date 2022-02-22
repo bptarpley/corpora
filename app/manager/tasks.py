@@ -91,6 +91,23 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['bulk_edit_content']
     },
+    "Save Content Type Schema": {
+        "version": "0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "schema": {
+                    "value": "",
+                    "type": "JSON",
+                    "label": "Content Type Schema"
+                }
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['save_content_type_schema']
+    },
     "Adjust Content": {
         "version": "0.2",
         "jobsite_type": "HUEY",
@@ -501,6 +518,20 @@ def check_jobs():
                             job.complete(status='complete')
                 elif job.status == 'queueing':
                     run_job(job.id)
+
+
+@db_task(priority=1)
+def save_content_type_schema(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    schema = json.loads(job.get_param_value('schema'))
+
+    for ct_schema in schema:
+        queued_job_ids = job.corpus.save_content_type(ct_schema)
+        for queued_job_id in queued_job_ids:
+            run_job(queued_job_id)
+
+    job.complete(status='complete')
 
 
 @db_task(priority=5)
