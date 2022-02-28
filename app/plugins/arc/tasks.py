@@ -423,11 +423,11 @@ ERROR occurred while readying the {0} archive for indexing:
         '''.format(archive.handle, traceback.format_exc()))
 
     job.report("FINISHED indexing the {0} archive (indexed {1} artifacts in {2} seconds).".format(archive.handle, artifacts_indexed, time.time() - indexing_started))
-    job.report("Avg parse time: {0} seconds; Avg save time: {1} seconds".format(
-        sum(parse_times) / len(parse_times),
-        sum(save_times) / len(save_times)
-    ))
-    #es_logger.setLevel(es_log_level)
+    if parse_times and save_times:
+        job.report("Avg parse time: {0} seconds; Avg save time: {1} seconds".format(
+            sum(parse_times) / len(parse_times),
+            sum(save_times) / len(save_times)
+        ))
 
     if task:
         job.complete_process(task.id)
