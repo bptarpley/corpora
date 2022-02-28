@@ -196,6 +196,19 @@ connections.configure(
     default={'hosts': os.environ['CRP_ELASTIC_HOST'], 'timeout': 60}
 )
 
+# Corpora allows users to create arbitrary content types, with the ability to name fields
+# however they want, with certain exceptions listed here:
+INVALID_FIELD_NAMES = [
+    "id",
+    "corpus_id",
+    "content_type",
+    "last_updated",
+    "provenance",
+    "path",
+    "label",
+    "uri"
+]
+
 ES_SYNONYM_OPTIONS = {
     "early_modern": {
         "label": "Early Modern",

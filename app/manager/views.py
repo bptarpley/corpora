@@ -490,6 +490,7 @@ def corpus(request, corpus_id):
             'corpus_id': corpus_id,
             'role': role,
             'content_views': content_views,
+            'invalid_field_names': settings.INVALID_FIELD_NAMES,
             'response': response,
             'available_jobsites': [str(js.id) for js in response['scholar']['available_jobsites']],
             'available_tasks': [str(t.id) for t in response['scholar']['available_tasks']],

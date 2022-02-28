@@ -243,7 +243,7 @@
                     <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
-                <div class="modal-body">
+                <div id="new-f-modal-body" class="modal-body">
                     <input id="new-f-ct-name" type="hidden" value="new">
                     <input id="new-f-f-id" type="hidden" value="new">
                     <input id="new-f-action" type="hidden" value="create">
@@ -755,6 +755,7 @@
             cross_reference: 'Cross Reference',
             embedded: 'Embedded'
         };
+        const INVALID_FIELD_NAMES = {{ invalid_field_names|safe }};
 
         // fires once HTML DOM has loaded
         $(document).ready(function() {
@@ -1067,7 +1068,19 @@
 
                     // PEP8 VARIABLE FORMAT FIELD NAME
                     $('#new-f-name-box').focusout(function () {
-                        $('#new-f-name-box').val(pep8_variable_format($('#new-f-name-box').val()));
+                        let f_box = $('#new-f-name-box');
+                        f_box.val(pep8_variable_format(f_box.val()));
+                        if (INVALID_FIELD_NAMES.includes(f_box.val())) {
+                            $('#new-f-modal-body').prepend(`
+                                <div id="new-f-modal-invalid-field-msg" class="alert alert-danger">
+                                    Unfortunately, the field name "${f_box.val()}" is invalid or reserved. Please choose a different name for this field.
+                                </div>
+                            `);
+                            $(`#new-f-create-button`).prop('disabled', true);
+                        } else {
+                            $('#new-f-modal-invalid-field-msg').remove();
+                            $(`#new-f-create-button`).prop('disabled', false);
+                        }
                     });
 
                     // NEW CONTENT TYPE BUTTON CLICK
