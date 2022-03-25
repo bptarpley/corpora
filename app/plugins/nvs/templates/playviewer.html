@@ -191,7 +191,7 @@
                 max-height: 35px;
             }
 
-            li a {
+            .nav li a {
                 padding: 0.5rem 1rem 1.5rem 1rem;
                 width: 100%;
                 display: block;
@@ -199,7 +199,7 @@
                 color: rgb(55, 55, 55);
             }
 
-            li a:hover {
+            .nav li a:hover {
                 color: var(--nvs-dark-blue);
                 text-decoration: none;
             }
@@ -659,7 +659,7 @@
                 font-family: 'Baskerville', serif;
                 font-size: clamp(1.125rem, 1.2vw, 1.5rem);
                 font-variant-numeric: oldstyle-nums;
-                color: #949494;
+                color: #2D2D2D;
                 padding-left: 41px !important;
                 padding-top: 10px;
                 padding-bottom: 5px;
@@ -983,7 +983,7 @@
                 font-weight: 700;
             }
             .ref-modal-content .date {
-                font-weight: 700;
+                font-family: "HalyardTextMedium";
             }
 
             .ref-modal-content .title.level_m, .ref-modal-content .title.level_j {
@@ -2255,7 +2255,7 @@
         header_context.fillStyle = font_color;
         header_context.translate(width_cursor + 5, header_height - 5);
         header_context.rotate(-Math.PI / 2);
-        header_context.fillText("SEL.", 0, font_size);
+        header_context.fillText("OCC.", 0, font_size);
         header_context.restore();
 
         wit_header_col.css('background-image', `url(${header_canvas.toDataURL()})`);
