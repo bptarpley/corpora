@@ -1353,9 +1353,19 @@ class Corpus(mongoengine.Document):
                 else:
                     should.append(SimpleQueryString(query=general_query))
 
+            # helper function for determining local operators for queries below
+            def determine_local_operator(search_field, operator):
+                if search_field.endswith('+'):
+                    return search_field[:-1], "and"
+                elif search_field.endswith('|'):
+                    print("or query")
+                    return search_field[:-1], "or"
+                return search_field, operator
+
             # FIELDS QUERY
             for search_field in fields_query.keys():
                 field_values = [value_part for value_part in fields_query[search_field].split('__') if value_part]
+                search_field, local_operator = determine_local_operator(search_field, operator)
                 field_type = None
 
                 if '.' in search_field:
@@ -1412,7 +1422,7 @@ class Corpus(mongoengine.Document):
                         q = Q('match', **search_criteria)
 
                     if q:
-                        if operator == 'and':
+                        if local_operator == 'and':
                             must.append(q)
                         else:
                             should.append(q)
@@ -1420,6 +1430,7 @@ class Corpus(mongoengine.Document):
             # PHRASE QUERY
             for search_field in fields_phrase.keys():
                 field_values = [value_part for value_part in fields_phrase[search_field].split('__') if value_part]
+                search_field, local_operator = determine_local_operator(search_field, operator)
 
                 for field_value in field_values:
                     q = None
@@ -1438,7 +1449,7 @@ class Corpus(mongoengine.Document):
                         q = Q('match_phrase', **{search_field: field_value})
 
                     if q:
-                        if operator == 'and':
+                        if local_operator == 'and':
                             must.append(q)
                         else:
                             should.append(q)
@@ -1446,32 +1457,33 @@ class Corpus(mongoengine.Document):
             # TERMS QUERY
             for search_field in fields_term.keys():
                 field_values = [value_part for value_part in fields_term[search_field].split('__') if value_part]
+                search_field, local_operator = determine_local_operator(search_field, operator)
 
-                for field_value in field_values:
-                    q = None
+                q = None
 
-                    if '.' in search_field:
-                        field_parts = search_field.split('.')
-                        q = Q(
-                            "nested",
-                            path=field_parts[0],
-                            query=Q(
-                                'term',
-                                **{search_field: field_value}
-                            )
+                if '.' in search_field:
+                    field_parts = search_field.split('.')
+                    q = Q(
+                        "nested",
+                        path=field_parts[0],
+                        query=Q(
+                            'terms',
+                            **{search_field: field_values}
                         )
-                    else:
-                        q = Q('term', **{search_field: field_value})
+                    )
+                else:
+                    q = Q('terms', **{search_field: field_values})
 
-                    if q:
-                        if operator == 'and':
-                            must.append(q)
-                        else:
-                            should.append(q)
+                if q:
+                    if local_operator == 'and':
+                        must.append(q)
+                    else:
+                        should.append(q)
 
             # WILDCARD QUERY
             for search_field in fields_wildcard.keys():
                 field_values = [value_part for value_part in fields_wildcard[search_field].split('__') if value_part]
+                search_field, local_operator = determine_local_operator(search_field, operator)
 
                 for field_value in field_values:
                     if '*' not in field_value:
@@ -1493,7 +1505,7 @@ class Corpus(mongoengine.Document):
                         q = Q('wildcard', **{search_field: field_value})
 
                     if q:
-                        if operator == 'and':
+                        if local_operator == 'and':
                             must.append(q)
                         else:
                             should.append(q)
