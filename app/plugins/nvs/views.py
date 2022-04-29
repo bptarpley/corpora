@@ -89,7 +89,7 @@ def playviewer(request, corpus_id=None, play_prefix=None):
 
     lines = get_session_lines(corpus, nvs_session)
 
-    notes = {}
+    #notes = {}
     line_note_map = {}
     note_results = corpus.search_content(
         'TextualNote',
@@ -98,16 +98,22 @@ def playviewer(request, corpus_id=None, play_prefix=None):
             'play.id': str(play.id)
         },
         fields_sort=[{'lines.line_number': {'order': 'asc'}}],
-        only=['xml_id', 'variants', 'lines.xml_id']
+        only=['id', 'xml_id', 'lines.xml_id']
     )
     if note_results and 'records':
         for note in note_results['records']:
-            notes[note['xml_id']] = note
+            #notes[note['xml_id']] = note
             for line in note['lines']:
                 if line['xml_id'] not in line_note_map:
-                    line_note_map[line['xml_id']] = [note['xml_id']]
+                    line_note_map[line['xml_id']] = [{
+                        'id': note['id'],
+                        'xml_id': note['xml_id']
+                    }]
                 else:
-                    line_note_map[line['xml_id']].append(note['xml_id'])
+                    line_note_map[line['xml_id']].append({
+                        'id': note['id'],
+                        'xml_id': note['xml_id']
+                    })
 
     comm_ids = []
     comm_search = {
@@ -166,7 +172,7 @@ def playviewer(request, corpus_id=None, play_prefix=None):
             'corpus_id': corpus_id,
             'lines': lines,
             'act_scenes': act_scenes,
-            'notes': json.dumps(notes),
+            #'notes': json.dumps(notes),
             'comm_ids': comm_ids,
             'line_note_map': line_note_map,
             'play': play,
@@ -251,7 +257,8 @@ def paratext(request, corpus_id=None, play_prefix=None, section=None):
             )
 
         last_marker = ""
-        for bib in play.bibliographic_sources:
+        bibs = corpus.get_content("Reference", {'play': play.id, 'ref_type': 'bibliographic_source'}).order_by('+id')
+        for bib in bibs:
             marker = last_marker
             if bib.bibliographic_entry_text:
                 entry_text = bib.bibliographic_entry_text
@@ -270,7 +277,7 @@ def paratext(request, corpus_id=None, play_prefix=None, section=None):
                 last_marker = marker
 
             section_html += '<a name="{0}" class="anchor"></a><li class="bibl">{1}</li>'.format(
-                bib.siglum,
+                bib.document.siglum,
                 bib.bibliographic_entry
             )
 
@@ -1079,15 +1086,16 @@ def get_nvs_witnesses(corpus, play):
     witness_centuries = {}
 
     wit_counter = 0
-    for wit_doc in play.primary_witnesses:
-        witnesses[wit_doc.siglum] = {
+    wit_refs = corpus.get_content("Reference", {'play': play.id, 'ref_type': 'primary_witness'}).order_by('+id')
+    for wit_ref in wit_refs:
+        witnesses[wit_ref.document.siglum] = {
             'slots': [wit_counter],
-            'document_id': str(wit_doc.id),
-            'bibliographic_entry': "{0} {1}".format(wit_doc.siglum_label, wit_doc.bibliographic_entry),
+            'document_id': str(wit_ref.document.id),
+            'bibliographic_entry': "{0} {1}".format(wit_ref.document.siglum_label, wit_ref.bibliographic_entry),
             'occasional': False
         }
 
-        century = wit_doc.pub_date[:2] + "00"
+        century = wit_ref.document.pub_date[:2] + "00"
         if century in witness_centuries:
             witness_centuries[century] += 1
         else:
@@ -1095,11 +1103,12 @@ def get_nvs_witnesses(corpus, play):
 
         wit_counter += 1
 
-    for sel_doc in play.occasional_witnesses:
-        witnesses[sel_doc.siglum] = {
+    wit_refs = corpus.get_content("Reference", {'play': play.id, 'ref_type': 'occasional_witness'}).order_by('+id')
+    for wit_ref in wit_refs:
+        witnesses[wit_ref.document.siglum] = {
             'slots': [wit_counter],
-            'document_id': str(sel_doc.id),
-            'bibliographic_entry': sel_doc.bibliographic_entry,
+            'document_id': str(wit_ref.document.id),
+            'bibliographic_entry': wit_ref.bibliographic_entry,
             'occasional': True
         }
 
@@ -1113,7 +1122,7 @@ def get_nvs_witnesses(corpus, play):
                 slots += witnesses[reffed_doc.siglum]['slots']
                 if bib_entry:
                     bib_entry += "<br /><br />"
-                bib_entry += "{0} {1}".format(reffed_doc.siglum_label, reffed_doc.bibliographic_entry)
+                bib_entry += "{0}".format(witnesses[reffed_doc.siglum]['bibliographic_entry'])
 
         witnesses[collection.siglum] = {
             'slots': slots,

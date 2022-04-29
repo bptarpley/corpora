@@ -577,19 +577,20 @@
                 font-weight: bold;
             }
 
-            span.castgroup span.role {
+            /*span.castgroup span.role {
                 margin-right: 5px;
-            }
+            }*/
 
             span.roledesc {
                 font-style: italic;
                 display: inline-block;
+                margin-left: 5px;
             }
 
             span.stage {
                 font-style: italic;
                 margin-right: auto !important;
-                margin-left: auto !important;
+                margin-left: 10px !important;
             }
 
             span.speaker-abbreviation {
@@ -1294,8 +1295,8 @@
                                         {% if line.witness_meter|to_int > 0 %}
                                             <a id="{{ line.xml_id }}-variant-toggler"
                                                    class="variant-toggler"
-                                                   data-toggle="collapse"
-                                                   href="#{{ line.xml_id }}-variant-div"
+                                                   data-DISALBED-toggle="collapse"
+                                                   data-href="#{{ line.xml_id }}-variant-div"
                                                    role="button"
                                                    aria-expanded="false"
                                                    aria-controls="{{ line.xml_id }}-variant-div">
@@ -1435,7 +1436,9 @@
     let witnesses = {{ witnesses|safe }};
     let witness_centuries = {{ witness_centuries|safe }};
     let witness_count = {{ witness_count }};
-    let notes = {{ notes|safe }};
+
+    let notes = {};
+    let notes_populated = {};
     let line_note_map = {{ line_note_map|safe }};
     let act_scenes = {{ act_scenes|safe }};
 
@@ -1464,8 +1467,8 @@
             'filter_play': true,
         },
         'bibl': {
-            'content_type': 'Document',
-            'xml_id_field': 'siglum',
+            'content_type': 'Reference',
+            'xml_id_field': 'document.siglum',
             'content_field': 'bibliographic_entry',
             'title': "BIBLIOGRAPHY",
             'title_plural': "BIBLIOGRAPHY",
@@ -1473,8 +1476,8 @@
             'filter_play': false,
         },
         'siglum': {
-            'content_type': 'Document',
-            'xml_id_field': 'siglum',
+            'content_type': 'Reference',
+            'xml_id_field': 'document.siglum',
             'content_field': 'bibliographic_entry',
             'title': "COLLATED EDITION",
             'title_plural': "COLLATED EDITIONS",
@@ -1508,6 +1511,7 @@
         style_sheet = document.styleSheets[0];
 
         setup_lines();
+        enclose_castgroups();
         configure_controls();
         adjust_for_screensize();
         enable_commentary_highlighting();
@@ -1625,7 +1629,7 @@
             if (e.which === 13) {
                 start_loading();
                 let query = quick_search_box.html().trim().replace(/(<([^>]+)>)/gi, " ");
-                console.log(query);
+
                 quick_search_box.empty();
                 quick_search_box.html(query);
 
@@ -1687,9 +1691,11 @@
         // VARIANT TOGGLER CLICK
         $('.variant-toggler').click(function() {
             let line_xml_id = this.id.replace('-variant-toggler', '');
-            if (!lines[line_xml_id].populated) {
-                show_notes(line_xml_id);
-            }
+
+            // make sure line is populated and toggle the variant drawer
+            populate_line(line_xml_id);
+            $(`#${line_xml_id}-variant-div`).collapse('toggle');
+
             $('.variant-siglum').off('mouseenter').on('mouseenter', function() {
                 let link = $(this);
                 let siglum = `s_${link.html().toLowerCase()}`;
@@ -1806,6 +1812,7 @@
 
     function adjust_for_screensize() {
         screen_size = determine_screen_size();
+
         if (screen_size === "small") {
             display_nav_modal(
                 'Warning',
@@ -1828,12 +1835,14 @@
             // REDRAW LINE WITNESS METERS
             $('.play-row').each(function() {
                 let xml_id = $(this).data('xml_id');
-                draw_witness_meter(
-                    lines[xml_id].witness_indicators,
-                    lines[xml_id].witness_meter,
-                    lines[xml_id].witness_column.clientWidth,
-                    lines[xml_id].witness_column.clientHeight - 8
-                );
+                if (lines[xml_id].populated) {
+                    draw_witness_meter(
+                        lines[xml_id].witness_indicators,
+                        lines[xml_id].witness_meter,
+                        lines[xml_id].witness_column.clientWidth,
+                        lines[xml_id].witness_column.clientHeight - 8
+                    );
+                }
             });
 
             // REDRAW VARIANT WITNESS METERS
@@ -1937,70 +1946,97 @@
         return 'large';
     }
 
-    function show_notes(line_id) {
-        let line_variant_div = $(`#${line_id}-variant-div`);
-        let line_witness_meter = $(`#${line_id}-witness-meter`);
+    function show_notes(line_id, tries=0) {
+        // ensure line has notes
+        if (line_note_map.hasOwnProperty(line_id)) {
 
-        line_variant_div.removeClass('hidden');
-        line_witness_meter.removeClass('hidden');
-
-        // make note/variant elements
-        lines[line_id].notes.map(note_id => {
-            if(!notes[note_id].populated) {
-                notes[note_id].line_range = '';
-                if (notes[note_id].lines.length > 1) {
-                    let start_id = notes[note_id].lines[0].xml_id;
-                    let end_id = notes[note_id].lines[notes[note_id].lines.length - 1].xml_id;
-                    notes[note_id].line_range = `<span class='text-muted'>${lines[start_id].label}-${lines[end_id].label}: </span>`;
+            // ensure data for notes has been loaded
+            let note_requests = []
+            line_note_map[line_id].map(note_info => {
+                if (!notes.hasOwnProperty(note_info.xml_id)) {
+                    note_requests.push(corpora.list_content(
+                        corpus_id,
+                        'TextualNote',
+                        {'f_id': note_info.id},
+                        function (note) {
+                            if (note.hasOwnProperty('records') && note.records.length === 1)
+                                notes[note_info.xml_id] = note.records[0];
+                        }
+                    ));
                 }
-
-                notes[note_id].variants.map(variant => {
-                    let variant_words = variant.variant;
-                    if (!variant_words) {
-                        if (variant.description === null) {
-                            variant_words = `<span class="variant-note">Due to the site being in beta, an error occurred when parsing this variant.</span>`;
-                        } else {
-                            variant_words = `<span class="variant-note">${variant.description}</span>`;
-                        }
-                    }
-                    variant_words = notes[note_id].line_range + variant_words;
-
-                    notes[note_id].lines.map(line => {
-                        if (line.xml_id in lines) {
-                            $(`#${line.xml_id}-variant-div`).append(`
-                                <div class="row no-gutters variant-row">
-                                    <div class="col-sm-4 p-0 m-0">
-                                        <div class="row no-gutters">
-                                            <div id="variant-${variant.id}" class="col-sm-12 p-0 m-0 variant-witness-meter clickable">
-                                                <img id="${line.xml_id}-${variant.id}-witness-meter" height="15" width="100%" src="{% static 'img/blank-meter.png'%}" data-witness_indicators="${variant.witness_meter}" />
-                                            </div>
-                                        </div>
-                                        <div class="row no-gutters">
-                                            <div class="col-sm-12 witness-formula" data-line-id="${line.xml_id}" data-variant-id="${variant.id}">
-                                                ${variant.witness_formula}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-8 p-0 m-0 variant-words align-self-center">${variant_words}</div>
-                                </div>
-                            `);
-
-                            let variant_col_width = $(`#${line.xml_id}-witness-col`).outerWidth();
-                            draw_witness_meter(
-                                variant.witness_meter,
-                                document.getElementById(`${line.xml_id}-${variant.id}-witness-meter`),
-                                variant_col_width,
-                                25,
-                                "#FFFFFF"
-                            );
-                        }
-                    });
+            });
+            if (note_requests.length && tries < 3) {
+                $.when.apply(null, note_requests).done(function() {
+                    show_notes(line_id, tries + 1);
                 });
-                notes[note_id].populated = true;
+                return null;
             }
-        });
 
-        lines[line_id].populated = true;
+            let line_variant_div = $(`#${line_id}-variant-div`);
+            let line_witness_meter = $(`#${line_id}-witness-meter`);
+
+            line_variant_div.removeClass('hidden');
+            line_witness_meter.removeClass('hidden');
+
+            // make note/variant elements
+            line_note_map[line_id].map(note_info => {
+                let note_id = note_info.xml_id;
+
+                if(!notes_populated.hasOwnProperty(note_id)) {
+                    notes_populated[note_id] = true;
+
+                    notes[note_id].line_range = '';
+                    if (notes[note_id].lines.length > 1) {
+                        let start_id = notes[note_id].lines[0].xml_id;
+                        let end_id = notes[note_id].lines[notes[note_id].lines.length - 1].xml_id;
+                        notes[note_id].line_range = `<span class='text-muted'>${lines[start_id].label}-${lines[end_id].label}: </span>`;
+                    }
+
+                    notes[note_id].variants.map(variant => {
+                        let variant_words = variant.variant;
+                        if (!variant_words) {
+                            if (variant.description === null) {
+                                variant_words = `<span class="variant-note">Due to the site being in beta, an error occurred when parsing this variant.</span>`;
+                            } else {
+                                variant_words = `<span class="variant-note">${variant.description}</span>`;
+                            }
+                        }
+                        variant_words = notes[note_id].line_range + variant_words;
+
+                        notes[note_id].lines.map(line => {
+                            if (line.xml_id in lines) {
+                                $(`#${line.xml_id}-variant-div`).append(`
+                                    <div class="row no-gutters variant-row">
+                                        <div class="col-sm-4 p-0 m-0">
+                                            <div class="row no-gutters">
+                                                <div id="variant-${variant.id}" class="col-sm-12 p-0 m-0 variant-witness-meter clickable">
+                                                    <img id="${line.xml_id}-${variant.id}-witness-meter" height="15" width="100%" src="{% static 'img/blank-meter.png'%}" data-witness_indicators="${variant.witness_meter}" />
+                                                </div>
+                                            </div>
+                                            <div class="row no-gutters">
+                                                <div class="col-sm-12 witness-formula" data-line-id="${line.xml_id}" data-variant-id="${variant.id}">
+                                                    ${variant.witness_formula}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-sm-8 p-0 m-0 variant-words align-self-center">${variant_words}</div>
+                                    </div>
+                                `);
+
+                                let variant_col_width = $(`#${line.xml_id}-witness-col`).outerWidth();
+                                draw_witness_meter(
+                                    variant.witness_meter,
+                                    document.getElementById(`${line.xml_id}-${variant.id}-witness-meter`),
+                                    variant_col_width,
+                                    25,
+                                    "#FFFFFF"
+                                );
+                            }
+                        });
+                    });
+                }
+            });
+        }
     }
 
     function display_variant_editions(witness_indicators, link) {
@@ -2061,7 +2097,7 @@
         $('#search-commentary-next').removeClass('d-none');
 
         let box_rect = $('#hdr-quick-search-box')[0].getBoundingClientRect();
-        console.log(box_rect);
+
         search_widget.css('top', `${box_rect.top + window.pageYOffset + 50}px`);
         search_widget.css('left', `${box_rect.left + box_rect.width - 50}px`);
         make_draggable(search_widget[0]);
@@ -2598,6 +2634,25 @@
 
     function setup_lines() {
         var line_observer = new IntersectionObserver(function(entries) {
+            entries.map((entry, index) => {
+                if (entry.isIntersecting) {
+                    let line_id = entry.target.id.replace('-row', '');
+                    populate_line(line_id);
+
+                    if (index === entries.length - 1) {
+                        // determine current act/scene
+                        let act = lines[line_id].act;
+                        let scene = lines[line_id].scene;
+                        let act_scene = `${act}.${scene}`;
+                        if (act_scene !== current_act_scene) {
+                            $('.actscene-indicator').removeClass('active');
+                            $(`.actscene-indicator[data-actscene="${act_scene}"]`).addClass('active');
+                            current_act_scene = act_scene;
+                        }
+                    }
+                }
+            })
+            /*
             if (entries[entries.length - 1].isIntersecting) {
                 let line_id = entries[entries.length - 1].target.id.replace('-row', '');
 
@@ -2618,7 +2673,9 @@
                     $(`.actscene-indicator[data-actscene="${act_scene}"]`).addClass('active');
                     current_act_scene = act_scene;
                 }
-            }
+
+                populate_line(line_id);
+            }*/
         }, { threshold: [0] });
 
         $('.play-row').each(function() {
@@ -2637,25 +2694,46 @@
                 witness_meter: document.getElementById(`${xml_id}-witness-meter`),
             };
 
-            draw_witness_meter(
-                lines[xml_id].witness_indicators,
-                lines[xml_id].witness_meter,
-                lines[xml_id].witness_column.clientWidth,
-                lines[xml_id].witness_column.clientHeight - 8
-            );
-
             line_observer.observe(this);
-        });
 
-        Object.keys(notes).map(note_id => {
-            let note = notes[note_id];
-            note.lines.map(line => {
-                if (lines.hasOwnProperty(line.xml_id)) lines[line.xml_id].notes.push(note_id);
-            });
+            if (lines[xml_id].number < 50)
+                populate_line(xml_id);
         });
 
         last_visible_line = 0;
         load_commentary();
+    }
+
+    function populate_line(line_id) {
+        if (!lines[line_id].populated) {
+            show_notes(line_id);
+
+            draw_witness_meter(
+                lines[line_id].witness_indicators,
+                lines[line_id].witness_meter,
+                lines[line_id].witness_column.clientWidth,
+                lines[line_id].witness_column.clientHeight - 8
+            );
+
+
+        }
+    }
+
+    function enclose_castgroups() {
+        let group_ids = [];
+        let castgroups = $('.castgroup');
+
+        castgroups.each(function() {
+            let css_class = this.classList[1];
+            if (!group_ids.includes(css_class) && css_class[0] !== '#')
+                group_ids.push(css_class);
+        });
+
+        group_ids.map(group_id => {
+            let cg_elements = $(`.castgroup.${group_id}:not(:empty)`);
+            cg_elements.first().prepend('<span style="margin-left: -10px;">{</span>');
+            cg_elements.last().find('.castitem').last().append('}');
+        });
     }
 
     </script>

@@ -1731,6 +1731,118 @@ REGISTRY = [
         ],
         "view_widget_url": None,
         "edit_widget_url": None
+    },
+    {
+        "name": "Reference",
+        "plural_name": "References",
+        "fields": [
+            {
+                "name": "play",
+                "label": "Play",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "Play",
+                "has_intensity": False,
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "document",
+                "label": "Document",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "cross_reference",
+                "choices": [],
+                "cross_reference_type": "Document",
+                "has_intensity": False,
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "ref_type",
+                "label": "Reference Type",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "has_intensity": False,
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "bibliographic_entry",
+                "label": "Bibliographic Entry",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "html",
+                "choices": [],
+                "cross_reference_type": "",
+                "has_intensity": False,
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "bibliographic_entry_text",
+                "label": "Bibliographic Entry Text",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": True,
+                "type": "text",
+                "choices": [],
+                "cross_reference_type": "",
+                "has_intensity": False,
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            }
+        ],
+        "show_in_nav": True,
+        "proxy_field": "",
+        "templates": {
+            "Label": {
+                "template": "Reference {{ Reference.id }}",
+                "mime_type": "text/html"
+            }
+        },
+        "inherited": False,
+        "invalid_field_names": [
+            "corpus_id",
+            "content_type",
+            "last_updated",
+            "provenance",
+            "field_intensities",
+            "path",
+            "label",
+            "uri"
+        ],
+        "view_widget_url": None,
+        "edit_widget_url": None
     }
 ]
 
