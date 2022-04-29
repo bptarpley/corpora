@@ -81,7 +81,7 @@ class Corpora {
         }
 
         let sender = this;
-        $.ajax(req);
+        return $.ajax(req);
     }
 
     get_scholars(search={}, callback) {
@@ -200,7 +200,7 @@ class Corpora {
     }
 
     get_content(corpus_id, content_type, content_id, callback) {
-        this.make_request(
+        return this.make_request(
             `/api/corpus/${corpus_id}/${content_type}/${content_id}/`,
             "GET",
             {},
@@ -209,7 +209,7 @@ class Corpora {
     }
 
     list_content(corpus_id, content_type, search={}, callback, spool=false) {
-        this.make_request(
+        return this.make_request(
             `/api/corpus/${corpus_id}/${content_type}/`,
             "GET",
             search,

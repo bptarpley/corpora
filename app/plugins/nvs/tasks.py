@@ -122,11 +122,11 @@ nvs_document_fields = [
 
 
 nvs_document_types = {
-    'witness': 'primary_witnesses',
-    'occasional': 'occasional_witnesses',
-    'pw_primarysources': 'primary_sources',
-    'pw_occasional': 'occasional_sources',
-    'bibliography': 'bibliographic_sources'
+    'witness': 'primary_witness',
+    'occasional': 'occasional_witness',
+    'pw_primarysources': 'primary_source',
+    'pw_occasional': 'occasional_source',
+    'bibliography': 'bibliographic_source'
 }
 
 
@@ -346,6 +346,7 @@ def reset_nvs_content_types(corpus):
         'PlayTag',
         'PlayLine',
         'WitnessLocation',
+        'Reference',
         'DocumentCollection',
         'ContentBlock',
         'Play',
@@ -401,7 +402,8 @@ def delete_play_data(corpus, play_prefix):
             'TextualVariant',
             'TextualNote',
             'Speech',
-            'PlayLine'
+            'PlayLine',
+            'Reference'
         ]
 
         for nvs_ct in nvs_content_types:
@@ -513,6 +515,7 @@ FRONT MATTER INGESTION
 
     # extract witness and reference documents
     try:
+        # todo: cleanup old reference approach
         for field in ['primary_witnesses', 'occasional_witnesses', 'primary_sources', 'occasional_sources']:
             setattr(play, field, [])
 
@@ -538,7 +541,7 @@ FRONT MATTER INGESTION
                     pub_date = re.sub(r"\D", "", pub_date)
                     pub_date = pub_date[:4]
 
-                    witness = handle_bibl_tag(
+                    witness, bibliographic_entry = handle_bibl_tag(
                         corpus,
                         witness_tag.bibl,
                         unhandled,
@@ -548,8 +551,16 @@ FRONT MATTER INGESTION
                     )
                     doc_type_count += 1
 
-                    play_field = nvs_document_types[nvs_doc_type]
-                    getattr(play, play_field).append(witness.id)
+                    ref_type = nvs_document_types[nvs_doc_type]
+                    reference = corpus.get_content("Reference")
+                    reference.play = play.id
+                    reference.document = witness.id
+                    reference.ref_type = ref_type
+                    reference.bibliographic_entry = bibliographic_entry
+                    reference.bibliographic_entry_text = strip_tags(bibliographic_entry).strip()
+                    reference.save()
+
+                    #getattr(play, play_field).append(witness.id)
 
                 elif 'corresp' in witness_tag.attrs:
                     witness_collections.append({
@@ -583,14 +594,29 @@ FRONT MATTER INGESTION
         bibl_count = 0
         for bibl_list in plan_of_work.find_all('listBibl'):
             nvs_doc_type = bibl_list['xml:id'].replace("bibl_", "")
-            play_field = nvs_document_types[nvs_doc_type]
+            ref_type = nvs_document_types[nvs_doc_type]
 
             for bibl in bibl_list.find_all('bibl'):
-                doc = handle_bibl_tag(corpus, bibl, unhandled)
-                if doc:
+                doc, bibliographic_entry = handle_bibl_tag(corpus, bibl, unhandled)
+                if doc and bibliographic_entry:
                     bibl_count += 1
-                    if doc not in getattr(play, play_field):
-                        getattr(play, play_field).append(doc.id)
+
+                    reference = corpus.get_content(
+                        "Reference",
+                        {'play': play.id, 'document': doc.id, 'ref_type': ref_type},
+                        single_result=True
+                    )
+                    if not reference:
+                        reference = corpus.get_content("Reference")
+                        reference.play = play.id
+                        reference.document = doc.id
+                        reference.ref_type = ref_type
+                        reference.bibliographic_entry = bibliographic_entry
+                        reference.bibliographic_entry_text = strip_tags(bibliographic_entry).strip()
+                        reference.save()
+
+                    #if doc not in getattr(play, play_field):
+                    #    getattr(play, play_field).append(doc.id)
                 else:
                     report += "Error parsing the following bibliographic entry:\n{0}\n\n".format(str(bibl))
 
@@ -629,6 +655,9 @@ PLAY TEXT INGESTION
     # retrieve basetext document
     basetext = corpus.get_content("Document", {'siglum': basetext_siglum})[0]
 
+    # get witness count
+    wit_count = corpus.get_content("Reference", {'play': play.id, 'ref_type': 'primary_witness'}).count()
+
     try:
         # setup context info for parsing playlines
         line_info = {
@@ -643,7 +672,7 @@ PLAY TEXT INGESTION
             'act': None,
             'scene': None,
             'witness_location_id': None,
-            'witness_count': len(play.primary_witnesses),
+            'witness_count': wit_count,
             'basetext_id': basetext.id,
             'unhandled_tags': [],
             'characters': [],
@@ -859,7 +888,9 @@ def handle_playtext_tag(corpus, play, tag, line_info):
             # castGroup
             elif tag.name == 'castGroup' and 'rend' in tag.attrs:
                 playtag_name = 'span'
-                playtag_classes = 'castgroup {0}'.format(tag['rend'].replace('braced_right(', '').replace(')', ''))
+                matches = re.findall(r'[^\(]*\(([^\)]*)\)', tag['rend'])
+                if matches:
+                    playtag_classes = 'castgroup {0}'.format(matches[0].replace('#', ''))
 
             # castItem
             elif tag.name == 'castItem':
@@ -1008,7 +1039,8 @@ TEXTUAL NOTES INGESTION
 
         # get list of witnesses ordered by publication date so as
         # to handle witness ranges
-        witnesses = [wit for wit in play.primary_witnesses]
+        references = corpus.get_content("Reference", {'play': play.id, 'ref_type': 'primary_witness'}).order_by('+id')
+        witnesses = [ref.document for ref in references]
         for witness in witnesses:
             all_sigla.append(strip_tags(witness.siglum_label))
 
@@ -1573,14 +1605,21 @@ BIBLIOGRAPHY INGESTION
     bibls = bib_tei.div.listBibl.find_all('bibl', recursive=False)
 
     for bibl in bibls:
-        doc = handle_bibl_tag(corpus, bibl, unhandled)
-        if doc:
+        doc, bibliographic_entry = handle_bibl_tag(corpus, bibl, unhandled)
+        if doc and bibliographic_entry:
             doc_count += 1
-            play.bibliographic_sources.append(doc.id)
+
+            reference = corpus.get_content("Reference")
+            reference.play = play.id
+            reference.document = doc.id
+            reference.ref_type = 'bibliographic_source'
+            reference.bibliographic_entry = bibliographic_entry
+            reference.bibliographic_entry_text = strip_tags(bibliographic_entry).strip()
+            reference.save()
+            # play.bibliographic_sources.append(doc.id)
         else:
             report += "Error creating bibliographic entry for this TEI representation:\n{0}\n\n".format(str(bibl).replace('<', '&lt;').replace('>', '&gt;'))
 
-    play.save()
     unhandled = list(set(unhandled))
     if unhandled:
         report += "The following tags were not properly converted from TEI to HTML: {0}\n\n".format(', '.join(unhandled))
@@ -1592,6 +1631,17 @@ BIBLIOGRAPHY INGESTION
 
 def handle_bibl_tag(corpus, bibl, unhandled, xml_id=None, date='', siglum_label=''):
     doc = None
+    doc_data = {
+        'siglum_label': '',
+        'author': '',
+        'bibliographic_entry': '',
+        'title': '',
+        'pub_date': date,
+        'editor': '',
+        'publisher': '',
+        'place': '',
+        'unhandled': []
+    }
 
     if xml_id or 'xml:id' in bibl.attrs:
         siglum = xml_id
@@ -1603,34 +1653,24 @@ def handle_bibl_tag(corpus, bibl, unhandled, xml_id=None, date='', siglum_label=
             doc = corpus.get_content('Document')
             doc.siglum = siglum
 
-        doc_data = {
-            'siglum_label': siglum_label if siglum_label else siglum,
-            'author': '',
-            'bibliographic_entry': '',
-            'title': '',
-            'pub_date': date,
-            'editor': '',
-            'publisher': '',
-            'place': '',
-            'unhandled': []
-        }
+        doc_data['siglum_label'] = siglum_label if siglum_label else siglum
 
         for child in bibl.children:
             extract_bibl_components(child, doc_data)
 
         for key in doc_data.keys():
-            if hasattr(doc, key) and doc_data[key]:
+            if hasattr(doc, key) and key != 'bibliographic_entry' and doc_data[key]:
                 setattr(doc, key, doc_data[key])
 
-        if doc.bibliographic_entry:
-            doc.bibliographic_entry_text = strip_tags(doc.bibliographic_entry).strip()
+        #if doc.bibliographic_entry:
+        #    doc.bibliographic_entry_text = strip_tags(doc.bibliographic_entry).strip()
 
         if doc_data['unhandled']:
             unhandled.extend(doc_data['unhandled'])
 
         doc.save()
 
-    return doc
+    return doc, doc_data['bibliographic_entry']
 
 
 def extract_bibl_components(element, doc_data, inside_note=False):
