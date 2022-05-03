@@ -30,6 +30,8 @@ def splash(request):
 
 
 def playviewer(request, corpus_id=None, play_prefix=None):
+    start_time = time.time()
+
     nvs_page = "variorum-viewer"
     site_request = False
     corpora_url = 'https://' if settings.USE_SSL else 'http://'
@@ -161,6 +163,8 @@ def playviewer(request, corpus_id=None, play_prefix=None):
             act_scenes['TR'] = "Trailer.0"
 
     witnesses, wit_counter, witness_centuries = get_nvs_witnesses(corpus, play)
+
+    print(time.time() - start_time)
 
     return render(
         request,
