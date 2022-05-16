@@ -35,6 +35,7 @@ urlpatterns += [
     path('repo-file/<str:corpus_id>/<str:repo_name>/', manager_views.get_repo_file),
     path('image/uri/<str:image_uri>/', manager_views.get_image),
     path('image/uri/<str:image_uri>/<str:region>/<str:size>/<str:rotation>/<str:quality>.<str:format>', manager_views.get_image),
+    path('iiif/2/<path:req_path>', manager_views.iiif_passthrough),
 
     path('jobs/', manager_views.job_widget),
     path('jobs/corpus/<str:corpus_id>/', manager_views.job_widget),

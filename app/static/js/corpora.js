@@ -961,7 +961,13 @@ class ContentTable {
 
             // setup page selector events
             $(`#ct-${ct.name}${sender.id_suffix}-page-selector`).on("change", function () {
-                search.page = parseInt($(`#ct-${ct.name}${sender.id_suffix}-page-selector`).val());
+                let page_token = $(this).find(':selected').data('page-token');
+                if (page_token) {
+                    search['page-token'] = page_token;
+                } else {
+                    delete search['page-token'];
+                    search.page = parseInt($(`#ct-${ct.name}${sender.id_suffix}-page-selector`).val());
+                }
                 corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content); });
             });
 
@@ -1003,7 +1009,7 @@ class ContentTable {
                 $(`#ct-${ct.name}${sender.id_suffix}-search-box`).val('');
                 for (let param in search) {
                     if (search.hasOwnProperty(param)) {
-                        if (param === 'q' || ['q_', 'f_', 't_', 'p_', 'w_', 'r_'].includes(param.slice(0, 2))) {
+                        if (['q', 'page-token'].includes(param) || ['q_', 'f_', 't_', 'p_', 'w_', 'r_'].includes(param.slice(0, 2))) {
                             delete search[param];
                         }
                     }
@@ -1191,29 +1197,63 @@ class ContentTable {
 
         // records exist, so populate the content type table with a page of results
         } else {
-            // setup the page selector based on total # of pages within 50 page range
-            let min_page = content.meta.page - 50;
-            let max_page = content.meta.page + 50;
-            let first_pg_msg = '';
-            let last_pg_msg = '';
-
-            if (min_page < 1) { min_page = 1; }
-            if (max_page > content.meta.num_pages) { max_page = content.meta.num_pages; }
-            if (min_page > 1) { first_pg_msg = ' and below'; }
-            if (max_page < content.meta.num_pages) { last_pg_msg = ' and above'; }
-
-            for (let x = min_page; x <= max_page; x++) {
-                let option_html = `<option value="${x}">Page ${x}</option>`;
-
-                if (x === content.meta.page) { option_html = option_html.replace('">', '" selected>'); }
-                if (x === min_page) { option_html = option_html.replace('</', `${first_pg_msg}</`); }
-                else if (x === max_page) { option_html = option_html.replace('</', `${last_pg_msg}</`); }
-
-                page_selector.append(option_html);
+            if (content.meta.hasOwnProperty('next_page_token')) {
+                page_selector.append(`<option value="${content.meta.page}" selected>Page ${content.meta.page}</option>`);
+                page_selector.append(`<option value="${content.meta.page + 1}" data-page-token="${content.meta.next_page_token}">Page ${content.meta.page + 1}</option>`);
+                page_selector.removeClass("d-none");
+                per_page_selector.prop('disabled', true);
             }
-            page_selector.removeClass("d-none");
-            per_page_selector.removeClass("d-none");
-            per_page_selector.val(search['page-size'].toString());
+            else {
+                // setup the page selector based on total # of pages within 50 page range
+                let min_page = content.meta.page - 50;
+                let max_page = content.meta.page + 50;
+                let first_pg_msg = '';
+                let last_pg_msg = '';
+
+                if (min_page < 1) {
+                    min_page = 1;
+                }
+                if (max_page > content.meta.num_pages) {
+                    max_page = content.meta.num_pages;
+                }
+
+                while(max_page * content.meta.page_size > 9000)
+                    max_page -= 1;
+
+                if (min_page > 1) {
+                    first_pg_msg = ' and below';
+                }
+                if (max_page < content.meta.num_pages) {
+                    last_pg_msg = ' and above';
+                }
+
+                let current_page_added = false;
+                for (let x = min_page; x <= max_page; x++) {
+                    let option_html = `<option value="${x}">Page ${x}</option>`;
+
+                    if (x === content.meta.page) {
+                        option_html = option_html.replace('">', '" selected>');
+                        current_page_added = true;
+                    }
+                    if (x === min_page) {
+                        option_html = option_html.replace('</', `${first_pg_msg}</`);
+                    } else if (x === max_page) {
+                        option_html = option_html.replace('</', `${last_pg_msg}</`);
+                    }
+
+                    page_selector.append(option_html);
+                }
+
+                if (!current_page_added) {
+                    page_selector.append(`<option value="${content.meta.page}" selected>Page ${content.meta.page}</option>`);
+                } else {
+                    per_page_selector.prop('disabled', false);
+                }
+
+                page_selector.removeClass("d-none");
+                per_page_selector.removeClass("d-none");
+                per_page_selector.val(search['page-size'].toString());
+            }
 
             // iterate through the records, adding a row for each one
             content.records.forEach(item => {
@@ -1276,6 +1316,8 @@ class ContentTable {
                                 value = corpora.date_string(value);
                             } else if (field.type === 'iiif-image') {
                                 value = `<img src='${value}/full/,100/0/default.png' />`
+                            } else if (field.type === 'file' && ['png', 'jpg', 'gif', 'jpeg'].includes(value.toLowerCase().substring(value.length - 3))) {
+                                value = `<img src='/iiif/2/${value}/full/,100/0/default.png' />`
                             } else if (field.type === 'large_text') {
                                 value = value.slice(0, 500) + '...'
                             }

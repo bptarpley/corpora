@@ -85,7 +85,7 @@
 {% endblock %}
 
 {% block main %}
-    <div class="row">
+    <div class="row flex-grow-1">
         <div class="col-12">
                     {% if content_ids or content_query %}
                         <div class="alert alert-info">
@@ -93,7 +93,7 @@
                         </div>
                     {% endif %}
                     {% if edit_widget_url %}
-                        <div class="row">
+                        <div class="row h-100">
                             <div class="col-sm-12 col-md-6">
                     {% endif %}
                     <form id="content-form" method="post">
@@ -133,6 +133,7 @@
         let content_id = '{% if content_id %}{{ content_id }}{% endif %}';
         let corpus = null;
         let content = null;
+        let is_popup = {% if popup %}true{% else %}false{% endif %};
         let field_indexes = {};
         let multi_field_counter = 0;
         let bulk_editing = $('#content-ids-input').length || $('#content-query-input').length ? true : false;
@@ -161,7 +162,7 @@
             text: function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <input type="text" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value}" ${bulk_editing ? 'disabled' : ''}>
+                        <textarea class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" rows="20" ${bulk_editing ? 'disabled' : ''}>${value}</textarea>
                         ${multi_remover(field, id_suffix)}
                     </div>
                 `;
@@ -169,9 +170,7 @@
             large_text: function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <textarea class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" rows="20" ${bulk_editing ? 'disabled' : ''}>
-                            ${value}
-                        </textarea>
+                        <textarea class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" rows="20" ${bulk_editing ? 'disabled' : ''}>${value}</textarea>
                         ${multi_remover(field, id_suffix)}
                     </div>
                 `;
@@ -328,6 +327,13 @@
                 {% endif %}
 
                 if (bulk_editing) $('#content-save-and-create-button').addClass('d-none');
+
+                if (is_popup) {
+                    window.onunload = function() {
+                        let opener = window.opener;
+                        opener.refresh_content_selection();
+                    };
+                }
             });
 
             // SETUP FILE SEARCH BOX
@@ -614,9 +620,9 @@
                 new_button.click(function() {
                     let left = (screen.width / 2);
                     let top = (screen.height / 2);
-                    let options = `top=${top},left=${left}`;
+                    let options = `top=${top},left=${left},popup=true`;
                     let creation_url = `/corpus/${corpus_id}/${content_selection_type}/?popup=y`;
-                    return window.open(creation_url, 'Create New{% if popup %}:{% endif %}', options);
+                    return window.open(creation_url, '_blank', options);
                 });
 
                 $('#content-selection-modal').modal();
@@ -674,11 +680,15 @@
         $('#content-selection-modal-filter-box').keypress(function (e) {
             let key = e.which;
             if (key === 13) {
-                let query = $('#content-selection-modal-filter-box').val();
-                content_selection_vars.q = query;
-                select_content(content_selection_type, content_selection_input_id);
+                refresh_content_selection();
             }
         });
+
+        function refresh_content_selection() {
+            let query = $('#content-selection-modal-filter-box').val();
+            content_selection_vars.q = query;
+            select_content(content_selection_type, content_selection_input_id);
+        }
 
         // previous select content page click event
         $('#content-selection-modal-prev-page-button').click(function() {
