@@ -66,6 +66,7 @@ This endpoint accepts several different GET parameters (passed via the query str
 | `s_[field name]` | To sort results by field name, settings value to either "ASC" or "DESC" | [endpoint_url]?s_pub_date=DESC
 | `page-size` | To specify the size of each page of results | [endpoint_url]?page-size=50
 | `page` | To specify which page of results you'd like | [endpoint_url]?page=1
+| `page-token` | After 9,000 records worth of pages, you'll receive a "page token" in the JSON response which will need to be captured and specified in order to retrieve further pages. | [endpoint_url]?page-token=5f60bf2cc879ea00329af449
 | `operator` | To specify which logical operator is used to combine queries (default "and") | [endpoint_url]?q_color=red&q_holiday=Christmas&operator=or
 
 Parameters can of course be chained together. If you wanted, for instance, to see the first 50 Documents with "Ulysses" in the title
