@@ -175,7 +175,9 @@ def build_search_params_from_dict(params):
             'highlight_fields',
             'highlight_num_fragments',
             'highlight_fragment_size',
-            'es_debug'
+            'page-token',
+            'es_debug',
+            'es_debug_query'
         ] or param[:2] in ['q_', 't_', 'p_', 's_', 'f_', 'r_', 'w_', 'e_', 'a_']:
             search = default_search
 
@@ -187,6 +189,8 @@ def build_search_params_from_dict(params):
             search['highlight_fragment_size'] = int(value)
         elif param == 'content_view':
             search['content_view'] = value
+        elif param == 'page-token':
+            search['next_page_token'] = value
         elif param == 'q':
             search['general_query'] = value
         elif param.startswith('q_'):
@@ -241,6 +245,8 @@ def build_search_params_from_dict(params):
             search['page_size'] = int(value)
         elif param == 'es_debug':
             search['es_debug'] = True
+        elif param == 'es_debug_query':
+            search['es_debug_query'] = True
 
     if search and (not search['general_query'] and not search['fields_query'] and not search['fields_filter'] and not search['fields_wildcard'] and not search['fields_range']):
         search['general_query'] = "*"

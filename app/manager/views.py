@@ -837,7 +837,15 @@ def iiif_widget(request, corpus_id, content_type, content_id, content_field):
         try:
             content = corpus.get_content(content_type, content_id, only=[content_field])
             image_url = getattr(content, content_field, None)
+
+            if str(type(image_url)) == "<class 'corpus.File'>":
+                image_url = image_url.get_url("/corpus/{0}/{1}/{2}".format(
+                    corpus_id,
+                    content_type,
+                    content_id
+                ))
         except:
+            print(traceback.format_exc())
             raise Http404("You are not authorized to view this page.")
 
     return render(
@@ -1246,6 +1254,8 @@ def get_image(
     uri_dict = parse_uri(image_uri)
     file_path = None
 
+    req_type = request.META.get('HTTP_ACCEPT', 'none')
+
     if 'corpus' in uri_dict:
         if context['scholar'].is_admin or uri_dict['corpus'] in context['scholar'].available_corpora.keys():
             results = run_neo(
@@ -1262,19 +1272,45 @@ def get_image(
                 file_path = results[0]['file_path']
 
     if file_path:
-        mime_type, encoding = mimetypes.guess_type(file_path)
-        response = HttpResponse(content_type=mime_type)
-        response['X-Accel-Redirect'] = "/media/{identifier}/{region}/{size}/{rotation}/{quality}.{format}".format(
-            identifier=file_path[1:].replace('/', '$!$'),
-            region=region,
-            size=size,
-            rotation=rotation,
-            quality=quality,
-            format=format
-        )
-        return response
+        if req_type == '*/*':
+            response = HttpResponse(content_type='application/json')
+            response['X-Accel-Redirect'] = "/media/{identifier}/info.json".format(
+                identifier=file_path[1:].replace('/', '$!$'),
+            )
+            return response
+        else:
+            mime_type, encoding = mimetypes.guess_type(file_path)
+            response = HttpResponse(content_type=mime_type)
+            response['X-Accel-Redirect'] = "/media/{identifier}/{region}/{size}/{rotation}/{quality}.{format}".format(
+                identifier=file_path[1:].replace('/', '$!$'),
+                region=region,
+                size=size,
+                rotation=rotation,
+                quality=quality,
+                format=format
+            )
+            return response
 
     raise Http404("File not found.")
+
+
+def iiif_passthrough(request, req_path):
+    context = _get_context(request)
+
+    req_path_parts = req_path.split('/')
+    file_path = "/".join(req_path_parts[:-4])
+    iiif_identifier = "$!$".join(req_path_parts[:-4])
+    internal_req_path = "{0}/{1}".format(
+        iiif_identifier,
+        "/".join(req_path_parts[-4:])
+    )
+
+    mime_type, encoding = mimetypes.guess_type(file_path)
+    response = HttpResponse(content_type=mime_type)
+    response['X-Accel-Redirect'] = "/media/{internal_req_path}".format(
+        internal_req_path=internal_req_path
+    )
+    return response
 
 
 @api_view(['GET'])

@@ -18,7 +18,9 @@
         let dragon = null;
 
         $(document).ready(function() {
-            let height = $('#main-container').height();
+            let main_container = $('#main-container');
+            main_container.addClass('h-100');
+            let height = main_container.height();
             $('#iiif-div').css('height', `${height}px`);
 
             dragon = OpenSeadragon({

@@ -1076,9 +1076,12 @@ class File(mongoengine.EmbeddedDocument):
     def generate_key(cls, path):
         return zlib.compress(path.encode('utf-8')).hex()
 
-    def get_url(self, parent_uri):
+    def get_url(self, parent_uri, url_type="auto"):
         uri = "{0}/file/{1}".format(parent_uri, self.key)
-        return "/file/uri/{0}/".format(uri.replace('/', '|'))
+        url = "/file/uri/{0}/".format(uri.replace('/', '|'))
+        if (url_type == "auto" and self.is_image) or url_type == "image":
+            url = "/image/uri/{0}/".format(uri.replace('/', '|'))
+        return url
 
     def to_dict(self, parent_uri):
         return {
@@ -1094,6 +1097,7 @@ class File(mongoengine.EmbeddedDocument):
             'provenance_id': self.provenance_id,
             'height': self.height,
             'width': self.width,
+            'is_image': self.is_image,
             'iiif_info': self.iiif_info,
             'collection_label': self.collection_label
         }
@@ -1316,6 +1320,7 @@ class Corpus(mongoengine.Document):
             highlight_num_fragments=5,
             highlight_fragment_size=100,
             aggregations={},
+            next_page_token=None,
             es_debug=False,
             es_debug_query=False
     ):
@@ -1639,6 +1644,16 @@ class Corpus(mongoengine.Document):
                 if fields_query and fields_highlight:
                     extra['min_score'] = 0.001
 
+                using_page_token = False
+                if next_page_token:
+                    next_page_info = self.redis_cache.get(next_page_token)
+                    if next_page_info:
+                        next_page_info = json.loads(next_page_info)
+                        extra['search_after'] = next_page_info['search_after']
+                        results['meta']['page'] = next_page_info['page_num']
+                        results['meta']['page_size'] = next_page_info['page_size']
+                        using_page_token = True
+
                 search_cmd = Search(using=get_connection(), index=index_name, extra=extra).query(search_query)
 
                 # HANDLE RETURNING FIELD RESTRICTIONS (ONLY and EXCLUDES)
@@ -1657,43 +1672,60 @@ class Corpus(mongoengine.Document):
                     agg_type_map[agg_name] = list(agg.to_dict().keys())[0]
                     search_cmd.aggs.bucket(agg_name, agg)
 
+                # HANDLE SORTING (by default, all data sorted by ID for "search_after" functionality)
+                adjusted_fields_sort = []
+                sorting_by_id = False
+
                 if fields_sort:
-                    adjusted_fields_sort = []
                     mappings = index.get()[index_name]['mappings']['properties']
+
                     for x in range(0, len(fields_sort)):
                         field_name = list(fields_sort[x].keys())[0]
                         sort_direction = fields_sort[x][field_name]
                         subfield_name = None
 
-                        if '.' in field_name:
-                            field_parts = field_name.split('.')
-                            field_name = field_parts[0]
-                            subfield_name = field_parts[1]
+                        if field_name == 'id':
+                            adjusted_fields_sort.append({
+                                '_id': sort_direction
+                            })
+                            sorting_by_id = True
+                        else:
+                            if '.' in field_name:
+                                field_parts = field_name.split('.')
+                                field_name = field_parts[0]
+                                subfield_name = field_parts[1]
 
-                        if field_name in mappings:
-                            field_type = mappings[field_name]['type']
-                            if field_type == 'nested' and subfield_name:
-                                field_type = mappings[field_name]['properties'][subfield_name]['type']
+                            if field_name in mappings:
+                                field_type = mappings[field_name]['type']
+                                if field_type == 'nested' and subfield_name:
+                                    field_type = mappings[field_name]['properties'][subfield_name]['type']
 
-                            if subfield_name:
-                                full_field_name = '{0}.{1}'.format(field_name, subfield_name)
-                                adjusted_fields_sort.append({
-                                    full_field_name + '.raw' if field_type == 'text' else full_field_name: {
-                                        'order': sort_direction['order'],
-                                        'nested_path': field_name
-                                    }
-                                })
-                            else:
-                                adjusted_fields_sort.append({
-                                    field_name + '.raw' if field_type == 'text' else field_name: sort_direction
-                                })
+                                if subfield_name:
+                                    full_field_name = '{0}.{1}'.format(field_name, subfield_name)
+                                    adjusted_fields_sort.append({
+                                        full_field_name + '.raw' if field_type == 'text' else full_field_name: {
+                                            'order': sort_direction['order'],
+                                            'nested_path': field_name
+                                        }
+                                    })
+                                else:
+                                    adjusted_fields_sort.append({
+                                        field_name + '.raw' if field_type == 'text' else field_name: sort_direction
+                                    })
 
-                    search_cmd = search_cmd.sort(*adjusted_fields_sort)
+                if not sorting_by_id:
+                    adjusted_fields_sort.append({
+                        '_id': 'asc'
+                    })
+                search_cmd = search_cmd.sort(*adjusted_fields_sort)
 
                 if fields_highlight:
                     search_cmd = search_cmd.highlight(*fields_highlight, fragment_size=highlight_fragment_size, number_of_fragments=highlight_num_fragments)
 
-                search_cmd = search_cmd[start_index:end_index]
+                if using_page_token:
+                    search_cmd = search_cmd[0:results['meta']['page_size']]
+                else:
+                    search_cmd = search_cmd[start_index:end_index]
 
                 # execute search
                 try:
@@ -1719,16 +1751,32 @@ class Corpus(mongoengine.Document):
                         results['meta']['num_pages'] = 0
                         results['meta']['has_next_page'] = False
 
+                    hit = None
                     for hit in search_results['hits']['hits']:
                         record = deepcopy(hit['_source'])
                         record['id'] = hit['_id']
                         record['_search_score'] = hit['_score']
+
                         if fields_highlight:
                             if 'highlight' in hit:
                                 record['_search_highlights'] = hit['highlight']
                                 results['records'].append(record)
                         else:
                             results['records'].append(record)
+
+                    # search_after
+                    if (end_index >= 9000 or using_page_token) and results['meta']['has_next_page']:
+                        next_page_token = str(ObjectId())
+
+                        if hit and 'sort' in hit:
+                            next_page_info = {
+                                'search_after': hit['sort'],
+                                'page_num': results['meta']['page'] + 1,
+                                'page_size': results['meta']['page_size']
+                            }
+                            next_page_info = json.dumps(next_page_info)
+                            self.redis_cache.set(next_page_token, next_page_info, ex=300)
+                            results['meta']['next_page_token'] = next_page_token
 
                     if 'aggregations' in search_results:
                         for agg_name in search_results['aggregations'].keys():
