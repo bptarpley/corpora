@@ -651,12 +651,12 @@ class Corpora {
     }
 
     time_string(timestamp) {
-        let date = new Date(timestamp * 1000);
+        let date = new Date(timestamp);
         return date.toLocaleString('en-US', { timeZone: 'UTC' });
     }
 
     date_string(timestamp) {
-        let date = new Date(timestamp * 1000);
+        let date = new Date(timestamp);
         return date.toISOString().split('T')[0];
     }
 }

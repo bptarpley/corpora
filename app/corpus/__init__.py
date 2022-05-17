@@ -68,7 +68,7 @@ class Field(mongoengine.EmbeddedDocument):
         if value:
             if self.type == 'date':
                 dt = datetime.combine(value, datetime.min.time())
-                return int(dt.timestamp())
+                return dt.isoformat()
             elif self.type == 'cross_reference':
                 value_dict = value.to_dict(ref_only=True)
                 if self.has_intensity and 'id' in value_dict:
