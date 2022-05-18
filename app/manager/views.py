@@ -70,7 +70,7 @@ def corpus(request, corpus_id):
         # ADMIN REQUESTS
         if response['scholar'].is_admin or role == 'Editor':
             # get content views
-            content_views = ContentView.objects(corpus=corpus, status='populated').order_by('name')
+            content_views = ContentView.objects(corpus=corpus, status__in=['populated', 'needs_refresh']).order_by('name')
 
             # schema export
             if 'export' in request.GET and request.GET['export'] == 'schema':
