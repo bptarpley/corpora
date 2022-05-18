@@ -938,3 +938,7 @@ def audit_content_views():
             print("NEEDS REFRESH")
             cv.populate()
 
+    cvs = ContentView.objects(status='needs_refresh')
+    for cv in cvs:
+        cv.populate()
+

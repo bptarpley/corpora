@@ -70,7 +70,7 @@ def corpus(request, corpus_id):
         # ADMIN REQUESTS
         if response['scholar'].is_admin or role == 'Editor':
             # get content views
-            content_views = ContentView.objects(corpus=corpus, status='populated').order_by('name')
+            content_views = ContentView.objects(corpus=corpus, status__in=['populated', 'needs_refresh']).order_by('name')
 
             # schema export
             if 'export' in request.GET and request.GET['export'] == 'schema':
@@ -592,7 +592,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
 
                         # having parsed the value correctly depending on data type, now actually set the field value for
                         # our content
-                        if ct_fields[field_name].multiple and len(param_parts) == 3:
+                        if ct_fields[field_name].multiple and len(param_parts) == 3 and field_value:
                             multi_field_values[field_name].append(field_value)
                         else:
                             setattr(content, field_name, field_value)

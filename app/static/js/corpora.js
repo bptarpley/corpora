@@ -651,12 +651,12 @@ class Corpora {
     }
 
     time_string(timestamp) {
-        let date = new Date(timestamp * 1000);
+        let date = new Date(timestamp);
         return date.toLocaleString('en-US', { timeZone: 'UTC' });
     }
 
     date_string(timestamp) {
-        let date = new Date(timestamp * 1000);
+        let date = new Date(timestamp);
         return date.toISOString().split('T')[0];
     }
 }
@@ -1316,7 +1316,7 @@ class ContentTable {
                                 value = corpora.date_string(value);
                             } else if (field.type === 'iiif-image') {
                                 value = `<img src='${value}/full/,100/0/default.png' />`
-                            } else if (field.type === 'file' && ['png', 'jpg', 'gif', 'jpeg'].includes(value.toLowerCase().substring(value.length - 3))) {
+                            } else if (field.type === 'file' && ['.png', '.jpg', '.gif', 'jpeg'].includes(value.toLowerCase().substring(value.length - 4))) {
                                 value = `<img src='/iiif/2/${value}/full/,100/0/default.png' />`
                             } else if (field.type === 'large_text') {
                                 value = value.slice(0, 500) + '...'
