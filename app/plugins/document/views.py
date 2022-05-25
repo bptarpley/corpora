@@ -128,7 +128,10 @@ def document(request, corpus_id, document_id):
 
                 upload_path = document.path + '/files'
                 for import_file in import_files:
+                    # adjust filename to match how it was stored when uploading
+                    import_file = '/' + re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', import_file[1:])
                     import_file_path = "{0}{1}".format(upload_path, import_file)
+
                     if os.path.exists(import_file_path):
                         extension = import_file.split('.')[-1]
                         document.save_file(File.process(
