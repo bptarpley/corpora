@@ -882,7 +882,7 @@ class ContentType(mongoengine.EmbeddedDocument):
     inherited_from_module = mongoengine.StringField()
     inherited_from_class = mongoengine.StringField()
     base_mongo_indexes = mongoengine.StringField()
-    has_file_field = mongoengine.BooleanField()
+    has_file_field = mongoengine.BooleanField(default=False)
     invalid_field_names = mongoengine.ListField(mongoengine.StringField())
 
     def get_field(self, field_name):
@@ -966,6 +966,7 @@ class ContentType(mongoengine.EmbeddedDocument):
         ct_dict = {
             'name': self.name,
             'plural_name': self.plural_name,
+            'has_file_field': self.has_file_field,
             'fields': [field.to_dict() for field in self.fields],
             'show_in_nav': self.show_in_nav,
             'proxy_field': self.proxy_field,
@@ -1959,6 +1960,9 @@ class Corpus(mongoengine.Document):
             new_content_type.edit_widget_url = schema.get('edit_widget_url', None)
             new_content_type.invalid_field_names = invalid_field_names
 
+            print("HAS FILE FIELD:")
+            print(new_content_type.has_file_field)
+
             if 'templates' in schema:
                 for template_name in schema['templates']:
                     template = ContentTemplate()
@@ -2124,6 +2128,9 @@ class Corpus(mongoengine.Document):
 
             if not had_file_field and self.content_types[ct_name].has_file_field:
                 resave = True
+
+            print("HAS FILE FIELD")
+            print(self.content_types[ct_name].has_file_field)
 
             if reindex or relabel or resave:
                 queued_job_ids.append(self.queue_local_job(task_name="Adjust Content", parameters={
@@ -2595,10 +2602,10 @@ class Content(mongoengine.Document):
     def _pre_save(cls, sender, document, **kwargs):
         document.last_updated = datetime.now()
 
-    def save(self, do_indexing=True, do_linking=True, **kwargs):
+    def save(self, do_indexing=True, do_linking=True, relabel=True, **kwargs):
         super().save(**kwargs)
         path_created = self._make_path()
-        label_created = self._make_label()
+        label_created = self._make_label(relabel)
         uri_created = self._make_uri()
 
         if path_created or label_created or uri_created:
@@ -2646,8 +2653,8 @@ class Content(mongoengine.Document):
         if document.path and os.path.exists(document.path):
             document._corpus.queue_local_job(task_name="Content Deletion Cleanup", parameters={'content_path': document.path})
 
-    def _make_label(self):
-        if not self.label:
+    def _make_label(self, force=True):
+        if force or not self.label:
             label_template = Template(self._ct.templates['Label'].template)
             context = Context({self.content_type: self})
             self.label = label_template.render(context)

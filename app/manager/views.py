@@ -624,7 +624,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
 
                 return redirect("/corpus/{0}/?msg=Bulk edit content job submitted.".format(corpus_id))
             else:
-                content.save()
+                content.save(relabel=True)
 
             if temp_file_fields:
                 for temp_file_field in temp_file_fields:
@@ -633,7 +633,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                             content._move_temp_file(temp_file_field, f_index)
                     else:
                         content._move_temp_file(temp_file_field)
-                content.save()
+                content.save(relabel=True)
 
             if 'save-and-create' in request.POST:
                 return redirect("/corpus/{0}/{1}/?msg={1} saved.".format(

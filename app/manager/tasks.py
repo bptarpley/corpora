@@ -520,7 +520,7 @@ def check_jobs():
                     run_job(job.id)
 
 
-@db_task(priority=1)
+@db_task(priority=10)
 def save_content_type_schema(job_id):
     job = Job(job_id)
     job.set_status('running')

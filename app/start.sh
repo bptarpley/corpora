@@ -18,6 +18,7 @@ touch /apps/initialized
 echo Starting Gunicorn.
 exec gunicorn corpora.wsgi:application\
     --bind 0.0.0.0:8000 \
+    --timeout 300 \
     --workers ${CRP_DJANGO_WORKERS} &
 
 # Start Huey
