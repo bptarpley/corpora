@@ -704,13 +704,43 @@
                             // LOAD DOCUMENT METADATA
                             let doc_metadata_list = $('#doc-metadata-list');
                             corpus.content_types.Document.fields.forEach( field => {
-                                if (doc[field.name] && ['text', 'large_text', 'keyword', 'number'].includes(field.type)) {
-                                    doc_metadata_list.append(`
-                                        <div class="list-group-item">
-                                            <h5>${field.label}</h5>
-                                            ${doc[field.name]}
-                                        </div>
-                                    `);
+                                if (field.multiple) {
+                                    if (doc[field.name].length) {
+                                        let field_values = [];
+
+                                        if (['text', 'large_text', 'keyword', 'number'].includes(field.type)) {
+                                            field_values = doc[field.name];
+                                        } else if (field.type === "cross_reference") {
+                                            doc[field.name].map(field_value => {
+                                                field_values.push(`<a href="${field_value.uri}/">${field_value.label}</a>`);
+                                            });
+                                        }
+
+                                        doc_metadata_list.append(`
+                                            <div class="list-group-item">
+                                                <h5>${field.label}</h5>
+                                                ${field_values.join('<br />')}
+                                            </div>
+                                        `);
+                                    }
+                                } else {
+                                    if (doc[field.name]) {
+                                        if (['text', 'large_text', 'keyword', 'number'].includes(field.type)) {
+                                            doc_metadata_list.append(`
+                                                <div class="list-group-item">
+                                                    <h5>${field.label}</h5>
+                                                    ${doc[field.name]}
+                                                </div>
+                                            `);
+                                        } else if (field.type === "cross_reference") {
+                                            doc_metadata_list.append(`
+                                                <div class="list-group-item">
+                                                    <h5>${field.label}</h5>
+                                                    <a href="${doc[field.name].uri}/">${doc[field.name].label}</a>
+                                                </div>
+                                            `);
+                                        }
+                                    }
                                 }
                             });
 
