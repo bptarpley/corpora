@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+    <style type="text/css">
+        .content-type-card .row {
+            margin-bottom: 20px;
+        }
+
+        #merge-report-div {
+            max-height: calc(80vh);
+            overflow-y: scroll;
+        }
+    </style>
+    <link href="{% static 'css/vis-network.min.css' %}" rel="stylesheet">
+
+{% endblock %}
+
+{% block main %}
+    <div class="row mt-4">
+        <div class="col-12">
+
+            <!-- CONTENT CARD -->
+            <div class="card h-100">
+                <div class="card-header">
+                    <h4 id="header-label">
+                        Merge Selected {{ content_type_plural }}
+                    </h4>
+                </div>
+                <div class="card-body h-100">
+                    {% if not job_id %}
+                        The following content has been staged for merging. Select the content that will serve as the
+                        <b>target</b> of this merger (all other content referring to the merged content will refer
+                        instead to the target):
+
+                        {% for merge_content in merge_contents %}
+                            <div id="{{ merge_content.id }}" class="alert alert-secondary target-selector">
+                                {{ merge_content.label }}
+                                <div class="text-muted">
+                                    {{ merge_content.uri }}
+                                </div>
+                            </div>
+                        {% endfor %}
+
+                        <form id="merge_form" class="d-none mt-4" method="post">
+                            {% csrf_token %}
+                            <input type="hidden" id="target_id" name="target-id" />
+                            <input type="hidden" id="merge_ids" name="content-ids" />
+
+                            <div class="form-group">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="delete_merged_checkbox" name="delete-merged" checked />
+                                    <label class="form-check-label" for="delete_merged_checkbox">
+                                        Delete {{ content_type_plural }} after merged with target
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="form-group ml-4">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="cascade_deletion_checkbox" name="cascade-deletion" checked />
+                                    <label class="form-check-label" for="cascade_deletion_checkbox">
+                                        Cascade Deletion
+                                    </label>
+                                    <div class="text-muted">
+                                        Any nodes referred to by a deleted {{ content_type }} will also be deleted if not either referring to or referred to by other content.
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    {% else %}
+                        <b>Merge Report:</b>
+                        <pre id="merge-report-div">Loading...</pre>
+                    {% endif %}
+                </div>
+
+                <div class="card-footer" id="content-footer">
+                    <button type="button" class="btn btn-primary" id="merge_button" disabled>Merge</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'js/filepond.js' %}"></script>
+    <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
+    <script src="{% static 'js/vis-network.min.js' %}"></script>
+    <script type="application/javascript">
+        let corpus_id = '{{ corpus_id }}';
+        let corpus_uri = `/corpus/${corpus_id}`;
+        let content_type_name = '{{ content_type }}';
+        let job_id = '{% if job_id %}{{ job_id }}{% endif %}';
+        let report_timer = null;
+        let target_id = '';
+        let merge_ids = [];
+
+        $(document).ready(function() {
+            if (!job_id) {
+                $('.target-selector').click(function () {
+                    target_id = this.id;
+                    merge_ids = [];
+
+                    let target_selector = $(this);
+
+                    $('.target-selector').each(function () {
+                        $(this).removeClass('alert-primary');
+                        $(this).addClass('alert-secondary');
+                        if (this.id !== target_id) {
+                            merge_ids.push(this.id);
+                        }
+                    });
+
+                    target_selector.removeClass('alert-secondary');
+                    target_selector.addClass('alert-primary');
+
+                    $('#merge_form').removeClass('d-none');
+                    $('#merge_button').removeAttr('disabled');
+                });
+
+                $('#merge_button').click(function () {
+                    $('#target_id').val(target_id);
+                    $('#merge_ids').val(merge_ids.join(','));
+                    $('#merge_form').submit();
+                });
+            } else {
+                load_report();
+            }
+
+            hide_loading_overlay();
+        });
+
+        function load_report() {
+            let report_url = `${corpus_uri}/get-file/?path=merge_reports/${job_id}.txt`;
+            let report_div = $('#merge-report-div');
+
+            report_div.load(report_url, function() {
+                report_div.scrollTop(report_div.height());
+
+                if (!report_div.html().includes('MERGE COMPLETED')) {
+                    setTimeout(load_report, 10000);
+                }
+            });
+        }
+    </script>
+{% endblock %}
