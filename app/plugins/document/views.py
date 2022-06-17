@@ -58,11 +58,6 @@ def document(request, corpus_id, document_id):
                 image_split = _clean(request.POST, 'import-pages-split')
                 primary_witness = _clean(request.POST, 'import-pages-primary')
 
-                print(import_type)
-                print(import_source)
-                print(existing_file_key)
-                print(import_files)
-
                 if import_source == 'upload':
                     upload_path = "{0}/temporary_uploads".format(document.path)
                     for import_file in import_files:
