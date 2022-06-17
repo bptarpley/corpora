@@ -292,6 +292,29 @@ def get_open_access_corpora(use_cache=True):
     return oa_corpora
 
 
+def order_content_schema(schema):
+    ordered_schema = []
+    ordering = True
+    while ordering:
+        num_ordered_cts = len(ordered_schema)
+        ordered_ct_names = [ct['name'] for ct in ordered_schema]
+
+        for ct_spec in schema:
+            independent = True
+            for field in ct_spec['fields']:
+                if field['type'] == 'cross_reference' and field['cross_reference_type'] != ct_spec['name'] and field['cross_reference_type'] not in ordered_ct_names:
+                    independent = False
+                    break
+            if independent and ct_spec['name'] not in ordered_ct_names:
+                ordered_schema.append(ct_spec)
+                ordered_ct_names.append(ct_spec['name'])
+
+        if num_ordered_cts == len(ordered_schema) or len(schema) == len(ordered_schema):
+            ordering = False
+
+    return ordered_schema
+
+
 def _contains(obj, keys):
     for key in keys:
         if key not in obj:

@@ -4,25 +4,23 @@ import json
 import importlib
 import time
 import traceback
+import tarfile
 import pymysql
 import logging
 import math
 import redis
 from copy import deepcopy
-from corpus import Corpus, Job, get_corpus, File, run_neo, ContentView
+from corpus import Corpus, Job, get_corpus, File, run_neo, ContentView, CorpusExport, JobSite, GitRepo, CompletedTask
 from huey.contrib.djhuey import db_task, db_periodic_task
 from huey import crontab
 from bson.objectid import ObjectId
 from django.conf import settings
+from django.utils.http import urlquote
 from elasticsearch_dsl.connections import get_connection
 from PIL import Image
 from datetime import datetime
 from subprocess import call
-from PyPDF2 import PdfFileReader
-from PyPDF2.pdf import ContentStream
-from PyPDF2.generic import TextStringObject, u_, b_
-
-from manager.utilities import _contains, build_search_params_from_dict
+from manager.utilities import _contains, build_search_params_from_dict, order_content_schema
 from django.utils.text import slugify
 from zipfile import ZipFile
 
@@ -331,6 +329,24 @@ REGISTRY = {
         },
         "module": 'manager.tasks',
         "functions": ['content_view_lifecycle']
+    },
+    "Export Corpus": {
+        "version": "0.2",
+        "jobsite_type": "HUEY",
+        "track_provenance": True,
+        "create_report": True,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "export_name": {
+                    "value": "",
+                    "type": "pep8_text",
+                    "label": "Export Name",
+                }
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['export_corpus']
     }
 }
 
@@ -592,11 +608,16 @@ def adjust_content(job_id):
     job.complete(status='complete')
 
 
-def adjust_content_slice(corpus, content_type, start, end, reindex, relabel, resave, relink):
+def adjust_content_slice(corpus, content_type, start, end, reindex, relabel, resave, relink, scrub_provenance=False):
     contents = corpus.get_content(content_type, all=True)
     contents = contents.batch_size(10)
-    contents = contents[start:end]
+    if start and end:
+        contents = contents[start:end]
+
     for content in contents:
+        if scrub_provenance:
+            content.provenance = []
+
         if relabel:
             content.label = ''
 
@@ -942,3 +963,259 @@ def audit_content_views():
     for cv in cvs:
         cv.populate()
 
+
+@db_task(priority=3)
+def export_corpus(job_id):
+    job = Job(job_id)
+    corpus = job.corpus
+    export_name = job.get_param_value('export_name')
+    if not export_name:
+        export_name = datetime.now().isoformat().split('T')[0].replace('-', '_')
+
+    export_data_files = []
+    export_valid = True
+    job.set_status('running')
+
+    try:
+        job.report("Exporting corpus with ID {0}".format(job.corpus_id))
+        export_directory = "/corpora/exports/{0}_{1}".format(job.corpus_id, export_name)
+        export_tarfile = "/corpora/exports/{0}_{1}.tar.gz".format(job.corpus_id, export_name)
+        export = CorpusExport.objects(corpus_id=job.corpus_id, name=export_name)
+
+        # Setup export record
+        if export.count():
+            export = export[0]
+            job.report("Export already exists--overwriting...")
+        else:
+            export = CorpusExport()
+
+        export.corpus_id = job.corpus_id
+        export.corpus_name = corpus.name
+        export.corpus_description = corpus.description
+        export.name = export_name
+
+        if os.path.exists(export_tarfile):
+            job.report("Removing existing export tarfile...")
+            os.remove(export_tarfile)
+
+        if os.path.exists(export_directory):
+            job.report("Removing existing export directory...")
+            shutil.rmtree(export_directory)
+            time.sleep(5)
+
+        os.makedirs(export_directory, exist_ok=True)
+
+        # Dump jobsite JSON
+        local_jobsite = JobSite.objects(name='Local')[0]
+        jobsite_json_path = export_directory + '/jobsite.json'
+        with open(jobsite_json_path, 'w', encoding='utf-8') as jobsite_json_out:
+            jobsite_json_out.write(local_jobsite.to_json())
+        export_data_files.append(jobsite_json_path)
+        job.report("Jobsite JSON created :)")
+
+        # Dump corpus JSON
+        corpus_json_path = export_directory + '/corpus.json'
+        with open(corpus_json_path, 'w', encoding='utf-8') as corpus_json_out:
+            json.dump(corpus.to_dict(include_views=True), corpus_json_out, indent=4)
+        export_data_files.append(corpus_json_path)
+        job.report("Corpus JSON created :)")
+
+        mongodb_uri = make_mongo_uri()
+
+        # Create MongoDB dump files for each content type collection
+        for ct_name, ct in corpus.content_types.items():
+            collection_name = "corpus_{0}_{1}".format(corpus.id, ct.name)
+            collection_export_file = export_directory + '/' + collection_name
+
+            # Ensure we have data in these collections
+            if corpus.get_content(ct_name, all=True).count() > 0:
+
+                # Build mongodump command
+                command = [
+                    'mongodump',
+                    '--uri="{0}"'.format(mongodb_uri),
+                    '--collection={0}'.format(collection_name),
+                    '--archive={0}'.format(collection_export_file),
+                ]
+
+                # Execute command and check return code
+                if call(command) == 0:
+                    export_data_files.append(collection_export_file)
+                    job.report("Collection {0} exported :)".format(collection_name))
+                else:
+                    job.report("Error exporting collection {0}! Halting export.".format(collection_name))
+                    job.complete(status='error')
+                    return None
+
+            else:
+                job.report("No records found for {0} collection; skipping.".format(collection_name))
+
+        # Create the tarfile
+        with tarfile.open(export_tarfile, "w:gz") as tar:
+            # Add exported corpus.json and MongoDB Collection dumps
+            for data_file in export_data_files:
+                tar.add(data_file, arcname=os.path.basename(data_file))
+
+            # Add corpus directory structure
+            tar.add(corpus.path, arcname=os.path.basename(corpus.path))
+
+        if os.path.exists(export_directory):
+            job.report("Cleaning up export files...")
+            shutil.rmtree(export_directory)
+
+        job.report("\nExport file {0} successfully created!".format(export_tarfile))
+
+        export.created = datetime.now()
+        export.path = export_tarfile
+        export.status = "created"
+        export.save()
+        job.complete(status='complete')
+    except:
+        print(traceback.format_exc())
+        job.complete(status='error')
+
+
+@db_task(priority=3)
+def restore_corpus(export_id):
+    export = CorpusExport.objects(id=export_id)
+    if export.count() > 0:
+        export = export[0]
+        print("Attempting to restore corpus from export file {0}".format(export.path))
+
+        try:
+            if export.path.endswith('.tar.gz') and os.path.exists(export.path):
+                with tarfile.open(export.path, 'r:gz') as tar:
+                    corpus_json = tar.extractfile('corpus.json').read()
+                    jobsite_json = tar.extractfile('jobsite.json').read()
+
+                    if corpus_json and jobsite_json:
+                        # Determine if this export file came from another instance of Corpora
+                        foreign_import = False
+                        jobsite_dict = json.loads(jobsite_json)
+                        jobsite_id = jobsite_dict['_id']['$oid']
+                        try:
+                            JobSite.objects(id=jobsite_id)[0]
+                        except:
+                            foreign_import = True
+
+                        corpus_dict = json.loads(corpus_json)
+                        if _contains(corpus_dict, ['id', 'name', 'description', 'open_access', 'content_types']):
+                            existing_corpus = get_corpus(corpus_dict['id'])
+
+                            if existing_corpus:
+                                print("Corpus with ID {0} already exists! Halting restore.".format(corpus_dict['id']))
+                                export.status = 'created'
+                                export.save()
+                                return None
+                            else:
+                                corpus = Corpus()
+                                corpus.id = ObjectId(corpus_dict['id'])
+                                corpus.name = corpus_dict['name']
+                                corpus.description = corpus_dict['description']
+                                corpus.open_access = corpus_dict['open_access']
+                                corpus.kvp = corpus_dict['kvp']
+
+                                for file_key, file_info in corpus_dict['files'].items():
+                                    f = File.from_dict(file_info)
+                                    if f:
+                                        corpus.files[file_key] = f
+
+                                for repo_name, repo_info in corpus_dict['repos'].items():
+                                    r = GitRepo.from_dict(repo_info)
+                                    if r:
+                                        corpus.repos[repo_name] = r
+
+                                if not foreign_import:
+                                    for prov_info in corpus_dict['provenance']:
+                                        prov = CompletedTask.from_dict(prov_info)
+                                        if prov:
+                                            corpus.provenance.append(prov)
+
+                                corpus.save()
+
+                                export_directory = '/corpora/exports/' + os.path.basename(export.path).split('.')[0]
+
+                                if os.path.exists(export_directory):
+                                    shutil.rmtree(export_directory)
+                                    time.sleep(2)
+
+                                os.makedirs(export_directory)
+
+                                mongodb_uri = make_mongo_uri()
+
+                                content_schema = []
+                                for ct_name, ct in corpus_dict['content_types'].items():
+                                    content_schema.append(ct)
+
+                                ordered_schema = order_content_schema(content_schema)
+                                for ct in ordered_schema:
+                                    ct_name = ct['name']
+                                    corpus.save_content_type(ct)
+                                    collection = "corpus_{0}_{1}".format(corpus.id, ct_name)
+                                    collection_dump_file = export_directory + '/' + collection
+
+                                    try:
+                                        collection_dump_file_info = tar.getmember(collection)
+                                        tar.extract(collection_dump_file_info, path=export_directory)
+
+                                        # Build mongorestore command
+                                        command = [
+                                            'mongorestore',
+                                            '--uri="{0}"'.format(mongodb_uri),
+                                            '--archive={0}'.format(collection_dump_file),
+                                        ]
+
+                                        # Execute command and check return code
+                                        if call(command) == 0:
+                                            print("Collection {0} successfully restored :)".format(collection))
+                                            adjust_content_slice(corpus, ct_name, None, None, True, True, True, True, foreign_import)
+                                        else:
+                                            print("Error restoring collection {0}! Halting restore.".format(collection))
+                                            run_job(corpus.queue_local_job(task_name="Delete Corpus", parameters={}))
+                                            shutil.rmtree(export_directory)
+                                            export.status = 'created'
+                                            export.save()
+                                            return None
+
+                                    except KeyError:
+                                        print('No collection found for {0}'.format(ct_name))
+
+                                if os.path.exists(export_directory):
+                                    shutil.rmtree(export_directory)
+                                tar.extractall(path=corpus.path, members=filter_tarfile(tar, str(corpus.id)))
+
+
+        except:
+            if os.path.exists(export_directory):
+                shutil.rmtree(export_directory)
+            print(traceback.format_exc())
+
+        export.status = "created"
+        export.save()
+
+    else:
+        print("Error retrieving export object for restore!")
+
+
+def make_mongo_uri():
+    uri_invalid_chars = ":/?#[]@"
+    escaped_pwd = settings.MONGO_PWD
+    for invalid_char in uri_invalid_chars:
+        escaped_pwd = escaped_pwd.replace(invalid_char, urlquote(invalid_char))
+
+    return "mongodb://{user}:{pwd}@{host}:27017/{db}?authSource={auth_source}".format(
+        user=settings.MONGO_USER,
+        pwd=escaped_pwd,
+        host=settings.MONGO_HOST,
+        db=settings.MONGO_DB,
+        auth_source=settings.MONGO_AUTH_SOURCE
+    )
+
+
+def filter_tarfile(tar, subdir):
+    subdir = subdir + '/'
+    subdir_length = len(subdir)
+    for member in tar.getmembers():
+        if member.path.startswith(subdir):
+            member.path = member.path[subdir_length:]
+            yield member
