@@ -6,7 +6,7 @@ from django.utils.text import slugify
 from huey.contrib.djhuey import db_task
 from corpus import *
 from bs4 import BeautifulSoup
-from booknlp.booknlp import BookNLP
+# from booknlp.booknlp import BookNLP
 
 
 REGISTRY = {
@@ -306,13 +306,16 @@ def ingest_catma_tei(job_id):
 @db_task(priority=2)
 def run_booknlp(job_id):
     job = Job(job_id)
+    '''
     document = job.content
     booknlp_model = job.get_param_value('booknlp_model').lower()
     text_file_key = job.get_param_value('text_file_key')
     text_file = document.files[text_file_key]
+    '''
 
     job.set_status('running')
 
+    '''
     book_id = slugify(document.title)
     results_path = document.path + '/files/booknlp'
     if not os.path.exists(results_path):
@@ -334,6 +337,7 @@ def run_booknlp(job_id):
 
     document.booknlp_dataset = results_path
     document.save()
+    '''
 
     job.complete(status='complete')
 
