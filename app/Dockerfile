@@ -1,7 +1,9 @@
 FROM python:3.8-slim-buster
 ENV PYTHONUNBUFFERED 1
 
-RUN apt-get update && apt-get install -y ca-certificates python3-pip git jupyter-notebook ghostscript libgs-dev imagemagick tesseract-ocr tesseract-ocr-eng
+RUN apt-get update
+RUN apt-get install -y ca-certificates python3-pip git jupyter-notebook ghostscript
+RUN apt-get install -y libgs-dev imagemagick tesseract-ocr tesseract-ocr-eng mongo-tools
 
 # Update CA Certificates
 RUN update-ca-certificates
@@ -16,14 +18,10 @@ RUN mkdir corpora
 COPY . corpora/
 
 RUN pip3 install --no-cache-dir -r /apps/corpora/requirements.txt
-RUN pip3 install --no-cache-dir --no-input spacy
-RUN pip3 install --no-cache-dir --no-input booknlp
+# RUN pip3 install --no-cache-dir --no-input spacy
+# RUN pip3 install --no-cache-dir --no-input booknlp
 RUN python3 -m nltk.downloader punkt stopwords wordnet averaged_perceptron_tagger
-RUN python3 -m spacy download en_core_web_sm
-
-#RUN pip3 uninstall -y bson
-#RUN pip3 uninstall -y pymongo
-#RUN pip3 install --no-input pymongo
+# RUN python3 -m spacy download en_core_web_sm
 
 WORKDIR /apps/corpora
 RUN python3 setup.py install

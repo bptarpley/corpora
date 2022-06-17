@@ -36,6 +36,23 @@
             max-height: 500px;
             overflow-y: scroll;
         }
+
+        #provenance-div {
+            max-height: 200px;
+            overflow: auto;
+            -ms-overflow-style: -ms-autohiding-scrollbar;
+        }
+
+        #job-report-div {
+            max-height: calc(80vh);
+            overflow-y: scroll;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            white-space: -moz-pre-wrap;
+            white-space: -pre-wrap;
+            white-space: -o-pre-wrap;
+            word-wrap: break-word;
+        }
     </style>
 {% endblock %}
 
@@ -140,8 +157,24 @@
                                 <div class="text-muted">* If you have not yet imported any page images, or if you'd like to replace existing images as the primary witness for this document, this should remain set to 'Yes.'</div>
                             </div>
                         </div>
+                        <div class="form-group import-pages-pdf-source-options">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="import-pages-pdf-source" id="import-pages-pdf-source-upload" value="upload" checked>
+                                <label class="form-check-label" for="impport-pages-pdf-source-upload">Upload New PDF</label>
+                            </div>
+                        </div>
                         <div class="form-group">
                             <input id="import-pages-filepond" class="filepond" type="file">
+                        </div>
+                        <div class="form-group import-pages-pdf-source-options">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="import-pages-pdf-source" id="import-pages-pdf-source-existing" value="existing">
+                                <label class="form-check-label" for="import-pages-pdf-source-existing">Use Existing Document File</label>
+                            </div>
+                        </div>
+                        <div class="form-group import-pages-pdf-source-options">
+                            <select id="import-pages-pdf-existing-file" class="form-control" name="import-pages-pdf-existing-file">
+                            </select>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -184,6 +217,26 @@
                         <button type="button" class="btn btn-primary" id="job-submit-button" onclick="run_job();" disabled>Run Job</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Job Report Modal -->
+    <div class="modal fade" id="job-report-modal" tabindex="-1" role="dialog" aria-labelledby="job-report-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Job Report</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <pre id="job-report-div">Loading...</pre>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
@@ -616,6 +669,7 @@
         let import_pages_files = [];
         let jobsites = [];
         let local_jobsite_id = null;
+        let job_report_timer = null;
         let tasks = [];
         let bbox_collections = [];
         let pfc_setting = {
@@ -704,13 +758,43 @@
                             // LOAD DOCUMENT METADATA
                             let doc_metadata_list = $('#doc-metadata-list');
                             corpus.content_types.Document.fields.forEach( field => {
-                                if (doc[field.name] && ['text', 'large_text', 'keyword', 'number'].includes(field.type)) {
-                                    doc_metadata_list.append(`
-                                        <div class="list-group-item">
-                                            <h5>${field.label}</h5>
-                                            ${doc[field.name]}
-                                        </div>
-                                    `);
+                                if (field.multiple) {
+                                    if (doc[field.name].length) {
+                                        let field_values = [];
+
+                                        if (['text', 'large_text', 'keyword', 'number'].includes(field.type)) {
+                                            field_values = doc[field.name];
+                                        } else if (field.type === "cross_reference") {
+                                            doc[field.name].map(field_value => {
+                                                field_values.push(`<a href="${field_value.uri}/">${field_value.label}</a>`);
+                                            });
+                                        }
+
+                                        doc_metadata_list.append(`
+                                            <div class="list-group-item">
+                                                <h5>${field.label}</h5>
+                                                ${field_values.join('<br />')}
+                                            </div>
+                                        `);
+                                    }
+                                } else {
+                                    if (doc[field.name]) {
+                                        if (['text', 'large_text', 'keyword', 'number'].includes(field.type)) {
+                                            doc_metadata_list.append(`
+                                                <div class="list-group-item">
+                                                    <h5>${field.label}</h5>
+                                                    ${doc[field.name]}
+                                                </div>
+                                            `);
+                                        } else if (field.type === "cross_reference") {
+                                            doc_metadata_list.append(`
+                                                <div class="list-group-item">
+                                                    <h5>${field.label}</h5>
+                                                    <a href="${doc[field.name].uri}/">${doc[field.name].label}</a>
+                                                </div>
+                                            `);
+                                        }
+                                    }
                                 }
                             });
 
@@ -1280,14 +1364,54 @@
                 // ------------------------
                 $("#import-pages-button").click(function () {
                     $("#import-pages-submit-button").attr('disabled', true);
+
+                    // SETUP PDF SOURCE OPTIONS
+                    $('#import-pages-pdf-source-upload').prop('checked', true);
+                    $('#import-pages-pdf-source-existing').prop('checked', false);
+
+                    let has_pdf_file = false;
+                    let pdf_source_options = $('.import-pages-pdf-source-options');
+                    let existing_pdf_selector = $('#import-pages-pdf-existing-file');
+                    Object.keys(doc.files).forEach(file_key => {
+                        if (doc.files[file_key].basename.toLowerCase().endsWith('.pdf')) {
+                            existing_pdf_selector.append(`<option value="${file_key}">${doc.files[file_key].basename}</option>`);
+                            has_pdf_file = true;
+                        }
+                    });
+                    if (has_pdf_file) {
+                        pdf_source_options.removeClass('d-none');
+                    } else {
+                        pdf_source_options.addClass('d-none');
+                    }
+
                     $("#import-pages-modal").modal();
                 });
 
                 $("input[type=radio][name=import-pages-type]").change(function () {
-                    if (this.value == 'pdf') {
-                        $(".pdf-option").removeClass("d-none");
-                    } else if (this.value == 'images') {
-                        $(".pdf-option").addClass("d-none");
+                    let pdf_options = $(".pdf-option");
+                    let pdf_source_options = $('.import-pages-pdf-source-options');
+                    let has_pdf_file = $('#import-pages-pdf-existing-file').children().length > 0;
+
+                    if (this.value === 'pdf') {
+                        pdf_options.removeClass("d-none");
+                        if (has_pdf_file) {
+                            pdf_source_options.removeClass('d-none');
+                        } else {
+                            pdf_source_options.addClass('d-none');
+                        }
+                    } else if (this.value === 'images') {
+                        pdf_options.addClass("d-none");
+                        pdf_source_options.addClass("d-none");
+                    }
+                });
+
+                $("input[type=radio][name=import-pages-pdf-source]").change(function () {
+                    let import_pages_submit_button = $("#import-pages-submit-button");
+
+                    if (this.value === 'existing' || import_pages_files.length > 0) {
+                        import_pages_submit_button.attr('disabled', false);
+                    } else {
+                        import_pages_submit_button.attr('disabled', true);
                     }
                 });
 
@@ -1580,6 +1704,22 @@
                                         ${note_html}
                                     </div>
                                 `;
+                            } else if (parameters[parameter]['type'] == 'document_pageset') {
+                                let select_options = '';
+                                Object.keys(doc.page_sets).forEach(ps_key => {
+                                    select_options += `<option value="${ps_key}">${doc.page_sets[ps_key].label}</option>`;
+                                });
+
+                                parameter_html = `
+                                    <div class="form-group">
+                                        <label for="${parameter}-ps-selector">${parameters[parameter]['label']}</label>
+                                        <select id="${parameter}-ps-selector" class="form-control" name="${parameter}">
+                                            <option value="none">All Pages</option>
+                                            ${select_options}
+                                        </select>
+                                        ${note_html}
+                                    </div>
+                                `;
                             } else if (parameters[parameter]['type'] == 'document_file') {
                                 let select_options = '';
                                 Object.keys(doc.files).forEach(file_key => {
@@ -1610,6 +1750,28 @@
                     }
                 }
             }
+        }
+
+        function view_job_report(job_id) {
+            $('#job-report-modal').modal();
+            $('#job-report-modal').on('hidden.bs.modal', function (e) {
+                clearTimeout(job_report_timer);
+            })
+            load_job_report(job_id);
+        }
+
+        function load_job_report(job_id) {
+            let no_cache_string = Math.random().toString(36).substring(7);
+            let report_url = `/corpus/${corpus_id}/get-file/?path=job_reports/${job_id}.txt&no-cache=${no_cache_string}`;
+            let report_div = $('#job-report-div');
+
+            report_div.load(report_url, function() {
+                report_div.scrollTop(report_div[0].scrollHeight);
+
+                if (!report_div.html().includes('CORPORA JOB COMPLETE')) {
+                    job_report_timer = setTimeout(load_job_report.bind(null, job_id), 10000);
+                }
+            });
         }
 
         function get_task_name(task_id) {

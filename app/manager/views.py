@@ -1,6 +1,7 @@
 import re
 import subprocess
 import mimetypes
+import tarfile
 import urllib.parse
 from ipaddress import ip_address
 from django.shortcuts import render, redirect, HttpResponse
@@ -23,7 +24,8 @@ from .utilities import(
     parse_uri,
     get_jobsites,
     get_tasks,
-    clear_cached_session_scholar
+    clear_cached_session_scholar,
+    order_content_schema
 )
 from rest_framework.decorators import api_view 
 from rest_framework.authtoken.models import Token
@@ -100,10 +102,11 @@ def corpus(request, corpus_id):
                         extension = import_file.split('.')[-1]
                         corpus.save_file(File.process(
                             import_file_path,
-                            extension.upper() + " File",
-                            "User Import",
-                            response['scholar']['username'],
-                            False
+                            #parent_uri=corpus.uri,
+                            desc=extension.upper() + " File",
+                            prov_type="User Import",
+                            prov_id=response['scholar']['username'],
+                            primary=False
                         ))
 
             # HANDLE CORPUS FILE DELETION
@@ -246,24 +249,7 @@ def corpus(request, corpus_id):
                 schema = json.loads(request.POST['schema'])
 
                 # reorder schema according to dependencies
-                ordered_schema = []
-                ordering = True
-                while ordering:
-                    num_ordered_cts = len(ordered_schema)
-                    ordered_ct_names = [ct['name'] for ct in ordered_schema]
-
-                    for ct_spec in schema:
-                        independent = True
-                        for field in ct_spec['fields']:
-                            if field['type'] == 'cross_reference' and field['cross_reference_type'] != ct_spec['name'] and field['cross_reference_type'] not in ordered_ct_names:
-                                independent = False
-                                break
-                        if independent and ct_spec['name'] not in ordered_ct_names:
-                            ordered_schema.append(ct_spec)
-                            ordered_ct_names.append(ct_spec['name'])
-
-                    if num_ordered_cts == len(ordered_schema) or len(schema) == len(ordered_schema):
-                        ordering = False
+                ordered_schema = order_content_schema(schema)
 
                 # if no problems with dependencies, save the content types in correct order
                 if len(ordered_schema) == len(schema):
@@ -624,7 +610,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
 
                 return redirect("/corpus/{0}/?msg=Bulk edit content job submitted.".format(corpus_id))
             else:
-                content.save()
+                content.save(relabel=True)
 
             if temp_file_fields:
                 for temp_file_field in temp_file_fields:
@@ -633,7 +619,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                             content._move_temp_file(temp_file_field, f_index)
                     else:
                         content._move_temp_file(temp_file_field)
-                content.save()
+                content.save(relabel=True)
 
             if 'save-and-create' in request.POST:
                 return redirect("/corpus/{0}/{1}/?msg={1} saved.".format(
@@ -939,6 +925,133 @@ def bulk_job_manager(request, corpus_id, content_type):
                         'num_jobs': num_jobs
                     }
                 )
+
+    raise Http404("You are not authorized to view this page.")
+
+
+@login_required
+def exports(request):
+    response = _get_context(request)
+
+    if response['scholar'].is_admin:
+
+        if request.method == 'POST':
+            # HANDLE EXPORT FILE UPLOAD
+            if 'filepond' in request.FILES:
+                filename = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', request.FILES['filepond'].name)
+                upload_path = "/corpora/exports"
+                file_path = "{0}/{1}".format(upload_path, filename)
+
+                # Make sure export file doesn't already exist
+                if os.path.exists(file_path):
+                    raise Http404("An export with this name already exists!")
+
+                if not os.path.exists(upload_path):
+                    os.makedirs(upload_path)
+
+                with open(file_path, 'wb+') as destination:
+                    for chunk in request.FILES['filepond'].chunks():
+                        destination.write(chunk)
+
+                return HttpResponse(ObjectId(), content_type='text/plain')
+
+            elif _contains(request.POST, ['export-file-import', 'export-file-name']):
+                export_file = _clean(request.POST, 'export-file-name')
+                if export_file:
+                    export_file = export_file.replace('/', '')
+                    export_file = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', os.path.basename(export_file))
+                    if '_' in export_file and export_file.endswith('.tar.gz'):
+                        export_name = export_file.split('.')[0]
+                        export_name = "_".join(export_name.split('_')[1:])
+                        export_file = '/corpora/exports/' + export_file
+
+                        print(export_file)
+                        print(export_name)
+
+                        if os.path.exists(export_file):
+                            export_corpus = None
+                            with tarfile.open(export_file, 'r:gz') as tar_in:
+                                export_corpus = tar_in.extractfile('corpus.json').read()
+
+                            if export_corpus:
+                                export_corpus = json.loads(export_corpus)
+                                if _contains(export_corpus, ['id', 'name', 'description']):
+                                    export = CorpusExport()
+                                    export.name = export_name
+                                    export.corpus_id = export_corpus['id']
+                                    export.corpus_name = export_corpus['name']
+                                    export.corpus_description = export_corpus['description']
+                                    export.path = export_file
+                                    export.save()
+
+                                    response['messages'].append('Corpus export file successfully imported.')
+                        
+
+            # HANDLE EXPORT ACTIONS
+            export_action = _clean(request.POST, 'export-action')
+
+            if export_action == 'create' and _contains(request.POST, ['export-corpus-id', 'export-name']):
+                export_corpus_id = _clean(request.POST, 'export-corpus-id')
+                export_name = _clean(request.POST, 'export-name')
+                export = CorpusExport.objects(corpus_id=export_corpus_id, name=export_name)
+
+                if export.count() > 0:
+                    response['errors'].append('An export with that name already exists for corpus {0}.'.format(export_corpus_id))
+                else:
+                    corpus = get_corpus(export_corpus_id)
+                    job_id = corpus.queue_local_job(
+                        task_name="Export Corpus",
+                        scholar_id=response['scholar'].id,
+                        parameters={'export_name': export_name}
+                    )
+                    print("Job ID: {0}".format(job_id))
+                    run_job(job_id)
+                    response['messages'].append('Export {0} successfully initiated!'.format(export_name))
+
+            elif 'export-id' in request.POST:
+                export_id = _clean(request.POST, 'export-id')
+                export = CorpusExport.objects(id=export_id)
+                if export.count() > 0:
+                    export = export[0]
+
+                    if export_action == 'restore':
+                        export.status = 'restoring'
+                        export.save()
+                        restore_corpus(str(export.id))
+                        response['messages'].append('Corpus restore successfully launched.')
+
+                    elif export_action == 'delete':
+                        os.remove(export.path)
+                        export.delete()
+                        response['messages'].append('Export successfully deleted.')
+
+        exports = CorpusExport.objects.order_by('corpus_name', 'created')
+
+        return render(
+            request,
+            'exports.html',
+            {
+                'response': response,
+                'exports': exports
+            }
+        )
+    else:
+        raise Http404("You are not authorized to view this page.")
+
+
+@login_required
+def download_export(request, export_id):
+    response = _get_context(request)
+
+    if response['scholar'].is_admin:
+        export = CorpusExport.objects(id=export_id)
+        if export.count() > 0:
+            export = export[0]
+            if os.path.exists(export.path):
+                response = HttpResponse(content_type="application/gzip")
+                response['Content-Disposition'] = 'attachment; filename="{0}"'.format(os.path.basename(export.path))
+                response['X-Accel-Redirect'] = "/files/{0}".format(export.path.replace('/corpora/', ''))
+                return response
 
     raise Http404("You are not authorized to view this page.")
 

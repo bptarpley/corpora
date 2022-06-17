@@ -842,11 +842,50 @@ class CompletedTask(mongoengine.EmbeddedDocument):
     report_path = mongoengine.StringField()
     error = mongoengine.StringField()
 
+    @classmethod
+    def from_dict(cls, prov_info):
+        prov = CompletedTask()
+        valid = True
+        for attr in ['job_id', 'task_configuration', 'status', 'report_path', 'error']:
+            if attr in prov_info:
+                setattr(prov, attr, prov_info[attr])
+            else:
+                valid = False
+
+        if valid:
+            if 'task_id' in prov_info and 'jobsite_id' in prov_info and 'scholar_id' in prov_info and 'submitted' in prov_info and 'completed' in prov_info:
+                try:
+                    task = Task.objects(id=prov_info['task_id'])[0]
+                    prov.task = task
+
+                    if 'task_version' in prov_info:
+                        prov.task_version = prov_info['task_version']
+
+                    jobsite = JobSite.objects(id=prov_info['jobsite_id'])[0]
+                    prov.jobsite = jobsite
+
+                    scholar = Scholar.objects(id=prov_info['scholar_id'])[0]
+                    prov.scholar = scholar
+
+                    prov.submitted = datetime.fromtimestamp(prov_info['submitted'])
+                    prov.completed = datetime.fromtimestamp(prov_info['completed'])
+                except:
+                    print(traceback.format_exc())
+                    valid = False
+            else:
+                valid = False
+
+        if valid:
+            return prov
+
+        return None
+
     def to_dict(self):
         return {
             'job_id': self.job_id,
             'task_id': str(self.task.id),
             'task_name': str(self.task.name),
+            'task_version': self.task_version,
             'task_configuration': deepcopy(self.task_configuration),
             'jobsite_id': str(self.jobsite.id),
             'scholar_id': str(self.scholar.id),
@@ -882,7 +921,7 @@ class ContentType(mongoengine.EmbeddedDocument):
     inherited_from_module = mongoengine.StringField()
     inherited_from_class = mongoengine.StringField()
     base_mongo_indexes = mongoengine.StringField()
-    has_file_field = mongoengine.BooleanField()
+    has_file_field = mongoengine.BooleanField(default=False)
     invalid_field_names = mongoengine.ListField(mongoengine.StringField())
 
     def get_field(self, field_name):
@@ -970,10 +1009,13 @@ class ContentType(mongoengine.EmbeddedDocument):
             'show_in_nav': self.show_in_nav,
             'proxy_field': self.proxy_field,
             'templates': {},
-            'inherited': True if self.inherited_from_module else False,
-            'invalid_field_names': deepcopy(self.invalid_field_names),
             'view_widget_url': self.view_widget_url,
-            'edit_widget_url': self.edit_widget_url
+            'edit_widget_url': self.edit_widget_url,
+            'inherited_from_module': self.inherited_from_module,
+            'inherited_from_class': self.inherited_from_class,
+            'base_mongo_indexes': self.base_mongo_indexes,
+            'has_file_field': self.has_file_field,
+            'invalid_field_names': deepcopy(self.invalid_field_names),
         }
 
         for template_name in self.templates:
@@ -1083,6 +1125,24 @@ class File(mongoengine.EmbeddedDocument):
             url = "/image/uri/{0}/".format(uri.replace('/', '|'))
         return url
 
+    @classmethod
+    def from_dict(cls, file_dict):
+        file = File()
+        valid = True
+        for attr in ['uri', 'primary_witness', 'path', 'basename', 'extension', 'byte_size',
+                     'description', 'provenance_type', 'provenance_id', 'height', 'width',
+                     'is_image', 'iiif_info', 'collection_label']:
+            if attr in file_dict:
+                setattr(file, attr, file_dict[attr])
+            else:
+                valid = False
+                break
+
+        if valid:
+            return File
+
+        return None
+
     def to_dict(self, parent_uri):
         return {
             'uri': "{0}/file/{1}".format(parent_uri, self.key),
@@ -1139,6 +1199,24 @@ class GitRepo(mongoengine.EmbeddedDocument):
                 self.last_pull = datetime.now()
                 self.error = False
                 parent.save()
+
+    @classmethod
+    def from_dict(cls, repo_dict):
+        repo = GitRepo()
+        valid = True
+        for attr in ['name', 'path', 'remote_url', 'remote_branch', 'last_pull', 'error']:
+            if attr in repo_dict:
+                if attr == 'last_pull':
+                    repo.last_pull = datetime.fromtimestamp(repo_dict['last_pull'])
+                else:
+                    setattr(repo, attr, repo_dict[attr])
+            else:
+                valid = False
+
+        if valid:
+            return repo
+
+        return None
 
     def to_dict(self):
         return {
@@ -1616,17 +1694,21 @@ class Corpus(mongoengine.Document):
                                 }}
                             )
 
-                    if '.' in search_field:
-                        field_parts = search_field.split('.')
-                        filter.append(
-                            Q(
+                    if range_query:
+                        if '.' in search_field:
+                            field_parts = search_field.split('.')
+                            range_query = Q(
                                 'nested',
                                 path=field_parts[0],
                                 query=range_query
                             )
-                        )
-                    else:
-                        filter.append(range_query)
+
+                        if operator == 'and':
+                            filter.append(range_query)
+                        else:
+                            should.append(range_query)
+
+
 
             # CONTENT VIEW
             if content_view:
@@ -1954,9 +2036,9 @@ class Corpus(mongoengine.Document):
             new_content_type.plural_name = schema['plural_name']
             new_content_type.show_in_nav = schema['show_in_nav']
             new_content_type.proxy_field = schema['proxy_field']
-            new_content_type.has_file_field = schema.get('has_file_field', False)
             new_content_type.view_widget_url = schema.get('view_widget_url', None)
             new_content_type.edit_widget_url = schema.get('edit_widget_url', None)
+            new_content_type.has_file_field = schema.get('has_file_field', False)
             new_content_type.invalid_field_names = invalid_field_names
 
             if 'templates' in schema:
@@ -1970,7 +2052,7 @@ class Corpus(mongoengine.Document):
                 new_content_type.inherited_from_module = schema['inherited_from_module']
                 new_content_type.inherited_from_class = schema['inherited_from_class']
 
-                if 'base_mongo_indexes' in schema:
+                if 'base_mongo_indexes' in schema and schema['base_mongo_indexes']:
                     new_content_type.base_mongo_indexes = json.dumps(schema['base_mongo_indexes'])
 
             for field_dict in schema['fields']:
@@ -2124,6 +2206,9 @@ class Corpus(mongoengine.Document):
 
             if not had_file_field and self.content_types[ct_name].has_file_field:
                 resave = True
+
+            print("HAS FILE FIELD")
+            print(self.content_types[ct_name].has_file_field)
 
             if reindex or relabel or resave:
                 queued_job_ids.append(self.queue_local_job(task_name="Adjust Content", parameters={
@@ -2560,6 +2645,16 @@ class Corpus(mongoengine.Document):
     }
 
 
+class CorpusExport(mongoengine.Document):
+    corpus_id = mongoengine.StringField()
+    corpus_name = mongoengine.StringField()
+    corpus_description = mongoengine.StringField()
+    name = mongoengine.StringField(unique_with='corpus_id')
+    path = mongoengine.StringField()
+    status = mongoengine.StringField()
+    created = mongoengine.DateTimeField(default=datetime.now())
+
+
 class Content(mongoengine.Document):
     corpus_id = mongoengine.StringField(required=True)
     content_type = mongoengine.StringField(required=True)
@@ -2595,10 +2690,10 @@ class Content(mongoengine.Document):
     def _pre_save(cls, sender, document, **kwargs):
         document.last_updated = datetime.now()
 
-    def save(self, do_indexing=True, do_linking=True, **kwargs):
+    def save(self, do_indexing=True, do_linking=True, relabel=True, **kwargs):
         super().save(**kwargs)
         path_created = self._make_path()
-        label_created = self._make_label()
+        label_created = self._make_label(relabel)
         uri_created = self._make_uri()
 
         if path_created or label_created or uri_created:
@@ -2646,8 +2741,8 @@ class Content(mongoengine.Document):
         if document.path and os.path.exists(document.path):
             document._corpus.queue_local_job(task_name="Content Deletion Cleanup", parameters={'content_path': document.path})
 
-    def _make_label(self):
-        if not self.label:
+    def _make_label(self, force=True):
+        if force or not self.label:
             label_template = Template(self._ct.templates['Label'].template)
             context = Context({self.content_type: self})
             self.label = label_template.render(context)

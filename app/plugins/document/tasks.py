@@ -8,9 +8,6 @@ from copy import deepcopy
 from datetime import datetime
 from huey.contrib.djhuey import db_task
 from natsort import natsorted
-from PyPDF2 import PdfFileReader
-from PyPDF2.pdf import ContentStream
-from PyPDF2.generic import TextStringObject, u_, b_
 from elasticsearch_dsl.connections import get_connection
 from django.utils.text import slugify
 from manager.utilities import _contains

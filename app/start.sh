@@ -8,6 +8,7 @@ fi
 cd /apps/corpora
 #git pull
 #python3 setup.py install
+
 python3 manage.py makemigrations
 python3 manage.py migrate
 python3 manage.py collectstatic --no-input
@@ -18,6 +19,7 @@ touch /apps/initialized
 echo Starting Gunicorn.
 exec gunicorn corpora.wsgi:application\
     --bind 0.0.0.0:8000 \
+    --timeout 300 \
     --workers ${CRP_DJANGO_WORKERS} &
 
 # Start Huey

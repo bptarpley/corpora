@@ -651,7 +651,7 @@ class Corpora {
     }
 
     time_string(timestamp) {
-        let date = new Date(timestamp);
+        let date = new Date(timestamp*1000);
         return date.toLocaleString('en-US', { timeZone: 'UTC' });
     }
 

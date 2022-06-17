@@ -51,71 +51,95 @@ def document(request, corpus_id, document_id):
             elif _contains(request.POST, ['import-pages-type', 'import-pages-files']):
                 files_to_process = []
                 import_type = _clean(request.POST, 'import-pages-type')
+                import_source = _clean(request.POST, 'import-pages-pdf-source')
+                existing_file_key = _clean(request.POST, 'import-pages-pdf-existing-file', None)
                 import_files = json.loads(request.POST['import-pages-files'])
 
-                upload_path = "{0}/temporary_uploads".format(document.path)
-                for import_file in import_files:
-                    import_file_path = "{0}/{1}".format(upload_path, import_file)
-                    if os.path.exists(import_file_path):
-                        files_to_process.append(import_file_path)
+                image_split = _clean(request.POST, 'import-pages-split')
+                primary_witness = _clean(request.POST, 'import-pages-primary')
 
-                if files_to_process:
-                    image_split = _clean(request.POST, 'import-pages-split')
-                    primary_witness = _clean(request.POST, 'import-pages-primary')
+                if import_source == 'upload':
+                    upload_path = "{0}/temporary_uploads".format(document.path)
+                    for import_file in import_files:
+                        import_file_path = "{0}/{1}".format(upload_path, import_file)
+                        if os.path.exists(import_file_path):
+                            files_to_process.append(import_file_path)
 
-                    if import_type == 'pdf':
-                        image_dpi = _clean(request.POST, 'import-pages-image-dpi')
-                        extract_text = _clean(request.POST, 'import-pages-extract-text')
+                    if files_to_process:
 
-                        if '.pdf' in files_to_process[0].lower():
-                            pdf_file_path = files_to_process[0]
-                            pdf_file_basename = os.path.basename(pdf_file_path)
+                        if import_type == 'pdf':
+                            image_dpi = _clean(request.POST, 'import-pages-image-dpi')
+                            extract_text = _clean(request.POST, 'import-pages-extract-text')
 
-                            doc_files_path = "{0}/files".format(document.path)
-                            new_pdf_path = "{0}/{1}".format(doc_files_path, pdf_file_basename)
+                            if '.pdf' in files_to_process[0].lower():
+                                pdf_file_path = files_to_process[0]
+                                pdf_file_basename = os.path.basename(pdf_file_path)
 
-                            os.rename(pdf_file_path, new_pdf_path)
-                            pdf_file_path = new_pdf_path
-                            document.save_file(File.process(
-                                pdf_file_path,
-                                "PDF File",
-                                "User Import",
-                                response['scholar']['username'],
-                                False
-                            ))
+                                doc_files_path = "{0}/files".format(document.path)
+                                new_pdf_path = "{0}/{1}".format(doc_files_path, pdf_file_basename)
 
+                                os.rename(pdf_file_path, new_pdf_path)
+                                pdf_file_path = new_pdf_path
+                                document.save_file(File.process(
+                                    pdf_file_path,
+                                    "PDF File",
+                                    "User Import",
+                                    response['scholar']['username'],
+                                    False
+                                ))
+
+                                # Get Local JobSite, PDF Import Task, and setup Job
+                                job_id = corpus.queue_local_job(
+                                    content_type='Document',
+                                    content_id=document_id,
+                                    task_name='Import Document Pages from PDF',
+                                    scholar_id=response['scholar'].id,
+                                    parameters={
+                                        'pdf_file': pdf_file_path,
+                                        'image_dpi': image_dpi,
+                                        'split_images': image_split,
+                                        'extract_text': extract_text,
+                                        'primary_witness': primary_witness
+                                    }
+                                )
+                                run_job(job_id)
+
+                        elif import_type == 'images':
                             # Get Local JobSite, PDF Import Task, and setup Job
                             job_id = corpus.queue_local_job(
                                 content_type='Document',
                                 content_id=document_id,
-                                task_name='Import Document Pages from PDF',
+                                task_name='Import Document Pages from Images',
                                 scholar_id=response['scholar'].id,
                                 parameters={
-                                    'pdf_file': pdf_file_path,
-                                    'image_dpi': image_dpi,
+                                    'import_files_json': json.dumps(files_to_process),
                                     'split_images': image_split,
-                                    'extract_text': extract_text,
                                     'primary_witness': primary_witness
                                 }
                             )
                             run_job(job_id)
+                    else:
+                        response['errors'].append("Error locating files to import.")
 
-                    elif import_type == 'images':
-                        # Get Local JobSite, PDF Import Task, and setup Job
-                        job_id = corpus.queue_local_job(
-                            content_type='Document',
-                            content_id=document_id,
-                            task_name='Import Document Pages from Images',
-                            scholar_id=response['scholar'].id,
-                            parameters={
-                                'import_files_json': json.dumps(files_to_process),
-                                'split_images': image_split,
-                                'primary_witness': primary_witness
-                            }
-                        )
-                        run_job(job_id)
-                else:
-                    response['errors'].append("Error locating files to import.")
+                elif import_source == 'existing':
+                    image_dpi = _clean(request.POST, 'import-pages-image-dpi')
+                    extract_text = _clean(request.POST, 'import-pages-extract-text')
+
+                    # Get Local JobSite, PDF Import Task, and setup Job
+                    job_id = corpus.queue_local_job(
+                        content_type='Document',
+                        content_id=document_id,
+                        task_name='Import Document Pages from PDF',
+                        scholar_id=response['scholar'].id,
+                        parameters={
+                            'pdf_file': document.files[existing_file_key].path,
+                            'image_dpi': image_dpi,
+                            'split_images': image_split,
+                            'extract_text': extract_text,
+                            'primary_witness': primary_witness
+                        }
+                    )
+                    run_job(job_id)
 
             # HANDLE IMPORT DOCUMENT FILES FORM SUBMISSION
             elif 'import-document-files' in request.POST:
@@ -128,7 +152,10 @@ def document(request, corpus_id, document_id):
 
                 upload_path = document.path + '/files'
                 for import_file in import_files:
+                    # adjust filename to match how it was stored when uploading
+                    import_file = '/' + re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', import_file[1:])
                     import_file_path = "{0}{1}".format(upload_path, import_file)
+
                     if os.path.exists(import_file_path):
                         extension = import_file.split('.')[-1]
                         document.save_file(File.process(
