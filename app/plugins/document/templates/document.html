@@ -140,8 +140,24 @@
                                 <div class="text-muted">* If you have not yet imported any page images, or if you'd like to replace existing images as the primary witness for this document, this should remain set to 'Yes.'</div>
                             </div>
                         </div>
+                        <div class="form-group import-pages-pdf-source-options">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="import-pages-pdf-source" id="import-pages-pdf-source-upload" value="upload" checked>
+                                <label class="form-check-label" for="impport-pages-pdf-source-upload">Upload New PDF</label>
+                            </div>
+                        </div>
                         <div class="form-group">
                             <input id="import-pages-filepond" class="filepond" type="file">
+                        </div>
+                        <div class="form-group import-pages-pdf-source-options">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="import-pages-pdf-source" id="import-pages-pdf-source-existing" value="existing">
+                                <label class="form-check-label" for="import-pages-pdf-source-existing">Use Existing Document File</label>
+                            </div>
+                        </div>
+                        <div class="form-group import-pages-pdf-source-options">
+                            <select id="import-pages-pdf-existing-file" class="form-control" name="import-pages-pdf-existing-file">
+                            </select>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1310,14 +1326,54 @@
                 // ------------------------
                 $("#import-pages-button").click(function () {
                     $("#import-pages-submit-button").attr('disabled', true);
+
+                    // SETUP PDF SOURCE OPTIONS
+                    $('#import-pages-pdf-source-upload').prop('checked', true);
+                    $('#import-pages-pdf-source-existing').prop('checked', false);
+
+                    let has_pdf_file = false;
+                    let pdf_source_options = $('.import-pages-pdf-source-options');
+                    let existing_pdf_selector = $('#import-pages-pdf-existing-file');
+                    Object.keys(doc.files).forEach(file_key => {
+                        if (doc.files[file_key].basename.toLowerCase().endsWith('.pdf')) {
+                            existing_pdf_selector.append(`<option value="${file_key}">${doc.files[file_key].basename}</option>`);
+                            has_pdf_file = true;
+                        }
+                    });
+                    if (has_pdf_file) {
+                        pdf_source_options.removeClass('d-none');
+                    } else {
+                        pdf_source_options.addClass('d-none');
+                    }
+
                     $("#import-pages-modal").modal();
                 });
 
                 $("input[type=radio][name=import-pages-type]").change(function () {
-                    if (this.value == 'pdf') {
-                        $(".pdf-option").removeClass("d-none");
-                    } else if (this.value == 'images') {
-                        $(".pdf-option").addClass("d-none");
+                    let pdf_options = $(".pdf-option");
+                    let pdf_source_options = $('.import-pages-pdf-source-options');
+                    let has_pdf_file = $('#import-pages-pdf-existing-file').children().length > 0;
+
+                    if (this.value === 'pdf') {
+                        pdf_options.removeClass("d-none");
+                        if (has_pdf_file) {
+                            pdf_source_options.removeClass('d-none');
+                        } else {
+                            pdf_source_options.addClass('d-none');
+                        }
+                    } else if (this.value === 'images') {
+                        pdf_options.addClass("d-none");
+                        pdf_source_options.addClass("d-none");
+                    }
+                });
+
+                $("input[type=radio][name=import-pages-pdf-source]").change(function () {
+                    let import_pages_submit_button = $("#import-pages-submit-button");
+
+                    if (this.value === 'existing' || import_pages_files.length > 0) {
+                        import_pages_submit_button.attr('disabled', false);
+                    } else {
+                        import_pages_submit_button.attr('disabled', true);
                     }
                 });
 
