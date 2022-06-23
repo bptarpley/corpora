@@ -515,6 +515,8 @@
             .play-row {
                 border-top: solid 1px var(--nvs-light-blue);
                 min-height: var(--nvs-play-row-min-height);
+                /*content-visibility: auto;
+                contain-intrinsic-size: 1px 5000px;*/
             }
 
             .play-label {
@@ -1984,6 +1986,7 @@
 
                 if(!notes_populated.hasOwnProperty(note_id)) {
                     notes_populated[note_id] = true;
+                    let description_displayed = false;
 
                     notes[note_id].line_range = '';
                     if (notes[note_id].lines.length > 1) {
@@ -1998,6 +2001,7 @@
                             if (variant.description === null) {
                                 variant_words = `<span class="variant-note">Due to the site being in beta, an error occurred when parsing this variant.</span>`;
                             } else {
+                                description_displayed = true;
                                 variant_words = `<span class="variant-note">${variant.description}</span>`;
                             }
                         }
@@ -2015,7 +2019,7 @@
                                             </div>
                                             <div class="row no-gutters">
                                                 <div class="col-sm-12 witness-formula" data-line-id="${line.xml_id}" data-variant-id="${variant.id}">
-                                                    ${variant.witness_formula}
+                                                    ${variant.witness_formula}${variant.description && !description_displayed ? ' ' + variant.description : ''}
                                                 </div>
                                             </div>
                                         </div>
@@ -2376,7 +2380,7 @@
             }
         } else {
             if (nav_type === 'siglum'){
-                if (!xml_id.startsWith('s_')) xml_id = `s_${xml_id.toLowerCase()}`;
+                if (!xml_id.startsWith('s_')) xml_id = `s_${xml_id.toLowerCase().replace('&', '')}`;
 
                 if (xml_id in witnesses) {
                     let title = 'Collated Edition';

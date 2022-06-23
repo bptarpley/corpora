@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 from django.utils.html import strip_tags
 from django.utils.text import slugify
 from string import punctuation
+from random import randint
 from mongoengine.queryset.visitor import Q
 
 
@@ -551,6 +552,11 @@ FRONT MATTER INGESTION
                     )
                     doc_type_count += 1
 
+                    # Fix bibliographic entries for witnesses by including date
+                    if not strip_tags(bibliographic_entry).strip().endswith('.'):
+                        bibliographic_entry += '.'
+                    bibliographic_entry += ' {0}.'.format(pub_date)
+
                     ref_type = nvs_document_types[nvs_doc_type]
                     reference = corpus.get_content("Reference")
                     reference.play = play.id
@@ -559,8 +565,6 @@ FRONT MATTER INGESTION
                     reference.bibliographic_entry = bibliographic_entry
                     reference.bibliographic_entry_text = strip_tags(bibliographic_entry).strip()
                     reference.save()
-
-                    #getattr(play, play_field).append(witness.id)
 
                 elif 'corresp' in witness_tag.attrs:
                     witness_collections.append({
@@ -1117,11 +1121,11 @@ TEXTUAL NOTES INGESTION
                 textual_variant.witness_formula = ""
                 for child in variant.wit.children:
                     if child.name == 'siglum':
-                        siglum_label = strip_tags(tei_to_html(child))
+                        siglum_label = strip_tags(tei_to_html(child)).replace(';', '')
                         textual_variant.witness_formula += '''
                             <a href="#" class="ref-siglum variant-siglum" onClick="navigate_to('siglum', '{0}', this); return false;">{0}</a>
                         '''.format(siglum_label)
-                        if siglum_label not in all_sigla: # and siglum_label not in missing_sigla:
+                        if siglum_label not in all_sigla:
                             references_selectively_quoted_witness = True
 
                         if not starting_siglum:
@@ -1212,6 +1216,12 @@ TEXTUAL NOTES INGESTION
                     note_exclusions += [strip_tags(w.siglum_label) for w in witnesses if w.id in textual_variant.witnesses]
                     note_exclusion_formula = "+ (-{0})".format(textual_variant.witness_formula)
                 else:
+                    # If the 'note_exclusions' list has entries, it means an earlier variant for this note was
+                    # of type 'lem,' and therefore any witnesses pertaining to this variant need to be added
+                    # to the list of exclusions
+                    if note_exclusions:
+                        note_exclusions += [strip_tags(w.siglum_label) for w in witnesses if w.id in textual_variant.witnesses]
+
                     variant_witness_indicators = get_variant_witness_indicators(witnesses, textual_variant)
                     textual_variant.witness_meter = make_witness_meter(
                         variant_witness_indicators,
@@ -1259,11 +1269,25 @@ TEXTUAL NOTES INGESTION
                             note.witness_meter = "0" * (len(witnesses) + 1)
 
                             for variant in note.variants:
-                                variant_indicators = [int(i) + color_offset if i != '0' else 0 for i in variant.witness_meter]
-                                variant_indicators = [i if i < 10 else i - 10 for i in variant_indicators]
-                                variant.witness_meter = "".join([str(i) for i in variant_indicators])
-                                variant.save()
-                                note.witness_meter = collapse_indicators(variant.witness_meter, note.witness_meter)
+                                chosen_marker = max([int(i) for i in variant.witness_meter])
+                                if chosen_marker:
+                                    chosen_marker += color_offset
+                                    while chosen_marker > 9:
+                                        chosen_marker -= 10
+
+                                    if chosen_marker <= 0:
+                                        chosen_marker = randint(1, 9)
+
+                                    variant_indicators = []
+                                    for i in variant.witness_meter:
+                                        if i == '0':
+                                            variant_indicators.append(0)
+                                        else:
+                                            variant_indicators.append(chosen_marker)
+
+                                    variant.witness_meter = "".join([str(i) for i in variant_indicators])
+                                    variant.save()
+                                    note.witness_meter = collapse_indicators(variant.witness_meter, note.witness_meter)
 
                             note.save()
                             recolored_notes[note_id] = 1
@@ -1325,10 +1349,11 @@ def get_witness_ids(
 
     for witness_group in witness_groups:
         if strip_tags(witness_group.siglum_label) == starting_witness_siglum:
-            if not ending_witness_siglum and not include_all_following and not excluding_sigla:
+            if not ending_witness_siglum and not include_all_following:
                 starting_witness_siglum = None
                 for reffed_doc in witness_group.referenced_documents:
-                    including_sigla.append(strip_tags(reffed_doc.siglum_label))
+                    if reffed_doc.siglum_label not in excluding_sigla:
+                        including_sigla.append(strip_tags(reffed_doc.siglum_label))
             else:
                 starting_witness_siglum = strip_tags(witness_group.referenced_documents[0].siglum_label)
         elif ending_witness_siglum and strip_tags(witness_group.siglum_label) == ending_witness_siglum:
@@ -2616,7 +2641,7 @@ def tei_to_html(tag):
 
                 html += '''<a href="#" class="ref-{0}" onClick="navigate_to('{0}', '{1}', this); return false;">'''.format(
                     'siglum',
-                    strip_tags(siglum_label)
+                    strip_tags(siglum_label).replace(';', '')
                 )
                 html += siglum_label
                 html += "</a>"
