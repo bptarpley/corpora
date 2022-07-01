@@ -1001,6 +1001,13 @@ class ContentType(mongoengine.EmbeddedDocument):
                 return True
         return False
 
+    def get_field_dict(self, include_embedded=False):
+        fd = {}
+        for field in self.fields:
+            if field.type != 'embedded' or include_embedded:
+                fd[field.name] = field
+        return fd
+
     def to_dict(self):
         ct_dict = {
             'name': self.name,
@@ -1025,7 +1032,7 @@ class ContentType(mongoengine.EmbeddedDocument):
 
 
 class File(mongoengine.EmbeddedDocument):
-
+    uri = mongoengine.StringField(blank=True)
     primary_witness = mongoengine.BooleanField()
     path = mongoengine.StringField()
     basename = mongoengine.StringField()
@@ -1094,7 +1101,7 @@ class File(mongoengine.EmbeddedDocument):
         )
 
     @classmethod
-    def process(cls, path, desc=None, prov_type=None, prov_id=None, primary=False):
+    def process(cls, path, desc=None, prov_type=None, prov_id=None, primary=False, parent_uri=''):
         file = None
 
         if os.path.exists(path):
@@ -2207,9 +2214,6 @@ class Corpus(mongoengine.Document):
             if not had_file_field and self.content_types[ct_name].has_file_field:
                 resave = True
 
-            print("HAS FILE FIELD")
-            print(self.content_types[ct_name].has_file_field)
-
             if reindex or relabel or resave:
                 queued_job_ids.append(self.queue_local_job(task_name="Adjust Content", parameters={
                     'content_type': ct_name,
@@ -2807,6 +2811,7 @@ class Content(mongoengine.Document):
 
                 new_file = File.process(
                     new_path,
+                    parent_uri=self.uri,
                     desc=file.description,
                     prov_type=file.provenance_type,
                     prov_id=file.provenance_id

@@ -315,6 +315,82 @@ def order_content_schema(schema):
     return ordered_schema
 
 
+def process_content_bundle(corpus, content_type, content, content_bundle, scholar_id, bulk_editing=False):
+    if content_type in corpus.content_types:
+        ct_fields = corpus.content_types[content_type].get_field_dict()
+        temp_file_fields = []
+
+        for field_name, data in content_bundle.items():
+            if field_name in ct_fields:
+                field = ct_fields[field_name]
+
+                if (not bulk_editing) or (field.type not in ['file', 'repo'] and not field.unique):
+
+                    if field.multiple:
+                        setattr(content, field_name, [])
+                    else:
+                        data = [data]
+
+                    for datum in data:
+                        value = datum['value']
+                        valid_value = True
+                        if (not value) and value != 0:
+                            valid_value = False
+                            value = None
+
+                        if valid_value:
+                            if field.type == 'cross_reference':
+                                value = corpus.get_content(field.cross_reference_type, value).to_dbref()
+
+                            elif field.type == 'file':
+                                base_path = "{corpus_path}/{content_type}/temporary_uploads".format(
+                                    corpus_path=corpus.path,
+                                    content_type=content_type
+                                )
+
+                                if content.id:
+                                    base_path = "{content_path}/files".format(content_path=content.path)
+
+                                file_path = "{base_path}{sub_path}".format(
+                                    base_path=base_path,
+                                    sub_path=value
+                                )
+                                if os.path.exists(file_path):
+                                    value = File.process(
+                                        file_path,
+                                        desc="{0} for {1}".format(ct_fields[field_name].label, content_type),
+                                        prov_type="Scholar",
+                                        prov_id=str(scholar_id)
+                                    )
+
+                                    if not content.id and field_name not in temp_file_fields:
+                                        temp_file_fields.append(field_name)
+
+                            elif field.type == 'date':
+                                value = parse_date_string(value)
+
+                        if field.multiple:
+                            if valid_value:
+                                getattr(content, field_name).append(value)
+                        else:
+                            setattr(content, field_name, value)
+
+                        if field.has_intensity and 'intensity' in datum:
+                            content.set_intensity(field_name, value, datum['intensity'])
+
+        content.save(relabel=True)
+
+        if temp_file_fields:
+            for temp_file_field in temp_file_fields:
+                if ct_fields[temp_file_field].multiple:
+                    for f_index in range(0, len(getattr(content, temp_file_field))):
+                        content._move_temp_file(temp_file_field, f_index)
+                else:
+                    content._move_temp_file(temp_file_field)
+
+            content.save(relabel=True)
+
+
 def _contains(obj, keys):
     for key in keys:
         if key not in obj:
