@@ -20,7 +20,7 @@ from elasticsearch_dsl.connections import get_connection
 from PIL import Image
 from datetime import datetime
 from subprocess import call
-from manager.utilities import _contains, build_search_params_from_dict, order_content_schema
+from manager.utilities import _contains, build_search_params_from_dict, order_content_schema, process_content_bundle
 from django.utils.text import slugify
 from zipfile import ZipFile
 
@@ -58,7 +58,7 @@ REGISTRY = {
         "functions": ['bulk_launch_jobs']
     },
     "Bulk Edit Content": {
-        "version": "0",
+        "version": "0.1",
         "jobsite_type": "HUEY",
         "track_provenance": False,
         "content_type": "Corpus",
@@ -79,10 +79,15 @@ REGISTRY = {
                     "type": "text",
                     "label": "Content Search Query JSON"
                 },
-                "content_data": {
+                "content_bundle": {
                     "value": "",
                     "type": "dict",
-                    "label": "Content Data"
+                    "label": "Content Bundle"
+                },
+                "scholar_id": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Scholar ID"
                 }
             }
         },
@@ -447,54 +452,54 @@ def bulk_edit_content(job_id):
         content_type = job.get_param_value('content_type')
         content_ids = job.get_param_value('content_ids')
         content_query = job.get_param_value('content_query')
-        content_data = job.get_param_value('content_data')
+        content_bundle = job.get_param_value('content_bundle')
+        scholar_id = job.get_param_value('scholar_id')
 
-        if content_type in corpus.content_types:
-            attrs = {}
-            excluded_field_types = ['file', 'repo', 'embedded']
-            ct = corpus.content_types[content_type]
-            for field in ct.fields:
-                if field.type not in excluded_field_types and not field.unique and field.name in content_data:
-                    attrs[field.name] = content_data[field.name]
+        if content_type in corpus.content_types and content_bundle:
+            if content_ids:
+                content_ids = content_ids.split(',')
+                set_and_save_content(corpus, content_type, content_ids, content_bundle, scholar_id)
+            elif content_query:
+                search_query = json.loads(content_query)
+                search_params = build_search_params_from_dict(search_query)
 
-            if attrs:
-                if content_ids:
-                    content_ids = content_ids.split(',')
-                    set_and_save_content(corpus, content_type, content_ids, attrs)
-                elif content_query:
-                    search_query = json.loads(content_query)
-                    search_params = build_search_params_from_dict(search_query)
+                search_params['page_size'] = 100
+                search_params['only'] = ['id']
+                page = 1
+                num_pages = 1
 
-                    search_params['page_size'] = 100
-                    search_params['only'] = ['id']
-                    page = 1
-                    num_pages = 1
+                while page <= num_pages:
+                    search_params['page'] = page
+                    results = corpus.search_content(content_type, **search_params)
+                    if results:
+                        if results['meta']['num_pages'] > num_pages:
+                            num_pages = results['meta']['num_pages']
+                        if 'next_page_token' in results['meta']:
+                            search_params['page-token'] = results['meta']['next_page_token']
 
-                    while page <= num_pages:
-                        search_params['page'] = page
-                        results = corpus.search_content(content_type, **search_params)
-                        if results:
-                            if results['meta']['num_pages'] > num_pages:
-                                num_pages = results['meta']['num_pages']
+                        content_ids = []
+                        for record in results['records']:
+                            content_ids.append(record['id'])
 
-                            content_ids = []
-                            for record in results['records']:
-                                content_ids.append(record['id'])
+                        set_and_save_content(corpus, content_type, content_ids, content_bundle, scholar_id)
 
-                            set_and_save_content(corpus, content_type, content_ids, attrs)
-
-                        page += 1
+                    page += 1
 
     job.complete('complete')
 
 
-def set_and_save_content(corpus, content_type, content_ids, attrs):
+def set_and_save_content(corpus, content_type, content_ids, content_bundle, scholar_id):
     for content_id in content_ids:
         content = corpus.get_content(content_type, content_id, single_result=True)
         if content:
-            for attr in attrs.keys():
-                setattr(content, attr, attrs[attr])
-                content.save()
+            process_content_bundle(
+                corpus,
+                content_type,
+                content,
+                content_bundle,
+                scholar_id,
+                True
+            )
 
 
 @db_periodic_task(crontab(minute='*'), priority=4)

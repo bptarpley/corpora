@@ -25,7 +25,8 @@ from .utilities import(
     get_jobsites,
     get_tasks,
     clear_cached_session_scholar,
-    order_content_schema
+    order_content_schema,
+    process_content_bundle
 )
 from rest_framework.decorators import api_view 
 from rest_framework.authtoken.models import Token
@@ -491,147 +492,57 @@ def edit_content(request, corpus_id, content_type, content_id=None):
     edit_widget_url = None
     content_ids = request.POST.get('content-ids', None)
     content_query = request.POST.get('content-query', None)
-    bulk_edit_field_names = []
 
     if (context['scholar'].is_admin or role == 'Editor') and corpus and content_type in corpus.content_types:
         if corpus.content_types[content_type].edit_widget_url and content_id:
+
             edit_widget_url = corpus.content_types[content_type].edit_widget_url.format(
                 corpus_id=corpus_id,
                 content_type=content_type,
                 content_id=content_id
             )
 
-        if request.method == 'POST' and 'corpora-content-edit' in request.POST:
-            temp_file_fields = []
-            multi_field_values = {}
-            ct_fields = {}
-            for field in corpus.content_types[content_type].fields:
-                if not field.type == 'embedded':
-                    ct_fields[field.name] = field
-                    if field.multiple:
-                        multi_field_values[field.name] = []
+        if request.method == 'POST' and _contains(request.POST, ['corpora-content-edit', 'content-bundle']):
 
             content = corpus.get_content(content_type, content_id)
+            content_bundle = request.POST.get('content-bundle', None)
+            if content_bundle:
+                content_bundle = json.loads(content_bundle)
+                print(json.dumps(content_bundle, indent=4))
 
-            # set all boolean fields to False by default--boolean field inputs are checkboxes, and unchecked checkboxes don't
-            # show up as POST params. True values for checked boolean fields will get overwritten further below.
-            for ct_field_name in ct_fields.keys():
-                if ct_fields[ct_field_name].type == 'boolean':
-                    setattr(content, ct_field_name, False)
+                if content_ids or content_query:
+                    run_job(corpus.queue_local_job(
+                        task_name='Bulk Edit Content',
+                        parameters={
+                            'content_type': content_type,
+                            'content_ids': content_ids,
+                            'content_query': content_query,
+                            'content_bundle': content_bundle,
+                            'scholar_id': str(context['scholar'].id)
+                        }
+                    ))
+                    return redirect("/corpus/{0}/?msg=Bulk edit content job submitted.".format(corpus_id))
 
-            # iterate over the POST params, assuming each one corresponds with a field value
-            control_params = ['corpora-content-edit', 'content-ids', 'content-query', 'save-and-create']
-            for field_param, field_value in request.POST.items():
-                if field_param not in control_params and not field_param.endswith('-intensity'):
-                    param_parts = field_param.split('-')
-                    field_name = param_parts[0]
+                else:
+                    process_content_bundle(
+                        corpus,
+                        content_type,
+                        content,
+                        content_bundle,
+                        context['scholar'].id
+                    )
 
-                    if field_name in ct_fields:
-                        bulk_edit_field_names.append(field_name)
-
-                        if field_value == '':
-                            field_value = None
-
-                        # set value for boolean fields
-                        if ct_fields[field_name].type == 'boolean':
-                            field_value = True
-
-                        # set value for other kinds of field if field_value exists
-                        elif field_value or field_value == 0:
-
-                            # set value for file fields
-                            if ct_fields[field_name].type == 'file':
-                                base_path = "{corpus_path}/{content_type}/temporary_uploads".format(
-                                    corpus_path=corpus.path,
-                                    content_type=content_type
-                                )
-
-                                if content.id:
-                                    base_path = "{content_path}/files".format(content_path=content.path)
-
-                                file_path = "{base_path}{sub_path}".format(
-                                    base_path=base_path,
-                                    sub_path=field_value
-                                )
-                                if os.path.exists(file_path):
-                                    field_value = File.process(
-                                        file_path,
-                                        desc="{0} for {1}".format(ct_fields[field_name].label, content_type),
-                                        prov_type="Scholar",
-                                        prov_id=str(context['scholar'].id)
-                                    )
-
-                                    if not content.id and field_name not in temp_file_fields:
-                                        temp_file_fields.append(field_name)
-
-                            # set value for xref fields
-                            elif ct_fields[field_name].type == 'cross_reference':
-                                field_value = corpus.get_content(ct_fields[field_name].cross_reference_type, field_value).to_dbref()
-
-                            # set value for decimal fields
-                            elif ct_fields[field_name].type == 'decimal':
-                                field_value = float(field_value)
-
-                            # set value for date fields
-                            elif ct_fields[field_name].type == 'date':
-                                field_value = parse_date_string(field_value)
-
-                        # having parsed the value correctly depending on data type, now actually set the field value for
-                        # our content
-                        if ct_fields[field_name].multiple and len(param_parts) == 3 and field_value:
-                            multi_field_values[field_name].append(field_value)
-                        else:
-                            setattr(content, field_name, field_value)
-
-                        # check if this field has intensity, and if so, process corresponding POST param
-                        if ct_fields[field_name].type == 'cross_reference' and ct_fields[field_name].has_intensity:
-                            intensity_param = field_param + '-intensity'
-                            if intensity_param in request.POST:
-                                content.set_intensity(field_name, field_value, request.POST[intensity_param])
-
-            for multi_field_name in multi_field_values.keys():
-                setattr(content, multi_field_name, multi_field_values[multi_field_name])
-
-            if content_ids or content_query:
-                content_dict = content.to_dict()
-                bulk_edit_fields = {}
-                for field_name in set(bulk_edit_field_names):
-                    bulk_edit_fields[field_name] = content_dict[field_name]
-
-                run_job(corpus.queue_local_job(
-                    task_name='Bulk Edit Content',
-                    parameters={
-                        'content_type': content_type,
-                        'content_ids': content_ids,
-                        'content_query': content_query,
-                        'content_data': bulk_edit_fields
-                    }
-                ))
-
-                return redirect("/corpus/{0}/?msg=Bulk edit content job submitted.".format(corpus_id))
-            else:
-                content.save(relabel=True)
-
-            if temp_file_fields:
-                for temp_file_field in temp_file_fields:
-                    if ct_fields[temp_file_field].multiple:
-                        for f_index in range(0, len(getattr(content, temp_file_field))):
-                            content._move_temp_file(temp_file_field, f_index)
+                    if 'save-and-create' in request.POST:
+                        return redirect("/corpus/{0}/{1}/?msg={1} saved.".format(
+                            corpus_id,
+                            content_type
+                        ))
                     else:
-                        content._move_temp_file(temp_file_field)
-                content.save(relabel=True)
-
-            if 'save-and-create' in request.POST:
-                return redirect("/corpus/{0}/{1}/?msg={1} saved.".format(
-                    corpus_id,
-                    content_type
-                ))
-            else:
-                return redirect("/corpus/{0}/{1}/{2}".format(
-                    corpus_id,
-                    content_type,
-                    str(content.id)
-                ))
+                        return redirect("/corpus/{0}/{1}/{2}".format(
+                            corpus_id,
+                            content_type,
+                            str(content.id)
+                        ))
 
         return render(
             request,

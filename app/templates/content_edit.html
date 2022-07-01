@@ -161,8 +161,8 @@
         let input_templates = {
             text: function(field, value, id_suffix) {
                 return `
-                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <textarea class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" rows="20" ${bulk_editing ? 'disabled' : ''}>${value}</textarea>
+                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}" data-index="${id_suffix}">
+                        <textarea class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" rows="20" ${bulk_editing ? 'disabled' : ''}>${value}</textarea>
                         ${multi_remover(field, id_suffix)}
                     </div>
                 `;
@@ -170,7 +170,7 @@
             large_text: function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <textarea class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" rows="20" ${bulk_editing ? 'disabled' : ''}>${value}</textarea>
+                        <textarea class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" rows="20" ${bulk_editing ? 'disabled' : ''}>${value}</textarea>
                         ${multi_remover(field, id_suffix)}
                     </div>
                 `;
@@ -178,7 +178,7 @@
             keyword: function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <input type="text" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value}"  ${bulk_editing ? 'disabled' : ''}>
+                        <input type="text" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" value="${value}"  ${bulk_editing ? 'disabled' : ''}>
                         ${multi_remover(field, id_suffix)}
                     </div>
                 `;
@@ -186,7 +186,7 @@
             html: function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <textarea id="${field.name}-value${id_suffix}" class="html-field ${field.name}-control" name="${field.name}-value${id_suffix}" ${bulk_editing ? 'disabled' : ''}>
+                        <textarea id="${field.name}-value${id_suffix}" class="html-field edit-field-input ${field.name}-control" ${bulk_editing ? 'disabled' : ''}>
                             ${value}
                         </textarea>
                         ${multi_remover(field, id_suffix)}
@@ -196,7 +196,7 @@
             number: function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <input type="number" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value}" ${bulk_editing ? 'disabled' : ''}>
+                        <input type="number" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" value="${value}" ${bulk_editing ? 'disabled' : ''}>
                         ${multi_remover(field, id_suffix)}
                     </div>
                 `;
@@ -204,7 +204,7 @@
             decimal: function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <input type="number" step="0.01" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value}" ${bulk_editing ? 'disabled' : ''}>
+                        <input type="number" step="0.01" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" value="${value}" ${bulk_editing ? 'disabled' : ''}>
                         ${multi_remover(field, id_suffix)}
                     </div>
                 `;
@@ -214,7 +214,7 @@
                 if (['t', 'T', 'true', 'True', 1, true].includes(value)) { is_true = true; }
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="form-check mb-2 edit-field-div" data-field="${field.name}">
-                        <input class="form-check-input ${field.name}-control" type="checkbox" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" ${is_true ? 'checked': ''}  ${bulk_editing ? 'disabled' : ''}>
+                        <input class="form-check-input edit-field-input ${field.name}-control" type="checkbox" id="${field.name}-value${id_suffix}" ${is_true ? 'checked': ''}  ${bulk_editing ? 'disabled' : ''}>
                         <label class="form-check-label" for="${field.name}-value${id_suffix}">${field.label}</label>
                     </div>
                 `;
@@ -222,7 +222,7 @@
             date: function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <input type="date" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value ? corpora.date_string(value) : ''}"  ${bulk_editing ? 'disabled' : ''}>
+                        <input type="date" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" value="${value ? corpora.date_string(value) : ''}"  ${bulk_editing ? 'disabled' : ''}>
                         ${multi_remover(field, id_suffix)}
                     </div>
                 `;
@@ -241,7 +241,7 @@
                         <div class="input-group-prepend">
                             <a href="javascript:select_file('${field.name}-value${id_suffix}');" role="button" class="btn btn-secondary" id="${field.name}-select-button">Browse</a>
                         </div>
-                        <input type="text" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" placeholder="File Path" aria-label="${field.label}" aria-describedby="${field.name}-select-button" value="${sub_path}">
+                        <input type="text" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" placeholder="File Path" aria-label="${field.label}" aria-describedby="${field.name}-select-button" value="${sub_path}">
                         ${multi_remover(field, id_suffix)}
                     </div>
                 `;
@@ -249,7 +249,7 @@
             link: function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <input type="text" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value}" ${bulk_editing ? 'disabled' : ''}>
+                        <input type="text" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" value="${value}" ${bulk_editing ? 'disabled' : ''}>
                         ${multi_remover(field, id_suffix)}
                     </div>
                 `;
@@ -257,7 +257,7 @@
             'iiif-image': function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <input type="text" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value}" ${bulk_editing ? 'disabled' : ''}>
+                        <input type="text" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" value="${value}" ${bulk_editing ? 'disabled' : ''}>
                         ${multi_remover(field, id_suffix)}
                     </div>
                 `;
@@ -272,8 +272,7 @@
                             </div>
                             <input type="number"
                                 id="${field.name}-value${id_suffix}-intensity"
-                                name="${field.name}-value${id_suffix}-intensity"
-                                class="form-control" style="width: 100px;"
+                                class="form-control edit-field-intensity" style="width: 100px;"
                                 aria-label="Intensity for ${field.name} value"
                                 aria-describedby="${field.name}-value${id_suffix}-intensity-label"
                                 value="${value.hasOwnProperty('intensity') ? value.intensity : 1}">
@@ -288,7 +287,7 @@
                             <button onclick="return false;" id="${field.name}-value${id_suffix}-open-button" class="xref-open-button btn btn-warning" role="button">${value ? value.label : `No ${field.cross_reference_type} selected.`}</button>
                             <button onclick="return false;" id="${field.name}-value${id_suffix}-clear-button" class="xref-clear-button btn btn-danger ${value ? '' : 'd-none'}" role="button">${field.multiple ? 'Delete' : 'Clear'}</button>
                         </div>${intensity_controls}
-                        <input type="hidden" id="${field.name}-value${id_suffix}" name="${field.name}-value${id_suffix}" value="${value ? value.id : ""}">
+                        <input type="hidden" id="${field.name}-value${id_suffix}" class="edit-field-input" value="${value ? value.id : ""}">
                         <input type="hidden" id="${field.name}-value${id_suffix}-xref-type" value="${field.cross_reference_type}">
                     </div>
                 `;
@@ -374,7 +373,7 @@
                             ${bulk_editing ? `<input type="checkbox" class="bulk-edit-indicator" data-field="${field.name}">` : ''}
                             ${label}
                             <div class="ml-2 mb-2">
-                                <div id="${field.name}-values-div">
+                                <div id="${field.name}-values-div" class="edit-field" data-field="${field.name}">
                                 </div>
                                 <button type="button" class="btn btn-sm btn-secondary add_multi_field_button ${field.name}-control" id="${field.name}-add-button" ${bulk_editing ? 'disabled' : ''}>Add</button>
                             </div>
@@ -383,7 +382,7 @@
                         let label = `<label for="${field.name}-value">${field.label}</label>`;
                         if (field.type === 'boolean') { label = ''; }
                         content_form.append(`
-                            <div id="${field.name}-value-div" class="form-group">
+                            <div id="${field.name}-value-div" class="form-group edit-field" data-field="${field.name}">
                                 ${bulk_editing ? `<input type="checkbox" class="bulk-edit-indicator" data-field="${field.name}">` : ''} ${label}
                             </div>
                         `);
@@ -405,13 +404,15 @@
                         }
                     });
                 }
-
-                $('#content-form').submit();
+                bundle_content();
+                let content_form = $('#content-form');
+                content_form.submit();
             });
 
             $('#content-save-and-create-button').click(function() {
                 let content_form = $('#content-form');
                 content_form.append('<input type="hidden" name="save-and-create" value="y" />');
+                bundle_content();
                 content_form.submit();
             });
 
@@ -420,6 +421,9 @@
                 let field = corpus.content_types[content_type].fields[field_indexes[field_name]];
 
                 $(`#${field.name}-values-div`).append(input_templates[field.type](field, '', `-${multi_field_counter}`));
+                if (bulk_edit_fields.includes(field_name)) {
+                    $(`.${field_name}-control`).attr('disabled', false);
+                }
 
                 if (field.type === 'html') {
                     tinymce.init(
@@ -494,19 +498,19 @@
             if (bulk_editing) {
                 $('.bulk-edit-indicator').change(function() {
                     let field_name = $(this).data('field');
-                    let field_type = '';
-                    corpus.content_types[content_type].fields.map(f => {
-                        if (f.name === field_name) { field_type = f.type; }
-                    });
 
-                    if (this.checked) {
-                        $(`.${field_name}-control`).attr('disabled', false);
-                        if (field_type === 'html') tinymce.activeEditor.mode.set("design");
-                        bulk_edit_fields.push(field_name);
-                    } else {
-                        $(`.${field_name}-control`).attr('disabled', true);
-                        if (field_type === 'html') tinymce.activeEditor.mode.set("readonly");
-                        bulk_edit_fields = bulk_edit_fields.filter(e => e !== field_name);
+                    if (Object.keys(field_indexes).includes(field_name)) {
+                        let field = corpus.content_types[content_type].fields[field_indexes[field_name]];
+
+                        if (this.checked) {
+                            $(`.${field_name}-control`).attr('disabled', false);
+                            if (field.type === 'html') tinymce.activeEditor.mode.set("design");
+                            bulk_edit_fields.push(field_name);
+                        } else {
+                            $(`.${field_name}-control`).attr('disabled', true);
+                            if (field.type === 'html') tinymce.activeEditor.mode.set("readonly");
+                            bulk_edit_fields = bulk_edit_fields.filter(e => e !== field_name);
+                        }
                     }
                 });
 
@@ -516,6 +520,44 @@
             }
 
             hide_loading_overlay();
+        }
+
+        function bundle_content() {
+            let bundle = {};
+
+            $('.edit-field').each(function() {
+                let div = $(this);
+                let field_name = div.data('field');
+                if (Object.keys(field_indexes).includes(field_name)) {
+                    let field = corpus.content_types[content_type].fields[field_indexes[field_name]];
+                    if (field.multiple) bundle[field_name] = [];
+
+                    div.find('.edit-field-input').each(function() {
+                        let input = $(this);
+                        let data = {};
+
+                        if (field.type === 'boolean') data['value'] = input.is(':checked');
+                        else if (field.type === 'html') data['value'] = tinymce.get(input[0].id).getContent();
+                        else if (field.type === 'number') data['value'] = parseInt(input.val());
+                        else if (field.type === 'decimal') data['value'] = parseFloat(input.val());
+                        else data['value'] = input.val();
+
+                        if (field.has_intensity) {
+                            let intensity_input = $(`#${input[0].id}-intensity`);
+                            if (intensity_input.length) data['intensity'] = intensity_input.val();
+                        }
+
+                        if (field.multiple) bundle[field_name].push(data);
+                        else bundle[field_name] = data;
+                    });
+                }
+            });
+
+            console.log(bundle);
+            $('#content-form').append(`
+                <input type="hidden" id="content-bundle" name="content-bundle">
+            `);
+            $('#content-bundle').val(JSON.stringify(bundle));
         }
 
         function remove_multi_field(div_id) {
