@@ -572,68 +572,83 @@ def adjust_content(job_id):
 
     content_types = related_content_types.split(',')
     content_types.insert(0, primary_content_type)
-    content_types = [ct for ct in content_types if ct]
+    content_types = [ct for ct in content_types if ct and ct in job.corpus.content_types]
 
-    completion_percentage = 0
-    ct_completion_percentage = 100 / len(content_types)
-    content_types_adjusted = 0
-    for content_type in content_types:
-        content_count = job.corpus.get_content(content_type, all=True).count()
-        if content_count > 0:
-            if content_types_adjusted > 0:
-                reindex = True
-                relabel = False
-                resave = False
-                relink = False
+    total_content_count = sum([job.corpus.get_content(ct, all=True).count() for ct in content_types])
+    total_content_adjusted = 0
+    chunk_size = 500
+    first_ct_adjusted = False
 
-            num_slices = math.ceil(content_count / 500)
-            slice_completion_percentage = ct_completion_percentage / num_slices
-            for slice in range(0, num_slices):
-                start = slice * 500
-                end = start + 500
+    if total_content_count > 0:
+        for content_type in content_types:
+            content_count = job.corpus.get_content(content_type, all=True).count()
+            if content_count > 0:
+                if first_ct_adjusted:
+                    reindex = True
+                    relabel = False
+                    resave = False
+                    relink = False
 
-                adjust_content_slice(
-                    job.corpus,
-                    content_type,
-                    start,
-                    end,
-                    reindex,
-                    relabel,
-                    resave,
-                    relink
-                )
+                num_slices = math.ceil(content_count / chunk_size)
+                for slice in range(0, num_slices):
+                    start = slice * chunk_size
+                    end = start + chunk_size
 
-                completion_percentage += slice_completion_percentage
-                completion_percentage = int(completion_percentage)
-                job.set_status('running', percent_complete=completion_percentage)
+                    adjust_content_slice(
+                        job.corpus,
+                        content_type,
+                        start,
+                        end,
+                        reindex,
+                        relabel,
+                        resave,
+                        relink
+                    )
 
-        content_types_adjusted += 1
+                    total_content_adjusted += chunk_size
+                    completion_percentage = int((total_content_adjusted / total_content_count) * 100)
+                    job.set_status('running', percent_complete=completion_percentage)
+
+            first_ct_adjusted = True
 
     es_logger.setLevel(es_log_level)
     job.complete(status='complete')
 
 
 def adjust_content_slice(corpus, content_type, start, end, reindex, relabel, resave, relink, scrub_provenance=False):
-    contents = corpus.get_content(content_type, all=True)
+    errors = 0
+    max_errors = 10
+    contents = corpus.get_content(content_type, all=True).no_cache()
     contents = contents.batch_size(10)
     if start and end:
         contents = contents[start:end]
 
     for content in contents:
-        if scrub_provenance:
-            content.provenance = []
+        try:
+            if scrub_provenance:
+                content.provenance = []
 
-        if relabel:
-            content.label = ''
+            if relabel:
+                content.label = ''
 
-        if relabel or resave:
-            content.save(do_indexing=reindex, do_linking=relink)
-        else:
-            if reindex:
-                content._do_indexing()
+            if relabel or resave:
+                content.save(do_indexing=reindex, do_linking=relink)
+            else:
+                if reindex:
+                    content._do_indexing()
 
-            if relink:
-                content._do_linking()
+                if relink:
+                    content._do_linking()
+        except:
+            if hasattr(content, id):
+                print("Error adjusting content for {0} with ID {1}:".format(content_type, content.id))
+            else:
+                print("Error adjusting content of type {0} in slice starting at {0} and ending at {1}".format(content_type, start, end))
+            print(traceback.format_exc())
+            errors += 1
+
+        if errors >= max_errors:
+            raise Exception("Max errors exceeded for adjusting content slice.")
 
 
 @db_task(priority=5)
