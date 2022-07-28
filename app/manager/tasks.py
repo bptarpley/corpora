@@ -23,6 +23,7 @@ from subprocess import call
 from manager.utilities import _contains, build_search_params_from_dict, order_content_schema, process_content_bundle
 from django.utils.text import slugify
 from zipfile import ZipFile
+from timeit import default_timer as timer
 
 REGISTRY = {
     "Bulk Launch Jobs": {
@@ -112,7 +113,7 @@ REGISTRY = {
         "functions": ['save_content_type_schema']
     },
     "Adjust Content": {
-        "version": "0.2",
+        "version": "0.3",
         "jobsite_type": "HUEY",
         "track_provenance": False,
         "content_type": "Corpus",
@@ -126,7 +127,7 @@ REGISTRY = {
                 "reindex": {
                     "value": False,
                     "type": "boolean",
-                    "label": "Re-label?",
+                    "label": "Re-index?",
                 },
                 "relabel": {
                     "value": False,
@@ -593,6 +594,7 @@ def adjust_content(job_id):
                 for slice in range(0, num_slices):
                     start = slice * chunk_size
                     end = start + chunk_size
+                    chunk_time_start = timer()
 
                     adjust_content_slice(
                         job.corpus,
@@ -608,6 +610,13 @@ def adjust_content(job_id):
                     total_content_adjusted += chunk_size
                     completion_percentage = int((total_content_adjusted / total_content_count) * 100)
                     job.set_status('running', percent_complete=completion_percentage)
+
+                    print("Adjust content took {0} seconds to process {1} records; {2} out of {3} completed.".format(
+                        int(timer() - chunk_time_start),
+                        chunk_size,
+                        total_content_adjusted,
+                        total_content_count
+                    ))
 
             first_ct_adjusted = True
 

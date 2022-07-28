@@ -176,6 +176,15 @@ h1, h2, h3, h4, h5, h6 {
   z-index: 10;
 }
 
+.job-params dt {
+  float: left;
+  width: 160px;
+  overflow: hidden;
+  clear: left;
+  text-overflow: ellipsis;
+  white-space: normal;
+}
+
 // Pattern of association styles
 #patass-canvas {
   padding: 10px;
