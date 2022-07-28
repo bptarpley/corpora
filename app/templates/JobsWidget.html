@@ -72,11 +72,26 @@
                                 }
                             }
 
+                            let params_html = "";
+                            if (job.hasOwnProperty('configuration') && job.configuration.hasOwnProperty('parameters')) {
+                                params_html += '<dl class="job-params">';
+                                for (let param_name in job.configuration.parameters) {
+                                    let param = job.configuration.parameters[param_name];
+                                    if (param.hasOwnProperty('label') && param.hasOwnProperty('value'))
+                                        params_html += `<dt>${param.label}</dt><dd>${param.value}</dd>`;
+                                }
+                                params_html += "</dl>";
+                            }
+
                             let job_html = `
                                 <div id="running-job-${job.id}-div" class="alert alert-info running-job">
                                     <div class="row">
                                         <div class="col-sm-11">
-                                            Task: <b>${job.task_name}</b><br />
+                                            <details>
+                                                <summary><b>${job.task_name}</b></summary>
+                                                ${params_html}
+                                            </details>
+                                            <br />
                                             <div class="progress">
                                                 <div id="running-job-${job.id}-progress-bar"
                                                      class="progress-bar progress-bar-striped bg-success progress-bar-animated"
