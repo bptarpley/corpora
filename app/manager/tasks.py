@@ -23,7 +23,7 @@ from subprocess import call
 from manager.utilities import _contains, build_search_params_from_dict, order_content_schema, process_content_bundle
 from django.utils.text import slugify
 from zipfile import ZipFile
-from timeit import default_timer as timer
+
 
 REGISTRY = {
     "Bulk Launch Jobs": {
@@ -594,7 +594,6 @@ def adjust_content(job_id):
                 for slice in range(0, num_slices):
                     start = slice * chunk_size
                     end = start + chunk_size
-                    chunk_time_start = timer()
 
                     adjust_content_slice(
                         job.corpus,
@@ -611,13 +610,6 @@ def adjust_content(job_id):
                     completion_percentage = int((total_content_adjusted / total_content_count) * 100)
                     job.set_status('running', percent_complete=completion_percentage)
 
-                    print("Adjust content took {0} seconds to process {1} records; {2} out of {3} completed.".format(
-                        int(timer() - chunk_time_start),
-                        chunk_size,
-                        total_content_adjusted,
-                        total_content_count
-                    ))
-
             first_ct_adjusted = True
 
     es_logger.setLevel(es_log_level)
@@ -629,9 +621,10 @@ def adjust_content_slice(corpus, content_type, start, end, reindex, relabel, res
     max_errors = 10
     contents = corpus.get_content(content_type, all=True).no_cache()
     contents = contents.batch_size(10)
-    if start and end:
+    if isinstance(start, int) and isinstance(end, int):
         contents = contents[start:end]
 
+    adjusted = 0
     for content in contents:
         try:
             if scrub_provenance:
@@ -648,6 +641,8 @@ def adjust_content_slice(corpus, content_type, start, end, reindex, relabel, res
 
                 if relink:
                     content._do_linking()
+
+            adjusted += 1
         except:
             if hasattr(content, id):
                 print("Error adjusting content for {0} with ID {1}:".format(content_type, content.id))
