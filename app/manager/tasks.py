@@ -113,9 +113,10 @@ REGISTRY = {
         "functions": ['save_content_type_schema']
     },
     "Adjust Content": {
-        "version": "0.3",
+        "version": "0.4",
         "jobsite_type": "HUEY",
         "track_provenance": False,
+        "create_report": True,
         "content_type": "Corpus",
         "configuration": {
             "parameters": {
@@ -147,7 +148,12 @@ REGISTRY = {
                 "related_content_types": {
                     "value": "",
                     "type": "text",
-                    "label": "Comma separated content types",
+                    "label": "Related Content Types",
+                },
+                "resume_at": {
+                    "value": 0,
+                    "type": "number",
+                    "label": "Resume Adjustments at Percentage"
                 }
             },
         },
@@ -372,6 +378,14 @@ def run_job(job_id):
                     report_path = "{0}/{1}.txt".format(corpus_job_reports_path, job.id)
                     job.report_path = report_path
                     job.save()
+
+                    scholar_string = "None"
+                    if job.scholar_id:
+                        scholar_string = "{0} {1}".format(
+                            job.scholar.fname,
+                            job.scholar.lname if job.scholar.lname else ''
+                        )
+
                     job.report('''##########################################################
 Job ID:         {0}
 Task Name:      {1}
@@ -384,10 +398,7 @@ Run Time:       {6}
                     '''.format(
                         job_id,
                         job.task.name,
-                        "{0} {1}".format(
-                            job.scholar.fname,
-                            job.scholar.lname if job.scholar.lname else ''
-                        ),
+                        scholar_string,
                         job.corpus_id,
                         job.content_type,
                         job.content_id,
@@ -398,6 +409,7 @@ Run Time:       {6}
                 task_function = getattr(task_module, job.jobsite.task_registry[job.task.name]['functions'][job.stage])
                 task_function(job_id)
             except:
+                print(traceback.format_exc())
                 job.complete(status='error', error_msg="Error launching task: {0}".format(traceback.format_exc()))
 
 
@@ -560,12 +572,13 @@ def save_content_type_schema(job_id):
 def adjust_content(job_id):
     job = Job(job_id)
     job.set_status('running')
-    primary_content_type = job.configuration['parameters']['content_type']['value']
-    reindex = job.configuration['parameters']['reindex']['value']
-    relabel = job.configuration['parameters']['relabel']['value']
-    resave = job.configuration['parameters']['resave']['value']
-    relink = job.configuration['parameters']['relink']['value']
-    related_content_types = job.configuration['parameters']['related_content_types']['value']
+    primary_content_type = job.get_param_value('content_type')
+    reindex = job.get_param_value('reindex')
+    relabel = job.get_param_value('relabel')
+    resave = job.get_param_value('resave')
+    relink = job.get_param_value('relink')
+    related_content_types = job.get_param_value('related_content_types')
+    resume_at = int(job.get_param_value('resume_at'))
 
     es_logger = logging.getLogger('elasticsearch')
     es_log_level = es_logger.getEffectiveLevel()
@@ -577,11 +590,17 @@ def adjust_content(job_id):
 
     total_content_count = sum([job.corpus.get_content(ct, all=True).count() for ct in content_types])
     total_content_adjusted = 0
+    completion_percentage = 0
     chunk_size = 500
     first_ct_adjusted = False
+    error_instances = 0
+    max_errors = 10
 
     if total_content_count > 0:
         for content_type in content_types:
+            if error_instances >= max_errors:
+                break
+
             content_count = job.corpus.get_content(content_type, all=True).count()
             if content_count > 0:
                 if first_ct_adjusted:
@@ -595,20 +614,32 @@ def adjust_content(job_id):
                     start = slice * chunk_size
                     end = start + chunk_size
 
-                    adjust_content_slice(
-                        job.corpus,
-                        content_type,
-                        start,
-                        end,
-                        reindex,
-                        relabel,
-                        resave,
-                        relink
-                    )
+                    if completion_percentage >= resume_at:
+                        errors = adjust_content_slice(
+                            job.corpus,
+                            content_type,
+                            start,
+                            end,
+                            reindex,
+                            relabel,
+                            resave,
+                            relink
+                        )
+                    else:
+                        errors = []
+
+                    if errors:
+                        error_instances += 1
+                        job.report("\n\n".join(errors))
+
+                        if error_instances >= max_errors:
+                            job.report("Too many errors encountered while adjusting content for {0}. Halting task!".format(content_type))
+                            break
 
                     total_content_adjusted += chunk_size
                     completion_percentage = int((total_content_adjusted / total_content_count) * 100)
-                    job.set_status('running', percent_complete=completion_percentage)
+                    if completion_percentage >= resume_at:
+                        job.set_status('running', percent_complete=completion_percentage)
 
             first_ct_adjusted = True
 
@@ -617,7 +648,7 @@ def adjust_content(job_id):
 
 
 def adjust_content_slice(corpus, content_type, start, end, reindex, relabel, resave, relink, scrub_provenance=False):
-    errors = 0
+    errors = []
     max_errors = 10
     contents = corpus.get_content(content_type, all=True).no_cache()
     contents = contents.batch_size(10)
@@ -642,15 +673,19 @@ def adjust_content_slice(corpus, content_type, start, end, reindex, relabel, res
                     content._do_linking()
 
         except:
+            err_msg = ""
             if hasattr(content, 'id'):
-                print("Error adjusting content for {0} with ID {1}:".format(content_type, content.id))
+                err_msg += "Error adjusting content for {0} with ID {1}:\n".format(content_type, content.id)
             else:
-                print("Error adjusting content of type {0} in slice starting at {0} and ending at {1}".format(content_type, start, end))
-            print(traceback.format_exc())
-            errors += 1
+                err_msg += "Error adjusting content of type {0} in slice starting at {0} and ending at {1}:\n".format(content_type, start, end)
+            err_msg += traceback.format_exc()
+            errors.append(err_msg)
 
-        if errors >= max_errors:
-            raise Exception("Max errors exceeded for adjusting content slice.")
+        if len(errors) >= max_errors:
+            errors.append("Max errors exceeded while adjusting content slice for {0} starting at {1} and ending at {2}. Halting!".format(content_type, start, end))
+            break
+
+    return errors
 
 
 @db_task(priority=5)
