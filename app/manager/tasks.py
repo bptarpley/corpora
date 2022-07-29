@@ -624,7 +624,6 @@ def adjust_content_slice(corpus, content_type, start, end, reindex, relabel, res
     if isinstance(start, int) and isinstance(end, int):
         contents = contents[start:end]
 
-    adjusted = 0
     for content in contents:
         try:
             if scrub_provenance:
@@ -642,9 +641,8 @@ def adjust_content_slice(corpus, content_type, start, end, reindex, relabel, res
                 if relink:
                     content._do_linking()
 
-            adjusted += 1
         except:
-            if hasattr(content, id):
+            if hasattr(content, 'id'):
                 print("Error adjusting content for {0} with ID {1}:".format(content_type, content.id))
             else:
                 print("Error adjusting content of type {0} in slice starting at {0} and ending at {1}".format(content_type, start, end))
