@@ -1754,11 +1754,14 @@ class Corpus(mongoengine.Document):
 
                 # ADD ANY AGGREGATIONS TO SEARCH
                 for agg_name, agg in aggregations.items():
-
                     # agg should be of type elasticsearch_dsl.A, so calling A's .to_dict()
                     # method to get at what type ('terms', 'nested', etc) of aggregation
                     # this is.
-                    agg_type_map[agg_name] = list(agg.to_dict().keys())[0]
+                    agg_dict = agg.to_dict()
+                    agg_descriptor = list(agg_dict.keys())[0]
+                    if agg_descriptor == 'nested':
+                        agg_descriptor += '_' + list(agg_dict['aggs']['names'].keys())[0]
+                    agg_type_map[agg_name] = agg_descriptor
                     search_cmd.aggs.bucket(agg_name, agg)
 
                 # HANDLE SORTING (by default, all data sorted by ID for "search_after" functionality)
@@ -1809,6 +1812,8 @@ class Corpus(mongoengine.Document):
                 search_cmd = search_cmd.sort(*adjusted_fields_sort)
 
                 if fields_highlight:
+                    # todo: Update to newer version of Elasticsearch supporting max_analyzed_offset setting for queries (at least 7.12) to support line below
+                    # search_cmd = search_cmd.highlight_options(max_analyzed_offset=90000)
                     search_cmd = search_cmd.highlight(*fields_highlight, fragment_size=highlight_fragment_size, number_of_fragments=highlight_num_fragments)
 
                 if using_page_token:
@@ -1871,10 +1876,17 @@ class Corpus(mongoengine.Document):
                         for agg_name in search_results['aggregations'].keys():
                             results['meta']['aggregations'][agg_name] = {}
 
-                            if agg_type_map[agg_name] == 'nested':
-                                for agg_result in search_results['aggregations'][agg_name]['names']['buckets']:
-                                    results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
-                            else:
+                            if agg_type_map[agg_name].startswith('nested'):
+                                if agg_type_map[agg_name].endswith('_terms'):
+                                    for agg_result in search_results['aggregations'][agg_name]['names']['buckets']:
+                                        results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
+                                elif agg_type_map[agg_name].endswith('_max') or agg_type_map[agg_name].endswith('_min'):
+                                    results['meta']['aggregations'][agg_name] = search_results['aggregations'][agg_name]['names']['value']
+
+                            elif agg_type_map[agg_name] in ['max', 'min']:
+                                results['meta']['aggregations'][agg_name] = search_results['aggregations'][agg_name]['value']
+
+                            elif agg_type_map[agg_name] == 'terms':
                                 for agg_result in search_results['aggregations'][agg_name]['buckets']:
                                     results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
 
