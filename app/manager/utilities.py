@@ -237,6 +237,21 @@ def build_search_params_from_dict(params):
                     search['aggregations'][agg_name] = A('terms', size=10000, field=field_val)
                 elif script_val:
                     search['aggregations'][agg_name] = A('terms', size=10000, script={'source': script_val})
+
+            elif param.startswith('a_max_') or param.startswith('a_min_'):
+                metric_parts = param.split('_')
+                if len(metric_parts) == 3:
+                    metric_type = metric_parts[1]
+                    agg_name = metric_parts[2]
+
+                    if '.' in value:
+                        nested_path = value.split('.')[0]
+                        agg = A('nested', path=nested_path)
+                        agg.bucket('names', metric_type, field=value)
+                        search['aggregations'][agg_name] = agg
+                    else:
+                        search['aggregations'][agg_name] = A(metric_type, field=value)
+
         elif param == 'operator':
             search['operator'] = value
         elif param == 'page':
