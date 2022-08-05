@@ -158,6 +158,7 @@ def build_search_params_from_dict(params):
         'operator': "and",
         'highlight_num_fragments': 5,
         'highlight_fragment_size': 100,
+        'only_hightlights': false,
         'es_debug': False
     }
 
@@ -175,6 +176,7 @@ def build_search_params_from_dict(params):
             'highlight_fields',
             'highlight_num_fragments',
             'highlight_fragment_size',
+            'only_highlights',
             'page-token',
             'es_debug',
             'es_debug_query'
@@ -187,6 +189,8 @@ def build_search_params_from_dict(params):
             search['highlight_num_fragments'] = int(value)
         elif param == 'highlight_fragment_size' and value.isdigit():
             search['highlight_fragment_size'] = int(value)
+        elif param == 'only_highlights':
+            search['only_highlights'] = True
         elif param == 'content_view':
             search['content_view'] = value
         elif param == 'page-token':
