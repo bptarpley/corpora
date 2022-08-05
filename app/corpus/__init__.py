@@ -1404,7 +1404,7 @@ class Corpus(mongoengine.Document):
             operator="and",
             highlight_num_fragments=5,
             highlight_fragment_size=100,
-            only_highlights=false,
+            only_highlights=False,
             aggregations={},
             next_page_token=None,
             es_debug=False,
