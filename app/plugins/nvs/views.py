@@ -828,7 +828,8 @@ def api_search(request, corpus_id=None, play_prefix=None):
                     },
                     'only': ['act', 'scene', 'speaking'],
                     'fields_highlight': ['text'],
-                    'highlight_num_fragments': 0
+                    'highlight_num_fragments': 0,
+                    'only_highlights': 'y'
                 }
                 print('SPEECHES')
                 qs_results = progressive_search(corpus, speech_query, ['text'], quick_search, search_type)
@@ -873,7 +874,8 @@ def api_search(request, corpus_id=None, play_prefix=None):
                     },
                     'only': ['act', 'scene', 'xml_id', 'text'],
                     'fields_highlight': ['text'],
-                    'highlight_num_fragments': 0
+                    'highlight_num_fragments': 0,
+                    'only_highlights': 'y'
                 }
                 print('LINES')
                 qs_results = progressive_search(corpus, lines_query, ['text'], quick_search, search_type)
@@ -909,6 +911,7 @@ def api_search(request, corpus_id=None, play_prefix=None):
                     'only': ['lines.xml_id', 'variants.id'],
                     'fields_highlight': ['variants.variant', 'variants.description'],
                     'highlight_num_fragments': 0,
+                    'only_highlights': 'y'
                 }
                 print('VARIANTS')
                 variant_results = progressive_search(corpus, variant_query, ['variants.variant', 'variants.description'], quick_search, search_type)
@@ -956,6 +959,7 @@ def api_search(request, corpus_id=None, play_prefix=None):
                     },
                     'only': ['xml_id', 'lines.line_number'],
                     'fields_highlight': ['subject_matter', 'contents'],
+                    'only_highlights': 'y'
                 }
                 print('COMMENTARY')
                 comm_results = progressive_search(corpus, comm_query, ['subject_matter', 'contents'], quick_search, search_type)

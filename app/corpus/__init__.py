@@ -1404,6 +1404,7 @@ class Corpus(mongoengine.Document):
             operator="and",
             highlight_num_fragments=5,
             highlight_fragment_size=100,
+            only_highlights=false,
             aggregations={},
             next_page_token=None,
             es_debug=False,
@@ -1854,6 +1855,8 @@ class Corpus(mongoengine.Document):
                         if fields_highlight:
                             if 'highlight' in hit:
                                 record['_search_highlights'] = hit['highlight']
+                                results['records'].append(record)
+                            elif not only_highlights:
                                 results['records'].append(record)
                         else:
                             results['records'].append(record)
