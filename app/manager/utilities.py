@@ -158,7 +158,7 @@ def build_search_params_from_dict(params):
         'operator': "and",
         'highlight_num_fragments': 5,
         'highlight_fragment_size': 100,
-        'only_hightlights': false,
+        'only_hightlights': False,
         'es_debug': False
     }
 
