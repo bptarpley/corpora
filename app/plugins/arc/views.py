@@ -101,29 +101,75 @@ def uri_ascription(request, corpus_id, content_type, content_id):
 def lincs_ttl(request, corpus_id, content_type, content_id):
     context = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+    arts = []
+    ttl = ''
 
-    # the globals dict is used in an unconventional way. the keys for this dict are intended to be
-    # turtle statements that should only appear once in a document, but that may be inadvertently spit out be the
-    # code multiple times. instead of using a list and then running set() operations on it, we're leveraging the
-    # unique nature of dict keys to more efficiently ensure the uniqueness of statements.
+    if corpus and content_id and content_type == 'ArcArtifact' and 'ArcArtifact' in corpus.content_types:
+        arts.append(corpus.get_content('ArcArtifact', content_id, single_result=True))
+    elif corpus and content_id and content_type == 'ArcArchive' and _contains(corpus.content_types, ['ArcArchive', 'ArcArtifact']):
+        arts = corpus.get_content('ArcArtifact', {'archive': content_id})
+
+    ttl = _generate_lincs_ttl(arts)
+
+    return HttpResponse(
+        ttl,
+        content_type='text/turtle'
+    )
+
+
+def _generate_lincs_ttl(artifacts):
     globals = {}
 
-    # this dict will map role codes to their readable labels
-    role_labels = {
-        'AUT': 'Author'
-    }
-
     tab = '    '
+
+    role_labels = {
+        'ART': 'Visual Artist',
+        'AUT': 'Author',
+        'EDT': 'Editor',
+        'PBL': 'Publisher',
+        'TRL': 'Translator',
+        'CRE': 'Creator',
+        'ETR': 'Etcher',
+        'EGR': 'Engraver',
+        'OWN': 'Owner',
+        'ARC': 'Architect',
+        'BND': 'Binder',
+        'BKD': 'Book designer',
+        'BKP': 'Book producer',
+        'CLL': 'Calligrapher',
+        'CTG': 'Cartographer',
+        'COL': 'Collector',
+        'CLR': 'Colorist',
+        'CWT': 'Commentator',
+        'COM': 'Compiler',
+        'CMT': 'Compositor',
+        'DUB': 'Dubious author',
+        'FAC': 'Facsimilist',
+        'ILU': 'Illuminator',
+        'ILL': 'Illustrator',
+        'LTG': 'Lithographer',
+        'PRT': 'Printer',
+        'POP': 'Printer of plates',
+        'PRM': 'Printmaker',
+        'RPS': 'Repository',
+        'RBR': 'Rubricator',
+        'SCR': 'Scribe',
+        'SCL': 'Sculptor',
+        'TYD': 'Type designer',
+        'TYG': 'Typographer',
+        'WDE': 'Wood engraver',
+        'WDC': 'Wood cutter'
+    }
 
     # this ttl string will be built to contain the turtle representation of this artifact
     ttl = '''@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
 @prefix crmpc: <http://www.cidoc-crm.org/cidoc-crm/> .
 @prefix frbroo: <http://iflastandards.info/ns/fr/frbr/frbroo/> .
-@prefix dig: <http://www.ics.forth.gr/isl/CRMdig/> .\n\n'''
+@prefix crmdig: <http://www.ics.forth.gr/isl/CRMdig/> .
+@prefix cwrc: <http://id.lincsproject.ca/cwrc#> .\n\n'''
 
-    if corpus and content_id and content_type == 'ArcArtifact' and 'ArcArtifact' in corpus.content_types:
-        art = corpus.get_content('ArcArtifact', content_id, single_result=True)
+    for art in artifacts:
         if art and art.external_uri and art.title and art.agents and art.years:
             # todo: replace quote chars; vet use of has_note for accounting for art.description; how to rep relateds; how to represent ocr, full_text, full_text_url, full_text_contents; whether to include labels for things like <full_image> (present in examples but not spec sheet); how to represent subjects and coverages, ie ("Activism and involvement", "World War II -- Concentration camps -- Living conditions") from URI http://ddr.densho.org/ddr-csujad-29-59-1/
 
@@ -132,10 +178,10 @@ def lincs_ttl(request, corpus_id, content_type, content_id):
             #################################
 
             # main URI declaration
-            ttl += '''<{uri}> a frbroo:F4_Manifestation_Singleton ;\n'''.format(uri=art.external_uri.strip())
+            ttl += '''<{uri}> a frbroo:F2_Expression ;\n'''.format(uri=art.external_uri.strip())
 
             # artifact "creation" node declaration (will specify agents and years later)
-            ttl += '''{tab}frbroo:R24i_was_created_through <{id}_creation> ;\n'''.format(tab=tab, id=art.id)
+            ttl += '''{tab}frbroo:P94i_was_created_by <{id}_creation> ;\n'''.format(tab=tab, id=art.id)
 
             # browser URL
             ttl += '''{tab}crm:P1_is_identified_by <{url}> ;\n'''.format(tab=tab, url=art.url.strip())
@@ -147,11 +193,11 @@ def lincs_ttl(request, corpus_id, content_type, content_id):
             ttl += '''{tab}crm: P16i_was_used_for <{id}_contribution> ;\n'''.format(tab=tab, id=art.id)
 
             # title node declaration
-            ttl += '''{tab}crm:P102_has_title <{id}_title> ;\n'''.format(tab=tab, id=art.id)
+            ttl += '''{tab}crm:P1_is_identified_by <{id}_title> ;\n'''.format(tab=tab, id=art.id)
 
             # alternative title node declaration
             if art.alt_title:
-                ttl += '''{tab}crm:P102_has_title <{id}_alt_title> ;\n'''.format(tab=tab, id=art.id)
+                ttl += '''{tab}crm:E33_E41_Linguistic_Appellation <{id}_alt_title> ;\n'''.format(tab=tab, id=art.id)
 
             # conflate ARC type, genres, disciplines, and freeculture indicator into LINCS "types" and declare nodes
             types = []
@@ -175,13 +221,16 @@ def lincs_ttl(request, corpus_id, content_type, content_id):
                 )
 
             # subject node declaration(s)
-            # todo: figure out how to represent these as well as coverages
             if art.subjects:
-                subjects = []
+                for subj in art.subjects:
+                    ttl += '''{tab}crm:P129_is_about "{subject}" ;\n'''.format(tab=tab, subject=subj)
+                    globals['''"{subject}" a skos:Concept .'''.format(subject=subj)] = True
 
             # coverage node declaration(s)
             if art.coverages:
-                coverages = []
+                for cov in art.coverages:
+                    ttl += '''{tab}crm:P67_refers_to "{coverage}" ;\n'''.format(tab=tab, coverage=cov)
+                    globals['''"{coverage}" a crm:E53_Place .'''.format(coverage=cov)] = True
 
             # provenance node(s) declaration (handling art.sources)
             if art.sources:
@@ -189,7 +238,7 @@ def lincs_ttl(request, corpus_id, content_type, content_id):
                 for prov_num in range(0, len(art.sources)):
                     prov_nodes.append("<{id}_provenance_{num}>".format(id=art.id, num=prov_num + 1))
 
-                ttl += '''{tab}crm:P67i_is_referred_to_by {provs} ;'''.format(
+                ttl += '''{tab}crm:P67i_is_referred_to_by {provs} ;\n'''.format(
                     tab=tab,
                     provs=",\n{tab}{tab}".format(tab=tab).join(prov_nodes)
                 )
@@ -222,7 +271,7 @@ def lincs_ttl(request, corpus_id, content_type, content_id):
             # has_parts
             if art.has_parts:
                 parts = ['<' + p.strip() + '>' for p in art.has_parts]
-                ttl += '''{tab}frbroo:R5_has_component {has_parts} ;'''.format(
+                ttl += '''{tab}crm:P148_has_component {has_parts} ;\n'''.format(
                     tab=tab,
                     has_parts=",\n{tab}{tab}".format(tab=tab).join(parts)
                 )
@@ -230,7 +279,7 @@ def lincs_ttl(request, corpus_id, content_type, content_id):
             # is_part_ofs
             if art.is_part_ofs:
                 parts = ['<' + p.strip() + '>' for p in art.is_part_ofs]
-                ttl += '''{tab}frbroo:R5i_is_component_of {is_part_ofs} ;'''.format(
+                ttl += '''{tab}crm:P148i_is_component_of {is_part_ofs} ;\n'''.format(
                     tab=tab,
                     is_part_ofs=",\n{tab}{tab}".format(tab=tab).join(parts)
                 )
@@ -262,7 +311,7 @@ def lincs_ttl(request, corpus_id, content_type, content_id):
             )] = True
 
             # title
-            ttl += '''<{id}_title> a crm:E35_Title ; 
+            ttl += '''<{id}_title> a crm:E33_E41_Linguistic_Appellation ; 
     rdfs:label "{title}" ;
     crm:P190_has_symbolic_content "{title}" ;
     crm:P2_has_type <main_title> .\n\n'''.format(
@@ -375,8 +424,9 @@ def lincs_ttl(request, corpus_id, content_type, content_id):
             # agents and dates (the creation node)
             agents = ["<{entity}_{role}>".format(entity=a.entity.name.strip(), role=a.role.name.strip()) for a in art.agents]
 
-            ttl += '''<{id}_creation> a frbroo:F30_Manifestation_Creation ;
+            ttl += '''<{id}_creation> a a crm:E65_Creation ;
     rdfs:label "Creation of {label}" ;
+    crm:P2_has_type cwrc:ProductionEvent, cwrc:PublishingEvent ;
     crmpc:P01i_is_domain_of {agents} ;  
     crm:P4_has_time-span <{id}_creation_timespan> .\n\n'''.format(
                 id=art.id,
@@ -415,14 +465,11 @@ def lincs_ttl(request, corpus_id, content_type, content_id):
                 last_year=art.years[-1]
             )
 
-            #################################
-            # Globals                       #
-            #################################
+    #################################
+    # Globals                       #
+    #################################
 
-            for statement in globals.keys():
-                ttl += statement + '\n\n'
+    for statement in globals.keys():
+        ttl += statement + '\n\n'
 
-    return HttpResponse(
-        ttl,
-        content_type='text/turtle'
-    )
+    return ttl
