@@ -190,7 +190,7 @@ def _generate_lincs_ttl(artifacts):
             ttl += '''{tab}rdfs:label "{label}" ;\n'''.format(tab=tab, label=art.label.strip())
 
             # archive node declaration
-            ttl += '''{tab}crm: P16i_was_used_for <{id}_contribution> ;\n'''.format(tab=tab, id=art.id)
+            ttl += '''{tab}crm:P16i_was_used_for <{id}_contribution> ;\n'''.format(tab=tab, id=art.id)
 
             # title node declaration
             ttl += '''{tab}crm:P1_is_identified_by <{id}_title> ;\n'''.format(tab=tab, id=art.id)
