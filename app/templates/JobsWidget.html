@@ -139,6 +139,9 @@
                             There are currently no jobs running.
                         </div>
                     `);
+                    if (stale_jobs.length && window.parent.hasOwnProperty('job_finished')) {
+                        window.parent.job_finished();
+                    }
                 }
 
                 if (window.parent.hasOwnProperty('resize_job_widget')) {

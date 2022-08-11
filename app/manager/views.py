@@ -238,6 +238,7 @@ def corpus(request, corpus_id):
                         job = Job.setup_retry_for_completed_task(corpus_id, 'Corpus', None, completed_task)
                         corpus.modify(pull__provenance=completed_task)
                         run_job(job.id)
+                        response['messages'].append("Job successfully retried.")
 
             # HANDLE JOB KILL
             elif _contains(request.POST, ['kill-job-id']):
