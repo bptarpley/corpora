@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     'plugins.cervantes',
     'plugins.arc',
     'plugins.femcon',
+    'plugins.melp',
     'rest_framework',
     'rest_framework.authtoken',
 ]
