@@ -12,6 +12,14 @@
             outline: none;
             -webkit-tap-highlight-color: rgba(255, 255, 255, 0); /* mobile webkit */
         }
+
+        .html-value {
+            display: block !important;
+        }
+
+        {% if default_css %}
+        {{ default_css }}
+        {% endif %}
     </style>
     <!--<link href="{% static 'css/vis-network.min.css' %}" rel="stylesheet">-->
 

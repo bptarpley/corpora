@@ -238,6 +238,7 @@ def corpus(request, corpus_id):
                         job = Job.setup_retry_for_completed_task(corpus_id, 'Corpus', None, completed_task)
                         corpus.modify(pull__provenance=completed_task)
                         run_job(job.id)
+                        response['messages'].append("Job successfully retried.")
 
             # HANDLE JOB KILL
             elif _contains(request.POST, ['kill-job-id']):
@@ -568,6 +569,7 @@ def view_content(request, corpus_id, content_type, content_id):
     render_template = _clean(request.GET, 'render_template', None)
     popup = 'popup' in request.GET
     view_widget_url = None
+    default_css = None
 
     if not corpus or content_type not in corpus.content_types:
         raise Http404("Corpus does not exist, or you are not authorized to view it.")
@@ -578,6 +580,9 @@ def view_content(request, corpus_id, content_type, content_id):
             content_type=content_type,
             content_id=content_id
         )
+
+    if 'DefaultCSS' in corpus.content_types[content_type].templates:
+        default_css = corpus.content_types[content_type].templates['DefaultCSS'].template
 
     if render_template and render_template in corpus.content_types[content_type].templates:
         content = corpus.get_content(content_type, content_id)
@@ -602,7 +607,8 @@ def view_content(request, corpus_id, content_type, content_id):
             'popup': popup,
             'content_type': content_type,
             'content_id': content_id,
-            'view_widget_url': view_widget_url
+            'view_widget_url': view_widget_url,
+            'default_css': default_css
         }
     )
 

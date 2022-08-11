@@ -347,6 +347,7 @@
                         <label for="template-mime-type">MIME Type</label>
                         <select id="template-mime-type">
                             <option value="text/html">text/html</option>
+                            <option value="text/css">text/css</option>
                             <option value="text/turtle">text/turtle</option>
                             <option value="text/xml">text/xml</option>
                             <option value="application/json">application/json</option>
@@ -1717,12 +1718,18 @@
                 // EDIT TEMPLATE BUTTON
                 $(`#${ct_div_prefix}-edit-template-button`).click(function (){
                     let template_name = $(`#${ct_div_prefix}-edit-template-selector`).val();
+                    let mime_type = corpus.content_types[ct_name].templates[template_name].mime_type;
+
                     $('#template-ct-name').val(ct_name);
                     $('#template-is-new').val('no');
                     $('#template-name').val(template_name);
 
+                    if (['text/html', 'text/xml'].includes(mime_type)) template_editor.getSession().setMode("ace/mode/django");
+                    else if (mime_type === 'text/css') template_editor.getSession().setMode("ace/mode/css");
+                    else if (mime_type === 'text/turtle') template_editor.getSession().setMode("ace/mode/turtle");
+
                     template_editor.setValue(corpus.content_types[ct_name].templates[template_name].template);
-                    $('#template-mime-type').val(corpus.content_types[ct_name].templates[template_name].mime_type);
+                    $('#template-mime-type').val(mime_type);
 
                     $('#template-modal').modal();
                 });
@@ -1737,6 +1744,14 @@
                     $('#template-mime-type').val('text/html');
 
                     $('#template-modal').modal();
+                });
+
+                // HANDLE TEMPLATE EDITOR MIME TYPE CHANGE
+                $('#template-mime-type').change(function() {
+                    let mime_type = $('#template-mime-type').val();
+                    if (['text/html', 'text/xml'].includes(mime_type)) template_editor.getSession().setMode("ace/mode/django");
+                    else if (mime_type === 'text/css') template_editor.getSession().setMode("ace/mode/css");
+                    else if (mime_type === 'text/turtle') template_editor.getSession().setMode("ace/mode/turtle");
                 });
 
                 // FOCUS TEMPLATE EDITOR ON MODAL SHOWN EVENT
