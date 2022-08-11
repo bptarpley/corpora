@@ -27,7 +27,7 @@ from django.template import Template, Context
 
 
 FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'file', 'repo', 'link', 'iiif-image', 'cross_reference', 'embedded')
-MIME_TYPES = ('text/html', 'text/xml', 'text/turtle', 'application/json')
+MIME_TYPES = ('text/html', 'text/css', 'text/xml', 'text/turtle', 'application/json')
 
 
 class Field(mongoengine.EmbeddedDocument):
