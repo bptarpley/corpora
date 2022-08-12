@@ -1652,69 +1652,71 @@ class Corpus(mongoengine.Document):
                     field_type = None
                     range_query = None
 
-                    if '.' in search_field:
-                        field_parts = search_field.split('.')
-                        xref_ct = self.content_types[content_type].get_field(field_parts[0]).cross_reference_type
-
-                        if field_parts[1] == 'label':
-                            field_type = 'text'
-                        elif field_parts[1] in ['uri', 'id']:
-                            field_type = 'keyword'
-                        else:
-                            field_type = self.content_types[xref_ct].get_field(field_parts[1]).type
-                    else:
-                        if search_field == 'label':
-                            field_type = 'text'
-                        elif search_field in ['uri', 'id']:
-                            field_type = 'keyword'
-                        else:
-                            field_type = self.content_types[content_type].get_field(search_field).type
-
-                    if field_type in ['number', 'decimal', 'date']:
-                        # default field conversion for number value
-                        field_converter = lambda x: int(x)
-
-                        if field_type == 'decimal':
-                            field_converter = lambda x: float(x)
-                        elif field_type == 'date':
-                            field_converter = lambda x: int(parse_date_string(x).timestamp())
-
-                        if len(field_values) == 2:
-                            range_query = Q(
-                                "range",
-                                **{search_field: {
-                                    'gte': field_converter(field_values[0]),
-                                    'lte': field_converter(field_values[1])
-                                }}
-                            )
-                        elif len(field_values) == 1 and fields_range[search_field].endswith('__'):
-                            range_query = Q(
-                                "range",
-                                **{search_field: {
-                                    'gte': field_converter(field_values[0]),
-                                }}
-                            )
-                        elif len(field_values) == 1 and fields_range[search_field].startswith('__'):
-                            range_query = Q(
-                                "range",
-                                **{search_field: {
-                                    'lte': field_converter(field_values[0]),
-                                }}
-                            )
-
-                    if range_query:
+                    for field_value in field_values:
                         if '.' in search_field:
                             field_parts = search_field.split('.')
-                            range_query = Q(
-                                'nested',
-                                path=field_parts[0],
-                                query=range_query
-                            )
+                            xref_ct = self.content_types[content_type].get_field(field_parts[0]).cross_reference_type
 
-                        if operator == 'and':
-                            filter.append(range_query)
+                            if field_parts[1] == 'label':
+                                field_type = 'text'
+                            elif field_parts[1] in ['uri', 'id']:
+                                field_type = 'keyword'
+                            else:
+                                field_type = self.content_types[xref_ct].get_field(field_parts[1]).type
                         else:
-                            should.append(range_query)
+                            if search_field == 'label':
+                                field_type = 'text'
+                            elif search_field in ['uri', 'id']:
+                                field_type = 'keyword'
+                            else:
+                                field_type = self.content_types[content_type].get_field(search_field).type
+
+                        if field_type in ['number', 'decimal', 'date']:
+                            # default field conversion for number value
+                            field_converter = lambda x: int(x)
+
+                            if field_type == 'decimal':
+                                field_converter = lambda x: float(x)
+                            elif field_type == 'date':
+                                field_converter = lambda x: parse_date_string(x).isoformat()
+
+                            range_parts = [part for part in field_value.split('to') if part]
+                            if len(range_parts) == 2:
+                                range_query = Q(
+                                    "range",
+                                    **{search_field: {
+                                        'gte': field_converter(range_parts[0]),
+                                        'lte': field_converter(range_parts[1])
+                                    }}
+                                )
+                            elif len(range_parts) == 1 and field_value.endswith('to'):
+                                range_query = Q(
+                                    "range",
+                                    **{search_field: {
+                                        'gte': field_converter(range_parts[0]),
+                                    }}
+                                )
+                            elif len(range_parts) == 1 and field_value.startswith('to'):
+                                range_query = Q(
+                                    "range",
+                                    **{search_field: {
+                                        'lte': field_converter(range_parts[0]),
+                                    }}
+                                )
+
+                        if range_query:
+                            if '.' in search_field:
+                                field_parts = search_field.split('.')
+                                range_query = Q(
+                                    'nested',
+                                    path=field_parts[0],
+                                    query=range_query
+                                )
+
+                            if operator == 'and':
+                                filter.append(range_query)
+                            else:
+                                should.append(range_query)
 
 
 

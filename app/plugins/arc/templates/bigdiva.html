@@ -801,7 +801,7 @@
                 if(decades_selected.length > 0) {
                     let min_year = Math.min(...decades_selected);
                     let max_year = Math.max(...decades_selected) + 9;
-                    criteria['r_years'] = `${min_year}__${max_year}`;
+                    criteria['r_years'] = `${min_year}to${max_year}`;
                     perform_graph_query();
                     await_data_then_update_graph();
                 }
