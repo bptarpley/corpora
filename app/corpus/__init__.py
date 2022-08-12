@@ -1501,6 +1501,8 @@ class Corpus(mongoengine.Document):
                     if field_type in ['text', 'large_text', 'html']:
                         search_criteria[search_field]['operator'] = 'and'
                         search_criteria[search_field]['fuzziness'] = 'AUTO'
+                    elif field_type == 'date':
+                        search_criteria[search_field]['query'] = parse_date_string(field_value).isoformat()
 
                     if '.' in search_field:
                         field_parts = search_field.split('.')
