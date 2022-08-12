@@ -62,8 +62,11 @@ This endpoint accepts several different GET parameters (passed via the query str
 | `q_[field name]` | To perform a full-text query against a specific field | [endpoint url]?q_title=Ulysses
 | `f_[field name]` | To filter by an exact value for a specific field | [endpoint url]?f_color=green
 | `w_[field name]` | To perform wildcard matching on a specific field (note: if no asterix is found in the search term, one will be automatically appended at the end) | [endpoint url]?w_name=Br*
-| `r_[field name]` | To filter using a range of possible values (numeric fields only). Separate min and max values by two underscores (if either min or max are omitted, range will just be "less than or equal to" or "greater than or equal to" respectively). | [endpoint url]?r_size=6__10
+| `r_[field name]` | To filter using a range of possible values (numeric fields only). Separate min and max values by "to" (if either min or max are omitted, range will just be "less than or equal to" or "greater than or equal to" respectively). | [endpoint url]?r_size=6to10
 | `s_[field name]` | To sort results by field name, settings value to either "ASC" or "DESC" | [endpoint_url]?s_pub_date=DESC
+| `a_terms_[aggregation_name]` | To produce a list of unique values for a field and their corresponding counts (appears in the "meta" section of results). Any alphanumeric string may be used for [aggregation_name]. | [endpoint_url]?a_terms_uniquecolors=color
+| `a_min_[aggregation_name]` | To determine the min value for a field (appears in the "meta" section of results). Any alphanumeric string may be used for [aggregation_name]. | [endpoint_url]?a_min_lowestage=age
+| `a_max_[aggregation_name]` | To determine the max value for a field (appears in the "meta" section of results). Any alphanumeric string may be used for [aggregation_name]. | [endpoint_url]?a_max_highestage=age
 | `page-size` | To specify the size of each page of results | [endpoint_url]?page-size=50
 | `page` | To specify which page of results you'd like | [endpoint_url]?page=1
 | `page-token` | After 9,000 records worth of pages, you'll receive a "page token" in the JSON response which will need to be captured and specified in order to retrieve further pages. | [endpoint_url]?page-token=5f60bf2cc879ea00329af449
