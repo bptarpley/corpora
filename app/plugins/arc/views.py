@@ -436,7 +436,7 @@ def _generate_lincs_ttl(artifacts):
                 ttl += '''<{thumb}> a crm:E36_Visual_Item ; 
     rdfs:label "Thumbnail image of {label}" ;
     crm:P2_has_type <thumbnail_image> .\n\n'''.format(
-                    thumb=art.image_url.strip(),
+                    thumb=art.thumbnail_url.strip(),
                     label=art.label.strip()
                 )
 
