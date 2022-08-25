@@ -284,8 +284,68 @@ def _generate_lincs_ttl(artifacts):
                     is_part_ofs=",\n{tab}{tab}".format(tab=tab).join(parts)
                 )
 
-            # federation, date of edition, review date node declaration
+            # federation, date of edition, review date node declaration (expressed in terms of digital surrogacy)
             ttl += '''{tab}crm:P129i_is_subject_of <{id}_digital_surrogate> .\n\n'''.format(tab=tab, id=art.id)
+
+            ttl += '''<{id}_digital_surrogate> a crm:E73_Information_Object ; 
+    rdfs:label "ARC digial surrogate of {label}" ;
+    crm:P2_has_type <ARC_digital_surrogate>, <http://vocab.getty.edu/aat/300379790> .\n\n'''.format(id=art.id, label=art.label.strip())
+
+            if art.date_of_edition:
+                ttl += '''<{id}_digital_surrogate> crm:P24i_was_created_by <{id}_digital_surrogate_creation> .
+
+<{id}_digital_surrogate_creation> a crm:E65_Creation ;
+    rdfs:label "Creation of ARC digital surrogate of {label}" ;
+    crm:P2_has_type <https://www.wikidata.org/wiki/Q99231516> ; 
+    crm:P4_has_time-span <{id}_digital_surrogate_creation_timespan> . 
+
+<{id}_digital_surrogate_creation_timespan> a crm:E52_Time-Span ; 
+    rdfs:label "Datetime of creation of ARC digital surrogate of {label}" ;
+    crm:P82_at_some_time_within "{year}" ;
+    crm:P82a_begin_of_the_begin "{year}-01-01T00:00:00"^^xsd:dateTime ;
+    crm:P82b_end_of_the_end "{year}-12-31T23:59:59"^^xsd:dateTime .\n\n'''.format(
+                    id=art.id,
+                    label=art.label.strip(),
+                    year=art.date_of_edition
+                )
+
+            if art.date_of_review:
+                ttl += '''<{id}_digital_surrogate> crm:P16i_was_used_for <{id}_digital_surrogate_review>, <{id}_digital_surrogate_ingestion> .
+
+<{id}_digital_surrogate_review> a crm:E7_Activity ; 
+    rdfs:label "Review of ARC digital surrogate of {label}" ;
+    crm:P2_has_type <Review> ; 
+    crm:P9i_forms_part_of <{id}_digital_surrogate_ingestion> ;
+    crm:P4_has_time-span <{id}_digital_surrogate_review_timespan> .
+
+<{id}_digital_surrogate_review_timespan> a crm:E52_Time-Span ; 
+    rdfs:label "Datetime of review of ARC digital surrogate of {label}" ;
+    crm:P82_at_some_time_within "{year}" ;
+    crm:P14_carried_out_by <{federation}> .
+
+<{id}_digital_surrogate_ingestion> a crm:E7_Activity ; 
+    rdfs:label "Ingestion of ARC digital surrogate of {label}" ;
+    crm:P2_has_type <Ingestion> ;
+    crm:P14_carried_out_by <ARC> ;
+    crm:P4_has_time-span <{id}_digital_surrogate_ingestion_timespan> . 
+
+<{id}_digital_surrogate_ingestion_timespan> a crm:E52_Time-Span ; 
+    rdfs:label "Datetime of ingestion of ARC digital surrogate of {label}" ;
+    crm:P82_at_some_time_within "{year}" ;
+    crm:P82a_begin_of_the_begin "{year}-01-01T00:00:00"^^xsd:dateTime ;
+    crm:P82b_end_of_the_end "{year}-12-31T23:59:59"^^xsd:dateTime .\n\n'''.format(
+                    id=art.id,
+                    label=art.label.strip(),
+                    federation=art.federations[0].handle,
+                    year=art.date_of_review
+                )
+
+                globals['''<Review> a crm:E55_Type .'''] = True
+                globals['''<Ingestion> a crm:E55_Type .'''] = True
+                globals['''<ARC> a crm:E39_Actor .'''] = True
+                globals['''<{federation}> a crm:E39_Actor .'''.format(federation=art.federations[0].handle)] = True
+
+            globals['''<ARC_digital_surrogate> a crm:E55_Type .'''] = True
 
             #################################
             # DEPENDENT NODES               #
@@ -424,7 +484,7 @@ def _generate_lincs_ttl(artifacts):
             # agents and dates (the creation node)
             agents = ["<{entity}_{role}>".format(entity=a.entity.name.strip(), role=a.role.name.strip()) for a in art.agents]
 
-            ttl += '''<{id}_creation> a a crm:E65_Creation ;
+            ttl += '''<{id}_creation> a crm:E65_Creation ;
     rdfs:label "Creation of {label}" ;
     crm:P2_has_type cwrc:ProductionEvent, cwrc:PublishingEvent ;
     crmpc:P01i_is_domain_of {agents} ;  
@@ -456,8 +516,8 @@ def _generate_lincs_ttl(artifacts):
             ttl += '''<{id}_creation_timespan> a crm:E52_Time-Span ; 
     rdfs:label "Datetime of creation of {label}" ;
     crm:P82_at_some_time_within "{date_value}" ; 
-    crm:P82a_begin_of_the_begin "{first_year}-01-01"^^xsd:dateTime ; 
-    crm:P82b_end_of_the_end "{last_year}-12-31"^^xsd:dateTime .\n\n'''.format(
+    crm:P82a_begin_of_the_begin "{first_year}-01-01T00:00:00"^^xsd:dateTime ; 
+    crm:P82b_end_of_the_end "{last_year}-12-31T23:59:59"^^xsd:dateTime .\n\n'''.format(
                 id=art.id,
                 label=art.label.strip(),
                 date_value=art.date_value,
