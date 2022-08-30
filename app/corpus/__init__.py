@@ -1207,6 +1207,10 @@ class GitRepo(mongoengine.EmbeddedDocument):
                 self.error = False
                 parent.save()
 
+    def clear(self):
+        if self.path and os.path.exists(self.path):
+            shutil.rmtree(self.path)
+
     @classmethod
     def from_dict(cls, repo_dict):
         repo = GitRepo()
