@@ -1439,6 +1439,7 @@ class Corpus(mongoengine.Document):
             index = Index(index_name)
             should = []
             must = []
+            must_not = []
             filter = []
 
             # GENERAL QUERY
@@ -1453,8 +1454,9 @@ class Corpus(mongoengine.Document):
                 if search_field.endswith('+'):
                     return search_field[:-1], "and"
                 elif search_field.endswith('|'):
-                    print("or query")
                     return search_field[:-1], "or"
+                elif search_field.endswith('-'):
+                    return search_field[:-1], "exclude"
                 return search_field, operator
 
             # FIELDS QUERY
@@ -1521,8 +1523,10 @@ class Corpus(mongoengine.Document):
                     if q:
                         if local_operator == 'and':
                             must.append(q)
-                        else:
+                        elif local_operator == 'or':
                             should.append(q)
+                        elif local_operator == 'exclude':
+                            must_not.append(q)
 
             # PHRASE QUERY
             for search_field in fields_phrase.keys():
@@ -1548,8 +1552,10 @@ class Corpus(mongoengine.Document):
                     if q:
                         if local_operator == 'and':
                             must.append(q)
-                        else:
+                        elif local_operator == 'or':
                             should.append(q)
+                        elif local_operator == 'exclude':
+                            must_not.append(q)
 
             # TERMS QUERY
             for search_field in fields_term.keys():
@@ -1574,8 +1580,10 @@ class Corpus(mongoengine.Document):
                 if q:
                     if local_operator == 'and':
                         must.append(q)
-                    else:
+                    elif local_operator == 'or':
                         should.append(q)
+                    elif local_operator == 'exclude':
+                        must_not.append(q)
 
             # WILDCARD QUERY
             for search_field in fields_wildcard.keys():
@@ -1604,8 +1612,10 @@ class Corpus(mongoengine.Document):
                     if q:
                         if local_operator == 'and':
                             must.append(q)
-                        else:
+                        elif local_operator == 'or':
                             should.append(q)
+                        elif local_operator == 'exclude':
+                            must_not.append(q)
 
             # EXISTENCE QUERY
             for search_field in fields_exist:
@@ -1734,9 +1744,9 @@ class Corpus(mongoengine.Document):
                     'path': 'ids'
                 }}))
 
-            if should or must or filter:
+            if should or must or must_not or filter:
 
-                search_query = Q('bool', should=should, must=must, filter=filter)
+                search_query = Q('bool', should=should, must=must, must_not=must_not, filter=filter)
 
                 extra = {'track_total_hits': True}
                 if fields_query and fields_highlight:

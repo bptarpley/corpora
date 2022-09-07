@@ -267,8 +267,18 @@ def build_search_params_from_dict(params):
         elif param == 'es_debug_query':
             search['es_debug_query'] = True
 
-    if search and (not search['general_query'] and not search['fields_query'] and not search['fields_filter'] and not search['fields_wildcard'] and not search['fields_range']):
-        search['general_query'] = "*"
+    if search:
+        has_query = False
+        for search_param in [
+            'general_query', 'fields_query', 'fields_filter', 'fields_wildcard', 'fields_range', 'fields_filter',
+            'fields_phrase', 'fields_term'
+        ]:
+            if search[search_param]:
+                has_query = True
+                break
+
+        if not has_query:
+            search['general_query'] = "*"
 
     return search
 
