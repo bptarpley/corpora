@@ -940,14 +940,37 @@
                         }
                         else {
                             corpus_repos_div.append(`
-                                <div class="alert alert-info">
-                                    <b>${repo.name}</b><br/>
-                                    Branch "${repo.remote_branch}"
-                                    last pulled ${corpora.time_string(repo.last_pull)}
+                                <div class="alert alert-info row no-gutters">
+                                    <div class="col-sm-11">
+                                        <b>${repo.name}</b><br/>
+                                        Branch "${repo.remote_branch}"
+                                        last pulled ${corpora.time_string(repo.last_pull)}
+                                    </div>
+                                    <div class="col-sm-1 text-right">
+                                        <button type="button" class="btn btn-secondary repo-delete-button" data-repo-name="${repo.name}"><span class="fas fa-trash-alt"></span></button>
+                                    </div>
                                 </div>
                             `);
                         }
                     }
+
+                    // repo deletion button click
+                    $('.repo-delete-button').off('click').on('click', function() {
+                        let button = $(this);
+                        let repo_name = button.data('repo-name');
+                        let multi_form = $('#multiselect-form');
+                        $('#deletion-confirmation-modal-message').html(`
+                            Are you sure you want to delete the "${repo_name}" repository?
+                        `);
+                        multi_form.append(`
+                            <input type='hidden' class="repo-deletion-input" name='repo' value='${repo_name}'/>
+                        `);
+                        let deletion_modal = $('#deletion-confirmation-modal');
+                        deletion_modal.modal();
+                        deletion_modal.on('hidden.bs.modal', function (e) {
+                            $('.repo-deletion-input').remove();
+                        })
+                    });
                 }
 
                 // load content views

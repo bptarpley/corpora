@@ -202,6 +202,18 @@ def corpus(request, corpus_id):
                 content_views = ContentView.objects(corpus=corpus, status='populated').order_by('name')
                 response['messages'].append('The "{0}" Content View is being deleted.'.format(cv_name))
 
+            # HANDLE REPO DELETION
+            elif _contains(request.POST, ['deletion-confirmed', 'repo']):
+                repo_name = _clean(request.POST, 'repo')
+                if repo_name in corpus.repos:
+                    corpus.repos[repo_name].clear()
+                    del corpus.repos[repo_name]
+                    corpus.save()
+
+                    response['messages'].append('The "{0}" repository has been deleted.'.format(repo_name))
+                else:
+                    response['errors'].append('An error occurred when attempting to delete the "{0}" repository!'.format(repo_name))
+
             # HANDLE JOB SUBMISSION
             elif _contains(request.POST, ['jobsite', 'task']):
                 jobsite = JobSite.objects(id=_clean(request.POST, 'jobsite'))[0]
