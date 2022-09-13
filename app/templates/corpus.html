@@ -220,6 +220,10 @@
                         <input id="new-ct-nav-checkbox" type="checkbox" value="" class="form-check-input" checked>
                         <label for="new-ct-nav-checkbox">Include in Navigation?</label>
                     </div>
+                    <div class="form-check">
+                        <input id="new-ct-autocomplete-checkbox" type="checkbox" value="" class="form-check-input">
+                        <label for="new-ct-autocomplete-checkbox">Index Labels for Auto-Completion?</label>
+                    </div>
                     <div id="new-ct-proxy-field-div" class="form-group d-none">
                         <label for="new-ct-proxy-field-selector">Proxy For</label>
                         <select id="new-ct-proxy-field-selector" class="form-control"></select>
@@ -257,7 +261,7 @@
                     </div>
                     <div class="form-group">
                         <label for="new-f-type-box">Type</label>
-                        <select id="new-f-type-box">
+                        <select id="new-f-type-box" class="form-control">
                             <option value="keyword" selected>Keyword</option>
                             <option value="text">Text</option>
                             <option value="large_text">Large Text</option>
@@ -279,9 +283,21 @@
                         <input id="new-f-has-intensity-checkbox" type="checkbox" value="" class="form-check-input">
                         <label for="new-f-has-intensity-checkbox">Has Intensity?</label>
                     </div>
+                    <div class="form-group d-none" id="new-f-language-div">
+                        <label for="new-f-language-box">Language</label>
+                        <select id="new-f-language-box" class="form-control">
+                            {% for lang_value, lang_label in field_languages.items %}
+                                <option value="{{ lang_value }}">{{ lang_label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-check d-none" id="new-f-autocomplete-div">
+                        <input id="new-f-autocomplete-checkbox" type="checkbox" value="" class="form-check-input">
+                        <label for="new-f-autocomplete-checkbox">Index for Auto-Completion?</label>
+                    </div>
                     <div class="form-group d-none" id="new-f-synonym-div">
                         <label for="new-f-synonym-box">Synonyms for Searching this Field</label>
-                        <select id="new-f-synonym-box">
+                        <select id="new-f-synonym-box" class="form-control">
                             <option value="None">None</option>
                         </select>
                     </div>
@@ -756,6 +772,7 @@
             cross_reference: 'Cross Reference',
             embedded: 'Embedded'
         };
+        const FIELD_LANGUAGES = {{ field_languages|safe }};
         const INVALID_FIELD_NAMES = {{ invalid_field_names|safe }};
 
         // fires once HTML DOM has loaded
@@ -1115,6 +1132,7 @@
                         $('#new-ct-name-box').val('');
                         $('#new-ct-plural-name-box').val('');
                         $('#new-ct-nav-checkbox').prop('checked', true);
+                        $('#new-ct-autocomplete-checkbox').prop('checked', false);
                         $('#new-ct-proxy-field-selector').val('');
                         $('#new-ct-proxy-field-div').addClass('d-none');
                         $('#new-ct-modal').modal();
@@ -1129,6 +1147,7 @@
                                 name: ct_name,
                                 plural_name: $('#new-ct-plural-name-box').val(),
                                 show_in_nav: $('#new-ct-nav-checkbox').is(':checked'),
+                                autocomplete_labels: $('#new-ct-autocomplete-checkbox').is(':checked'),
                                 proxy_field: '',
                                 fields: [],
                                 is_new: true,
@@ -1142,6 +1161,7 @@
                         } else {
                             corpus.content_types[ct_name].plural_name = $('#new-ct-plural-name-box').val();
                             corpus.content_types[ct_name].show_in_nav = $('#new-ct-nav-checkbox').is(':checked');
+                            corpus.content_types[ct_name].autocomplete_labels = $('#new-ct-autocomplete-checkbox').is(':checked');
                             corpus.content_types[ct_name].proxy_field = $('#new-ct-proxy-field-selector').val();
                         }
 
@@ -1161,11 +1181,20 @@
                             $('#new-f-has-intensity-div').addClass('d-none');
                         }
 
+                        let synonym_div = $('#new-f-synonym-div');
+                        let language_div = $('#new-f-language-div');
+                        let autocomplete_div = $('#new-f-autocomplete-div');
+
                         if (['text', 'large_text', 'html'].includes(selection)) {
-                            $('#new-f-synonym-div').removeClass('d-none');
+                            language_div.removeClass('d-none');
+                            synonym_div.removeClass('d-none');
                         } else {
-                            $('#new-f-synonym-div').addClass('d-none');
+                            language_div.addClass('d-none');
+                            synonym_div.addClass('d-none');
                         }
+
+                        if (selection === 'text') autocomplete_div.removeClass('d-none');
+                        else autocomplete_div.addClass('d-none');
                     });
 
                     // FIELD INDEXED CHECK CHANGE
@@ -1209,9 +1238,15 @@
                             multiple: $('#new-f-multiple-checkbox').is(':checked'),
                             cross_reference_type: cross_reference_type,
                             has_intensity: $('#new-f-has-intensity-checkbox').is(':checked'),
+                            language: null,
+                            autocomplete: $('#new-f-autocomplete-checkbox').is(':checked'),
                             synonym_file: synonym_file !== 'None' ? synonym_file : null,
                             type: $('#new-f-type-box').val(),
                         };
+
+                        if (['text', 'large_text', 'html'].includes(field.type)) {
+                            field.language = $('#new-f-language-box').val();
+                        }
 
                         let ct_name = $('#new-f-ct-name').val();
                         let f_index = $('#new-f-f-id').val();
@@ -1596,6 +1631,7 @@
                     $('#new-ct-name-box').prop('disabled', true);
                     $('#new-ct-plural-name-box').val(corpus.content_types[ct_name].plural_name);
                     $('#new-ct-nav-checkbox').prop('checked', corpus.content_types[ct_name].show_in_nav);
+                    $('#new-ct-autocomplete-checkbox').prop('checked', corpus.content_types[ct_name].autocomplete_labels);
 
                     let has_xrefs = false;
                     let proxy_field_selector = $('#new-ct-proxy-field-selector');
@@ -1709,6 +1745,10 @@
                     $('#new-f-name-box').prop('disabled', false);
                     $('#new-f-label-box').val('');
                     $('#new-f-type-box').val('keyword');
+                    $('#new-f-language-box').val('english');
+                    $('#new-f-language-div').addClass('d-none');
+                    $('#new-f-autocomplete-box').prop('checked', false);
+                    $('#new-f-autocomplete-div').addClass('d-none');
                     $('#new-f-synonym-box').val('None');
                     $('#new-f-synonym-div').addClass('d-none');
                     $('#new-f-has-intensity-checkbox').prop('checked', false);
@@ -1798,23 +1838,25 @@
             let f_table = $(`#tm-ct-${ct_name}-f-table`);
             let f_div_prefix = `tm-ct-${ct_name}-f-${f_index}`;
             let field_type_display = '';
-            switch (ct.fields[f_index].type) {
-                case 'cross_reference':
-                    field_type_display = ct.fields[f_index].cross_reference_type;
-                    if (ct.fields[f_index].has_intensity) {
-                        field_type_display += '+';
-                    }
-                    break;
-                case 'text':
-                    field_type_display = 'Text';
-                    let syn_file_key = ct.fields[f_index].synonym_file;
-                    if (syn_file_key) {
-                        field_type_display += ` (${corpus.available_synonyms[syn_file_key].label})`;
-                    }
-                    break;
-                default:
-                    field_type_display = FIELD_TYPE_LABELS[ct.fields[f_index].type];
-                    break;
+            if (ct.fields[f_index].type === 'cross_reference') {
+                field_type_display = ct.fields[f_index].cross_reference_type;
+                if (ct.fields[f_index].has_intensity) {
+                    field_type_display += '+';
+                }
+            } else field_type_display = FIELD_TYPE_LABELS[ct.fields[f_index].type];
+
+            if (['text', 'large_text', 'html'].includes(ct.fields[f_index].type)) {
+                let text_specifier = ` (`;
+                if (ct.fields[f_index].language) text_specifier += FIELD_LANGUAGES[ct.fields[f_index].language]
+                else text_specifier += 'English';
+
+                let syn_file_key = ct.fields[f_index].synonym_file;
+                if (syn_file_key) {
+                    text_specifier += `, ${corpus.available_synonyms[syn_file_key].label}`;
+                }
+                text_specifier += ')';
+                field_type_display += text_specifier;
+                if (ct.fields[f_index].autocomplete) field_type_display += '*';
             }
 
             let indexed_display = ct.fields[f_index].indexed ? 'Y' : 'N';
@@ -1885,12 +1927,18 @@
                         $('#new-f-has-intensity-div').addClass('d-none');
                     }
 
+                    $('#new-f-language-box').val(ct.fields[f_index].language == null ? 'english': ct.fields[f_index].language)
+                    $('#new-f-autocomplete-box').prop('checked', ct.fields[f_index].autocomplete);
                     $('#new-f-synonym-box').val(ct.fields[f_index].synonym_file == null ? 'None' : ct.fields[f_index].synonym_file);
                     if (['text', 'large_text', 'html'].includes(ct.fields[f_index].type)) {
                         $('#new-f-synonym-div').removeClass('d-none');
+                        $('#new-f-language-div').removeClass('d-none');
                     } else {
                         $('#new-f-synonym-div').addClass('d-none');
+                        $('#new-f-language-div').addClass('d-none');
                     }
+                    if (ct.fields[f_index].type === 'text') $('#new-f-autocomplete-div').removeClass('d-none');
+                    else $('#new-f-autocomplete-div').addClass('d-none');
 
                     $('.f-with').html('');
                     for (let x = 0; x < ct.fields.length; x++) {

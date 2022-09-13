@@ -491,6 +491,7 @@ def corpus(request, corpus_id):
             'role': role,
             'content_views': content_views,
             'invalid_field_names': settings.INVALID_FIELD_NAMES,
+            'field_languages': FIELD_LANGUAGES,
             'response': response,
             'available_jobsites': [str(js.id) for js in response['scholar']['available_jobsites']],
             'available_tasks': [str(t.id) for t in response['scholar']['available_tasks']],
@@ -1473,6 +1474,24 @@ def api_content(request, corpus_id, content_type, content_id=None):
         content_type='application/json'
     )
 
+@api_view(['GET'])
+def api_suggest(request, corpus_id, content_type):
+    context = _get_context(request)
+    suggestions = {}
+    query = _clean(request.GET, 'q', None)
+    if query:
+        corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+        fields = _clean(request.GET, 'fields', [])
+        if fields:
+            fields = fields.split(',')
+
+        if corpus and content_type in corpus.content_types:
+            suggestions = corpus.suggest_content(content_type, query, fields)
+
+    return HttpResponse(
+        json.dumps(suggestions),
+        content_type='application/json'
+    )
 
 @api_view(['GET', 'POST'])
 def api_content_view(request, corpus_id, content_view_id=None):
