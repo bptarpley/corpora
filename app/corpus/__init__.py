@@ -2052,7 +2052,7 @@ class Corpus(mongoengine.Document):
         print(results_added)
         return left_content
 
-    def suggest_content(self, content_type, prefix, fields=[]):
+    def suggest_content(self, content_type, prefix, fields=[], max_suggestions_per_field=5):
         results = {}
 
         if content_type in self.content_types:
@@ -2077,15 +2077,23 @@ class Corpus(mongoengine.Document):
                     command = command.query(Q('multi_match', query=prefix, type='bool_prefix', fields=suggest_fields))
                     command = command.source(includes=suggestable_fields)
                     response = command.execute()
-                    if hasattr(response, 'hits'):
-                        for hit in response.hits:
-                            for suggestable_field in suggestable_fields:
-                                if hasattr(hit, suggestable_field):
-                                    if suggestable_field not in results:
-                                        results[suggestable_field] = []
-                                    results[suggestable_field].append(getattr(hit, suggestable_field))
 
-                xref_fields = {}
+                    if hasattr(response, 'hits'):
+                        suggestions_gathered = {}
+                        for hit in response.hits:
+                            if hit.meta.score == 1:
+                                for suggestable_field in suggestable_fields:
+                                    if hasattr(hit, suggestable_field):
+                                        if suggestable_field not in suggestions_gathered:
+                                            suggestions_gathered[suggestable_field] = 0
+
+                                        if suggestions_gathered[suggestable_field] < max_suggestions_per_field:
+                                            if suggestable_field not in results:
+                                                results[suggestable_field] = []
+
+                                            results[suggestable_field].append(getattr(hit, suggestable_field))
+                                            suggestions_gathered[suggestable_field] += 1
+
                 for field in ct.fields:
                     if field.name in fields and \
                             field.type == 'cross_reference' and \
@@ -2095,7 +2103,8 @@ class Corpus(mongoengine.Document):
                         xref_suggestions = self.suggest_content(
                             field.cross_reference_type,
                             prefix,
-                            ['label']
+                            ['label'],
+                            max_suggestions_per_field
                         )
                         if 'label' in xref_suggestions:
                             results[field.name] = xref_suggestions['label']

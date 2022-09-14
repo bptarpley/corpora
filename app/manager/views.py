@@ -1479,14 +1479,17 @@ def api_suggest(request, corpus_id, content_type):
     context = _get_context(request)
     suggestions = {}
     query = _clean(request.GET, 'q', None)
+
     if query:
         corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
         fields = _clean(request.GET, 'fields', [])
+        max_per_field = _clean(request.GET, 'max_per_field', '5')
+
         if fields:
             fields = fields.split(',')
 
-        if corpus and content_type in corpus.content_types:
-            suggestions = corpus.suggest_content(content_type, query, fields)
+        if corpus and content_type in corpus.content_types and max_per_field.isdigit():
+            suggestions = corpus.suggest_content(content_type, query, fields, int(max_per_field))
 
     return HttpResponse(
         json.dumps(suggestions),

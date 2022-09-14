@@ -313,7 +313,7 @@ def get_open_access_corpora(use_cache=True):
     if not oa_corpora_list or not use_cache:
         corpora = Corpus.objects(open_access=True)
         oa_corpora_list = ",".join([str(corpus.id) for corpus in corpora])
-        cache.set('/open_access_corpora', oa_corpora_list)
+        cache.set('/open_access_corpora', oa_corpora_list, ex=3600)
 
     if oa_corpora_list:
         oa_corpora = oa_corpora_list.split(',')
