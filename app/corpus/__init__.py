@@ -2081,18 +2081,17 @@ class Corpus(mongoengine.Document):
                     if hasattr(response, 'hits'):
                         suggestions_gathered = {}
                         for hit in response.hits:
-                            if hit.meta.score == 1:
-                                for suggestable_field in suggestable_fields:
-                                    if hasattr(hit, suggestable_field):
-                                        if suggestable_field not in suggestions_gathered:
-                                            suggestions_gathered[suggestable_field] = 0
+                            for suggestable_field in suggestable_fields:
+                                if hasattr(hit, suggestable_field):
+                                    if suggestable_field not in suggestions_gathered:
+                                        suggestions_gathered[suggestable_field] = 0
 
-                                        if suggestions_gathered[suggestable_field] < max_suggestions_per_field:
-                                            if suggestable_field not in results:
-                                                results[suggestable_field] = []
+                                    if suggestions_gathered[suggestable_field] < max_suggestions_per_field:
+                                        if suggestable_field not in results:
+                                            results[suggestable_field] = []
 
-                                            results[suggestable_field].append(getattr(hit, suggestable_field))
-                                            suggestions_gathered[suggestable_field] += 1
+                                        results[suggestable_field].append(getattr(hit, suggestable_field))
+                                        suggestions_gathered[suggestable_field] += 1
 
                 for field in ct.fields:
                     if field.name in fields and \
