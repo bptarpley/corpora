@@ -20,7 +20,7 @@ from PIL import Image
 from django.conf import settings
 from django.utils.text import slugify
 from elasticsearch_dsl import Index, Mapping, analyzer, Keyword, Text, Integer, Date, \
-    Nested, token_filter, char_filter, Q, Search
+    Nested, token_filter, char_filter, Q, A, Search
 from elasticsearch_dsl.query import SimpleQueryString, Ids
 from elasticsearch_dsl.connections import get_connection
 from django.template import Template, Context
@@ -2052,7 +2052,15 @@ class Corpus(mongoengine.Document):
         print(results_added)
         return left_content
 
-    def suggest_content(self, content_type, prefix, fields=[], max_suggestions_per_field=5):
+    def suggest_content(
+            self,
+            content_type,
+            prefix,
+            fields=[],
+            max_suggestions_per_field=5,
+            filters={},
+            es_debug=False
+    ):
         results = {}
 
         if content_type in self.content_types:
@@ -2060,53 +2068,122 @@ class Corpus(mongoengine.Document):
             index_name = "corpus-{0}-{1}".format(self.id, ct.name.lower())
             index = Index(index_name)
             if index.exists():
-                suggestable_fields = [f.name for f in ct.fields if f.autocomplete]
-                if fields:
-                    suggestable_fields = [f for f in fields if f in suggestable_fields]
-                    if ct.autocomplete_labels and 'label' in fields:
-                        suggestable_fields.append('label')
+                text_fields = []
+                xref_fields = []
 
-                suggest_fields = []
-                for suggestable_field in suggestable_fields:
-                    suggest_fields.append(suggestable_field)
-                    suggest_fields.append(suggestable_field + '._2gram')
-                    suggest_fields.append(suggestable_field + '._3gram')
+                for ct_field in ct.fields:
+                    if ct_field.autocomplete and (not fields) or (ct_field.name in fields):
+                        if ct_field.type == 'text':
+                            text_fields.append(ct_field.name)
+                        elif ct_field.type == 'cross_reference':
+                            xref_fields.append(ct_field.name)
+                if 'label' in fields and ct.autocomplete_labels:
+                    text_fields.append('label')
 
-                if suggest_fields:
-                    command = Search(using=get_connection(), index=index_name)
-                    command = command.query(Q('multi_match', query=prefix, type='bool_prefix', fields=suggest_fields))
-                    command = command.source(includes=suggestable_fields)
-                    response = command.execute()
+                if text_fields or xref_fields:
+                    filter_queries = []
+                    if filters:
+                        for search_field in filters.keys():
+                            field_values = [value_part for value_part in filters[search_field].split('__') if value_part]
+                            for field_value in field_values:
+                                if '.' in search_field:
+                                    field_parts = search_field.split('.')
+                                    filter_queries.append(Q(
+                                        "nested",
+                                        path=field_parts[0],
+                                        query=Q(
+                                            'term',
+                                            **{search_field: field_value}
+                                        )
+                                    ))
+                                else:
+                                    if search_field == 'id':
+                                        search_field = '_id'
+                                    filter_queries.append(Q('term', **{search_field: field_value}))
 
-                    if hasattr(response, 'hits'):
-                        suggestions_gathered = {}
-                        for hit in response.hits:
-                            for suggestable_field in suggestable_fields:
-                                if hasattr(hit, suggestable_field):
-                                    if suggestable_field not in suggestions_gathered:
-                                        suggestions_gathered[suggestable_field] = 0
+                    if text_fields:
+                        subfields = []
+                        for text_field in text_fields:
+                            subfields.append(text_field + '.suggest')
+                            subfields.append(text_field + '.suggest._2gram')
+                            subfields.append(text_field + '.suggest._3gram')
 
-                                    if suggestions_gathered[suggestable_field] < max_suggestions_per_field:
-                                        if suggestable_field not in results:
-                                            results[suggestable_field] = []
+                        text_query = Q('multi_match', query=prefix, type='bool_prefix', fields=subfields)
+                        command = Search(using=get_connection(), index=index_name)
+                        command = command.query('bool', must=[text_query], filter=filter_queries)
+                        command = command.source(includes=text_fields)
 
-                                        results[suggestable_field].append(getattr(hit, suggestable_field))
-                                        suggestions_gathered[suggestable_field] += 1
+                        if es_debug:
+                            print(json.dumps(command.to_dict(), indent=4))
+                        response = command.execute()
+                        if es_debug:
+                            print(json.dumps(response.to_dict(), indent=4))
 
-                for field in ct.fields:
-                    if field.name in fields and \
-                            field.type == 'cross_reference' and \
-                            field.cross_reference_type in self.content_types and \
-                            self.content_types[field.cross_reference_type].autocomplete_labels:
+                        if hasattr(response, 'hits'):
+                            field_hits_gathered = {}
+                            total_hits_gathered = 0
 
-                        xref_suggestions = self.suggest_content(
-                            field.cross_reference_type,
-                            prefix,
-                            ['label'],
-                            max_suggestions_per_field
-                        )
-                        if 'label' in xref_suggestions:
-                            results[field.name] = xref_suggestions['label']
+                            for hit in response.hits:
+                                if total_hits_gathered >= len(text_fields) * max_suggestions_per_field:
+                                    break
+                                else:
+                                    for text_field in text_fields:
+                                        if 'text_field' not in field_hits_gathered or field_hits_gathered[text_field] < max_suggestions_per_field:
+                                            if hasattr(hit, text_field) and getattr(hit, text_field):
+                                                if text_field not in results:
+                                                    results[text_field] = []
+
+                                                hit_value = getattr(hit, text_field)
+
+                                                if hit_value not in results[text_field]:
+                                                    results[text_field].append(hit_value)
+
+                                                    if text_field not in field_hits_gathered:
+                                                        field_hits_gathered[text_field] = 0
+
+                                                    field_hits_gathered[text_field] += 1
+                                                    total_hits_gathered += 1
+
+                    if xref_fields:
+                        nested_queries = []
+                        for xref_field in xref_fields:
+                            nested_queries.append(Q(
+                                'nested',
+                                path=xref_field,
+                                query=Q(
+                                    'multi_match',
+                                    query=prefix,
+                                    type='bool_prefix',
+                                    fields=[
+                                        xref_field + '.label.suggest',
+                                        xref_field + '.label.suggest._2gram',
+                                        xref_field + '.label.suggest._3gram'
+                                    ]
+                                )
+                            ))
+
+                        command = Search(using=get_connection(), index=index_name, extra={'size': 0})
+                        command = command.query('bool', must=nested_queries, filter=filter_queries)
+
+                        for xref_field in xref_fields:
+                            agg = A('nested', path=xref_field)
+                            agg.bucket('names', 'terms', size=max_suggestions_per_field, field=xref_field + '.label.raw')
+                            command.aggs.bucket(xref_field, agg)
+
+                        if es_debug:
+                            print(json.dumps(command.to_dict(), indent=4))
+                        response = command.execute()
+                        if es_debug:
+                            print(json.dumps(response.to_dict(), indent=4))
+
+                        if hasattr(response, 'aggregations'):
+                            for xref_field in xref_fields:
+                                if hasattr(response.aggregations, xref_field):
+                                    suggestions = getattr(response.aggregations, xref_field).names.buckets
+                                    for suggestion in suggestions:
+                                        if xref_field not in results:
+                                            results[xref_field] = []
+                                        results[xref_field].append(suggestion.key)
 
         return results
 
@@ -2480,12 +2557,14 @@ class Corpus(mongoengine.Document):
                 tokenizer='classic',
                 filter=['stop', 'lowercase', 'classic']
             )
-            label_type = 'text'
+            label_subfields = {
+                'raw': {'type': 'keyword'},
+            }
             if ct.autocomplete_labels:
-                label_type = 'search_as_you_type'
+                label_subfields['suggest'] = {'type': 'search_as_you_type'}
 
             mapping = Mapping()
-            mapping.field('label', label_type, analyzer=label_analyzer, fields={'raw': Keyword()})
+            mapping.field('label', 'text', analyzer=label_analyzer, fields=label_subfields)
             mapping.field('uri', 'keyword')
 
             for field in ct.fields:
@@ -2494,16 +2573,16 @@ class Corpus(mongoengine.Document):
 
                     if field.type == 'cross_reference' and field.cross_reference_type in self.content_types:
                         xref_ct = self.content_types[field.cross_reference_type]
+                        xref_label_subfields = {'raw': {'type': 'keyword'}}
+                        if field.autocomplete:
+                            xref_label_subfields['suggest'] = {'type': 'search_as_you_type'}
+
                         xref_mapping_props = {
                             'id': 'keyword',
                             'label': {
                                 'type': 'text',
                                 'analyzer': label_analyzer,
-                                'fields': {
-                                    'raw': {
-                                        'type': 'keyword'
-                                    }
-                                }
+                                'fields': xref_label_subfields
                             },
                             'uri': 'keyword'
                         }
@@ -2536,9 +2615,8 @@ class Corpus(mongoengine.Document):
                     elif field_type == 'text':
                         subfields = {'raw': {'type': 'keyword'}}
                         if field.autocomplete:
-                            mapping.field(field.name, 'search_as_you_type', analyzer=field.get_elasticsearch_analyzer(), fields=subfields)
-                        else:
-                            mapping.field(field.name, field_type, analyzer=field.get_elasticsearch_analyzer(), fields=subfields)
+                            subfields['suggest'] = {'type': 'search_as_you_type'}
+                        mapping.field(field.name, field_type, analyzer=field.get_elasticsearch_analyzer(), fields=subfields)
 
                     # large text fields assumed too large to provide a "raw" subfield for sorting
                     elif field_type in ['large_text', 'html']:

@@ -275,7 +275,7 @@
                             <option value="file">File Upload</option>
                             <option value="cross_reference">Cross Reference</option>
                         </select>
-                        <select id="new-f-cross-reference-box" class="d-none">
+                        <select id="new-f-cross-reference-box" class="form-control d-none">
                             <option value="Document">Document</option>
                         </select>
                     </div>
@@ -1193,7 +1193,7 @@
                             synonym_div.addClass('d-none');
                         }
 
-                        if (selection === 'text') autocomplete_div.removeClass('d-none');
+                        if (['text', 'cross_reference'].includes(selection)) autocomplete_div.removeClass('d-none');
                         else autocomplete_div.addClass('d-none');
                     });
 
@@ -1747,7 +1747,7 @@
                     $('#new-f-type-box').val('keyword');
                     $('#new-f-language-box').val('english');
                     $('#new-f-language-div').addClass('d-none');
-                    $('#new-f-autocomplete-box').prop('checked', false);
+                    $('#new-f-autocomplete-checkbox').prop('checked', false);
                     $('#new-f-autocomplete-div').addClass('d-none');
                     $('#new-f-synonym-box').val('None');
                     $('#new-f-synonym-div').addClass('d-none');
@@ -1937,7 +1937,7 @@
                         $('#new-f-synonym-div').addClass('d-none');
                         $('#new-f-language-div').addClass('d-none');
                     }
-                    if (ct.fields[f_index].type === 'text') $('#new-f-autocomplete-div').removeClass('d-none');
+                    if (['text', 'cross_reference'].includes(ct.fields[f_index].type)) $('#new-f-autocomplete-div').removeClass('d-none');
                     else $('#new-f-autocomplete-div').addClass('d-none');
 
                     $('.f-with').html('');
