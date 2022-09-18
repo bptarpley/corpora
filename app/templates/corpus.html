@@ -275,7 +275,7 @@
                             <option value="file">File Upload</option>
                             <option value="cross_reference">Cross Reference</option>
                         </select>
-                        <select id="new-f-cross-reference-box" class="form-control d-none">
+                        <select id="new-f-cross-reference-box" class="form-control mt-2 d-none">
                             <option value="Document">Document</option>
                         </select>
                     </div>
@@ -1594,6 +1594,10 @@
                                 <button type="button" class="btn btn-sm btn-secondary ml-2" id="${ct_div_prefix}-edit-template-button">Go</button>
                                 <button type="button" class="btn btn-sm btn-secondary ml-2" id="${ct_div_prefix}-new-template-button">New Template</button>
                             </span>
+                            <span class="float-right">
+                                    <b>*</b> Denotes field indexed for autocompletion<br/>
+                                    <b>+</b> Denotes cross reference field has intensity
+                            </span>
                         </div>
                     </div>
                 `);
@@ -1840,9 +1844,8 @@
             let field_type_display = '';
             if (ct.fields[f_index].type === 'cross_reference') {
                 field_type_display = ct.fields[f_index].cross_reference_type;
-                if (ct.fields[f_index].has_intensity) {
-                    field_type_display += '+';
-                }
+                if (ct.fields[f_index].has_intensity) field_type_display += '+';
+                if (ct.fields[f_index].autocomplete) field_type_display += '*';
             } else field_type_display = FIELD_TYPE_LABELS[ct.fields[f_index].type];
 
             if (['text', 'large_text', 'html'].includes(ct.fields[f_index].type)) {
