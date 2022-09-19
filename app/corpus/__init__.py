@@ -1667,10 +1667,11 @@ class Corpus(mongoengine.Document):
             if fields_filter:
                 for search_field in fields_filter.keys():
                     field_values = [value_part for value_part in fields_filter[search_field].split('__') if value_part]
+                    field_queries = []
                     for field_value in field_values:
                         if '.' in search_field:
                             field_parts = search_field.split('.')
-                            filter.append(Q(
+                            field_queries.append(Q(
                                 "nested",
                                 path=field_parts[0],
                                 query=Q(
@@ -1681,7 +1682,13 @@ class Corpus(mongoengine.Document):
                         else:
                             if search_field == 'id':
                                 search_field = '_id'
-                            filter.append(Q('term', **{search_field: field_value}))
+                            field_queries.append(Q('term', **{search_field: field_value}))
+
+                    if field_queries:
+                        if len(field_queries) > 1:
+                            filter.append(Q('bool', should=field_queries))
+                        else:
+                            filter.append(field_queries[0])
 
             # RANGE QUERY
             if fields_range:
@@ -2085,10 +2092,11 @@ class Corpus(mongoengine.Document):
                     if filters:
                         for search_field in filters.keys():
                             field_values = [value_part for value_part in filters[search_field].split('__') if value_part]
+                            field_queries = []
                             for field_value in field_values:
                                 if '.' in search_field:
                                     field_parts = search_field.split('.')
-                                    filter_queries.append(Q(
+                                    field_queries.append(Q(
                                         "nested",
                                         path=field_parts[0],
                                         query=Q(
@@ -2099,7 +2107,13 @@ class Corpus(mongoengine.Document):
                                 else:
                                     if search_field == 'id':
                                         search_field = '_id'
-                                    filter_queries.append(Q('term', **{search_field: field_value}))
+                                    field_queries.append(Q('term', **{search_field: field_value}))
+
+                            if field_queries:
+                                if len(field_queries) > 1:
+                                    filter_queries.append(Q('bool', should=field_queries))
+                                else:
+                                    filter_queries.append(field_queries[0])
 
                     if text_fields:
                         subfields = []
