@@ -65,6 +65,7 @@ urlpatterns += [
 
     path('api/corpus/<str:corpus_id>/<str:content_type>/', manager_views.api_content),
     path('api/corpus/<str:corpus_id>/<str:content_type>/files/', manager_views.api_content_files),
+    path('api/corpus/<str:corpus_id>/<str:content_type>/suggest/', manager_views.api_suggest),
     path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/', manager_views.api_content),
     path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/files/', manager_views.api_content_files),
     path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/jobs/', manager_views.api_content_jobs),

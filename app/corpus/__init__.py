@@ -20,13 +20,23 @@ from PIL import Image
 from django.conf import settings
 from django.utils.text import slugify
 from elasticsearch_dsl import Index, Mapping, analyzer, Keyword, Text, Integer, Date, \
-    Nested, token_filter, char_filter, Q, Search
+    Nested, token_filter, char_filter, Q, A, Search
 from elasticsearch_dsl.query import SimpleQueryString, Ids
 from elasticsearch_dsl.connections import get_connection
 from django.template import Template, Context
+from .language_settings import REGISTRY as lang_settings
 
 
 FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'file', 'repo', 'link', 'iiif-image', 'cross_reference', 'embedded')
+FIELD_LANGUAGES = {
+    'arabic': "Arabic", 'armenian': "Armenian", 'basque': "Basque", 'bengali': "Bengali", 'brazilian': "Brazilian",
+    'bulgarian': "Bulgarian", 'catalan': "Catalan", 'cjk': "CJK", 'czech': "Czech", 'danish': "Danish", 'dutch': "Dutch",
+    'english': "English", 'estonian': "Estonian", 'finnish': "Finnish", 'french': "French", 'galician': "Galician",
+    'german': "German", 'greek': "Greek", 'hindi': "Hindi", 'hungarian': "Hungarian", 'indonesian': "Indonesian",
+    'irish': "Irish", 'italian': "Italian", 'latvian': "Latvian", 'lithuanian': "Lithuanian", 'norwegian': "Norwegian",
+    'persian': "Persian", 'portuguese': "Portuguese", 'romanian': "Romanian", 'russian': "Russian", 'sorani': "Sorani",
+    'spanish': "Spanish", 'swedish': "Swedish", 'turkish': "Turkish", 'thai': "Thai"
+}
 MIME_TYPES = ('text/html', 'text/css', 'text/xml', 'text/turtle', 'application/json')
 
 
@@ -41,6 +51,8 @@ class Field(mongoengine.EmbeddedDocument):
     choices = mongoengine.ListField()
     cross_reference_type = mongoengine.StringField()
     has_intensity = mongoengine.BooleanField(default=False)
+    language = mongoengine.StringField(choices=list(FIELD_LANGUAGES.keys()), sparse=True)
+    autocomplete = mongoengine.BooleanField(default=False)
     synonym_file = mongoengine.StringField(choices=list(settings.ES_SYNONYM_OPTIONS.keys()))
     indexed_with = mongoengine.ListField()
     unique_with = mongoengine.ListField()
@@ -116,6 +128,11 @@ class Field(mongoengine.EmbeddedDocument):
 
     def get_elasticsearch_analyzer(self):
         analyzer_filters = ['lowercase', 'classic', 'stop']
+        tokenizer = "standard"
+        if self.language in lang_settings:
+            analyzer_filters = lang_settings[self.language]['filter']
+            tokenizer = lang_settings[self.language]['tokenizer']
+
         if self.synonym_file and self.synonym_file in settings.ES_SYNONYM_OPTIONS:
             analyzer_filters.insert(1, token_filter(
                 '{0}_synonym_filter'.format(self.synonym_file),
@@ -127,14 +144,16 @@ class Field(mongoengine.EmbeddedDocument):
         if self.type in ['text', 'large_text']:
             return analyzer(
                 '{0}_analyzer'.format(self.name).lower(),
-                tokenizer='classic',
+                type=self.language,
+                tokenizer=tokenizer,
                 filter=analyzer_filters,
             )
 
         elif self.type == 'html':
             return analyzer(
                 '{0}_analyzer'.format(self.name).lower(),
-                tokenizer='classic',
+                type=self.language,
+                tokenizer=tokenizer,
                 filter=analyzer_filters,
                 char_filter=['html_strip']
             )
@@ -153,6 +172,8 @@ class Field(mongoengine.EmbeddedDocument):
             'choices': [choice for choice in self.choices],
             'cross_reference_type': self.cross_reference_type,
             'has_intensity': self.has_intensity,
+            'language': self.language,
+            'autocomplete': self.autocomplete,
             'synonym_file': self.synonym_file,
             'indexed_with': [index for index in self.indexed_with],
             'unique_with': [unq for unq in self.unique_with],
@@ -914,6 +935,7 @@ class ContentType(mongoengine.EmbeddedDocument):
     plural_name = mongoengine.StringField(required=True)
     fields = mongoengine.EmbeddedDocumentListField('Field')
     show_in_nav = mongoengine.BooleanField(default=True)
+    autocomplete_labels = mongoengine.BooleanField(default=False)
     proxy_field = mongoengine.StringField()
     templates = mongoengine.MapField(mongoengine.EmbeddedDocumentField(ContentTemplate))
     view_widget_url = mongoengine.StringField()
@@ -1014,6 +1036,7 @@ class ContentType(mongoengine.EmbeddedDocument):
             'plural_name': self.plural_name,
             'fields': [field.to_dict() for field in self.fields],
             'show_in_nav': self.show_in_nav,
+            'autocomplete_labels': self.autocomplete_labels,
             'proxy_field': self.proxy_field,
             'templates': {},
             'view_widget_url': self.view_widget_url,
@@ -1644,10 +1667,11 @@ class Corpus(mongoengine.Document):
             if fields_filter:
                 for search_field in fields_filter.keys():
                     field_values = [value_part for value_part in fields_filter[search_field].split('__') if value_part]
+                    field_queries = []
                     for field_value in field_values:
                         if '.' in search_field:
                             field_parts = search_field.split('.')
-                            filter.append(Q(
+                            field_queries.append(Q(
                                 "nested",
                                 path=field_parts[0],
                                 query=Q(
@@ -1658,7 +1682,13 @@ class Corpus(mongoengine.Document):
                         else:
                             if search_field == 'id':
                                 search_field = '_id'
-                            filter.append(Q('term', **{search_field: field_value}))
+                            field_queries.append(Q('term', **{search_field: field_value}))
+
+                    if field_queries:
+                        if len(field_queries) > 1:
+                            filter.append(Q('bool', should=field_queries))
+                        else:
+                            filter.append(field_queries[0])
 
             # RANGE QUERY
             if fields_range:
@@ -2029,6 +2059,148 @@ class Corpus(mongoengine.Document):
         print(results_added)
         return left_content
 
+    def suggest_content(
+            self,
+            content_type,
+            prefix,
+            fields=[],
+            max_suggestions_per_field=5,
+            filters={},
+            es_debug=False
+    ):
+        results = {}
+
+        if content_type in self.content_types:
+            ct = self.content_types[content_type]
+            index_name = "corpus-{0}-{1}".format(self.id, ct.name.lower())
+            index = Index(index_name)
+            if index.exists():
+                text_fields = []
+                xref_fields = []
+
+                for ct_field in ct.fields:
+                    if ct_field.autocomplete and (not fields) or (ct_field.name in fields):
+                        if ct_field.type == 'text':
+                            text_fields.append(ct_field.name)
+                        elif ct_field.type == 'cross_reference':
+                            xref_fields.append(ct_field.name)
+                if 'label' in fields and ct.autocomplete_labels:
+                    text_fields.append('label')
+
+                if text_fields or xref_fields:
+                    filter_queries = []
+                    if filters:
+                        for search_field in filters.keys():
+                            field_values = [value_part for value_part in filters[search_field].split('__') if value_part]
+                            field_queries = []
+                            for field_value in field_values:
+                                if '.' in search_field:
+                                    field_parts = search_field.split('.')
+                                    field_queries.append(Q(
+                                        "nested",
+                                        path=field_parts[0],
+                                        query=Q(
+                                            'term',
+                                            **{search_field: field_value}
+                                        )
+                                    ))
+                                else:
+                                    if search_field == 'id':
+                                        search_field = '_id'
+                                    field_queries.append(Q('term', **{search_field: field_value}))
+
+                            if field_queries:
+                                if len(field_queries) > 1:
+                                    filter_queries.append(Q('bool', should=field_queries))
+                                else:
+                                    filter_queries.append(field_queries[0])
+
+                    if text_fields:
+                        subfields = []
+                        for text_field in text_fields:
+                            subfields.append(text_field + '.suggest')
+                            subfields.append(text_field + '.suggest._2gram')
+                            subfields.append(text_field + '.suggest._3gram')
+
+                        text_query = Q('multi_match', query=prefix, type='bool_prefix', fields=subfields)
+                        command = Search(using=get_connection(), index=index_name)
+                        command = command.query('bool', must=[text_query], filter=filter_queries)
+                        command = command.source(includes=text_fields)
+
+                        if es_debug:
+                            print(json.dumps(command.to_dict(), indent=4))
+                        response = command.execute()
+                        if es_debug:
+                            print(json.dumps(response.to_dict(), indent=4))
+
+                        if hasattr(response, 'hits'):
+                            field_hits_gathered = {}
+                            total_hits_gathered = 0
+
+                            for hit in response.hits:
+                                if total_hits_gathered >= len(text_fields) * max_suggestions_per_field:
+                                    break
+                                else:
+                                    for text_field in text_fields:
+                                        if 'text_field' not in field_hits_gathered or field_hits_gathered[text_field] < max_suggestions_per_field:
+                                            if hasattr(hit, text_field) and getattr(hit, text_field):
+                                                if text_field not in results:
+                                                    results[text_field] = []
+
+                                                hit_value = getattr(hit, text_field)
+
+                                                if hit_value not in results[text_field]:
+                                                    results[text_field].append(hit_value)
+
+                                                    if text_field not in field_hits_gathered:
+                                                        field_hits_gathered[text_field] = 0
+
+                                                    field_hits_gathered[text_field] += 1
+                                                    total_hits_gathered += 1
+
+                    if xref_fields:
+                        nested_queries = []
+                        for xref_field in xref_fields:
+                            nested_queries.append(Q(
+                                'nested',
+                                path=xref_field,
+                                query=Q(
+                                    'multi_match',
+                                    query=prefix,
+                                    type='bool_prefix',
+                                    fields=[
+                                        xref_field + '.label.suggest',
+                                        xref_field + '.label.suggest._2gram',
+                                        xref_field + '.label.suggest._3gram'
+                                    ]
+                                )
+                            ))
+
+                        command = Search(using=get_connection(), index=index_name, extra={'size': 0})
+                        command = command.query('bool', must=nested_queries, filter=filter_queries)
+
+                        for xref_field in xref_fields:
+                            agg = A('nested', path=xref_field)
+                            agg.bucket('names', 'terms', size=max_suggestions_per_field, field=xref_field + '.label.raw')
+                            command.aggs.bucket(xref_field, agg)
+
+                        if es_debug:
+                            print(json.dumps(command.to_dict(), indent=4))
+                        response = command.execute()
+                        if es_debug:
+                            print(json.dumps(response.to_dict(), indent=4))
+
+                        if hasattr(response, 'aggregations'):
+                            for xref_field in xref_fields:
+                                if hasattr(response.aggregations, xref_field):
+                                    suggestions = getattr(response.aggregations, xref_field).names.buckets
+                                    for suggestion in suggestions:
+                                        if xref_field not in results:
+                                            results[xref_field] = []
+                                        results[xref_field].append(suggestion.key)
+
+        return results
+
     def save_content_type(self, schema):
         valid = True
         existing = False
@@ -2040,6 +2212,7 @@ class Corpus(mongoengine.Document):
         ct_name = schema['name']
 
         default_field_values = {
+            'type': 'keyword',
             'in_lists': True,
             'indexed': False,
             'indexed_with': [],
@@ -2050,6 +2223,8 @@ class Corpus(mongoengine.Document):
             'inherited': False,
             'cross_reference_type': '',
             'has_intensity': False,
+            'language': 'english',
+            'autocomplete': False,
             'synonym_file': None
         }
 
@@ -2075,6 +2250,7 @@ class Corpus(mongoengine.Document):
             new_content_type.name = schema['name']
             new_content_type.plural_name = schema['plural_name']
             new_content_type.show_in_nav = schema['show_in_nav']
+            new_content_type.autocomplete_labels = schema.get('autocomplete_labels', False)
             new_content_type.proxy_field = schema['proxy_field']
             new_content_type.view_widget_url = schema.get('view_widget_url', None)
             new_content_type.edit_widget_url = schema.get('edit_widget_url', None)
@@ -2117,6 +2293,8 @@ class Corpus(mongoengine.Document):
                     new_field.has_intensity = field['has_intensity']
                     new_field.inherited = field['inherited']
                     new_field.synonym_file = field['synonym_file']
+                    new_field.language = field['language']
+                    new_field.autocomplete = field['autocomplete']
 
                     if new_field.type == 'embedded':
                         new_field.in_lists = False
@@ -2131,15 +2309,17 @@ class Corpus(mongoengine.Document):
         else:
             existing = True
             had_file_field = self.content_types[ct_name].has_file_field
+            had_autocomplete_labels = self.content_types[ct_name].autocomplete_labels
+
             self.content_types[ct_name].plural_name = schema['plural_name']
             self.content_types[ct_name].show_in_nav = schema['show_in_nav']
+            self.content_types[ct_name].autocomplete_labels = schema.get('autocomplete_labels', False)
             self.content_types[ct_name].proxy_field = schema['proxy_field']
 
             if 'view_widgel_url' in schema:
                 self.content_types[ct_name].view_widget_url = schema['view_widget_url']
             if 'edit_widget_url' in schema:
                 self.content_types[ct_name].edit_widget_url = schema['edit_widget_url']
-
             if 'synonym_file' in schema:
                 self.content_types[ct_name].synonym_file = schema['synonym_file']
 
@@ -2156,6 +2336,9 @@ class Corpus(mongoengine.Document):
 
             if label_template != self.content_types[ct_name].templates['Label'].template:
                 relabel = True
+                reindex = True
+
+            if had_autocomplete_labels != self.content_types[ct_name].autocomplete_labels:
                 reindex = True
 
             old_fields = {}
@@ -2181,6 +2364,8 @@ class Corpus(mongoengine.Document):
                         new_field.cross_reference_type = schema['fields'][x].get('cross_reference_type', default_field_values['cross_reference_type'])
                         new_field.has_intensity = schema['fields'][x].get('has_intensity', default_field_values['has_intensity'])
                         new_field.synonym_file = schema['fields'][x].get('synonym_file', default_field_values['synonym_file'])
+                        new_field.language = schema['fields'][x].get('language', default_field_values['language'])
+                        new_field.autocomplete = schema['fields'][x].get('autocomplete', default_field_values['autocomplete'])
 
                         self.content_types[ct_name].fields.append(new_field)
                         if new_field.in_lists:
@@ -2189,10 +2374,13 @@ class Corpus(mongoengine.Document):
                         field_index = old_fields[schema['fields'][x]['name']]
                         self.content_types[ct_name].fields[field_index].label = schema['fields'][x]['label']
 
-                        if self.content_types[ct_name].fields[field_index].in_lists != schema['fields'][x].get('in_lists', default_field_values['in_lists']) and \
-                                self.content_types[ct_name].fields[field_index].type != 'embedded':
-                            self.content_types[ct_name].fields[field_index].in_lists = schema['fields'][x].get('in_lists', default_field_values['in_lists'])
-                            reindex = True
+                        reindex_triggering_attributes = ['in_lists', 'type', 'multiple', 'language', 'synonym_file', 'autocomplete']
+                        if self.content_types[ct_name].fields[field_index].type != 'embedded':
+                            for reindex_triggering_attribute in reindex_triggering_attributes:
+                                old_val = getattr(self.content_types[ct_name].fields[field_index], reindex_triggering_attribute)
+                                new_val = schema['fields'][x].get(reindex_triggering_attribute, default_field_values[reindex_triggering_attribute])
+                                if old_val != new_val:
+                                    reindex = True
 
                         if not self.content_types[ct_name].fields[field_index].inherited:
                             self.content_types[ct_name].fields[field_index].type = schema['fields'][x]['type']
@@ -2204,6 +2392,10 @@ class Corpus(mongoengine.Document):
                             self.content_types[ct_name].fields[field_index].cross_reference_type = schema['fields'][x].get('cross_reference_type', default_field_values['cross_reference_type'])
                             self.content_types[ct_name].fields[field_index].has_intensity = schema['fields'][x].get('has_intensity', default_field_values['has_intensity'])
                             self.content_types[ct_name].fields[field_index].synonym_file = schema['fields'][x].get('synonym_file', default_field_values['synonym_file'])
+                            self.content_types[ct_name].fields[field_index].language = schema['fields'][x].get('language', default_field_values['language'])
+                            self.content_types[ct_name].fields[field_index].autocomplete = schema['fields'][x].get('autocomplete', default_field_values['autocomplete'])
+
+            #print(json.dump(self.content_types[ct_name].to_dict()))
 
             if not valid:
                 self.reload()
@@ -2379,9 +2571,14 @@ class Corpus(mongoengine.Document):
                 tokenizer='classic',
                 filter=['stop', 'lowercase', 'classic']
             )
+            label_subfields = {
+                'raw': {'type': 'keyword'},
+            }
+            if ct.autocomplete_labels:
+                label_subfields['suggest'] = {'type': 'search_as_you_type'}
 
             mapping = Mapping()
-            mapping.field('label', 'text', analyzer=label_analyzer, fields={'raw': Keyword()})
+            mapping.field('label', 'text', analyzer=label_analyzer, fields=label_subfields)
             mapping.field('uri', 'keyword')
 
             for field in ct.fields:
@@ -2390,16 +2587,16 @@ class Corpus(mongoengine.Document):
 
                     if field.type == 'cross_reference' and field.cross_reference_type in self.content_types:
                         xref_ct = self.content_types[field.cross_reference_type]
+                        xref_label_subfields = {'raw': {'type': 'keyword'}}
+                        if field.autocomplete:
+                            xref_label_subfields['suggest'] = {'type': 'search_as_you_type'}
+
                         xref_mapping_props = {
                             'id': 'keyword',
                             'label': {
                                 'type': 'text',
                                 'analyzer': label_analyzer,
-                                'fields': {
-                                    'raw': {
-                                        'type': 'keyword'
-                                    }
-                                }
+                                'fields': xref_label_subfields
                             },
                             'uri': 'keyword'
                         }
@@ -2431,6 +2628,8 @@ class Corpus(mongoengine.Document):
 
                     elif field_type == 'text':
                         subfields = {'raw': {'type': 'keyword'}}
+                        if field.autocomplete:
+                            subfields['suggest'] = {'type': 'search_as_you_type'}
                         mapping.field(field.name, field_type, analyzer=field.get_elasticsearch_analyzer(), fields=subfields)
 
                     # large text fields assumed too large to provide a "raw" subfield for sorting
