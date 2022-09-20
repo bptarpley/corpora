@@ -1931,7 +1931,7 @@
                     }
 
                     $('#new-f-language-box').val(ct.fields[f_index].language == null ? 'english': ct.fields[f_index].language)
-                    $('#new-f-autocomplete-box').prop('checked', ct.fields[f_index].autocomplete);
+                    $('#new-f-autocomplete-checkbox').prop('checked', ct.fields[f_index].autocomplete);
                     $('#new-f-synonym-box').val(ct.fields[f_index].synonym_file == null ? 'None' : ct.fields[f_index].synonym_file);
                     if (['text', 'large_text', 'html'].includes(ct.fields[f_index].type)) {
                         $('#new-f-synonym-div').removeClass('d-none');
