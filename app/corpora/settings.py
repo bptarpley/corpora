@@ -210,12 +210,16 @@ INVALID_FIELD_NAMES = [
     "uri"
 ]
 
-ES_SYNONYM_OPTIONS = {
-    "early_modern": {
-        "label": "Early Modern",
-        "file": "early_modern_synonyms.txt"
-    }
-}
+ES_SYNONYM_OPTIONS = {}
+if 'CRP_ELASTIC_SYNONYM_OPTIONS' in os.environ:
+    syn_options = os.environ['CRP_ELASTIC_SYNONYM_OPTIONS'].split(',')
+    for syn_option in syn_options:
+        syn_specs = syn_option.split(':')
+        if len(syn_specs) == 3:
+            ES_SYNONYM_OPTIONS[syn_specs[0]] = {
+                'label': syn_specs[1],
+                'file': syn_specs[2]
+            }
 
 # eMOP db info
 EMOP = {
