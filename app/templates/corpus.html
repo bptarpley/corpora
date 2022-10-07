@@ -709,6 +709,7 @@
     <script src={% static 'js/beautify/beautify-css.js' %}></script>
     <script src={% static 'js/beautify/beautify-html.js' %}></script>
     <script src="{% static 'js/vis-network.js' %}"></script>
+    <script src="{% static 'js/sortable.js' %}"></script>
     <script type="application/javascript">
         let corpus_id = "{{ corpus_id }}";
         let role = "{{ role }}";
@@ -1098,6 +1099,7 @@
                         for (let ct_name in corpus.content_types) {
                             ct_schema.push(corpus.content_types[ct_name]);
                         }
+                        
                         $('#ct-schema').val(JSON.stringify(ct_schema));
                         $('#ct-schema-form').submit();
                     });
@@ -1219,7 +1221,7 @@
                         }
                     });
 
-                    // CREATE FIELD BUTTON CLICK
+                    // CREATE/EDIT FIELD BUTTON CLICK
                     $('#new-f-create-button').click(function () {
                         let synonym_file = $('#new-f-synonym-box').val();
                         let cross_reference_type = '';
@@ -1834,6 +1836,28 @@
                     }
                     manage_field(ct_name, f_index);
                 }
+
+                // make fields re-orderable via drag and drop
+                let field_sorter = new Sortable.default(document.querySelectorAll(`#${ct_div_prefix}-f-table`), {
+                    draggable: '.tm-ct-field',
+                    handle: `.drag-handle`,
+                    mirror: {
+                        //appendTo: `#${ct_div_prefix}-f-table`,
+                        constrainDimensions: true
+                    }
+                // event for handling when re-ordering finished
+                }).on('sortable:stop', () => {
+                    console.log('fired');
+                    setTimeout(function() {
+                        const old_fields = [...corpus.content_types[ct_name].fields];
+                        const new_order = [];
+                        $(`#${ct_div_prefix}-f-table .tm-ct-field`).each(function() {new_order.push($(this).data('field-index'))});
+                        console.log(new_order);
+                        corpus.content_types[ct_name].fields = [];
+                        new_order.map(idx => corpus.content_types[ct_name].fields.push(old_fields[idx]));
+                        console.log(corpus.content_types[ct_name].fields);
+                    }, 1000);
+                });
             }
         }
 
@@ -1892,7 +1916,7 @@
                 }
 
                 f_table.append(`
-                    <tr id="${f_div_prefix}-row">
+                    <tr id="${f_div_prefix}-row" class="tm-ct-field" data-field-index="${f_index}">
                         <td id="${f_div_prefix}-name" class="font-weight-bold">${ct.fields[f_index].name}</td>
                         <td id="${f_div_prefix}-label">${ct.fields[f_index].label}</td>
                         <td id="${f_div_prefix}-type">${field_type_display}</td>
@@ -1904,7 +1928,7 @@
                             <div class="d-flex flex-wrap flex-row">
                                 <button type="button" class="btn btn-sm btn-primary m-1" id="${f_div_prefix}-edit-button"><span class="fas fa-edit"></span></button>
                                 ${delete_or_lock_button}
-                                <button type="button" class="btn btn-sm btn-danger m-1" id="${f_div_prefix}-shift-up-button"><span class="fas fa-caret-up"></span></button>
+                                <button type="button" class="btn btn-sm btn-danger m-1 drag-handle"><span class="fas fa-bars" title="Re-order Field (drag and drop)"></span></button>
                             </div>
                         </td>
                     </tr>
@@ -2014,26 +2038,6 @@
                         $('#confirmation-modal-message').html(message);
                         $('#confirmation-modal').modal();
                     }
-                });
-
-                // FIELD SHIFT UP BUTTON
-                $(`#${f_div_prefix}-shift-up-button`).click(function () {
-                    $('#confirmation-ct-name').val(ct_name);
-                    $('#confirmation-field-name').val(ct.fields[f_index].name);
-                    $('#confirmation-action').val('shift_up');
-                    $('#confirmation-confirm-button').attr('disabled', false);
-
-                    let message = `You are attempting to shift the <b>${ct_name} -> ${ct.fields[f_index].name}</b> field up
-                    in position. This will affect the order in which fields appear in lists, views, etc. Are you sure you want to proceed?`;
-
-                    if (f_index === 0) {
-                        message = `You are attempting to shift the <b>${ct_name} -> ${ct.fields[f_index].name}</b> field up
-                        in position. This is currently not possible, as that field already occupies the first position.`;
-                        $('#confirmation-confirm-button').attr('disabled', true);
-                    }
-
-                    $('#confirmation-modal-message').html(message);
-                    $('#confirmation-modal').modal();
                 });
             } else {
                 $(`#${f_div_prefix}-name`).html(ct.fields[f_index].name);

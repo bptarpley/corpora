@@ -343,31 +343,6 @@ def corpus(request, corpus_id):
                                 action_content_type
                             ))
 
-                        elif action.startswith('shift_'):
-                            ct = corpus.content_types[action_content_type]
-                            field_index = -1
-                            new_field_index = -1
-
-                            for index in range(0, len(ct.fields)):
-                                if ct.fields[index].name == action_field_name:
-                                    field_index = index
-
-                            if field_index > -1:
-                                if action.endswith("_up") and field_index > 0:
-                                    new_field_index = field_index - 1
-                                elif action.endswith("_down") and field_index < len(ct.fields) - 1:
-                                    new_field_index = field_index + 1
-
-                            if field_index > -1 and new_field_index > -1:
-                                swap_field = ct.fields[new_field_index]
-                                corpus.content_types[action_content_type].fields[new_field_index] = corpus.content_types[action_content_type].fields[field_index]
-                                corpus.content_types[action_content_type].fields[field_index] = swap_field
-                                corpus.save()
-
-                                response['messages'].append("Field {0} successfully successfully repositioned.".format(
-                                    action_field_name
-                                ))
-
             # HANDLE NOTEBOOK LAUNCH
             elif 'launch-notebook' in request.POST:
                 if corpus.path:

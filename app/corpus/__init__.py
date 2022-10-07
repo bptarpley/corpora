@@ -2397,6 +2397,10 @@ class Corpus(mongoengine.Document):
 
             #print(json.dump(self.content_types[ct_name].to_dict()))
 
+            # now that old and new fields have been reconciled, sort them according to the order found in the schema
+            schema_ordered = [self.content_types[ct_name].get_field(f_spec['name']) for f_spec in schema['fields']]
+            self.content_types[ct_name].fields = schema_ordered
+
             if not valid:
                 self.reload()
 
