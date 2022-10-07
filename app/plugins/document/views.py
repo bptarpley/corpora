@@ -207,9 +207,20 @@ def document(request, corpus_id, document_id):
                                           'trans-pageset',
                                           'trans-image-pfc',
                                           'trans-ocr-pfc',
-                                          'trans-level']):
+                                          'trans-level',
+                                          'trans-plain-text']):
 
                 trans_project_id = _clean(request.POST, 'trans-project')
+                trans_plain_text = _clean(request.POST, 'trans-plain-text')
+                if trans_plain_text == 'none':
+                    trans_plain_text = None
+                transcription_lines = []
+                if trans_plain_text:
+                    pt_file_path = document.files[trans_plain_text].path
+                    if os.path.exists(pt_file_path):
+                        with open(pt_file_path, 'r', encoding='utf-8') as pt_in:
+                            pt_lines = pt_in.readlines()
+                            transcription_lines = [pt_line.strip() for pt_line in pt_lines]
 
                 if trans_project_id == 'new':
                     trans_project = corpus.get_content('TranscriptionProject')
@@ -219,6 +230,8 @@ def document(request, corpus_id, document_id):
                     trans_project.image_pfc = _clean(request.POST, 'trans-image-pfc')
                     trans_project.ocr_pfc = _clean(request.POST, 'trans-ocr-pfc')
                     trans_project.transcription_level = _clean(request.POST, 'trans-level')
+                    trans_project.transcription_text = transcription_lines
+                    trans_project.transcription_cursor = 0
                     trans_project.allow_markup = 'trans-markup' in request.POST
                     trans_project.save()
                     trans_project_id = str(trans_project.id)
@@ -369,14 +382,11 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
         ocr_file = None
         transcription = None
         new_transcription = False
-        region_metadata = []
+        region_metadata = ['ID']
         markup = {
             'i': 'fas fa-italic'
         }
         page_regions = []
-
-        if 'NVS' in corpus.name:
-            region_metadata.append('TLN')
 
         if document and project:
             if request.method == 'POST' and 'ref-no' in request.POST:
@@ -391,6 +401,10 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
                     trans_data = json.loads(request.POST['data'])
                     transcription.data = json.dumps(trans_data)
                     transcription.save()
+
+                    if 'transcription_cursor' in request.POST:
+                        project.transcription_cursor = request.POST['transcription_cursor']
+                        project.save()
 
                     return HttpResponse(status=201)
 

@@ -395,6 +395,12 @@
                                 </select>
                             </div>
                             <div class="form-group">
+                                <label for="trans-plain-text-selector">Plain Text Transcription</label>
+                                <select id="trans-plain-text-selector" class="form-control" name="trans-plain-text">
+                                    <option value="none">None</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
                                 <label for="trans-level-selector">Granularity</label>
                                 <select id="trans-level-selector" class="form-control" name="trans-level">
                                     <option value="line">Lines</option>
@@ -1201,6 +1207,7 @@
                                 let trans_pageset_selector = $('#trans-pageset-selector');
                                 let trans_image_pfc_selector = $('#trans-image-pfc-selector');
                                 let trans_ocr_pfc_selector = $('#trans-ocr-pfc-selector');
+                                let trans_plain_text_selector = $('#trans-plain-text-selector');
                                 let trans_go_button = $('#trans-go-button');
 
                                 // project selector
@@ -1254,6 +1261,12 @@
                                     }
                                 }
                                 trans_ocr_pfc_selector.append(`<option value="none">None</option>`);
+
+                                // plain text selector
+                                Object.keys(doc.files).forEach(file_key => {
+                                    if (doc.files[file_key].extension === 'txt')
+                                        trans_plain_text_selector.append(`<option value="${file_key}">${doc.files[file_key].basename}</option>`);
+                                });
 
                                 $('#transcribe-button').click(function() {
                                     $('#trans-modal').modal();

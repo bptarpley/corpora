@@ -210,6 +210,38 @@ REGISTRY = [
                 "inherited": False
             },
             {
+                "name": "transcription_text",
+                "label": "Transcription Text",
+                "indexed": False,
+                "unique": False,
+                "multiple": True,
+                "in_lists": False,
+                "type": "keyword",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
+                "name": "transcription_cursor",
+                "label": "Transcription Cursor",
+                "indexed": False,
+                "unique": False,
+                "multiple": False,
+                "in_lists": False,
+                "type": "number",
+                "choices": [],
+                "cross_reference_type": "",
+                "synonym_file": None,
+                "indexed_with": [],
+                "unique_with": [],
+                "stats": {},
+                "inherited": False
+            },
+            {
                 "name": "allow_markup",
                 "label": "Allow Markup?",
                 "indexed": False,

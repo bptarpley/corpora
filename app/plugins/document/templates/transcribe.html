@@ -14,6 +14,9 @@
             height: 100vh;
         }
 
+        /* --------------------------- */
+        /* Control Panel Header        */
+        /* --------------------------- */
         #page-control-panel {
             position: absolute;
             top: 0;
@@ -28,6 +31,69 @@
             opacity: 1;
         }
 
+        /* --------------------------- */
+        /* Transcription Modal         */
+        /* --------------------------- */
+        #trans-text-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            max-width: 100%;
+            height: 400px;
+            resize: both;
+            width: 500px;
+            /*height: relative;*/
+            overflow-x: hidden;
+            overflow-y: hidden;
+            background-color: rgb(242, 242, 242);
+            filter: alpha(opacity=80);
+            opacity: 0.8;
+        }
+
+        #trans-text-modal:hover {
+            filter: alpha(opacity=100);
+            opacity: 1;
+        }
+
+        #trans-text-header {
+            height: 30px;
+        }
+
+        #trans-text-identifier {
+            width: 75px;
+        }
+
+        #trans-text-div {
+            max-height: 400px;
+            overflow-y: scroll;
+            background-color: #FFFFFF;
+        }
+
+        .trans-text-unit, .trans-text-unit-completed {
+            font-size: 12px;
+            padding: 5px;
+            margin: 0;
+            color: #091540;
+            cursor: pointer;
+        }
+
+        .trans-text-unit-completed {
+            background-color: #091540;
+            color: #FFFFFF;
+        }
+
+        .trans-text-unit:hover, .trans-text-unit.selected {
+            background-color: #EF3E36;
+            color: #FFFFFF;
+        }
+
+        .draggable-touch {
+            cursor: move;
+        }
+
+        /* --------------------------- */
+        /* Delineator Main Body        */
+        /* --------------------------- */
         .text-region {
             background-color: white;
             font-family: "Times New Roman", serif;
@@ -99,6 +165,7 @@
 {% endblock %}
 
 {% block modals %}
+    <!-- CONFIRMATION MODAL -->
     <div class="modal fade" id="confirm-modal" tabindex="-1" role="dialog" aria-labelledby="confirm-modal-label" aria-hidden="true">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
@@ -158,6 +225,21 @@
             <button id="exit-button" type="button" class="btn btn-sm btn-secondary ml-1">Exit</button>
         </span>
     </div>
+    <div id="trans-text-modal" aria-labelledby="Transcription Text Modal" class="d-none rounded">
+        <div id="trans-text-header" class="w-100 p-1 rounded d-flex align-content-center justify-content-between draggable-touch">
+            <h5 class="m-0 d-flex align-items-center">Place {{ project.transcription_level|title }}s</h5>
+            <span class="d-flex align-content-center">
+                <input type="number" id="trans-text-identifier" class="form-control-sm align-self-center btn-secondary mr-2" />
+                <div class="form-check-inline align-content-center">
+                    <input type="checkbox" id="trans-text-auto-box" class="form-check-input" checked>
+                    <label for="trans-text-auto-box" class="p-0 m-0 align-content-center">Auto</label>
+                </div>
+            </span>
+        </div>
+        <div id="trans-text-div">
+            <!-- populated via javascript -->
+        </div>
+    </div>
 {% endblock %}
 
 {% block js %}
@@ -166,6 +248,7 @@
     <script src="{% static 'js/svg.draw/svg.draw.js' %}"></script>
     <script src="{% static 'js/svg.select/svg.select.js' %}"></script>
     <script src="{% static 'js/svg.resize/svg.resize.js' %}"></script>
+    <script src="{% static 'jquery-ui/jquery-ui.js' %}"></script>
     <script type="application/javascript">
         let delineate;
         let canvas;
@@ -199,6 +282,12 @@
 
         let project_url = '{{ document.uri }}/transcribe/{{ project.id }}/';
         let project_name = '{{ project.name }}';
+
+        let trans_text = {{ project.transcription_text|safe }};
+        let trans_cursor = {% if project.transcription_cursor %}{{ project.transcription_cursor }}{% else %}0{% endif %};
+        let trans_id_differential = 1;
+        let trans_text_to_import = null;
+
         let current_page = '{{ ref_no }}';
         let project_pages = {{ project_pages|safe }};
         let image_width = {{ image_file.width }};
@@ -330,6 +419,8 @@
             });
 
             delineate.on('mouseup', function(e){
+
+                // FINISH DRAWING A REGION
                 if (region) {
                     region = region.draw(e);
 
@@ -349,6 +440,17 @@
                         completed: false,
                         rect: region
                     };
+
+                    if (trans_text_to_import) {
+                        page_regions[new_region_id]['transcription'] = trans_text_to_import;
+                        if (region_metadata.includes('ID')) {
+                            page_regions[new_region_id]['metadata'] = {
+                                ID: trans_cursor + trans_id_differential
+                            };
+                        }
+                        increment_transcription_text_cursor();
+                    }
+
                     last_region_id = new_region_id;
 
                     region = null;
@@ -356,6 +458,15 @@
                     $('#delineator').css('cursor', 'default');
                     mark_unsaved();
                     delineate.panZoom(panzoom_options);
+
+                    if (trans_text_to_import && $('#trans-text-auto-box').is(':checked')) {
+                        place_transcription_text(trans_cursor);
+                    }
+                    else {
+                        trans_text_to_import = null;
+                    }
+
+                // SELECT REGION(S)
                 } else if (selector) {
                     selector = selector.draw(e);
                     let overlapping = find_overlapping_regions(selector);
@@ -371,6 +482,8 @@
                     selector = null;
                     $('#delineator').css('cursor', 'default');
                     delineate.panZoom(panzoom_options);
+
+                // PERFORM SPLITTING
                 } else if (splitter) {
                     splitter = splitter.draw(e);
                     let overlapping = find_overlapping_regions(splitter);
@@ -389,24 +502,28 @@
                 }
             });
 
+            // HANDLE ESCAPE KEY
             $(document).keyup(function(e) {
                 if (e.which === 27) deselect_region();
+                if (region) {
+                    drawing = false;
+                    region = null;
+                    if (trans_text_to_import) {
+                        $('.trans-text-unit.selected').removeClass('selected');
+                    }
+                } else if (selector) {
+                    selector = null;
+                } else if (splitter) {
+                    splitter = null;
+                    splitting = false;
+                }
+
+                $('#delineator').css('cursor', 'default');
+                delineate.panZoom(panzoom_options);
             });
 
             $('#draw-region').click(function() {
-                deselect_region();
-                drawing = true;
-                $('#delineator').css('cursor', 'crosshair');
-
-                region = canvas.rect()
-                    .attr({
-                        class: 'delineator-region',
-                        fill: 'red',
-                        'fill-opacity': 0.3,
-                        stroke: 'red',
-                        'stroke-width': 3
-                    });
-                delineate.panZoom(false);
+                draw_region();
             });
 
             $('#select-region,#selection-more').click(function() {
@@ -531,10 +648,126 @@
                 region_id_cursor = region_id;
             }
 
+            // ---------------------------------------
+            // setup transcription modal if imported transcriptions exist
+            // ---------------------------------------
+            if (trans_text.length) {
+                let trans_modal = $('#trans-text-modal');
+                let trans_text_identifier = $('#trans-text-identifier');
+                let trans_div = $('#trans-text-div');
+                let trans_modal_height = parseInt(window.innerHeight / 3);
+                let trans_modal_width = parseInt(window.innerWidth / 3);
+
+                // add lines from transcription to modal
+                trans_text.map((text, unit) => {
+                    let unit_class = 'trans-text-unit';
+                    if (unit < trans_cursor) unit_class = 'trans-text-unit-completed';
+
+                    trans_div.append(`
+                        <div id="trans-text-${unit}" class="${unit_class}" data-unit="${unit}">
+                            ${text}
+                        </div>
+                    `);
+                });
+
+                // modal visibility and position
+                if (trans_modal_height < 60) trans_modal_height = 60;
+                if (trans_modal_width < 100) trans_modal_width = 100;
+                trans_modal.css({
+                    height: trans_modal_height,
+                    width: trans_modal_width,
+                    top: trans_modal_height * 2,
+                    left: trans_modal_width * 2
+                });
+                trans_div.css({'max-height': trans_modal_height - 30});
+               trans_text_identifier.val(trans_cursor + trans_id_differential);
+                trans_modal.removeClass('d-none');
+
+                // determine next line to be placed and scroll it into view
+                let next_unit = $(`#trans-text-${trans_cursor}`);
+                if (next_unit.length) next_unit[0].scrollIntoView();
+
+                // make transcription modal draggable
+                $("#trans-text-modal").draggable({
+                    cursor: "move",
+                    handle: ".draggable-touch",
+                });
+
+                // setup event for resizing transcription modal
+                let modal_resize_timer = null;
+                let modal_resize_observer = new MutationObserver(function(mutations) {
+                    clearTimeout(modal_resize_timer);
+                    modal_resize_timer = setTimeout(function() {
+                        trans_div.css({'max-height': trans_modal.height() - 30});
+                    }, 1000);
+                });
+                modal_resize_observer.observe(trans_modal[0], {attributes: true});
+
+                // setup line click events
+                setup_trans_modal_click_events();
+            }
+
             // start save timer and hide loading overlay
             save_progress();
             hide_loading_overlay();
         });
+
+        function setup_trans_modal_click_events() {
+            // transcription line click event
+            $('.trans-text-unit').off('click').on('click', function() {
+                place_transcription_text($(this).data('unit'));
+            });
+
+            // completed transcription line double-click event
+            $('.trans-text-unit-completed').off('dlbclick').on('dblclick', function() {
+                let new_cursor = $(this).data('unit');
+                console.log(new_cursor);
+                while (trans_cursor >= new_cursor) {
+                    let unit_el = $(`#trans-text-${trans_cursor}`);
+                    if (unit_el.length) {
+                        unit_el.removeClass('selected');
+                        unit_el.removeClass('trans-text-unit-completed');
+                        unit_el.addClass('trans-text-unit');
+                    }
+                    trans_cursor -= 1;
+                }
+                trans_cursor = new_cursor;
+                $('#trans-text-identifier').val(trans_cursor + trans_id_differential);
+
+                // recreate click transcription line click event now that formerly completed lines are reset
+                $('.trans-text-unit').off('click').on('click', function() {
+                    place_transcription_text($(this).data('unit'));
+                });
+                mark_unsaved();
+                place_transcription_text(trans_cursor);
+            });
+        }
+
+        function place_transcription_text(unit) {
+            let unit_el = $(`#trans-text-${unit}`);
+            if (unit_el.length) {
+                $('.trans-text-unit.selected').removeClass('selected');
+                unit_el.addClass('selected');
+                unit_el[0].scrollIntoView();
+                trans_cursor = unit;
+                trans_text_to_import = unit_el.text().trim();
+                trans_id_differential = $('#trans-text-identifier').val() - trans_cursor;
+                draw_region();
+            }
+        }
+
+        function increment_transcription_text_cursor() {
+            let former_unit_el = $(`#trans-text-${trans_cursor}`);
+            if (former_unit_el.length) {
+                former_unit_el.removeClass('selected')
+                former_unit_el.removeClass('trans-text-unit');
+                former_unit_el.addClass('trans-text-unit-completed');
+                former_unit_el.off('click');
+            }
+            trans_cursor += 1;
+            $('#trans-text-identifier').val(trans_cursor + trans_id_differential);
+            setup_trans_modal_click_events();
+        }
 
         function calculate_viewbox(x, y, w, h, margin=200) {
             let vb_x, vb_y, vb_width, vb_height = null;
@@ -625,6 +858,22 @@
             last_region_id = null;
             mark_unsaved();
             enable_zoom();
+        }
+
+        function draw_region() {
+            deselect_region();
+            drawing = true;
+            $('#delineator').css('cursor', 'crosshair');
+
+            region = canvas.rect()
+                .attr({
+                    class: 'delineator-region',
+                    fill: 'red',
+                    'fill-opacity': 0.3,
+                    stroke: 'red',
+                    'stroke-width': 3
+                });
+            delineate.panZoom(false);
         }
 
         function color_region(region_id) {
@@ -786,6 +1035,7 @@
                         page_regions[region_id_cursor]['metadata'] = {};
                     }
                     page_regions[region_id_cursor]['metadata'][metadata_field] = $(this).val();
+                    mark_unsaved();
                 });
 
                 $('.markup-button').click(function() {
@@ -851,14 +1101,7 @@
             let font_size = min_trans_font;
             let threshold = (page_regions[region_id].height);
             current_region.css('font-size', `${font_size}px`);
-            while (font_size <= max_trans_font && current_region[0].scrollHeight < threshold) {
-                font_size += 10;
-                current_region.css('font-size', `${font_size}px`);
-            }
-            while (font_size >= min_trans_font && current_region[0].scrollHeight > threshold) {
-                font_size -= 1;
-                current_region.css('font-size', `${font_size}px`);
-            }
+            font_size = fit_region_text(current_region, threshold, font_size);
 
             if (!has_content) current_region.html('');
             current_region.append(`<span class="content-stretcher"></span>`);
@@ -891,11 +1134,8 @@
                     let resized = false;
                     $('.content-stretcher').remove();
 
-                    while (current_region[0].scrollHeight > threshold) {
-                        resized = true;
-                        font_size -= 1;
-                        current_region.css('font-size', `${font_size}px`);
-                    }
+                    let new_font_size = fit_region_text(current_region, threshold, font_size);
+                    if (font_size !== new_font_size) resized = true;
 
                     current_region.append(`<span class="content-stretcher"></span>`);
 
@@ -909,6 +1149,19 @@
                 else if (e.which === 38) traverse_region(region_id, true);
                 else if (e.which === 40) traverse_region(region_id);
             });
+        }
+
+        function fit_region_text(region, height_threshold, starting_font_size=10) {
+            let font_size = starting_font_size;
+            while (font_size <= max_trans_font && region[0].scrollHeight < height_threshold) {
+                font_size += 10;
+                region.css('font-size', `${font_size}px`);
+            }
+            while (font_size >= min_trans_font && region[0].scrollHeight > height_threshold) {
+                font_size -= 1;
+                region.css('font-size', `${font_size}px`);
+            }
+            return font_size;
         }
 
         function deselect_region() {
@@ -965,7 +1218,7 @@
                 page_regions[region_id]['transcription'] = page_regions[region_id].ocr_content;
             }
 
-            check_completion();
+            if (trans_text.length === 0) check_completion();
 
             let region_id_index = ordered_region_ids.indexOf(region_id);
             let destination_id = null;
@@ -1131,6 +1384,7 @@
             clearTimeout(save_timer);
 
             if (mark_page_complete || !work_saved) {
+                let save_data = {};
                 let trans_data = [];
                 ordered_region_ids.map(region_id => {
                     if (page_regions.hasOwnProperty(region_id)) {
@@ -1139,20 +1393,27 @@
 
                         if (reg.hasOwnProperty('ocr_content') && reg.ocr_content) trans['ocr_content'] = reg.ocr_content;
                         if (reg.hasOwnProperty('transcription') && reg.transcription) trans['transcription'] = reg.transcription;
+                        if (reg.hasOwnProperty('metadata') && reg.metadata) trans['metadata'] = reg.metadata;
                         trans_data.push(trans);
                     }
                 });
+
+                save_data = {
+                    'ref-no': current_page,
+                    data: JSON.stringify(trans_data),
+                    csrfmiddlewaretoken: '{{ csrf_token }}',
+
+                }
+
+                if (trans_text.length) {
+                    save_data['transcription_cursor'] = trans_cursor;
+                }
 
                 $.ajax({
                     type: 'POST',
                     url: '',
                     dataType: 'json',
-                    data: {
-                        'ref-no': current_page,
-                        data: JSON.stringify(trans_data),
-                        csrfmiddlewaretoken: '{{ csrf_token }}',
-                        
-                    },
+                    data: save_data,
                     statusCode: {
                         201: function() {
                             mark_saved();
