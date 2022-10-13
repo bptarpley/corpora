@@ -4,7 +4,7 @@ from django.http import Http404
 from django.contrib.auth.decorators import login_required
 from django.utils.text import slugify
 from corpus import *
-from .content import Document, PageSet, reset_page_extraction
+from .content import Document, Page, PageSet, reset_page_extraction
 from manager.utilities import _get_context, get_scholar_corpus, _contains, _clean
 from manager.tasks import run_job
 from manager.views import view_content
@@ -58,7 +58,28 @@ def document(request, corpus_id, document_id):
                 image_split = _clean(request.POST, 'import-pages-split')
                 primary_witness = _clean(request.POST, 'import-pages-primary')
 
-                if import_source == 'upload':
+                if import_type == 'iiif' and 'import-pages-iiif-ids' in request.POST:
+                    iiif_ids = _clean(request.POST, 'import-pages-iiif-ids')
+                    iiif_ids = [iiif_id.strip() for iiif_id in iiif_ids.split('\n')]
+
+                    # queue and run job
+                    job_id = corpus.queue_local_job(
+                        content_type='Document',
+                        content_id=document_id,
+                        task_name='Import Document Pages from Images',
+                        scholar_id=response['scholar'].id,
+                        parameters={
+                            'import_files_json': json.dumps(iiif_ids),
+                            'split_images': image_split,
+                            'primary_witness': primary_witness,
+                            'images_type': 'iiif'
+                        }
+                    )
+                    run_job(job_id)
+
+                    response['messages'].append('Pages imported via IIIF')
+
+                elif import_source == 'upload':
                     upload_path = "{0}/temporary_uploads".format(document.path)
                     for import_file in import_files:
                         import_file_path = "{0}/{1}".format(upload_path, import_file)
@@ -104,18 +125,24 @@ def document(request, corpus_id, document_id):
                                 )
                                 run_job(job_id)
 
-                        elif import_type == 'images':
-                            # Get Local JobSite, PDF Import Task, and setup Job
+                        elif import_type in ['images', 'zip']:
+                            # build job params
+                            job_params = {
+                                'import_files_json': json.dumps(files_to_process),
+                                'split_images': image_split,
+                                'primary_witness': primary_witness,
+                                'images_type': 'file'
+                            }
+                            if import_type == 'zip':
+                                job_params['images_type'] = 'zip'
+
+                            # queue and run job
                             job_id = corpus.queue_local_job(
                                 content_type='Document',
                                 content_id=document_id,
                                 task_name='Import Document Pages from Images',
                                 scholar_id=response['scholar'].id,
-                                parameters={
-                                    'import_files_json': json.dumps(files_to_process),
-                                    'split_images': image_split,
-                                    'primary_witness': primary_witness
-                                }
+                                parameters=job_params
                             )
                             run_job(job_id)
                     else:
@@ -450,6 +477,7 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
             if ref_no and ref_no in document.ordered_pages(pageset).ordered_ref_nos:
                 if image_pfc and ref_no in image_pfc['page_files']:
                     image_file = image_pfc['page_files'][ref_no]
+
                     transcription = corpus.get_content('Transcription', {
                         'project': project.id,
                         'page_refno': ref_no
@@ -493,7 +521,7 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
                     'response': response,
                     'project': project,
                     'project_pages': document.ordered_pages(pageset).ordered_ref_nos,
-                    'image_file': image_file,
+                    'image_file': json.dumps(image_file),
                     'page_regions': json.dumps(page_regions),
                     'corpus': corpus,
                     'document': document,

@@ -1,3 +1,5 @@
+import requests
+import shutil
 from subprocess import call
 from django.utils.text import slugify
 from huey.contrib.djhuey import db_task
@@ -89,55 +91,94 @@ def ocr_page_with_tesseract(job_id, assigned_ref_no, primary_witness, task=None)
     job = Job(job_id)
     page_file_collection_key = job.get_param_value('collection')
     page_files = job.content.page_file_collections[page_file_collection_key]['page_files']
+    successful = False
     time_start = timer()
 
     for ref_no, file in page_files:
         if ref_no == assigned_ref_no:
-            os.makedirs("{0}/pages/{1}".format(job.content.path, ref_no), exist_ok=True)
+            page_file_dir = "{0}/pages/{1}".format(job.content.path, ref_no)
+            os.makedirs(page_file_dir, exist_ok=True)
 
-            if os.path.exists(file['path']):
+            if os.path.exists(file['path']) or file['iiif_info']:
                 # base path for different outputs
-                page_file_results = "{0}/pages/{1}/{2}_Tesseract4_{3}".format(
-                    job.content.path,
-                    ref_no,
+                page_file_results = "{0}/{1}_Tesseract4_{2}".format(
+                    page_file_dir,
                     page_file_collection_key,
                     ref_no
                 )
 
+                page_file_path = file['path']
+                if file['iiif_info']:
+                    image_width = file['width']
+                    if image_width > 3000:
+                        image_width = 3000
+
+                    region = "full"
+                    if 'fixed_region' in file['iiif_info']:
+                        fixed_r = file['iiif_info']['fixed_region']
+                        region = "{x},{y},{w},{h}".format(
+                            x=fixed_r['x'],
+                            y=fixed_r['y'],
+                            w=fixed_r['w'],
+                            h=fixed_r['h']
+                        )
+
+                    download_url = "{id}/{region}/{width},/0/default.png".format(
+                        id=file['path'],
+                        region=region,
+                        width=image_width
+                    )
+                    print(download_url)
+                    img_download = requests.get(download_url, stream=True)
+                    page_file_path = "{0}/temp_img.png".format(page_file_dir)
+                    with open(page_file_path, 'wb') as img_out:
+                        shutil.copyfileobj(img_download.raw, img_out)
+
                 command = [
                     "tesseract",
-                    file['path'],
+                    page_file_path,
                     page_file_results,
                     "-l", "eng",
                     "--psm", "6",
                     "hocr", "txt"
                 ]
 
-                if call(command) == 0:
-                    txt_file_obj = File.process(
-                        page_file_results + '.txt',
-                        desc='Plain Text',
-                        prov_type='Tesseract OCR Job',
-                        prov_id=str(job_id),
-                        primary=primary_witness
-                    )
-                    if txt_file_obj:
-                        job.content.save_page_file(ref_no, txt_file_obj)
+                try:
+                    if call(command, timeout=5 * 60) == 0:
+                        txt_file_obj = File.process(
+                            page_file_results + '.txt',
+                            desc='Plain Text',
+                            prov_type='Tesseract OCR Job',
+                            prov_id=str(job_id),
+                            primary=primary_witness
+                        )
+                        if txt_file_obj:
+                            job.content.save_page_file(ref_no, txt_file_obj)
 
-                    hocr_file_obj = File.process(
-                        page_file_results + '.hocr',
-                        desc='HOCR',
-                        prov_type='Tesseract OCR Job',
-                        prov_id=str(job_id),
-                        primary=primary_witness
-                    )
-                    if hocr_file_obj:
-                        job.content.save_page_file(ref_no, hocr_file_obj)
+                        hocr_file_obj = File.process(
+                            page_file_results + '.hocr',
+                            desc='HOCR',
+                            prov_type='Tesseract OCR Job',
+                            prov_id=str(job_id),
+                            primary=primary_witness
+                        )
+                        if hocr_file_obj:
+                            job.content.save_page_file(ref_no, hocr_file_obj)
+
+                        successful = True
+                except:
+                    job.report("Error OCR'ing page {0}:".format(assigned_ref_no))
+                    job.report(traceback.format_exc())
+
+                if file['iiif_info'] and os.path.exists(page_file_path):
+                    os.remove(page_file_path)
+
             break
 
     if task:
         time_stop = timer()
-        job.report("Tesseract OCR'd page {0} in {1} seconds.".format(assigned_ref_no, time_stop - time_start))
+        if successful:
+            job.report("Tesseract OCR'd page {0} in {1} seconds.".format(assigned_ref_no, time_stop - time_start))
         job.complete_process(task.id)
 
 

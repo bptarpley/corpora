@@ -290,8 +290,7 @@
 
         let current_page = '{{ ref_no }}';
         let project_pages = {{ project_pages|safe }};
-        let image_width = {{ image_file.width }};
-        let image_height = {{ image_file.height }};
+        let image_file = JSON.parse(`{{ image_file|escapejs }}`);
         let viewer_width, viewer_height;
         let ocr_file = '{{ ocr_file }}';
         let ocr_lines = JSON.parse(`{{ page_regions|escapejs }}`);
@@ -394,10 +393,13 @@
                 .attr({id: 'svg-delineator', preserveAspectRatio: 'xMinYMin meet'})
                 .panZoom(panzoom_options);
 
-            image = delineate.image(corpora.image_url('{{ image_file.uri }}') + 'full/full/0/default.png').move(0, 0);
+            let image_url = corpora.image_url(image_file.uri) + 'full/full/0/default.png';
+            if (Object.keys(image_file.iiif_info).length) image_url = corpora.iiif_url(image_file.path, image_file.iiif_info);
+
+            image = delineate.image(image_url).move(0, 0);
             canvas = delineate.group().attr('class', 'delineator-canvas');
 
-            let vb_specs = calculate_viewbox(0, 0, image_width, image_height)
+            let vb_specs = calculate_viewbox(0, 0, image_file.width, image_file.height)
             delineate.viewbox(vb_specs);
 
 
@@ -938,7 +940,7 @@
                 let region_width = currently_selected.width();
                 let region_height = currently_selected.height();
 
-                let trans_rect = delineate.rect(image_width * 3, image_height * 3).move(0 - image_width, 0 - image_height).attr({
+                let trans_rect = delineate.rect(image_file.width * 3, image_file.height * 3).move(0 - image_file.width, 0 - image_file.height).attr({
                     fill: 'white'
                 });
                 let opaque_rect = delineate.rect(region_width, region_height).move(region_x, region_y).attr({
@@ -1325,8 +1327,8 @@
 
             if (norm_x < 0) norm_x = 0;
             if (norm_y < 0) norm_y = 0;
-            while (norm_x + norm_width > image_width) norm_width -= 1;
-            while (norm_y + norm_height > image_height) norm_height -= 1;
+            while (norm_x + norm_width > image_file.width) norm_width -= 1;
+            while (norm_y + norm_height > image_file.height) norm_height -= 1;
             return {x: norm_x, y: norm_y, width: norm_width, height: norm_height};
         }
 

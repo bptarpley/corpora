@@ -2,14 +2,15 @@ import os
 import json
 import traceback
 import fitz
+import shutil
 from PIL import Image
-from subprocess import call
 from copy import deepcopy
 from datetime import datetime
 from huey.contrib.djhuey import db_task
 from natsort import natsorted
 from elasticsearch_dsl.connections import get_connection
 from django.utils.text import slugify
+from django.conf import settings
 from manager.utilities import _contains
 from zipfile import ZipFile
 from corpus import get_corpus, Job, File, run_neo
@@ -62,7 +63,7 @@ REGISTRY = {
         "functions": ['extract_pdf_pages']
     },
     "Import Document Pages from Images": {
-        "version": "0.0",
+        "version": "0.2",
         "jobsite_type": "HUEY",
         "content_type": "Document",
         "track_provenance": True,
@@ -70,6 +71,9 @@ REGISTRY = {
             "parameters": {
                 "import_files_json": {
                     "value": "",
+                },
+                "images_type": {
+                    "value": "file"
                 },
                 "split_images": {
                     "value": "No",
@@ -363,8 +367,23 @@ def import_page_images(job_id):
     job.set_status('running')
 
     import_files = natsorted(json.loads(job.configuration['parameters']['import_files_json']['value']))
+    images_type = job.get_param_value('images_type')
     split_images = job.configuration['parameters']['split_images']['value'] == 'Yes'
     primary_witness = job.configuration['parameters']['primary_witness']['value'] == 'Yes'
+
+    unzip_path = None
+    if images_type == 'zip' and len(import_files) == 1 and import_files[0].lower().endswith('.zip') and os.path.exists(import_files[0]):
+        unzip_dir_name = "{job_id}_unzipped_image_import".format(job_id=job_id)
+        unzip_path = os.path.dirname(import_files[0]) + '/' + unzip_dir_name
+
+        if os.path.exists(unzip_path):
+            shutil.rmtree(unzip_path)
+
+        with ZipFile(import_files[0], 'r') as zip_in:
+            zip_in.extractall(unzip_path)
+
+        if os.path.exists(unzip_path):
+            import_files = [unzip_path + '/' + img for img in os.listdir(unzip_path) if os.path.splitext(img)[1].replace('.', '').lower() in settings.VALID_IMAGE_EXTENSIONS]
 
     if import_files:
         if primary_witness:
@@ -382,52 +401,105 @@ def import_page_images(job_id):
 
         ref_no = 1
         for import_file in import_files:
-            if os.path.exists(import_file):
-                full_image = Image.open(import_file)
+            if images_type in ['file', 'zip']:
+                if os.path.exists(import_file):
+                    full_image = Image.open(import_file)
 
-                if split_images:
-                    width, height = full_image.size
-                    threshold = width / 2
+                    if split_images:
+                        width, height = full_image.size
+                        threshold = width / 2
 
-                    img_a = full_image.crop((0, 0, threshold, height))
-                    process_page_file(
-                        job.content,
-                        str(ref_no),
-                        page_file_label,
-                        str(job.id),
-                        primary_witness,
-                        image=img_a,
-                        prov_type="Page Image Import Job"
-                    )
+                        img_a = full_image.crop((0, 0, threshold, height))
+                        process_page_file(
+                            job.content,
+                            str(ref_no),
+                            page_file_label,
+                            str(job.id),
+                            primary_witness,
+                            image=img_a,
+                            prov_type="Page Image Import Job"
+                        )
 
-                    img_b = full_image.crop((threshold, 0, width, height))
-                    process_page_file(
-                        job.content,
-                        str(ref_no + 1),
-                        page_file_label,
-                        str(job.id),
-                        primary_witness,
-                        image=img_b,
-                        prov_type="Page Image Import Job"
-                    )
+                        img_b = full_image.crop((threshold, 0, width, height))
+                        process_page_file(
+                            job.content,
+                            str(ref_no + 1),
+                            page_file_label,
+                            str(job.id),
+                            primary_witness,
+                            image=img_b,
+                            prov_type="Page Image Import Job"
+                        )
 
-                    ref_no += 2
-                else:
-                    process_page_file(
-                        job.content,
-                        str(ref_no),
-                        page_file_label,
-                        str(job.id),
-                        primary_witness,
-                        image=full_image,
-                        prov_type="Page Image Import Job"
-                    )
+                    else:
+                        process_page_file(
+                            job.content,
+                            str(ref_no),
+                            page_file_label,
+                            str(job.id),
+                            primary_witness,
+                            image=full_image,
+                            prov_type="Page Image Import Job"
+                        )
 
-                    ref_no += 1
+                    os.remove(import_file)
 
-                os.remove(import_file)
-                job.set_status('running', percent_complete=int((ref_no / num_pages) * 100))
+            elif images_type == 'iiif':
+                iiif_file = File.process(
+                    import_file,
+                    desc="IIIF Image",
+                    prov_type="Page Image Import Job",
+                    prov_id=str(job.id),
+                    primary=primary_witness == 'Yes',
+                    external_iiif=True
+                )
+                if iiif_file:
+                    if split_images:
+                        original_width = iiif_file.width
+                        threshold = int(original_width / 2)
+
+                        iiif_file.iiif_info['fixed_region'] = {
+                            'x': 0,
+                            'y': 0,
+                            'w': threshold,
+                            'h': iiif_file.height
+                        }
+                        iiif_file.width = threshold
+                        job.content.pages[str(ref_no)].files[iiif_file.key] = iiif_file
+
+                        iiif_file_b = File()
+                        iiif_file_b.path = iiif_file.path
+                        iiif_file_b.primary_witness = iiif_file.primary_witness
+                        iiif_file_b.basename = iiif_file.basename
+                        iiif_file_b.extension = iiif_file.extension
+                        iiif_file_b.byte_size = iiif_file.byte_size
+                        iiif_file_b.description = iiif_file.description
+                        iiif_file_b.provenance_type = iiif_file.provenance_type
+                        iiif_file_b.provenance_id = iiif_file.provenance_id
+                        iiif_file_b.height = iiif_file.height
+                        iiif_file_b.iiif_info = deepcopy(iiif_file.iiif_info)
+
+                        iiif_file_b.iiif_info['fixed_region'] = {
+                            'x': threshold,
+                            'y': 0,
+                            'w': original_width - threshold,
+                            'h': iiif_file_b.height
+                        }
+                        iiif_file_b.width = original_width - threshold
+                        job.content.pages[str(ref_no + 1)].files[iiif_file_b.key] = iiif_file_b
+
+                    else:
+                        job.content.pages[str(ref_no)].files[iiif_file.key] = iiif_file
+
+            job.set_status('running', percent_complete=int((ref_no / num_pages) * 100))
+            ref_no += 1
+            if split_images:
+                ref_no += 1
+
         job.content.save()
+
+    if unzip_path and os.path.exists(unzip_path):
+        shutil.rmtree(unzip_path)
     job.complete(status='complete')
 
 

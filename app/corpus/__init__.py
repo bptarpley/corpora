@@ -8,6 +8,7 @@ import zlib
 import shutil
 import logging
 import redis
+import requests
 import git
 import re
 from math import ceil
@@ -1124,7 +1125,7 @@ class File(mongoengine.EmbeddedDocument):
         )
 
     @classmethod
-    def process(cls, path, desc=None, prov_type=None, prov_id=None, primary=False, parent_uri=''):
+    def process(cls, path, desc=None, prov_type=None, prov_id=None, primary=False, external_iiif=False, parent_uri=''):
         file = None
 
         if os.path.exists(path):
@@ -1138,9 +1139,27 @@ class File(mongoengine.EmbeddedDocument):
             file.provenance_type = prov_type
             file.provenance_id = prov_id
 
-            if file.extension.lower() in ['tif', 'tiff', 'jpeg', 'jpg', 'png', 'gif']:
+            if file.extension.lower() in settings.VALID_IMAGE_EXTENSIONS:
                 img = Image.open(file.path)
                 file.width, file.height = img.size
+
+        elif external_iiif:
+            req = requests.get(path + '/info.json')
+            if req.status_code == 200:
+                iiif_info = req.json()
+                if 'height' in iiif_info and 'width' in iiif_info:
+                    file = File()
+                    file.path = path
+                    file.primary_witness = primary
+                    file.basename = ''
+                    file.extension = path.split('.')[-1].lower()
+                    file.byte_size = 0
+                    file.description = desc
+                    file.provenance_type = prov_type
+                    file.provenance_id = prov_id
+                    file.width = iiif_info['width']
+                    file.height = iiif_info['height']
+                    file.iiif_info = iiif_info
 
         return file
 
