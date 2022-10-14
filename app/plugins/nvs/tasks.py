@@ -382,7 +382,8 @@ def ensure_nvs_content_types(corpus):
             doc_schema_ensured = False
 
         if not doc_schema_ensured:
-            corpus.delete_content_type('Document')
+            # We shouldn't ever delete documents in case they have associated transcription projects!
+            # corpus.delete_content_type('Document')
             corpus.save_content_type(nvs_doc_schema)
 
     for nvs_content_type in NVS_CONTENT_TYPE_SCHEMA:

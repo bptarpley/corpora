@@ -119,11 +119,19 @@
                     <div class="modal-body">
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="import-pages-type" id="import-pages-type-pdf" value="pdf" checked>
-                            <label class="form-check-label" for="new-document-import-type">Import pages from PDF file</label>
+                            <label class="form-check-label" for="import-pages-type-pdf">Import pages from PDF file</label>
                         </div>
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="import-pages-type" id="import-pages-type-images" value="images">
-                            <label class="form-check-label" for="new-document-import-type">Import pages from multiple image files</label>
+                            <label class="form-check-label" for="import-pages-type-images">Import pages from multiple image files</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="import-pages-type" id="import-pages-type-zip" value="zip">
+                            <label class="form-check-label" for="import-pages-type-zip">Import pages from zip file containing multiple images</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="import-pages-type" id="import-pages-type-iiif" value="iiif">
+                            <label class="form-check-label" for="import-pages-type-iiif">Import pages from external IIIF server</label>
                         </div>
                         <div id="import-pages-options" class="mt-1">
                             <div class="form-group pdf-option">
@@ -163,8 +171,12 @@
                                 <label class="form-check-label" for="impport-pages-pdf-source-upload">Upload New PDF</label>
                             </div>
                         </div>
-                        <div class="form-group">
+                        <div id="import-pages-filepond-div" class="form-group">
                             <input id="import-pages-filepond" class="filepond" type="file">
+                        </div>
+                        <div id="import-pages-iiif-ids-div" class="form-group d-none">
+                            <label for="import-pages-iiif-ids-box">IIIF Identifiers<br /><span class="text-muted">One per line in page order</span></label>
+                            <textarea id="import-pages-iiif-ids-box" class="form-control" rows="5" name="import-pages-iiif-ids"></textarea>
                         </div>
                         <div class="form-group import-pages-pdf-source-options">
                             <div class="form-check">
@@ -392,6 +404,12 @@
                             <div class="form-group">
                                 <label for="trans-ocr-pfc-selector">OCR Collection</label>
                                 <select id="trans-ocr-pfc-selector" class="form-control" name="trans-ocr-pfc">
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="trans-plain-text-selector">Plain Text Transcription</label>
+                                <select id="trans-plain-text-selector" class="form-control" name="trans-plain-text">
+                                    <option value="none">None</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -803,6 +821,7 @@
                             if (doc.provenance.length > 0) { doc_provenance_div.html(''); }
                             doc.provenance.forEach( prov => {
                                 let retry_form = '';
+                                let report_button = '';
                                 if (role === 'Admin' || role === 'Editor') {
                                     retry_form = `
                                         <form method="post">
@@ -811,12 +830,19 @@
                                             <button type="submit" role="button" class="btn btn-danger">Retry</button>
                                         </form>
                                     `;
+
+                                    if (prov.report_path) {
+                                        report_button = `
+                                            <button type="button" onClick="view_job_report('${prov.job_id}');" class="btn btn-primary mr-1">View Report</button>
+                                        `;
+                                    }
                                 }
 
                                 doc_provenance_div.append(`
                                     <div id="provenance-${prov.job_id}-div" class="alert alert-${prov.status === "complete" ? 'success' : 'danger'} provenance">
                                         Task: <b>${prov.task_name}</b><br />
-                                        Completed: ${corpora.time_string(prov.completed)}
+                                        Completed: ${corpora.time_string(prov.completed)}<br/>
+                                        ${report_button}
                                         ${retry_form}
                                     </div>
                                 `);
@@ -1201,6 +1227,7 @@
                                 let trans_pageset_selector = $('#trans-pageset-selector');
                                 let trans_image_pfc_selector = $('#trans-image-pfc-selector');
                                 let trans_ocr_pfc_selector = $('#trans-ocr-pfc-selector');
+                                let trans_plain_text_selector = $('#trans-plain-text-selector');
                                 let trans_go_button = $('#trans-go-button');
 
                                 // project selector
@@ -1254,6 +1281,12 @@
                                     }
                                 }
                                 trans_ocr_pfc_selector.append(`<option value="none">None</option>`);
+
+                                // plain text selector
+                                Object.keys(doc.files).forEach(file_key => {
+                                    if (doc.files[file_key].extension === 'txt')
+                                        trans_plain_text_selector.append(`<option value="${file_key}">${doc.files[file_key].basename}</option>`);
+                                });
 
                                 $('#transcribe-button').click(function() {
                                     $('#trans-modal').modal();
@@ -1391,17 +1424,24 @@
                     let pdf_options = $(".pdf-option");
                     let pdf_source_options = $('.import-pages-pdf-source-options');
                     let has_pdf_file = $('#import-pages-pdf-existing-file').children().length > 0;
+                    let file_pond = $('#import-pages-filepond-div');
+                    let iiif_ids = $('#import-pages-iiif-ids-div');
+
+                    pdf_options.addClass('d-none');
+                    pdf_source_options.addClass('d-none');
+                    iiif_ids.addClass('d-none');
+                    file_pond.addClass('d-none');
 
                     if (this.value === 'pdf') {
+                        file_pond.removeClass('d-none');
                         pdf_options.removeClass("d-none");
                         if (has_pdf_file) {
                             pdf_source_options.removeClass('d-none');
-                        } else {
-                            pdf_source_options.addClass('d-none');
                         }
-                    } else if (this.value === 'images') {
-                        pdf_options.addClass("d-none");
-                        pdf_source_options.addClass("d-none");
+                    } else if (['images', 'zip'].includes(this.value)) {
+                        file_pond.removeClass('d-none');
+                    } else if (this.value === 'iiif') {
+                        iiif_ids.removeClass('d-none');
                     }
                 });
 
@@ -1412,6 +1452,12 @@
                         import_pages_submit_button.attr('disabled', false);
                     } else {
                         import_pages_submit_button.attr('disabled', true);
+                    }
+                });
+
+                $("#import-pages-iiif-ids-box").keyup(function() {
+                    if ($("#import-pages-iiif-ids-box").val() && $("input[type=radio][name=import-pages-type]:checked").val() === 'iiif') {
+                        $("#import-pages-submit-button").attr('disabled', false);
                     }
                 });
 
@@ -1464,7 +1510,14 @@
                             if (!page_card.data('loaded')) {
                                 let page_img = $(`#page-${ref_no}-img`);
                                 let file_key = page_img.data('file_key');
-                                if (file_key) {
+                                let iiif_id = page_img.data('iiif_id');
+                                let iiif_region = page_img.data('iiif_region');
+                                let iiif_width = page_img.data('iiif_max_width');
+
+                                if (iiif_id) {
+                                    if (page_img.width() < iiif_width) iiif_width = parseInt(page_img.width());
+                                    page_img.attr('src', corpora.iiif_url(iiif_id, {}, iiif_region, `${iiif_width},`));
+                                } else if (file_key) {
                                     page_img.attr('src', corpora.image_url(`${document_uri}/page/${ref_no}/file/${file_key}`));
                                 }
                                 page_card.data('loaded', 'true');
@@ -1486,10 +1539,23 @@
                 page_div.addClass('card-deck');
                 for (let refno = 1; refno < num_pages + 1; refno++) {
                     let page = get_page(pfc_setting.left, refno);
+                    let data_attrs = `data-refno="${refno}"`;
+
+                    if (page) {
+                        data_attrs += ` data-file_key="${page['key']}"`;
+                        if (Object.keys(page.iiif_info).length) {
+                            data_attrs += ` data-iiif_id="${page.path}"`;
+                            data_attrs += ` data-iiif_max_width="${page.width}"`;
+                            if (page.iiif_info.hasOwnProperty('fixed_region'))
+                                data_attrs += ` data-iiif_region="${page.iiif_info.fixed_region.x},${page.iiif_info.fixed_region.y},${page.iiif_info.fixed_region.w},${page.iiif_info.fixed_region.h}"`;
+                            else
+                                data_attrs += ` data-iiif_region="full"`;
+                        }
+                    }
 
                     page_div.append(`
                         <div id="page-${refno}-card" class="card page-card" data-refno="${refno}" data-loaded="false">
-                            <img id="page-${refno}-img" class="card-img-top page-image" src="{% static 'img/page.png' %}" data-refno="${refno}" ${page ? `data-file_key="${page['key']}"` : ''}>
+                            <img id="page-${refno}-img" class="card-img-top page-image" src="{% static 'img/page.png' %}" ${data_attrs}>
                             <div class="card-body">
                                 <button id="page-files-${refno}-toggler" class="btn btn-link" data-toggle="collapse" data-target="#page-files-${refno}" aria-expanded="false" aria-controls="page-files-${refno}">
                                     <span id="page-files-${refno}-indicator" class="fas fa-caret-right"></span>
@@ -1587,7 +1653,8 @@
             });
 
             let page_card = $(`#page-${ref_no}-card`);
-            if (page_card.length) {
+            let page_image = $(`#page-${ref_no}-img`);
+            if (page_card.length && page_image.length) {
                 page_card.addClass('selected');
                 page_card[0].scrollIntoView();
                 setTimeout(function() {
@@ -1595,6 +1662,14 @@
                     page_card[0].scrollIntoView({behavior: 'smooth'});
                     $('#pages-card')[0].scrollIntoView();
                     $('#go-page-box').val(ref_no);
+
+                    if (page_image.data('iiif_id')) {
+                        let iiif_id = page_image.data('iiif_id');
+                        let iiif_region = page_image.data('iiif_region');
+                        let iiif_width = page_image.data('iiif_max_width');
+                        if (page_image.width() < iiif_width) iiif_width = parseInt(page_image.width());
+                        page_image.attr('src', corpora.iiif_url(iiif_id, {}, iiif_region, `${iiif_width},`));
+                    }
                 }, 300);
             }
         }

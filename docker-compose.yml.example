@@ -32,6 +32,7 @@ services:
       CRP_NEO4J_RO_USER: corpora_ro
       CRP_NEO4J_RO_PWD: corpora
       CRP_ELASTIC_HOST: elastic
+      CRP_ELASTIC_SYNONYM_OPTIONS: early_modern:Early Modern:early_modern_synonyms.txt
       CRP_DJANGO_WORKERS: 3
       CRP_HUEY_WORKERS: 10
       CRP_USE_SSL: "no"

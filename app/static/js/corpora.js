@@ -650,6 +650,12 @@ class Corpora {
         return `/image/uri/${uri.split('/').join('|')}/`;
     }
 
+    iiif_url(id, iiif_info={}, region='full', size='max', rotation='0', quality='default', format='png') {
+        if (iiif_info.hasOwnProperty('fixed_region'))
+            region = `${iiif_info.fixed_region.x},${iiif_info.fixed_region.y},${iiif_info.fixed_region.w},${iiif_info.fixed_region.h}`;
+        return `${id}/${region}/${size}/${rotation}/${quality}.${format}`;
+    }
+
     time_string(timestamp) {
         let date = new Date(timestamp*1000);
         return date.toLocaleString('en-US', { timeZone: 'UTC' });
