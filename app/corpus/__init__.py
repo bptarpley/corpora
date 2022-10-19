@@ -1102,6 +1102,7 @@ class File(mongoengine.EmbeddedDocument):
                     SET f.path = $file_path
                     SET f.corpus_id = $corpus_id
                     SET f.is_image = $is_image
+                    SET f.external = $is_external
                     MERGE (n) -[rel:hasFile]-> (f)
                 '''.format(content_type=content_type),
                 {
@@ -1109,7 +1110,8 @@ class File(mongoengine.EmbeddedDocument):
                     'file_uri': "{0}/file/{1}".format(content_uri, self.key),
                     'corpus_id': corpus_id,
                     'file_path': self.path,
-                    'is_image': self.is_image
+                    'is_image': self.is_image,
+                    'is_external': bool(self.iiif_info)
                 }
             )
 
@@ -2816,13 +2818,20 @@ class Corpus(mongoengine.Document):
             document.content_types[content_type].get_mongoengine_class(document).drop_collection()
 
         # Delete all Neo4J nodes associated with corpus
-        run_neo(
-            '''
-                MATCH (x {corpus_id: $corpus_id})
-                DETACH DELETE x
-            ''',
-            {'corpus_id': corpus_id}
-        )
+        delete_count = 1
+        while delete_count > 0:
+            res = run_neo(
+                '''
+                    MATCH (x {corpus_id: $corpus_id})
+                    WITH x LIMIT 10000
+                    DETACH DELETE x
+                    RETURN count(*)
+                ''',
+                {'corpus_id': corpus_id}
+            )
+            delete_count = res[0].value()
+
+        # Delete the Neo4J corpus node
         run_neo(
             '''
                 MATCH (x:Corpus {uri: $corpus_uri})
