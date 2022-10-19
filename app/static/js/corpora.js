@@ -650,9 +650,12 @@ class Corpora {
         return `/image/uri/${uri.split('/').join('|')}/`;
     }
 
-    iiif_url(id, iiif_info={}, region='full', size='max', rotation='0', quality='default', format='png') {
+    iiif_url(id, iiif_info={}, region='full', size='max', rotation=0, quality='default', format='png') {
         if (iiif_info.hasOwnProperty('fixed_region'))
             region = `${iiif_info.fixed_region.x},${iiif_info.fixed_region.y},${iiif_info.fixed_region.w},${iiif_info.fixed_region.h}`;
+        if (iiif_info.hasOwnProperty('fixed_rotation'))
+            rotation = iiif_info.fixed_rotation;
+
         return `${id}/${region}/${size}/${rotation}/${quality}.${format}`;
     }
 

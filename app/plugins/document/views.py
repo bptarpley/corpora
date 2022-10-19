@@ -405,6 +405,7 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
         pageset = None
         image_pfc = None
         image_file = None
+        new_image_rotation = None
         ocr_pfc = None
         ocr_file = None
         transcription = None
@@ -434,6 +435,9 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
                         project.save()
 
                     return HttpResponse(status=201)
+
+                if 'rotate-page' in request.POST:
+                    new_image_rotation = int(request.POST['rotate-page'])
 
                 if 'reset-page' in request.POST:
                     transcription.delete()
@@ -477,6 +481,17 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
             if ref_no and ref_no in document.ordered_pages(pageset).ordered_ref_nos:
                 if image_pfc and ref_no in image_pfc['page_files']:
                     image_file = image_pfc['page_files'][ref_no]
+
+                    # handle image rotation if necessary
+                    if new_image_rotation is not None:
+                        if ref_no in document.pages:
+                            if image_file['key'] in document.pages[ref_no].files:
+                                modified_file = document.pages[ref_no].files[image_file['key']]
+                                if modified_file.iiif_info:
+                                    modified_file.iiif_info['fixed_rotation'] = new_image_rotation
+                                    document.save_page_file(ref_no, modified_file)
+                                    return HttpResponse(status=201)
+                        raise Http404("Unable to save image rotation.")
 
                     transcription = corpus.get_content('Transcription', {
                         'project': project.id,
