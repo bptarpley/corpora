@@ -21,14 +21,40 @@
             position: absolute;
             top: 0;
             min-width: 1020px;
+            height: 57px;
             background-color: rgb(242, 242, 242);
             filter: alpha(opacity=50);
             opacity: 0.5;
         }
 
-        #page-control-panel:hover {
+        #page-control-panel:hover, #mode-status-div:hover {
             filter: alpha(opacity=100);
             opacity: 1;
+        }
+
+        #mode-status-div {
+            position: absolute;
+            top: 57px;
+            right: 0px;
+            display: inline-flex;
+            background-color: rgb(242, 242, 242);
+            filter: alpha(opacity=50);
+            opacity: 0.5;
+        }
+
+        #mode-status-indicator {
+            color: #EF3E36;
+        }
+
+        /* --------------------------- */
+        /* Rotation Modal              */
+        /* --------------------------- */
+        .modal-backdrop.grid-lines {
+            background-color: transparent;
+            background-size: 40px 40px;
+            background-image:
+                linear-gradient(to right, deeppink 1px, transparent 1px),
+                linear-gradient(to bottom, deeppink 1px, transparent 1px);
         }
 
         /* --------------------------- */
@@ -153,7 +179,7 @@
         }
 
         .svg_select_boundingRect {
-            stroke-width:3;
+            stroke-width:10;
             fill:gray;
             stroke-dasharray: 10;
             stroke:#F9FFED;
@@ -188,6 +214,30 @@
             </div>
         </div>
     </div>
+
+    <!-- IMAGE ROTATE MODAL -->
+    <div class="modal fade" id="rotate-modal" tabindex="-1" role="dialog" aria-labelledby="rotate-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-sm" role="document">
+            <div class="modal-content">
+                <div class="modal-body align-self-center">
+                    <div class="form-inline">
+                        <button id="rotate-left-button" class="btn rounded image-rotate-button" data-direction="left"><span class="fas fa-undo"></span></button>
+                        <div class="input-group">
+                            <input id="rotate-degrees-box" type="number" min="0" max="359" class="form-control" aria-label="Rotation Degree" style="width: 62px;" value="1">
+                            <div class="input-group-append">
+                                <span class="input-group-text">°</span>
+                            </div>
+                        </div>
+                        <button id="rotate-right-button" class="btn rounded image-rotate-button" data-direction="right"><span class="fas fa-undo fa-flip-horizontal"></span></button>
+                    </div>
+                </div>
+                <div class="modal-footer align-self-center">
+                    <button type="button" class="btn btn-secondary" id="rotate-cancel-button">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="rotate-save-button">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block main %}
@@ -200,6 +250,7 @@
             <button id="next-page-button" type="button" class="btn btn-sm btn-primary rounded"><span class="fas fa-caret-right"></span></button>
             of <span id="page-length-span"></span>
             <button id="reset-regions" type="button" class="btn btn-sm btn-secondary ml-1">Reset Page</button>
+            <button id="rotate-page-button" type="button" class="btn btn-sm btn-secondary ml-1 d-none" data-toggle="modal" data-target="#rotate-modal">Rotate Page</button>
             <button id="complete-page-button" type="button" class="btn btn-sm btn-secondary ml-1">Mark Page Complete</button>
         </span>
         <span id="region-controls" class="control-group">
@@ -224,6 +275,12 @@
             <button id="save-button" type="button" class="btn btn-sm btn-primary" disabled>Progress Saved</button>
             <button id="exit-button" type="button" class="btn btn-sm btn-secondary ml-1">Exit</button>
         </span>
+    </div>
+    <div id="mode-status-div" class="d-none rounded-bottom p-2">
+        <span id="mode-status-indicator" class="mr-1"></span>
+        <button id="mode-status-exit-button" type="button" onclick="reset_mode();" class="close" aria-label="Exit Mode">
+            <span aria-hidden="true">&times;</span>
+        </button>
     </div>
     <div id="trans-text-modal" aria-labelledby="Transcription Text Modal" class="d-none rounded">
         <div id="trans-text-header" class="w-100 p-1 rounded d-flex align-content-center justify-content-between draggable-touch">
@@ -274,7 +331,7 @@
             zoomMax: 5
         };
         let select_options = {
-            pointSize: 10
+            pointSize: 20
         };
         let selection;
         let confirm_modal = $('#confirm-modal');
@@ -393,8 +450,83 @@
                 .attr({id: 'svg-delineator', preserveAspectRatio: 'xMinYMin meet'})
                 .panZoom(panzoom_options);
 
+            // determine if external IIIF image, and if so, enable rotation
             let image_url = corpora.image_url(image_file.uri) + 'full/full/0/default.png';
-            if (Object.keys(image_file.iiif_info).length) image_url = corpora.iiif_url(image_file.path, image_file.iiif_info);
+            if (Object.keys(image_file.iiif_info).length) {
+                image_url = corpora.iiif_url(image_file.path, image_file.iiif_info);
+
+                let rotate_modal = $('#rotate-modal');
+                let rotate_page_button = $('#rotate-page-button');
+                let rotate_degrees_box = $('#rotate-degrees-box');
+                let rotate_save_button = $('#rotate-save-button');
+
+                let image_rotation = 0;
+                if (image_file.iiif_info.hasOwnProperty('fixed_rotation'))
+                    image_rotation = image_file.iiif_info.fixed_rotation;
+                let original_rotation = image_rotation;
+
+                let perform_rotation = function() {
+                    image_file.iiif_info['fixed_rotation'] = image_rotation;
+                    image_url = corpora.iiif_url(image_file.path, image_file.iiif_info);
+                    image.remove();
+                    show_loading_overlay();
+                    image = delineate.image(image_url).loaded(function(event) {
+                        hide_loading_overlay();
+                    }).move(0, 0).back();
+                }
+
+                rotate_page_button.removeClass('d-none');
+
+                // setup grid lines when modal appears
+                rotate_modal.on('shown.bs.modal', function (e) {
+                    $('.modal-backdrop').addClass('grid-lines');
+                });
+
+                // rotation button events
+                $('.image-rotate-button').click(function() {
+                    let direction = $(this).data('direction');
+                    let degrees = parseInt(rotate_degrees_box.val());
+
+                    if (direction === 'right') image_rotation += degrees;
+                    else if (direction === 'left') image_rotation -= degrees;
+                    if (image_rotation < 0) image_rotation = 360 + image_rotation;
+                    if (image_rotation > 360) image_rotation = image_rotation - 360;
+
+                    perform_rotation();
+                });
+
+                // rotation save event
+                rotate_save_button.click(function() {
+                    rotate_save_button.attr('disabled', true);
+
+                    let rotation_data = {
+                        'ref-no': current_page,
+                        'rotate-page': image_rotation,
+                        csrfmiddlewaretoken: '{{ csrf_token }}',
+                    }
+                    $.ajax({
+                        type: 'POST',
+                        url: '',
+                        dataType: 'json',
+                        data: rotation_data,
+                        statusCode: {
+                            201: function() {
+                                rotate_save_button.attr('disabled', false);
+                                rotate_modal.modal('hide');
+                            }
+                        }
+                    });
+                });
+
+                // rotation cancellation event
+                $('#rotate-cancel-button').click(function() {
+                    if (image_rotation !== original_rotation) {
+                        image_rotation = original_rotation;
+                        perform_rotation();
+                    }
+                    rotate_modal.modal('hide');
+                });
+            }
 
             image = delineate.image(image_url).move(0, 0);
             canvas = delineate.group().attr('class', 'delineator-canvas');
@@ -418,6 +550,7 @@
                 } else if (splitter) {
                     splitter.draw(e, {});
                 }
+                display_mode_status();
             });
 
             delineate.on('mouseup', function(e){
@@ -502,26 +635,14 @@
                     $('#delineator').css('cursor', 'default');
                     delineate.panZoom(panzoom_options);
                 }
+                display_mode_status();
             });
 
             // HANDLE ESCAPE KEY
             $(document).keyup(function(e) {
-                if (e.which === 27) deselect_region();
-                if (region) {
-                    drawing = false;
-                    region = null;
-                    if (trans_text_to_import) {
-                        $('.trans-text-unit.selected').removeClass('selected');
-                    }
-                } else if (selector) {
-                    selector = null;
-                } else if (splitter) {
-                    splitter = null;
-                    splitting = false;
+                if (e.which === 27) {
+                    reset_mode();
                 }
-
-                $('#delineator').css('cursor', 'default');
-                delineate.panZoom(panzoom_options);
             });
 
             $('#draw-region').click(function() {
@@ -542,6 +663,7 @@
                         'stroke-dasharray': '10,10'
                     });
                 delineate.panZoom(false);
+                display_mode_status();
             });
 
             $('#clear-regions').click(function() {
@@ -663,10 +785,14 @@
                 // add lines from transcription to modal
                 trans_text.map((text, unit) => {
                     let unit_class = 'trans-text-unit';
-                    if (unit < trans_cursor) unit_class = 'trans-text-unit-completed';
+                    let help_text = "Click to start placing lines from here.";
+                    if (unit < trans_cursor) {
+                        unit_class = 'trans-text-unit-completed';
+                        help_text = "Double-click to reset line cursor and start placing lines from here.";
+                    }
 
                     trans_div.append(`
-                        <div id="trans-text-${unit}" class="${unit_class}" data-unit="${unit}">
+                        <div id="trans-text-${unit}" class="${unit_class}" data-unit="${unit}" data-toggle="tooltip" title="${help_text}">
                             ${text}
                         </div>
                     `);
@@ -682,7 +808,7 @@
                     left: trans_modal_width * 2
                 });
                 trans_div.css({'max-height': trans_modal_height - 30});
-               trans_text_identifier.val(trans_cursor + trans_id_differential);
+                trans_text_identifier.val(trans_cursor + trans_id_differential);
                 trans_modal.removeClass('d-none');
 
                 // determine next line to be placed and scroll it into view
@@ -709,8 +835,9 @@
                 setup_trans_modal_click_events();
             }
 
-            // start save timer and hide loading overlay
+            // start save timer, initialize tooltips, and hide loading overlay
             save_progress();
+            //$('[data-toggle="tooltip"]').tooltip();
             hide_loading_overlay();
         });
 
@@ -764,6 +891,7 @@
                 former_unit_el.removeClass('selected')
                 former_unit_el.removeClass('trans-text-unit');
                 former_unit_el.addClass('trans-text-unit-completed');
+                former_unit_el.attr('title', "Double-click to reset line cursor and start placing lines from here.");
                 former_unit_el.off('click');
             }
             trans_cursor += 1;
@@ -876,6 +1004,7 @@
                     'stroke-width': 3
                 });
             delineate.panZoom(false);
+            display_mode_status();
         }
 
         function color_region(region_id) {
@@ -910,7 +1039,16 @@
         function select_region(col, give_focus=true) {
             deselect_region();
             $('#delete-region').removeClass('d-none');
+
+            // enable resizing of box
             col.selectize(select_options).resize();
+
+            // event for when resizing is happening
+            col.off('resizing').on('resizing', function() {
+                if (mask) mask.remove();
+            });
+
+            // event for once resizing is done
             col.off('rezisedone').on('resizedone', function() {
                 if (!resize_lock) {
                     console.log('resized');
@@ -989,11 +1127,13 @@
                         <input type="text" class="form-control mr-1 h-100 region-metadata" data-metadata_field="${f}" placeholder="${f}" value="${field_value}">
                     `;
                 });
-                for (let tag in markup) {
+
+                // currently, only plain text is saved to region data; leaving uninitialized for now
+                /*for (let tag in markup) {
                     markup_buttons += `
                         <button type="button" class="btn btn-sm btn-primary rounded region-control mr-1 markup-button" data-tag="${tag}" style="width: ${control_height}px; height: ${control_height}px;"><span class="${markup[tag]}"></span></button>
                     `;
-                }
+                }*/
 
                 $(`#region-${region_id}-control-obj`).append(`
                     <div id="region-${region_id}-control" class="alert-info control-panel h-100 w-100">
@@ -1084,6 +1224,7 @@
                 }
                 region_id_cursor = region_id;
             }
+            display_mode_status();
         }
 
         function inject_transcription(region_id, give_focus) {
@@ -1177,7 +1318,7 @@
                 currently_selected.selectize(false);
                 currently_selected = null;
                 currently_editing = false;
-                mask.remove();
+                if (mask) mask.remove();
                 $('#delete-region').addClass('d-none');
                 enable_zoom();
             }
@@ -1314,6 +1455,26 @@
             }
         }
 
+        function reset_mode() {
+            deselect_region();
+            if (region) {
+                drawing = false;
+                region = null;
+                if (trans_text_to_import) {
+                    $('.trans-text-unit.selected').removeClass('selected');
+                }
+            } else if (selector) {
+                selector = null;
+            } else if (splitter) {
+                splitter = null;
+                splitting = false;
+            }
+
+            $('#delineator').css('cursor', 'default');
+            delineate.panZoom(panzoom_options);
+            display_mode_status();
+        }
+
         function enable_zoom() {
             delineate.panZoom(panzoom_options);
             currently_editing = false;
@@ -1380,6 +1541,29 @@
             let save_button = $('#save-button');
             save_button.attr('disabled', true);
             save_button.html('Progress Saved');
+        }
+
+        function display_mode_status() {
+            let status_div = $('#mode-status-div');
+            let status_indicator = $('#mode-status-indicator');
+            let status = "";
+
+            if (currently_selected) {
+                status = "Editing Region";
+            } else if (region) {
+                status = "Drawing Region";
+            } else if (selector) {
+                status = "Selecting Regions";
+            } else if (splitter) {
+                status = "Splitting Regions";
+            } else if (reordering) {
+                status = "Re-ordering Region"
+            }
+
+            if (status) {
+                status_div.removeClass('d-none');
+                status_indicator.html(status);
+            } else status_div.addClass('d-none');
         }
 
         function save_progress(mark_page_complete=false) {

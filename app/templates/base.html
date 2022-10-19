@@ -50,8 +50,8 @@
                     </div>
                 </div>
             </div>
-            {% else %}
-                <div class="row mb-3"><div class="col-12"><h3 id="page-title">{% if page_title %}{{ page_title }}{% endif %}</h3></div></div>
+            {% elif page_title %}
+                <div class="row mb-3"><div class="col-12"><h3 id="page-title">{{ page_title }}</h3></div></div>
             {% endif %}
 
         {% if response.messages or response.errors %}
@@ -105,6 +105,12 @@
                 loading_overlay.fadeOut();
                 loading_overlay.addClass('d-none');
                 loading_overlay.removeClass('d-flex');
+            }
+
+            function show_loading_overlay() {
+                let loading_overlay = $('#loading-overlay');
+                loading_overlay.addClass('d-flex');
+                loading_overlay.removeClass('d-none');
             }
 
             function add_breadcrumb(label=null, url=null) {

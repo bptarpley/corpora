@@ -1271,6 +1271,7 @@ def get_image(
     image_uri = image_uri.replace('|', '/')
     uri_dict = parse_uri(image_uri)
     file_path = None
+    is_external = False
 
     req_type = request.META.get('HTTP_ACCEPT', 'none')
 
@@ -1279,18 +1280,29 @@ def get_image(
             results = run_neo(
                 '''
                     MATCH (f:_File { uri: $image_uri, is_image: true })
-                    return f.path as file_path
+                    return f.path as file_path, f.external as external
                 ''',
                 {
                     'image_uri': image_uri
                 }
             )
 
-            if results and 'file_path' in results[0].keys():
+            if results and _contains(results[0].keys(), ['file_path', 'external']):
                 file_path = results[0]['file_path']
+                is_external = results[0]['external']
 
     if file_path:
-        if req_type == '*/*':
+        if is_external:
+            return redirect("{iiif_id}/{region}/{size}/{rotation}/{quality}.{format}".format(
+                iiif_id=file_path,
+                region=region,
+                size=size,
+                rotation=rotation,
+                quality=quality,
+                format=format
+            ))
+
+        elif req_type == '*/*':
             response = HttpResponse(content_type='application/json')
             response['X-Accel-Redirect'] = "/media/{identifier}/info.json".format(
                 identifier=file_path[1:].replace('/', '$!$'),

@@ -366,10 +366,10 @@ def import_page_images(job_id):
     job = Job(job_id)
     job.set_status('running')
 
-    import_files = natsorted(json.loads(job.configuration['parameters']['import_files_json']['value']))
+    import_files = json.loads(job.get_param_value('import_files_json'))
     images_type = job.get_param_value('images_type')
-    split_images = job.configuration['parameters']['split_images']['value'] == 'Yes'
-    primary_witness = job.configuration['parameters']['primary_witness']['value'] == 'Yes'
+    split_images = job.get_param_value('split_images') == 'Yes'
+    primary_witness = job.get_param_value('primary_witness') == 'Yes'
 
     unzip_path = None
     if images_type == 'zip' and len(import_files) == 1 and import_files[0].lower().endswith('.zip') and os.path.exists(import_files[0]):
@@ -399,7 +399,11 @@ def import_page_images(job_id):
             job.content.pages[ref_no] = Page()
             job.content.pages[ref_no].ref_no = ref_no
 
+        if images_type in ['file', 'zip']:
+            import_files = natsorted(import_files)
+
         ref_no = 1
+
         for import_file in import_files:
             if images_type in ['file', 'zip']:
                 if os.path.exists(import_file):
@@ -450,7 +454,7 @@ def import_page_images(job_id):
                     desc="IIIF Image",
                     prov_type="Page Image Import Job",
                     prov_id=str(job.id),
-                    primary=primary_witness == 'Yes',
+                    primary=primary_witness,
                     external_iiif=True
                 )
                 if iiif_file:
@@ -500,6 +504,7 @@ def import_page_images(job_id):
 
     if unzip_path and os.path.exists(unzip_path):
         shutil.rmtree(unzip_path)
+
     job.complete(status='complete')
 
 
