@@ -20,7 +20,7 @@
         #page-control-panel {
             position: absolute;
             top: 0;
-            min-width: 1020px;
+            min-width: 1070px;
             height: 57px;
             background-color: rgb(242, 242, 242);
             filter: alpha(opacity=50);
@@ -264,6 +264,7 @@
         <span id="selection-controls" class="control-group d-none">
             <button id="selection-more" type="button" class="btn btn-sm btn-primary ml-3">Select More</button>
             <button id="selection-delete" type="button" class="btn btn-sm btn-primary ml-1">Delete Selected</button>
+            <button id="selection-reorder" type="button" class="btn btn-sm btn-primary ml-1">Reorder Top to Bottom</button>
             <button id="selection-cancel" type="button" class="btn btn-sm btn-secondary ml-1">Cancel</button>
         </span>
         <span id="reorder-controls" class="control-group d-none">
@@ -540,6 +541,7 @@
             // ---------------------------------------
             populate_regions();
 
+            // MAIN MOUSE DOWN EVENT FOR HANDLING THE BEGINNING OF DRAWING/SELECTING/SPLITTING, etc.
             delineate.on('mousedown', function(e){
                 if (currently_editing) {
                     click_timer = setTimeout(enable_zoom, 500);
@@ -553,6 +555,7 @@
                 display_mode_status();
             });
 
+            // MAIN MOUSE UP EVENT FOR COMPLETING DRAWING/SELECTING/SPLITTING, etc.
             delineate.on('mouseup', function(e){
 
                 // FINISH DRAWING A REGION
@@ -729,17 +732,56 @@
                 $('#selection-controls').addClass('d-none');
             });
 
-            $('#selection-cancel').click(function() {
+            $('#selection-reorder').click(function() {
+                let selected_regions = [];
+                let y_values = [];
+                let top_to_bottom = [];
+                let lowest_index = 0;
+
+                // grab all the overlapping regions and capture y values of each region
                 ordered_region_ids.map(region_id => {
                     if (page_regions[region_id].hasOwnProperty('selected') && page_regions[region_id].selected) {
-                        delete page_regions[region_id].selected;
-                        color_region(region_id);
+                        selected_regions.push(region_id);
+                        y_values.push(page_regions[region_id].y);
                     }
                 });
 
-                selecting = false;
-                $('#region-controls').removeClass('d-none');
-                $('#selection-controls').addClass('d-none');
+                // sanity check
+                if (selected_regions.length && selected_regions.length === y_values.length) {
+                    // retain index of first selected region for insertion of reordered regions later
+                    lowest_index = ordered_region_ids.indexOf(selected_regions[0]);
+
+                    // sort y_values and iterate over, moving selected_regions to top_to_bottom according to y value
+                    y_values.sort();
+                    y_values.map(y_value => {
+                        let matching_region_id = null;
+                        selected_regions.map(region_id => {
+                            if (page_regions[region_id].y === y_value && matching_region_id === null)
+                                matching_region_id = region_id;
+                        });
+                        if (matching_region_id !== null) {
+                            top_to_bottom.push(matching_region_id);
+                            selected_regions.splice(selected_regions.indexOf(matching_region_id), 1);
+                        }
+                    })
+
+                    // perform sanity check
+                    if (top_to_bottom.length && selected_regions.length === 0) {
+                        // remove top_to_bottom regions from ordered_region_ids
+                        top_to_bottom.map(region_id => {
+                            ordered_region_ids.splice(ordered_region_ids.indexOf(region_id), 1);
+                        });
+
+                        // now add all top-to-bottom ordered region ids to ordered_region_ids at the place where
+                        // first selected region was originally found
+                        ordered_region_ids.splice(lowest_index, 0, ...top_to_bottom);
+                    }
+                    cancel_selection();
+                }
+            });
+
+            $('#selection-cancel').click(function() {
+                cancel_selection();
             });
 
             // setup reordering controls
@@ -793,7 +835,7 @@
                     }
 
                     trans_div.append(`
-                        <div id="trans-text-${unit}" class="${unit_class}" data-unit="${unit}" data-toggle="tooltip" title="${help_text}">
+                        <div id="trans-text-${unit}" class="${unit_class}" data-unit="${unit}" title="${help_text}">
                             ${text}
                         </div>
                     `);
@@ -838,7 +880,6 @@
 
             // start save timer, initialize tooltips, and hide loading overlay
             save_progress();
-            //$('[data-toggle="tooltip"]').tooltip();
             hide_loading_overlay();
         });
 
@@ -1454,6 +1495,19 @@
                     last_region_id = new_region_id;
                 });
             }
+        }
+
+        function cancel_selection() {
+            ordered_region_ids.map(region_id => {
+                if (page_regions[region_id].hasOwnProperty('selected') && page_regions[region_id].selected) {
+                    delete page_regions[region_id].selected;
+                    color_region(region_id);
+                }
+            });
+
+            selecting = false;
+            $('#region-controls').removeClass('d-none');
+            $('#selection-controls').addClass('d-none');
         }
 
         function reset_mode() {
