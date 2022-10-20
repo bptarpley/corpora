@@ -576,6 +576,7 @@
                         rect: region
                     };
 
+                    // PLACE TRANSCRIPTION LINE IN REGION AND MOVE TO NEXT TRANSCRIPTION LINE
                     if (trans_text_to_import) {
                         page_regions[new_region_id]['transcription'] = trans_text_to_import;
                         if (region_metadata.includes('ID')) {
@@ -1462,6 +1463,7 @@
                 region = null;
                 if (trans_text_to_import) {
                     $('.trans-text-unit.selected').removeClass('selected');
+                    trans_text_to_import = null;
                 }
             } else if (selector) {
                 selector = null;
@@ -1552,6 +1554,7 @@
                 status = "Editing Region";
             } else if (region) {
                 status = "Drawing Region";
+                if (trans_text_to_import) status = "Placing a Line";
             } else if (selector) {
                 status = "Selecting Regions";
             } else if (splitter) {
