@@ -350,7 +350,7 @@
         let project_pages = {{ project_pages|safe }};
         let image_file = JSON.parse(`{{ image_file|escapejs }}`);
         let viewer_width, viewer_height;
-        let ocr_file = '{{ ocr_file }}';
+        let ocr_file = '{% if ocr_file %}{{ ocr_file }}{% endif %}';
         let ocr_lines = JSON.parse(`{{ page_regions|escapejs }}`);
         let region_metadata = {{ region_metadata|safe }};
         let markup = {{ markup|safe }};
