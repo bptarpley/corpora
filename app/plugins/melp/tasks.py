@@ -82,29 +82,107 @@ Delete Existing:   {1}
                 ent.delete()
 
         # ingest people from personography
+        person_count = 0
         personography_path = tei_repo.path + '/People_Places_Works/Personography.xml'
-        tei = None
-        with open(personography_path, 'r', encoding='utf-8') as tei_in:
-            tei = BeautifulSoup(tei_in, 'xml')
+        if os.path.exists(personography_path):
+            tei = None
+            with open(personography_path, 'r', encoding='utf-8') as tei_in:
+                tei = BeautifulSoup(tei_in, 'xml')
 
-        people = tei.find('text').body.listPerson.find_all('person')
-        for person in people:
-            xml_id = person['xml:id']
-            entity = corpus.get_content('Entity', {'xml_id': xml_id}, single_result=True)
-            if entity:
-                entity.uris = []
-            else:
-                entity = corpus.get_content('Entity')
-                entity.xml_id = xml_id
+            people = tei.find('text').body.listPerson.find_all('person')
+            for person in people:
+                xml_id = person['xml:id']
+                entity = corpus.get_content('Entity', {'xml_id': xml_id}, single_result=True)
+                if entity:
+                    entity.uris = []
+                else:
+                    entity = corpus.get_content('Entity')
+                    entity.xml_id = xml_id
 
-            entity.entity_type = 'PERSON'
-            entity.name = person.persName.get_text()
+                entity.entity_type = 'PERSON'
+                entity.name = person.persName.get_text().strip()
 
-            uris = person.find_all('idno')
-            for uri in uris:
-                entity.uris.append(uri.get_text())
+                uris = person.find_all('idno')
+                for uri in uris:
+                    entity.uris.append(uri.get_text().strip())
 
-            entity.save()
+                entity.save()
+                person_count += 1
+        job.report("{0} persons registered.".format(person_count))
+
+        # ingest places from placeography
+        place_count = 0
+        placeography_path = tei_repo.path + '/People_Places_Works/Placeography.xml'
+        if os.path.exists(placeography_path):
+            tei = None
+            with open(placeography_path, 'r', encoding='utf-8') as tei_in:
+                tei = BeautifulSoup(tei_in, 'xml')
+
+            places = tei.find('text').body.listPlace.find_all('place')
+            for place in places:
+                xml_id = place['xml:id']
+                entity = corpus.get_content('Entity', {'xml_id': xml_id}, single_result=True)
+                if entity:
+                    entity.uris = []
+                else:
+                    entity = corpus.get_content('Entity')
+                    entity.xml_id = xml_id
+
+                entity.entity_type = 'PLACE'
+                ent_name = place.placeName.get_text().strip()
+                if place.country:
+                    ent_country = place.country.get_text().strip()
+                    if ent_country:
+                        ent_name = ent_name + ', ' + ent_country
+
+                entity.name = ent_name
+
+                uris = place.find_all('idno')
+                for uri in uris:
+                    entity.uris.append(uri.get_text().strip())
+
+                entity.save()
+                place_count += 1
+        job.report("{0} places registered.".format(place_count))
+
+        # ingest works from workography
+        work_count = 0
+        workography_path = tei_repo.path + '/People_Places_Works/Workography.xml'
+        if os.path.exists(workography_path):
+            tei = None
+            with open(workography_path, 'r', encoding='utf-8') as tei_in:
+                tei = BeautifulSoup(tei_in, 'xml')
+
+            works = tei.find('text').body.listBibl.find_all('bibl')
+            for work in works:
+                xml_id = work['xml:id']
+                entity = corpus.get_content('Entity', {'xml_id': xml_id}, single_result=True)
+                if entity:
+                    entity.uris = []
+                else:
+                    entity = corpus.get_content('Entity')
+                    entity.xml_id = xml_id
+
+                entity.entity_type = 'WORK'
+                ent_name = ""
+                first_title = work.find('title')
+                if first_title:
+                    ent_name = first_title.get_text().strip()
+
+                first_author = work.find('author')
+                if first_author and hasattr(first_author, 'persName'):
+                    first_author = first_author.persName.get_text().strip()
+                    if first_author and ',' in first_author:
+                        ent_name += " ({0})".format(first_author.split(',')[0].strip())
+
+                entity.name = ent_name
+
+                if hasattr(work, 'idno') and work.idno:
+                    entity.uris.append(work.idno.get_text().strip())
+
+                entity.save()
+                work_count += 1
+        job.report("{0} works registered.".format(work_count))
 
         # ingest letters
         job.set_status('running', percent_complete=10)
@@ -219,8 +297,31 @@ Delete Existing:   {1}
 
 def register_entity(corpus, entity_type, uri):
 
-    # REFERENCE TO PERSONOGRAPHY
-    if entity_type == "PERSON" and 'Personography.xml' in uri:
+    # REFERENCE TO CATALOGED PERSON OR PLACE
+    if (entity_type == "PERSON" and 'Personography.xml' in uri) or \
+            (entity_type == "PLACE" and 'Placeography.xml' in uri):
+
+        relevant_catalog = "Personography.xml"
+        if 'Placeography.xml' in uri:
+            relevant_catalog = "Placeography.xml"
+
+        uri_parts = uri.split('#')
+        if len(uri_parts) == 2:
+            xml_id = uri_parts[1]
+            entity = corpus.get_content('Entity', {'entity_type': entity_type, 'xml_id': xml_id}, single_result=True)
+            if entity:
+                return str(entity.id), "found"
+            else:
+                return None, "Error referencing {0} with URI {1}: XML ID {2} not found in {3}".format(
+                    entity_type,
+                    uri,
+                    xml_id,
+                    relevant_catalog
+                )
+        else:
+            return None, "Error referencing {0} with URI {1}: {2} URI malformed".format(entity_type, uri, relevant_catalog)
+
+    elif entity_type == "PLACE" and 'Placeography.xml' in uri:
         uri_parts = uri.split('#')
         if len(uri_parts) == 2:
             xml_id = uri_parts[1]
