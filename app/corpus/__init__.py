@@ -2405,6 +2405,7 @@ class Corpus(mongoengine.Document):
 
                         if not self.content_types[ct_name].fields[field_index].inherited:
                             self.content_types[ct_name].fields[field_index].type = schema['fields'][x]['type']
+                            self.content_types[ct_name].fields[field_index].in_lists = schema['fields'][x].get('in_lists', default_field_values['in_lists'])
                             self.content_types[ct_name].fields[field_index].indexed = schema['fields'][x].get('indexed', default_field_values['indexed'])
                             self.content_types[ct_name].fields[field_index].indexed_with = schema['fields'][x].get('indexed_with', default_field_values['indexed_with'])
                             self.content_types[ct_name].fields[field_index].unique = schema['fields'][x].get('unique', default_field_values['unique'])
@@ -2806,6 +2807,15 @@ class Corpus(mongoengine.Document):
     def _pre_delete(cls, sender, document, **kwargs):
         corpus_id = str(document.id)
 
+        # Delete any ContentViews associated with this corpus
+        cvs = ContentView.objects(corpus=corpus_id)
+        for cv in cvs:
+            # set status to prevent CV audit from trying to repopulate while clearing
+            cv.status = 'deleting'
+            cv.save()
+            cv.clear()
+            cv.delete()
+
         # Delete Content Type indexes and collections
         for content_type in document.content_types.keys():
             # Delete ct index
@@ -2973,11 +2983,17 @@ class Content(mongoengine.Document):
 
         if do_indexing or do_linking:
             cx_fields = [field.name for field in self._ct.fields if field.type == 'cross_reference']
+            if isinstance(do_indexing, list):
+                cx_fields = [f for f in cx_fields if f in do_indexing]
+
             if cx_fields:
                 self.reload(*cx_fields)
 
             if do_indexing:
-                self._do_indexing()
+                if isinstance(do_indexing, list):
+                    self._do_indexing(do_indexing)
+                else:
+                    self._do_indexing()
             if do_linking:
                 self._do_linking()
 
@@ -3089,10 +3105,10 @@ class Content(mongoengine.Document):
                 else:
                     setattr(self, field_name, new_file)
 
-    def _do_indexing(self):
+    def _do_indexing(self, field_list=[]):
         index_obj = {}
         for field in self._ct.fields:
-            if field.in_lists:
+            if field.in_lists and (len(field_list) == 0 or field.name in field_list):
                 field_value = getattr(self, field.name)
                 if field_value or ((field.type == 'number' or field.type == 'decimal') and field_value == 0):
                     if field.cross_reference_type:
@@ -3141,15 +3157,24 @@ class Content(mongoengine.Document):
                     elif field.type not in ['file']:
                         index_obj[field.name] = field.get_dict_value(field_value, self.uri)
 
-        index_obj['label'] = self.label
-        index_obj['uri'] = self.uri
+        if len(field_list) == 0 or 'label' in field_list:
+            index_obj['label'] = self.label
+        if len(field_list) == 0 or 'uri' in field_list:
+            index_obj['uri'] = self.uri
 
         try:
-            get_connection().index(
-                index="corpus-{0}-{1}".format(self.corpus_id, self.content_type.lower()),
-                id=str(self.id),
-                body=index_obj
-            )
+            if len(field_list) == 0:
+                get_connection().index(
+                    index="corpus-{0}-{1}".format(self.corpus_id, self.content_type.lower()),
+                    id=str(self.id),
+                    body=index_obj
+                )
+            elif index_obj:
+                get_connection().update(
+                    index="corpus-{0}-{1}".format(self.corpus_id, self.content_type.lower()),
+                    id=str(self.id),
+                    body={'doc': index_obj}
+                )
         except:
             print("Error indexing {0} with ID {1}:".format(self.content_type, self.id))
             print(traceback.format_exc())
@@ -3429,7 +3454,7 @@ class ContentView(mongoengine.Document):
                 if filtered_with_graph_path:
                     search_dict['content_view'] = self.es_document_id
 
-                search_dict['page_size'] = 1000
+                search_dict['page-size'] = 1000
                 search_dict['only'] = ['id']
 
                 ids = []
@@ -3449,6 +3474,9 @@ class ContentView(mongoengine.Document):
                         else:
                             valid_spec = False
                             self.set_status("error: content views must contain less than 60,000 results")
+
+                        if 'next_page_token' in results['meta']:
+                            search_dict['page-token'] = results['meta']['next_page_token']
 
                     page += 1
 
