@@ -19,7 +19,7 @@ from elasticsearch_dsl import A
 editors = {
     'wt': "ROBERT KEAN TURNER, VIRGINIA WESTLING HAAS, with ROBERT A. JONES, ANDREW J. SABOL, PATRICIA E. TATSPAUGH",
     'mnd': "Judith M. Kennedy and Richard Kennedy, with Susan May, Roberta Barker, David Nicol",
-    'lr': "Richard Knowles and Paul Werstine"
+    'lr': "Richard Knowles, Kevin Donovan, with Paula Glatzer"
 }
 
 def splash(request):
