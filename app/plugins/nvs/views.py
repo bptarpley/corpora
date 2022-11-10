@@ -18,7 +18,8 @@ from elasticsearch_dsl import A
 # TEMPORARY FIX FOR SOFT LAUNCH
 editors = {
     'wt': "ROBERT KEAN TURNER, VIRGINIA WESTLING HAAS, with ROBERT A. JONES, ANDREW J. SABOL, PATRICIA E. TATSPAUGH",
-    'mnd': "Judith M. Kennedy and Richard Kennedy, with Susan May, Roberta Barker, David Nicol"
+    'mnd': "Judith M. Kennedy and Richard Kennedy, with Susan May, Roberta Barker, David Nicol",
+    'lr': "Richard Knowles and Paul Werstine"
 }
 
 def splash(request):
@@ -1120,7 +1121,7 @@ def get_nvs_witnesses(corpus, play):
             'occasional': True
         }
 
-    document_collections = corpus.get_content('DocumentCollection', all=True)
+    document_collections = corpus.get_content('DocumentCollection', {'play': play.id})
     for collection in document_collections:
         slots = []
         bib_entry = ""
