@@ -2453,8 +2453,9 @@ class Corpus(mongoengine.Document):
                         if related_ct != ct_name:
                             for related_field in self.content_types[related_ct].fields:
                                 if related_field.type == 'cross_reference' and related_field.cross_reference_type == ct_name:
-                                    self.build_content_type_elastic_index(related_ct)
-                                    related_content_types.append(related_ct)
+                                    if related_ct not in related_content_types:
+                                        self.build_content_type_elastic_index(related_ct)
+                                        related_content_types.append(related_ct)
 
             self.content_types[ct_name].has_file_field = schema.get('has_file_field', False)
             for field in self.content_types[ct_name].fields:
