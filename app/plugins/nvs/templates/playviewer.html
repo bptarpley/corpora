@@ -627,6 +627,7 @@
                 margin-right: 9px;
                 width: 33px;
                 height: 38px;
+                cursor: pointer;
             }
 
             .variant-toggler[aria-expanded=false] {
@@ -1292,6 +1293,7 @@
                                      data-text="{{ line.text }}"
                                      data-text-length="{{ line.text|length }}"
                                      data-witness_indicators="{{ line.witness_meter }}"
+                                     {% if line.alt_xml_ids %}data-alt_xml_ids="{{ line.alt_xml_ids|join:"," }}"{% endif %}
                                 >
                                     <div id="{{ line.xml_id }}-witness-col" class="col-sm-4 m-0 p-0 witness-meter {% if line.witness_meter|to_int > 0 %}clickable{% endif %}">
                                         <img id="{{ line.xml_id }}-witness-meter" height="30" width="100%" src="{% static 'img/blank-meter.png'%}" />
@@ -1449,6 +1451,7 @@
 
     let characters = null;
     let lines = {};
+    let line_alt_ids = {};
     let line_observer = null;
     let commentary_observer = null;
     let last_visible_line = -1;
@@ -1597,6 +1600,8 @@
                     }
                     if (`tln_${line_no}` in lines) {
                         $(`#tln_${line_no}-row`)[0].scrollIntoView({behavior: 'smooth'});
+                    } else if (`tln_${line_no}` in line_alt_ids) {
+                        $(`#${line_alt_ids[`tln_${line_no}`][0].replace('.', '\\.')}-row`)[0].scrollIntoView({behavior: 'smooth'});
                     }
                 }
             }
@@ -1689,7 +1694,7 @@
         // WITNESS METER CLICK
         $('.witness-meter').click(function(){
             let line_id = this.id.replace('-witness-col', '');
-            let witness_indicators = $(`#${line_id}-row`).data('witness_indicators');
+            let witness_indicators = $(`#${line_id.replace('.', '\\.')}-row`).data('witness_indicators');
             display_variant_editions(witness_indicators, this);
         });
 
@@ -1699,7 +1704,7 @@
 
             // make sure line is populated and toggle the variant drawer
             populate_line(line_xml_id);
-            $(`#${line_xml_id}-variant-div`).collapse('toggle');
+            $(`#${line_xml_id.replace('.', '\\.')}-variant-div`).collapse('toggle');
 
             $('.variant-siglum').off('mouseenter').on('mouseenter', function() {
                 let link = $(this);
@@ -1708,8 +1713,11 @@
                 let parent_div = link.parent();
                 let line_id = parent_div.data('line-id');
                 let variant_id = parent_div.data('variant-id');
-                let wit_meter = $(`#${line_id}-${variant_id}-witness-meter`);
+                let wit_meter = $(`#${line_id}-${variant_id}-witness-meter`.replace('.', '\\.'));
                 let wit_indicators = wit_meter.data('witness_indicators');
+
+                if (!(siglum in witnesses))
+                    siglum = `${siglum}_${play_prefix}`;
 
                 if (siglum in witnesses) {
                     witnesses[siglum].slots.map(slot => {
@@ -1964,7 +1972,7 @@
                         'TextualNote',
                         {'f_id': note_info.id},
                         function (note) {
-                            if (note.hasOwnProperty('records') && note.records.length === 1)
+                            if (note.hasOwnProperty('records') && note.records.length === 1 && !notes.hasOwnProperty(note_info.xml_id))
                                 notes[note_info.xml_id] = note.records[0];
                         }
                     ));
@@ -1977,8 +1985,8 @@
                 return null;
             }
 
-            let line_variant_div = $(`#${line_id}-variant-div`);
-            let line_witness_meter = $(`#${line_id}-witness-meter`);
+            let line_variant_div = $(`#${line_id}-variant-div`.replace('.', '\\.'));
+            let line_witness_meter = $(`#${line_id}-witness-meter`.replace('.', '\\.'));
 
             line_variant_div.removeClass('hidden');
             line_witness_meter.removeClass('hidden');
@@ -2012,7 +2020,7 @@
 
                         notes[note_id].lines.map(line => {
                             if (line.xml_id in lines) {
-                                $(`#${line.xml_id}-variant-div`).append(`
+                                $(`#${line.xml_id.replace('.', '\\.')}-variant-div`).append(`
                                     <div class="row no-gutters variant-row">
                                         <div class="col-sm-4 p-0 m-0">
                                             <div class="row no-gutters">
@@ -2030,7 +2038,7 @@
                                     </div>
                                 `);
 
-                                let variant_col_width = $(`#${line.xml_id}-witness-col`).outerWidth();
+                                let variant_col_width = $(`#${line.xml_id.replace('.', '\\.')}-witness-col`).outerWidth();
                                 draw_witness_meter(
                                     variant.witness_meter,
                                     document.getElementById(`${line.xml_id}-${variant.id}-witness-meter`),
@@ -2128,16 +2136,16 @@
 
         let result = nvs_search[`${type}_results`][nvs_search[`current_${type}_result`] - 1];
         if (type === 'line') {
-            let html_span = $(`#${result.xml_id}-text-col`);
+            let html_span = $(`#${result.xml_id}-text-col`.replace('.', '\\.'));
             result.matches.map(match => html_span.mark(match));
             document.getElementById(`${result.xml_id}-text-col`).scrollIntoView({behavior: 'smooth'});
         } else if (type === 'variant') {
             let result = nvs_search[`${type}_results`][nvs_search[`current_${type}_result`] - 1];
             show_notes(result.xml_id);
-            $(`#${result.xml_id}-variant-div`).collapse('show');
-            let html_span = $(`#${result.xml_id}-variant-div .variant-words`);
+            $(`#${result.xml_id}-variant-div`.replace('.', '\\.')).collapse('show');
+            let html_span = $(`#${result.xml_id.replace('.', '\\.')}-variant-div .variant-words`);
             result.matches.map(match => html_span.mark(match));
-            document.getElementById(`${result.xml_id}-variant-div`).scrollIntoView({behavior: 'smooth'});
+            document.getElementById(`${result.xml_id.replace('.', '\\.')}-variant-div`).scrollIntoView({behavior: 'smooth'});
         }
         if (type === 'commentary') {
             let result_num = nvs_search.current_commentary_result - 1;
@@ -2167,7 +2175,7 @@
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
                         let comm_xml_id = entry.target.id.replace('commentary-note-', '');
-                        let comm_content_div = $(`#commentary-content-${comm_xml_id}`);
+                        let comm_content_div = $(`#commentary-content-${comm_xml_id.replace('.', '\\.')}`);
                         if (!comm_content_div.html()) {
                             show_commentary($(entry.target), comm_content_div);
                         }
@@ -2342,6 +2350,14 @@
                 end_id = id_parts[1];
             }
 
+            if (start_id in line_alt_ids) {
+                start_id = line_alt_ids[start_id][0];
+            }
+
+            if (end_id in line_alt_ids) {
+                end_id = line_alt_ids[end_id][line_alt_ids[end_id].length - 1];
+            }
+
             if (start_id in lines) {
                 let line_template = () =>
                     `<div class="row no-gutters ref-row">
@@ -2376,7 +2392,7 @@
                 } else lines_label += ' ' + line_row.data('line_label');
 
                 let controls = `
-                        <i class="ref-modal-control go-to" onClick="javascript: $('#${start_id}-row')[0].scrollIntoView({behavior: 'smooth'});"></i>
+                        <i class="ref-modal-control go-to" onClick="javascript: $('#${start_id.replace('.', '\\.')}-row')[0].scrollIntoView({behavior: 'smooth'});"></i>
                         <a href="${playviewer_url}#${line_row.attr('id')}" target="_blank"><i class="ref-modal-control new-tab"></i></a>
                 `;
                 display_nav_modal(lines_label, lines_html, link, controls);
@@ -2384,6 +2400,11 @@
         } else {
             if (nav_type === 'siglum'){
                 if (!xml_id.startsWith('s_')) xml_id = `s_${xml_id.toLowerCase().replace('&', '')}`;
+
+                if(!(xml_id in witnesses)) {
+                    xml_id = `${xml_id}_${play_prefix}`;
+                    console.log(xml_id);
+                }
 
                 if (xml_id in witnesses) {
                     let title = 'Collated Edition';
@@ -2405,7 +2426,6 @@
                     page: 1,
                     'page-size': xml_ids.length,
                     only: 'id',
-                    operator: xml_ids.length > 1 ? 'or' : 'and'
                 };
 
                 if (nav_map[nav_type]['filter_play']) {
@@ -2416,7 +2436,7 @@
                 let search_field = nav_map[nav_type]['xml_id_field'];
                 search_params[`t_${search_field}`] = xml_ids.join('__');
                 corpora.list_content(corpus_id, content_type, search_params, function (search_data) {
-                    if (search_data.hasOwnProperty('records') && search_data.records.length === xml_ids.length) {
+                    if (search_data.hasOwnProperty('records')) {
                         let ids = search_data.records.map(record => record.id);
                         populate_nav_contents(nav_type, ids, [], xml_ids[0], link);
                     }
@@ -2659,35 +2679,23 @@
                     }
                 }
             })
-            /*
-            if (entries[entries.length - 1].isIntersecting) {
-                let line_id = entries[entries.length - 1].target.id.replace('-row', '');
-
-                // determine whether more commentary ought to be loaded
-                let line_no = parseInt(lines[line_id].number);
-                if (line_no > last_visible_line) {
-                    clearTimeout(comm_timer);
-                    last_visible_line = line_no;
-                    comm_timer = setTimeout(load_commentary, 1000);
-                }
-
-                // determine current act/scene
-                let act = lines[line_id].act;
-                let scene = lines[line_id].scene;
-                let act_scene = `${act}.${scene}`;
-                if (act_scene !== current_act_scene) {
-                    $('.actscene-indicator').removeClass('active');
-                    $(`.actscene-indicator[data-actscene="${act_scene}"]`).addClass('active');
-                    current_act_scene = act_scene;
-                }
-
-                populate_line(line_id);
-            }*/
         }, { threshold: [0] });
 
         $('.play-row').each(function() {
             let row = $(this);
             let xml_id = row.data('xml_id');
+            let alt_xml_id_string = row.data('alt_xml_ids');
+
+            if (alt_xml_id_string) {
+                let alt_xml_ids = alt_xml_id_string.split(',');
+                alt_xml_ids.map(alt_xml_id => {
+                    if (alt_xml_id in line_alt_ids)
+                        line_alt_ids[alt_xml_id].push(xml_id);
+                    else
+                        line_alt_ids[alt_xml_id] = [xml_id];
+                });
+            }
+
             lines[xml_id] = {
                 row: row,
                 populated: false,
@@ -2721,8 +2729,6 @@
                 lines[line_id].witness_column.clientWidth,
                 lines[line_id].witness_column.clientHeight - 8
             );
-
-
         }
     }
 
