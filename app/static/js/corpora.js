@@ -831,6 +831,8 @@ class ContentTable {
                                                 <option value="10">10 Per Page</option>
                                                 <option value="20">20 Per Page</option>
                                                 <option value="50">50 Per Page</option>
+                                                <option value="80">80 Per Page</option>
+                                                <option value="100">100 Per Page</option>
                                             </select>
                                         </div>
                                     </div>
