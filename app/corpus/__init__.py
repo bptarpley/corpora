@@ -3452,34 +3452,46 @@ class ContentView(mongoengine.Document):
             if self.search_filter and valid_spec and self.status == 'populating':
 
                 search_dict = json.loads(self.search_filter)
-                if filtered_with_graph_path:
-                    search_dict['content_view'] = self.es_document_id
 
-                search_dict['page-size'] = 1000
-                search_dict['only'] = ['id']
+                # determine if this search filter has any actual criteria specified
+                criteria_specified = False
+                if 'general_query' in search_dict and search_dict['general_query'] != '*':
+                    criteria_specified = True
 
-                ids = []
-                page = 1
-                num_pages = 1
+                if not criteria_specified:
+                    for criteria in search_dict.keys():
+                        if criteria.startswith('fields_') and search_dict[criteria]:
+                            criteria_specified = True
 
-                while page <= num_pages and valid_spec:
-                    search_dict['page'] = page
-                    results = self.corpus.search_content(self.target_ct, **search_dict)
-                    if results:
-                        if results['meta']['num_pages'] > num_pages:
-                            num_pages = results['meta']['num_pages']
+                if criteria_specified:
+                    if filtered_with_graph_path:
+                        search_dict['content_view'] = self.es_document_id
 
-                        if results['meta']['total'] <= 60000:
-                            for record in results['records']:
-                                ids.append(record['id'])
-                        else:
-                            valid_spec = False
-                            self.set_status("error: content views must contain less than 60,000 results")
+                    search_dict['page-size'] = 1000
+                    search_dict['only'] = ['id']
 
-                        if 'next_page_token' in results['meta']:
-                            search_dict['page-token'] = results['meta']['next_page_token']
+                    ids = []
+                    page = 1
+                    num_pages = 1
 
-                    page += 1
+                    while page <= num_pages and valid_spec:
+                        search_dict['page'] = page
+                        results = self.corpus.search_content(self.target_ct, **search_dict)
+                        if results:
+                            if results['meta']['num_pages'] > num_pages:
+                                num_pages = results['meta']['num_pages']
+
+                            if results['meta']['total'] <= 60000:
+                                for record in results['records']:
+                                    ids.append(record['id'])
+                            else:
+                                valid_spec = False
+                                self.set_status("error: content views must contain less than 60,000 results")
+
+                            if 'next_page_token' in results['meta']:
+                                search_dict['page-token'] = results['meta']['next_page_token']
+
+                        page += 1
 
                 if valid_spec:
                     es_conn.index(
