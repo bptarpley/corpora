@@ -3382,11 +3382,16 @@ class ContentView(mongoengine.Document):
                 ct_pattern = re.compile(r'\(([a-zA-Z]*)')
                 ids_pattern = re.compile(r'\[([^\]]*)\]')
 
-                graph_step_specs = [step for step in self.graph_path.split('-') if step]
+                graph_step_specs = [step for step in self.graph_path.split(' ') if step]
+
                 for step_index in range(0, len(graph_step_specs)):
                     step_spec = graph_step_specs[step_index]
+                    step_direction = '-->'
                     step_ct = None
                     step_ids = []
+
+                    if '<--' in step_spec:
+                        step_direction = '<--'
 
                     ct_match = re.search(ct_pattern, step_spec)
                     if ct_match:
@@ -3397,18 +3402,22 @@ class ContentView(mongoengine.Document):
                         step_ids = [ct_id for ct_id in ids_match.group(1).split(',') if ct_id]
 
                     if step_ct and step_ct in self.corpus.content_types:
-                        graph_steps[step_index] = {'ct': step_ct, 'ids': step_ids}
+                        graph_steps[step_index] = {
+                            'direction': step_direction,
+                            'ct': step_ct,
+                            'ids': step_ids
+                        }
                         self.relevant_cts.append(step_ct)
                     else:
                         valid_spec = False
                         break
 
                 if graph_steps and valid_spec:
-                    match_nodes = []
+                    cypher = "MATCH (target:{0})".format(self.target_ct)
                     where_clauses = []
 
                     for step_index, step_info in graph_steps.items():
-                        match_nodes.append("(ct{0}:{1})".format(step_index, step_info['ct']))
+                        cypher += " {0} (ct{1}:{2})".format(step_info['direction'], step_index, step_info['ct'])
                         if step_info['ids']:
                             step_uris = ['/corpus/{0}/{1}/{2}'.format(self.corpus.id, step_info['ct'], ct_id) for ct_id in step_info['ids']]
                             where_clauses.append("ct{0}.uri in ['{1}']".format(
@@ -3416,16 +3425,19 @@ class ContentView(mongoengine.Document):
                                 "','".join(step_uris)
                             ))
 
-                    cypher = "MATCH (target:{0}) -- {1}".format(self.target_ct, " -- ".join(match_nodes))
                     if where_clauses:
                         cypher += "\nWHERE {0}".format(" AND ".join(where_clauses))
 
                     count_cypher = cypher + "\nRETURN count(distinct target)"
                     data_cypher = cypher + "\nRETURN distinct target.uri"
 
+                    print(count_cypher)
+
                     try:
                         count_results = run_neo(count_cypher, {})
                         count = count_results[0].value()
+
+                        print(count)
 
                         if count <= 60000:
                             data_results = run_neo(data_cypher, {})
@@ -3448,6 +3460,9 @@ class ContentView(mongoengine.Document):
                         valid_spec = False
                         self.set_status("error")
                         self.save()
+
+                else:
+                    print("Invalid pattern of association for content view!")
 
             if self.search_filter and valid_spec and self.status == 'populating':
 

@@ -378,7 +378,6 @@ class Corpora {
             target_ct_selector.val('None');
             target_table_div.html('');
 
-
             ct_keys.map(ct_key => {
                 let ct = corpus.content_types[ct_key];
                 target_ct_selector.append(`<option value="${ct.name}">${ct.name}</option>`);
@@ -407,19 +406,19 @@ class Corpora {
                     pattern_div.append(`<div id="patass-canvas" class="d-flex flex-column"></div>`);
                     let canvas = $('#patass-canvas');
 
-                    let patass_step = (step, ct) => {
+                    let patass_step = (step, direction, ct) => {
                         let next_ct_options = [];
                         ct.fields.map(field => {
                             if (field.type === 'cross_reference') {
                                 let next_ct = field.cross_reference_type;
-                                next_ct_options.push(`<option value="${next_ct}">${next_ct}</option>`);
+                                next_ct_options.push(`<option value="--> ${next_ct}">--> ${next_ct}</option>`);
                             }
                         });
                         for (let ct_name in corpus.content_types) {
                             if (ct_name !== ct.name) {
                                 corpus.content_types[ct_name].fields.map(field => {
                                     if (field.type === 'cross_reference' && field.cross_reference_type === ct.name) {
-                                        next_ct_options.push(`<option value="${ct_name}">${ct_name}</option>`);
+                                        next_ct_options.push(`<option value="<-- ${ct_name}"><-- ${ct_name}</option>`);
                                     }
                                 });
                             }
@@ -429,7 +428,7 @@ class Corpora {
 
                         canvas.append(`
                             ${ step > 0 ? ` <div class="patass-pipe patass-step-${step} d-flex align-self-center">&nbsp;</div>` : '' }
-                            <div id="patass-step-${step}-circle" class="patass-ct-circle patass-step-${step} d-flex justify-content-center align-self-center" data-step="${step}" data-ct="${ct.name}" data-ids=""><span class="mx-auto my-auto">${ct.plural_name}</span></div>
+                            <div id="patass-step-${step}-circle" class="patass-ct-circle patass-step-${step} d-flex justify-content-center align-self-center" data-step="${step}" data-direction="${direction ? direction : ''}" data-ct="${ct.name}" data-ids=""><span class="mx-auto my-auto">${ct.plural_name}</span></div>
                             ${ step > 0 ? `<div class="patass-ct-controls d-flex justify-content-center align-self-center"><button role="button" class="btn btn-sm btn-secondary patass-specific-ids-button" data-step="${step}">Specify</button></div>` : '' }
                             <div class="patass-pipe patass-from-ct-to-add patass-step-${step} d-flex align-self-center">&nbsp;</div>
                             <div class="patass-add-circle patass-step-${step} d-flex justify-content-center align-self-center" data-step="${step}" data-origin-ct="${ct.name}">${next_selector}</div>
@@ -438,10 +437,12 @@ class Corpora {
                         $('.patass-next-selector').off('change').on('change', function() {
                             if ($(this).val() !== '--') {
                                 let step = parseInt($(this).data('step'));
-                                let next_ct = corpus.content_types[$(this).val()];
+                                let [next_direction, next_ct_name] = $(this).val().split(' ');
+                                console.log(`${next_direction} ${next_ct_name}`);
+                                let next_ct = corpus.content_types[next_ct_name];
                                 $('.patass-add-circle').remove();
                                 $('.patass-from-ct-to-add').remove();
-                                patass_step(step + 1, next_ct, []);
+                                patass_step(step + 1, next_direction, next_ct);
                             }
                         });
 
@@ -464,7 +465,7 @@ class Corpora {
                         });
                     };
 
-                    patass_step(0, target_ct, []);
+                    patass_step(0, null, target_ct, []);
 
 
                     $(this).remove();
@@ -476,16 +477,17 @@ class Corpora {
                         let step = parseInt($(this).data('step'));
                         if (step > 0) {
                             let ct = $(this).data('ct');
+                            let direction = $(this).data('direction');
                             let ids = $(this).data('ids');
                             if (ids) ids = ids.split(',');
                             else ids = [];
 
-                            patass += `-(${ct}${ ids.length ? ` [${ids.join(',')}]` : '' })`
+                            patass += `${direction}(${ct}${ ids.length ? `[${ids.join(',')}]` : '' }) `;
                         }
                     });
 
                     if (patass.length) {
-                        patass = patass.slice(1);
+                        patass = patass.slice(0, -1);
                     }
 
                     let submission = {
@@ -758,7 +760,10 @@ class ContentTable {
             let edit_action = ``;
             if (sender.mode === 'edit' && (role === 'Editor' || role === 'Admin')) {
                 if (sender.content_view) {
-                    edit_action = `<button role="button" id="ct-${ct.name}${sender.id_suffix}-delete-view-button" class="btn btn-primary rounded mr-2">Delete View</button>`;
+                    edit_action = `
+                        <button role="button" id="ct-${ct.name}${sender.id_suffix}-refresh-view-button" class="btn btn-primary rounded mr-2">Refresh View</button>
+                        <button role="button" id="ct-${ct.name}${sender.id_suffix}-delete-view-button" class="btn btn-primary rounded mr-2">Delete View</button>
+                    `;
                 } else {
                     edit_action = `<a role="button" id="ct-${ct.name}${sender.id_suffix}-new-button" href="/corpus/${corpus_id}/${ct.name}/" class="btn btn-primary rounded mr-2">Create</a>`;
                 }
@@ -843,8 +848,36 @@ class ContentTable {
                 </div>
             `);
 
-            // setup view deletion
+            // setup view refreshing and deletion
             if (sender.content_view) {
+                $(`#ct-${ct.name}${sender.id_suffix}-refresh-view-button`).click(function() {
+                    let submission = {
+                        'cv-action': 'refresh',
+                    }
+
+                    corpora.make_request(
+                        `/api/corpus/${corpus.id}/content-view/${sender.content_view_id}/`,
+                        'POST',
+                        submission,
+                        function (data) {
+                            let refresh_button = $(`#ct-${ct.name}${sender.id_suffix}-refresh-view-button`);
+
+                            if (data.status === 'populating') {
+                                refresh_button.html('Refreshing...');
+                                refresh_button.attr('disabled', true);
+                                corpora.await_content_view_population(corpus.id, data.id, function(data) {
+                                    refresh_button.html('Refresh');
+                                    refresh_button.attr('disabled', false);
+                                    corpora.list_content(sender.corpus.id, sender.content_type, sender.search, function(content){ sender.load_content(content); });
+                                });
+                            } else {
+                                refresh_button.html('Error with Refresh!');
+                                refresh_button.attr('disabled', true);
+                            }
+                        }
+                    );
+                });
+
                 $(`#ct-${ct.name}${sender.id_suffix}-delete-view-button`).click(function() {
                     let multi_form = $('#multiselect-form');
                     $('#deletion-confirmation-modal-message').html(`

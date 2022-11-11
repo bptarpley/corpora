@@ -1494,30 +1494,46 @@ def api_suggest(request, corpus_id, content_type):
 def api_content_view(request, corpus_id, content_view_id=None):
     context = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+    cv = None
 
     if corpus:
         cv_dict = {}
-        if request.method == 'GET' and content_view_id:
+        if content_view_id:
             cv = ContentView.objects.get(id=content_view_id)
             cv_dict = cv.to_dict()
-        elif request.method == 'POST' and _contains(request.POST, ['cv-name', 'cv-target-ct', 'cv-search-json', 'cv-patass']) and (context['scholar'].is_admin or role == 'Editor'):
-            cv_search_params = json.loads(unescape(_clean(request.POST, 'cv-search-json')))
-            cv_search_params = build_search_params_from_dict(cv_search_params)
 
-            cv = ContentView()
-            cv.name = _clean(request.POST, 'cv-name')
-            cv.corpus = corpus
-            cv.target_ct = _clean(request.POST, 'cv-target-ct')
-            cv.search_filter = json.dumps(cv_search_params)
-            cv.graph_path = _clean(request.POST, 'cv-patass')
-            cv.set_status('populating')
-            cv.save()
-            cv_dict = cv.to_dict()
+        if request.method == 'POST' and (context['scholar'].is_admin or role == 'Editor'):
+            if _contains(request.POST, ['cv-name', 'cv-target-ct', 'cv-search-json', 'cv-patass']):
+                cv_search_params = json.loads(unescape(_clean(request.POST, 'cv-search-json')))
+                cv_search_params = build_search_params_from_dict(cv_search_params)
 
-            run_job(corpus.queue_local_job(task_name="Content View Lifecycle", parameters={
-                'cv_id': str(cv.id),
-                'stage': 'populate',
-            }))
+                cv = ContentView()
+                cv.name = _clean(request.POST, 'cv-name')
+                cv.corpus = corpus
+                cv.target_ct = _clean(request.POST, 'cv-target-ct')
+                cv.search_filter = json.dumps(cv_search_params)
+                cv.graph_path = _clean(request.POST, 'cv-patass').replace('&lt;', '<').replace('&gt;', '>')
+                cv.set_status('populating')
+                cv.save()
+                cv_dict = cv.to_dict()
+
+                run_job(corpus.queue_local_job(task_name="Content View Lifecycle", parameters={
+                    'cv_id': str(cv.id),
+                    'stage': 'populate',
+                }))
+
+            elif cv and 'cv-action' in request.POST:
+                action = _clean(request.POST, 'cv-action')
+
+                if action == 'refresh':
+                    cv.status = 'populating'
+                    cv.save()
+                    cv_dict = cv.to_dict()
+
+                    run_job(corpus.queue_local_job(task_name="Content View Lifecycle", parameters={
+                        'cv_id': str(cv.id),
+                        'stage': 'refresh',
+                    }))
 
         return HttpResponse(
             json.dumps(cv_dict),
