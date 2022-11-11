@@ -996,7 +996,7 @@ def content_view_lifecycle(job_id):
         job.complete(status='error')
 
 
-@db_periodic_task(crontab(minute=1, hour='*'), priority=4)
+@db_periodic_task(crontab(minute=1, hour='*/12'), priority=4)
 def audit_content_views():
     print('Auditing content views...')
     cvs = ContentView.objects(status='populated')
@@ -1014,10 +1014,12 @@ def audit_content_views():
 
         if needs_refresh:
             print("NEEDS REFRESH")
+            cv.clear()
             cv.populate()
 
     cvs = ContentView.objects(status='needs_refresh')
     for cv in cvs:
+        cv.clear()
         cv.populate()
 
 

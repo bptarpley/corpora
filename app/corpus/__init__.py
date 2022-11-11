@@ -2405,6 +2405,7 @@ class Corpus(mongoengine.Document):
 
                         if not self.content_types[ct_name].fields[field_index].inherited:
                             self.content_types[ct_name].fields[field_index].type = schema['fields'][x]['type']
+                            self.content_types[ct_name].fields[field_index].in_lists = schema['fields'][x].get('in_lists', default_field_values['in_lists'])
                             self.content_types[ct_name].fields[field_index].indexed = schema['fields'][x].get('indexed', default_field_values['indexed'])
                             self.content_types[ct_name].fields[field_index].indexed_with = schema['fields'][x].get('indexed_with', default_field_values['indexed_with'])
                             self.content_types[ct_name].fields[field_index].unique = schema['fields'][x].get('unique', default_field_values['unique'])
@@ -2452,8 +2453,9 @@ class Corpus(mongoengine.Document):
                         if related_ct != ct_name:
                             for related_field in self.content_types[related_ct].fields:
                                 if related_field.type == 'cross_reference' and related_field.cross_reference_type == ct_name:
-                                    self.build_content_type_elastic_index(related_ct)
-                                    related_content_types.append(related_ct)
+                                    if related_ct not in related_content_types:
+                                        self.build_content_type_elastic_index(related_ct)
+                                        related_content_types.append(related_ct)
 
             self.content_types[ct_name].has_file_field = schema.get('has_file_field', False)
             for field in self.content_types[ct_name].fields:
@@ -2806,6 +2808,15 @@ class Corpus(mongoengine.Document):
     def _pre_delete(cls, sender, document, **kwargs):
         corpus_id = str(document.id)
 
+        # Delete any ContentViews associated with this corpus
+        cvs = ContentView.objects(corpus=corpus_id)
+        for cv in cvs:
+            # set status to prevent CV audit from trying to repopulate while clearing
+            cv.status = 'deleting'
+            cv.save()
+            cv.clear()
+            cv.delete()
+
         # Delete Content Type indexes and collections
         for content_type in document.content_types.keys():
             # Delete ct index
@@ -2973,11 +2984,17 @@ class Content(mongoengine.Document):
 
         if do_indexing or do_linking:
             cx_fields = [field.name for field in self._ct.fields if field.type == 'cross_reference']
+            if isinstance(do_indexing, list):
+                cx_fields = [f for f in cx_fields if f in do_indexing]
+
             if cx_fields:
                 self.reload(*cx_fields)
 
             if do_indexing:
-                self._do_indexing()
+                if isinstance(do_indexing, list):
+                    self._do_indexing(do_indexing)
+                else:
+                    self._do_indexing()
             if do_linking:
                 self._do_linking()
 
@@ -3089,10 +3106,10 @@ class Content(mongoengine.Document):
                 else:
                     setattr(self, field_name, new_file)
 
-    def _do_indexing(self):
+    def _do_indexing(self, field_list=[]):
         index_obj = {}
         for field in self._ct.fields:
-            if field.in_lists:
+            if field.in_lists and (len(field_list) == 0 or field.name in field_list):
                 field_value = getattr(self, field.name)
                 if field_value or ((field.type == 'number' or field.type == 'decimal') and field_value == 0):
                     if field.cross_reference_type:
@@ -3141,15 +3158,24 @@ class Content(mongoengine.Document):
                     elif field.type not in ['file']:
                         index_obj[field.name] = field.get_dict_value(field_value, self.uri)
 
-        index_obj['label'] = self.label
-        index_obj['uri'] = self.uri
+        if len(field_list) == 0 or 'label' in field_list:
+            index_obj['label'] = self.label
+        if len(field_list) == 0 or 'uri' in field_list:
+            index_obj['uri'] = self.uri
 
         try:
-            get_connection().index(
-                index="corpus-{0}-{1}".format(self.corpus_id, self.content_type.lower()),
-                id=str(self.id),
-                body=index_obj
-            )
+            if len(field_list) == 0:
+                get_connection().index(
+                    index="corpus-{0}-{1}".format(self.corpus_id, self.content_type.lower()),
+                    id=str(self.id),
+                    body=index_obj
+                )
+            elif index_obj:
+                get_connection().update(
+                    index="corpus-{0}-{1}".format(self.corpus_id, self.content_type.lower()),
+                    id=str(self.id),
+                    body={'doc': index_obj}
+                )
         except:
             print("Error indexing {0} with ID {1}:".format(self.content_type, self.id))
             print(traceback.format_exc())
@@ -3356,11 +3382,16 @@ class ContentView(mongoengine.Document):
                 ct_pattern = re.compile(r'\(([a-zA-Z]*)')
                 ids_pattern = re.compile(r'\[([^\]]*)\]')
 
-                graph_step_specs = [step for step in self.graph_path.split('-') if step]
+                graph_step_specs = [step for step in self.graph_path.split(' ') if step]
+
                 for step_index in range(0, len(graph_step_specs)):
                     step_spec = graph_step_specs[step_index]
+                    step_direction = '-->'
                     step_ct = None
                     step_ids = []
+
+                    if '<--' in step_spec:
+                        step_direction = '<--'
 
                     ct_match = re.search(ct_pattern, step_spec)
                     if ct_match:
@@ -3371,18 +3402,22 @@ class ContentView(mongoengine.Document):
                         step_ids = [ct_id for ct_id in ids_match.group(1).split(',') if ct_id]
 
                     if step_ct and step_ct in self.corpus.content_types:
-                        graph_steps[step_index] = {'ct': step_ct, 'ids': step_ids}
+                        graph_steps[step_index] = {
+                            'direction': step_direction,
+                            'ct': step_ct,
+                            'ids': step_ids
+                        }
                         self.relevant_cts.append(step_ct)
                     else:
                         valid_spec = False
                         break
 
                 if graph_steps and valid_spec:
-                    match_nodes = []
+                    cypher = "MATCH (target:{0})".format(self.target_ct)
                     where_clauses = []
 
                     for step_index, step_info in graph_steps.items():
-                        match_nodes.append("(ct{0}:{1})".format(step_index, step_info['ct']))
+                        cypher += " {0} (ct{1}:{2})".format(step_info['direction'], step_index, step_info['ct'])
                         if step_info['ids']:
                             step_uris = ['/corpus/{0}/{1}/{2}'.format(self.corpus.id, step_info['ct'], ct_id) for ct_id in step_info['ids']]
                             where_clauses.append("ct{0}.uri in ['{1}']".format(
@@ -3390,16 +3425,19 @@ class ContentView(mongoengine.Document):
                                 "','".join(step_uris)
                             ))
 
-                    cypher = "MATCH (target:{0}) -- {1}".format(self.target_ct, " -- ".join(match_nodes))
                     if where_clauses:
                         cypher += "\nWHERE {0}".format(" AND ".join(where_clauses))
 
                     count_cypher = cypher + "\nRETURN count(distinct target)"
                     data_cypher = cypher + "\nRETURN distinct target.uri"
 
+                    print(count_cypher)
+
                     try:
                         count_results = run_neo(count_cypher, {})
                         count = count_results[0].value()
+
+                        print(count)
 
                         if count <= 60000:
                             data_results = run_neo(data_cypher, {})
@@ -3423,34 +3461,52 @@ class ContentView(mongoengine.Document):
                         self.set_status("error")
                         self.save()
 
+                else:
+                    print("Invalid pattern of association for content view!")
+
             if self.search_filter and valid_spec and self.status == 'populating':
 
                 search_dict = json.loads(self.search_filter)
-                if filtered_with_graph_path:
-                    search_dict['content_view'] = self.es_document_id
 
-                search_dict['page_size'] = 1000
-                search_dict['only'] = ['id']
+                # determine if this search filter has any actual criteria specified
+                criteria_specified = False
+                if 'general_query' in search_dict and search_dict['general_query'] != '*':
+                    criteria_specified = True
 
-                ids = []
-                page = 1
-                num_pages = 1
+                if not criteria_specified:
+                    for criteria in search_dict.keys():
+                        if criteria.startswith('fields_') and search_dict[criteria]:
+                            criteria_specified = True
 
-                while page <= num_pages and valid_spec:
-                    search_dict['page'] = page
-                    results = self.corpus.search_content(self.target_ct, **search_dict)
-                    if results:
-                        if results['meta']['num_pages'] > num_pages:
-                            num_pages = results['meta']['num_pages']
+                if criteria_specified:
+                    if filtered_with_graph_path:
+                        search_dict['content_view'] = self.es_document_id
 
-                        if results['meta']['total'] <= 60000:
-                            for record in results['records']:
-                                ids.append(record['id'])
-                        else:
-                            valid_spec = False
-                            self.set_status("error: content views must contain less than 60,000 results")
+                    search_dict['page-size'] = 1000
+                    search_dict['only'] = ['id']
 
-                    page += 1
+                    ids = []
+                    page = 1
+                    num_pages = 1
+
+                    while page <= num_pages and valid_spec:
+                        search_dict['page'] = page
+                        results = self.corpus.search_content(self.target_ct, **search_dict)
+                        if results:
+                            if results['meta']['num_pages'] > num_pages:
+                                num_pages = results['meta']['num_pages']
+
+                            if results['meta']['total'] <= 60000:
+                                for record in results['records']:
+                                    ids.append(record['id'])
+                            else:
+                                valid_spec = False
+                                self.set_status("error: content views must contain less than 60,000 results")
+
+                            if 'next_page_token' in results['meta']:
+                                search_dict['page-token'] = results['meta']['next_page_token']
+
+                        page += 1
 
                 if valid_spec:
                     es_conn.index(

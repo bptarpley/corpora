@@ -31,8 +31,7 @@ def document(request, corpus_id, document_id):
                 filename = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', request.FILES['filepond'].name)
 
                 if not document.path:
-                    document._ct.has_file_field = True
-                    document._make_path()
+                    document._make_path(force=True)
                     document.save()
 
                 upload_path = "{0}/temporary_uploads".format(document.path)

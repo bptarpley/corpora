@@ -1,4 +1,5 @@
 import os
+import glob
 import json
 import traceback
 import fitz
@@ -383,7 +384,8 @@ def import_page_images(job_id):
             zip_in.extractall(unzip_path)
 
         if os.path.exists(unzip_path):
-            import_files = [unzip_path + '/' + img for img in os.listdir(unzip_path) if os.path.splitext(img)[1].replace('.', '').lower() in settings.VALID_IMAGE_EXTENSIONS]
+            import_files = glob.glob(unzip_path + '/**/*.*', recursive=True)
+            import_files = [img for img in import_files if os.path.splitext(img)[1].replace('.', '').lower() in settings.VALID_IMAGE_EXTENSIONS]
 
     if import_files:
         if primary_witness:
@@ -548,7 +550,8 @@ def process_page_file(doc, ref_no, label, job_id, primary_witness, image=None, t
             )
 
         if image:
-            image.save(path)
+            image = image.quantize(method=2)
+            image.save(path, compress_type=3)
         elif text:
             with open(path, 'w', encoding='utf-8') as txt_out:
                 txt_out.write(text)
