@@ -2,6 +2,7 @@ import re
 import difflib
 import html as html_lib
 from timeit import default_timer as timer
+from dateutil.relativedelta import relativedelta
 from .content import REGISTRY as NVS_CONTENT_TYPE_SCHEMA
 from plugins.document.content import REGISTRY as DOCUMENT_REGISTRY
 from corpus import *
@@ -16,7 +17,7 @@ from mongoengine.queryset.visitor import Q
 
 REGISTRY = {
     "Import NVS Data from TEI": {
-        "version": "0.7",
+        "version": "1.1",
         "jobsite_type": "HUEY",
         "track_provenance": True,
         "create_report": True,
@@ -45,12 +46,12 @@ REGISTRY = {
                     "label": "Basetext Siglum",
                     "note": "Likely \"s_f1\" (First Folio)"
                 },
-                "delete_existing": {
-                    "value": "No",
+                "ingestion_scope": {
+                    "value": "Full",
                     "type": "choice",
-                    "choices": ["No", "Yes"],
-                    "label": "Delete existing content?",
-                    "note": "Selecting 'Yes' will first delete all relevant content before importing!"
+                    "choices": ["Full", "Playtext Only", "Textual Notes Only", "Commentary Only"],
+                    "label": "Scope for Ingestion?",
+                    "note": "'Full' will delete all data for play and completely re-ingest from TEI. 'Playtext Only' will also delete all play data but will only ingest playtext for testing. 'Textual Notes Only' will only delete textual note data and then re-ingest textual notes. 'Commentary Only' will only delete commentary note data and then re-ingest commentary notes. NOTE: For either 'Textual Notes Only' or 'Commentary Only', the playtext must have already been ingested."
                 }
             },
         },
@@ -121,7 +122,6 @@ nvs_document_fields = [
     },
 ]
 
-
 nvs_document_types = {
     'witness': 'primary_witness',
     'occasional': 'occasional_witness',
@@ -130,9 +130,12 @@ nvs_document_types = {
     'bibliography': 'bibliographic_source'
 }
 
+job_timers = {}
+
 
 def import_data(job_id):
-    time_start = timer()
+    job_timers.clear()
+    time_it("Total Ingestion Time")
 
     job = Job(job_id)
     corpus = job.corpus
@@ -141,7 +144,7 @@ def import_data(job_id):
     play_title = job.get_param_value('play_title')
     play_prefix = job.get_param_value('play_prefix')
     basetext_siglum = job.get_param_value('basetext_siglum')
-    delete_existing = job.get_param_value('delete_existing') == 'Yes'
+    ingestion_scope = job.get_param_value('ingestion_scope')
 
     job.set_status('running')
     job.report('''Attempting play TEI ingestion using following parameters:
@@ -149,13 +152,13 @@ Play Title:         {0}
 Play Repo:          {1}
 Play Prefix:        {2}
 Copytext Siglum:    {3}
-Delete Existing:    {4}
+Ingestion Scope:    {4}
     \n'''.format(
         play_title,
         play_repo.name,
         play_prefix,
         basetext_siglum,
-        delete_existing
+        ingestion_scope
     ))
 
     try:
@@ -183,9 +186,11 @@ Delete Existing:    {4}
                 content_block.html = "Default content."
                 content_block.save()
 
-        if delete_existing:
-            deletion_report = delete_play_data(corpus, play_prefix)
-            job.report("Deleted existing play data:\n{0}".format(deletion_report))
+
+        time_it("Deleting Play Data")
+        deletion_report = delete_play_data(corpus, play_prefix, ingestion_scope)
+        time_it("Deleting Play Data", True)
+        job.report("Deleted existing play data:\n{0}".format(deletion_report))
 
         # pull down latest commits to play repo
         play_repo.pull(corpus)
@@ -246,87 +251,135 @@ Delete Existing:    {4}
                     break
 
             if include_files_exist:
+                line_id_map = {}  # to keep track of how xml_ids map to PlayLine ObjectIDs
+                ordered_line_ids = []  # PlayLine ObjectIDs in order, for building swaths of lines given start and end ids
+
                 # retrieve/make play using play prefix
                 play = corpus.get_content('Play', {'prefix': play_prefix}, single_result=True)
                 if not play:
                     play = corpus.get_content('Play')
-                    play.title = play_title
-                    play.prefix = play_prefix
-                    play.save()
-                    play.reload()
+
+                play.title = play_title
+                play.prefix = play_prefix
+                play.save()
+                play.reload()
 
                 if play:
                     # PARSE FRONT MATTER
-                    job.report(
-                        parse_front_file(
-                            corpus,
-                            play,
-                            include_file_paths['front']
+                    if ingestion_scope in ['Full', 'Playtext Only']:
+                        time_it("Parsing Front Matter")
+                        job.report(
+                            parse_front_file(
+                                corpus,
+                                play,
+                                include_file_paths['front']
+                            )
                         )
-                    )
-                    job.set_status('running', percent_complete=17)
+                        time_it("Parsing Front Matter", True)
+                        job.set_status('running', percent_complete=17)
 
                     # PARSE PLAY TEXT
-                    job.report(
-                        parse_playtext_file(
+                    if ingestion_scope in ['Full', 'Playtext Only']:
+                        time_it("Parsing Playtext")
+                        playtext_report, line_id_map, ordered_line_ids = parse_playtext_file(
                             corpus,
                             play,
                             include_file_paths['playtext'],
                             basetext_siglum
                         )
-                    )
-                    job.set_status('running', percent_complete=34)
+                        job.report(playtext_report)
+                        time_it("Parsing Playtext", True)
+                        job.set_status('running', percent_complete=34)
+                    elif ingestion_scope in ['Textual Notes Only', 'Commentary Only']:
+                        # make sure line_id_map and ordered_line_ids gets loaded from JSON
+                        line_id_map_json = corpus.path + '/files/{0}_line_id_map.json'.format(play.prefix)
+                        ordered_line_ids_json = corpus.path + '/files/{0}_ordered_line_ids.json'.format(play.prefix)
+
+                        if os.path.exists(line_id_map_json) and os.path.exists(ordered_line_ids_json):
+                            with open(line_id_map_json, 'r', encoding='utf-8') as line_info_in:
+                                line_id_map = json.load(line_info_in)
+
+                            with open(ordered_line_ids_json, 'r', encoding='utf-8') as line_info_in:
+                                ordered_line_ids = json.load(line_info_in)
 
                     # PARSE TEXTUAL NOTES
-                    job.report(
-                        parse_textualnotes_file(
-                            corpus,
-                            play,
-                            include_file_paths['textualnotes']
+                    if ingestion_scope in ['Full', 'Textual Notes Only']:
+                        time_it("Parsing Textual Notes")
+                        job.report(
+                            parse_textualnotes_file(
+                                corpus,
+                                play,
+                                include_file_paths['textualnotes'],
+                                line_id_map,
+                                ordered_line_ids
+                            )
                         )
-                    )
-                    job.set_status('running', percent_complete=51)
+                        time_it("Parsing Textual Notes", True)
+                        job.set_status('running', percent_complete=51)
 
                     # PARSE BIBLIOGRAPHY
-                    job.report(
-                        parse_bibliography(
-                            corpus,
-                            play,
-                            include_file_paths['bibliography']
+                    if ingestion_scope == 'Full':
+                        time_it("Parsing Bibliography")
+                        job.report(
+                            parse_bibliography(
+                                corpus,
+                                play,
+                                include_file_paths['bibliography']
+                            )
                         )
-                    )
-                    job.set_status('running', percent_complete=68)
+                        time_it("Parsing Bibliography", True)
+                        job.set_status('running', percent_complete=68)
 
                     # PARSE COMMENTARY
-                    job.report(
-                        parse_commentary(
-                            corpus,
-                            play,
-                            include_file_paths['commentary']
+                    if ingestion_scope in ['Full', 'Commentary Only']:
+                        time_it("Parsing Commentary")
+                        job.report(
+                            parse_commentary(
+                                corpus,
+                                play,
+                                include_file_paths['commentary'],
+                                line_id_map,
+                                ordered_line_ids
+                            )
                         )
-                    )
-                    job.set_status('running', percent_complete=75)
+                        time_it("Parsing Commentary", True)
+                        job.set_status('running', percent_complete=75)
 
                     # PARSE APPENDIX
-                    job.report(
-                        parse_appendix(
-                            corpus,
-                            play,
-                            play_repo_name,
-                            include_file_paths['appendix']
+                    if ingestion_scope == 'Full':
+                        time_it("Parsing Appendix")
+                        job.report(
+                            parse_appendix(
+                                corpus,
+                                play,
+                                play_repo_name,
+                                include_file_paths['appendix']
+                            )
                         )
-                    )
-                    job.set_status('running', percent_complete=85)
+                        time_it("Parsing Appendix", True)
+                        job.set_status('running', percent_complete=85)
 
-                    line_count = corpus.get_content('PlayLine', {'play': play.id}, all=True).count()
-                    line_cursor = 0
-                    line_chunk_size = 200
-                    while line_cursor < line_count:
-                        render_lines_html(corpus, play, starting_line_no=line_cursor, ending_line_no=line_cursor + line_chunk_size)
-                        line_cursor += line_chunk_size + 1
+                    if ingestion_scope in ['Full', 'Playtext Only', 'Commentary Only']:
+                        time_it("Rendering Playline HTML")
+                        line_count = corpus.get_content('PlayLine', {'play': play.id}, all=True).count()
+                        line_cursor = 0
+                        line_chunk_size = 200
+                        while line_cursor < line_count:
+                            render_lines_html(corpus, play, starting_line_no=line_cursor, ending_line_no=line_cursor + line_chunk_size)
+                            line_cursor += line_chunk_size + 1
+                        time_it("Rendering Playline HTML", True)
 
-        time_stop = timer()
-        job.report("\n\nPlay TEI ingestion completed in {0} seconds.".format(time_stop - time_start))
+        time_it("Total Ingestion Time", True)
+
+        job.report("\n\nTEI Ingestion Stats:")
+        intervals = ['days', 'hours', 'minutes', 'seconds']
+        for timer_name in job_timers.keys():
+            time_spent = relativedelta(seconds=int(job_timers[timer_name]['total']))
+            job.report("{0}: {1}".format(
+                timer_name,
+                ' '.join('{0} {1}'.format(getattr(time_spent, interval), interval) for interval in intervals if getattr(time_spent, interval))
+            ))
+
         job.complete(status='complete')
         es_logger.setLevel(es_log_level)
     except:
@@ -391,7 +444,7 @@ def ensure_nvs_content_types(corpus):
             corpus.save_content_type(nvs_content_type)
 
 
-def delete_play_data(corpus, play_prefix):
+def delete_play_data(corpus, play_prefix, ingestion_scope):
     report = ""
     play = corpus.get_content('Play', {'prefix': play_prefix}, single_result=True)
     if play:
@@ -405,17 +458,29 @@ def delete_play_data(corpus, play_prefix):
             'TextualNote',
             'Speech',
             'PlayLine',
+            'DocumentCollection',
             'Reference'
         ]
+
+        if ingestion_scope == 'Textual Notes Only':
+            nvs_content_types = ['TextualVariant', 'TextualNote']
+        elif ingestion_scope == 'Commentary Only':
+            nvs_content_types = ['Commentary']
+
+            # Also delete commentary play tags
+            com_spans = corpus.get_content('PlayTag', {'play': play.id, 'name': 'comspan'})
+            for com_span in com_spans:
+                com_span.delete()
 
         for nvs_ct in nvs_content_types:
             contents = corpus.get_content(nvs_ct, {'play': play.id})
             count = contents.count()
             for content in contents:
                 content.delete()
-            report += '{0} {1}(s) deleted.\n\n'.format(count, nvs_ct)
+            report += '{0} {1}(s) deleted.\n'.format(count, nvs_ct)
 
-        play.delete()
+        if ingestion_scope in ['Full', 'Playtext Only']:
+            play.delete()
     return report
 
 
@@ -488,13 +553,36 @@ FRONT MATTER INGESTION
     unhandled += list(set(pt_data['unhandled']))
     pt.save()
 
+    # extract acknowledgements
+    acknow = front_tei.find('div', type='acknowledgements')
+    if acknow:
+        pt = corpus.get_content('ParaText')
+        pt.play = play.id
+        pt.xml_id = acknow['xml:id']
+        pt.section = "Front Matter"
+        pt.order = 2
+        pt.level = 1
+        pt.html_content = ""
+
+        pt_data = {
+            'current_note': None,
+            'unhandled': [],
+            'corpus': corpus
+        }
+
+        for child in acknow.children:
+            pt.html_content += handle_paratext_tag(child, pt, pt_data)
+
+        unhandled += list(set(pt_data['unhandled']))
+        pt.save()
+
     # extract plan of work
     plan_of_work = front_tei.find('div', type='potw')
     pt = corpus.get_content('ParaText')
     pt.play = play.id
     pt.xml_id = plan_of_work['xml:id']
     pt.section = "Front Matter"
-    pt.order = 2
+    pt.order = 3
     pt.level = 1
     pt.html_content = ""
 
@@ -579,9 +667,10 @@ FRONT MATTER INGESTION
         play.save()
 
         for witness_collection_info in witness_collections:
-            witness_collection = corpus.get_content('DocumentCollection', {'siglum': witness_collection_info['siglum']}, single_result=True)
+            witness_collection = corpus.get_content('DocumentCollection', {'play': play.id, 'siglum': witness_collection_info['siglum']}, single_result=True)
             if not witness_collection:
                 witness_collection = corpus.get_content('DocumentCollection')
+                witness_collection.play = play.id
                 witness_collection.siglum = witness_collection_info['siglum']
 
             witness_collection.siglum_label = witness_collection_info['siglum_label']
@@ -641,12 +730,14 @@ FRONT MATTER INGESTION
     return report
 
 
-def parse_playtext_file(corpus, play, playtext_file_path, basetext_siglum, start_line_xml_id=None, end_line_xml_id=None):
+def parse_playtext_file(corpus, play, playtext_file_path, basetext_siglum):
     report = '''
 ##########################################################
 PLAY TEXT INGESTION
 ##########################################################\n'''
     unhandled_tags = []
+    line_id_map = {}
+    ordered_line_ids = []
 
     with open(playtext_file_path, 'r') as tei_in:
         tei_text = tei_in.read()
@@ -668,12 +759,8 @@ PLAY TEXT INGESTION
         line_info = {
             'line_number': 0,
             'line_xml_id': None,
+            'line_alt_xml_ids': [],
             'line_label': None,
-            'virtual_lines': {},
-            'make_next_line': True,
-            'next_line_label': None,
-            'start_line_xml_id': start_line_xml_id,
-            'end_line_xml_id': end_line_xml_id,
             'act': None,
             'scene': None,
             'witness_location_id': None,
@@ -712,21 +799,49 @@ PLAY TEXT INGESTION
             ", ".join([char.name for char in line_info['characters']])
         )
 
-        # gather virtual line info
-        links = lines_tei.find_all('link')
-        for link in links:
-            if _contains(link.attrs, ['xml:id', 'type', 'target']) and link['type'] == 'join':
-                tln = link['xml:id']
-                targets = link['target'].replace('#', '').split()
-                for t_index in range(0, len(targets)):
-                    line_info['virtual_lines'][targets[t_index]] = tln
-
         # recursively parse the playtext
         for child in lines_tei.find('div', attrs={'type': 'playtext', 'xml:id': 'div_playtext'}).children:
             handle_playtext_tag(corpus, play, child, line_info)
 
         fakeline = BeautifulSoup('<lb xml:id="xxxx" n="xxxx"/>', 'xml')
         handle_playtext_tag(corpus, play, fakeline.lb, line_info)
+
+        # build line_id_map and ordered_line_ids for use by get_line_ids functions
+        lines = corpus.get_content('PlayLine', {'play': play.id}, only=['id', 'xml_id', 'alt_xml_ids'])
+        lines = lines.order_by('line_number')
+        for line in lines:
+            ordered_line_ids.append(str(line.id))
+
+            if line.xml_id not in line_id_map:
+                line_id_map[line.xml_id] = [str(line.id)]
+            else:
+                line_id_map[line.xml_id].append(str(line.id))
+
+            for alt_xml_id in line.alt_xml_ids:
+                if alt_xml_id not in line_id_map:
+                    line_id_map[alt_xml_id] = [str(line.id)]
+                else:
+                    line_id_map[alt_xml_id].append(str(line.id))
+
+        # register virtual line info in line_id_map
+        links = lines_tei.find_all('link')
+        for link in links:
+            if _contains(link.attrs, ['xml:id', 'type', 'target']):
+                xml_id = link['xml:id']
+                if xml_id not in line_id_map:
+                    line_id_map[xml_id] = []
+
+                targets = link['target'].replace('#', '').split()
+                for target in targets:
+                    if target in line_id_map:
+                        line_id_map[xml_id] += line_id_map[target]
+
+        # output line_id_map and ordered_line_ids for debugging or standalone textual/commentary note ingestion
+        with open(corpus.path + '/files/{0}_line_id_map.json'.format(play.prefix), 'w', encoding='utf-8') as line_info_out:
+            json.dump(line_id_map, line_info_out, indent=4)
+
+        with open(corpus.path + '/files/{0}_ordered_line_ids.json'.format(play.prefix), 'w', encoding='utf-8') as line_info_out:
+            json.dump(ordered_line_ids, line_info_out, indent=4)
 
         report += "{0} lines ingested.\n\n".format(line_info['line_number'])
         line_info['unhandled_tags'] = list(set(line_info['unhandled_tags']))
@@ -740,7 +855,7 @@ PLAY TEXT INGESTION
         report += "An error prevented full ingestion of the play text:\n\n{0}".format(traceback.format_exc())
 
     del lines_tei
-    return report
+    return report, line_id_map, ordered_line_ids
 
 
 def handle_playtext_tag(corpus, play, tag, line_info):
@@ -759,77 +874,38 @@ def handle_playtext_tag(corpus, play, tag, line_info):
         # lb
         elif tag.name == 'lb' and _contains(tag.attrs, ['xml:id', 'n']):
             # make current line if appropriate
-            if line_info['line_xml_id'] and line_info['make_next_line']:
+            if line_info['line_xml_id']:
                 make_playtext_line(corpus, play, line_info)
 
-            lb_xml_id = tag['xml:id']
+            line_info['line_xml_id'] = tag['xml:id']
+            line_info['line_label'] = tag['n']
+            line_info['line_alt_xml_ids'] = []
 
-            # determine whether to make next line
-            if line_info['virtual_lines'] and '-' in lb_xml_id or lb_xml_id.endswith('i'):
-                line_info['make_next_line'] = False
-            else:
-                line_info['make_next_line'] = True
+            tln_matches = re.findall(r'(tln_\d\d\d\d)', tag['xml:id'])
+            if tln_matches:
+                for match in tln_matches:
+                    if match != line_info['line_xml_id']:
+                        line_info['line_alt_xml_ids'].append(match)
 
-            # extract next line id
-            if line_info['virtual_lines'] and '-' in lb_xml_id:
-                id_parts = lb_xml_id.split('-')
-                line_info['line_xml_id'] = id_parts[0]
-            elif _contains_any(lb_xml_id, ['i', 'f']):
-                line_info['line_xml_id'] = line_info['virtual_lines'][lb_xml_id]
-            else:
-                line_info['line_xml_id'] = lb_xml_id
-
-            # extract next line label
-            hyphen_a = '-'
-            hyphen_b = '–'
-            label_parts = []
-            if hyphen_a in tag['n']:
-                label_parts = tag['n'].split(hyphen_a)
-            elif hyphen_b in tag['n']:
-                label_parts = tag['n'].split(hyphen_b)
-
-            if label_parts:
-                line_info['line_label'] = label_parts[0]
-            elif ',' in tag['n']:
-                label_parts = tag['n'].split(',')
-                line_info['line_label'] = label_parts[0].strip()
-                line_info['next_line_label'] = label_parts[1].strip()
-            else:
-                line_info['line_label'] = tag['n']
-
-
-        # nvsSeg (for virtual lineation)
-        elif tag.name == 'nvsSeg' and _contains(tag.attrs, ['type', 'xml:id']) and tag['type'] == 'linePart':
-            # make current line and calculate next label if appropriate
-            if line_info['line_xml_id'] and line_info['make_next_line']:
-                make_playtext_line(corpus, play, line_info)
-                if line_info['next_line_label']:
-                    line_info['line_label'] = line_info['next_line_label']
-                    line_info['next_line_label'] = None
-                else:
-                    line_info['line_label'] = str(int(line_info['line_label']) + 1)
-
-            seg_tln = tag['xml:id']
-
-            # determine whether to make next line
-            if seg_tln.endswith('i'):
-                line_info['make_next_line'] = False
-            else:
-                line_info['make_next_line'] = True
-
-            # determine next line id
-            if seg_tln in line_info['virtual_lines']:
-                line_info['line_xml_id'] = line_info['virtual_lines'][seg_tln]
-            else:
-                line_info['line_xml_id'] = seg_tln
+        # nvsSeg
+        elif tag.name == 'nvsSeg':
+            if 'xml:id' in tag.attrs:
+                line_info['line_alt_xml_ids'].append(tag['xml:id'].strip())
+                tln_matches = re.findall(r'(tln_\d\d\d\d)', tag['xml:id'])
+                if tln_matches:
+                    for match in tln_matches:
+                        if match != line_info['line_xml_id'] and match not in line_info['line_alt_xml_ids']:
+                            line_info['line_alt_xml_ids'].append(match)
 
             for child in tag.children:
                 handle_playtext_tag(corpus, play, child, line_info)
 
+        # todo: anchor (with marker attribute)
+
         # div for act/scene
         elif tag.name == 'div' and _contains(tag.attrs, ['type', 'n']):
             # if this is the first act/scene, make sure last line of DP is created
-            if line_info['line_xml_id'] and line_info['make_next_line']:
+            if line_info['line_xml_id']:
                 make_playtext_line(corpus, play, line_info)
                 line_info['line_xml_id'] = None
 
@@ -978,6 +1054,9 @@ def make_playtext_line(corpus, play, line_info):
     line.line_label = line_info['line_label']
     line.line_number = line_info['line_number']
 
+    for alt_xml_id in line_info['line_alt_xml_ids']:
+        line.alt_xml_ids.append(alt_xml_id)
+
     if line_info['act'] and line_info['scene']:
         line.act = line_info['act']
         line.scene = line_info['scene']
@@ -1013,7 +1092,7 @@ def make_text_location(line_number, char_index):
     return float(text_location)
 
 
-def parse_textualnotes_file(corpus, play, textualnotes_file_path, tn_xml_id=None):
+def parse_textualnotes_file(corpus, play, textualnotes_file_path, line_id_map, ordered_line_ids, tn_xml_id=None):
     report = '''
 ##########################################################
 TEXTUAL NOTES INGESTION
@@ -1033,27 +1112,22 @@ TEXTUAL NOTES INGESTION
             notes_tei = BeautifulSoup(tei_text, "xml")
 
         all_sigla = []
-        missing_sigla = []
-
-        # build line_id_map to quickly match line xml_ids w/ mongodb objectids
-        line_id_map = {}
-        lines = corpus.get_content('PlayLine', {'play': play.id}, only=['id', 'xml_id', 'witness_meter'])
-        lines = lines.order_by('line_number')
-        for line in lines:
-            line_id_map[line.xml_id] = line.id
 
         # get list of witnesses ordered by publication date so as
         # to handle witness ranges
         references = corpus.get_content("Reference", {'play': play.id, 'ref_type': 'primary_witness'}).order_by('+id')
         witnesses = [ref.document for ref in references]
         for witness in witnesses:
-            all_sigla.append(strip_tags(witness.siglum_label))
+            all_sigla.append(strip_tags(witness.siglum_label).lower())
 
         # get "document collections" for shorthand witness groups
-        witness_groups = list(corpus.get_content('DocumentCollection', all=True))
+        witness_groups = list(corpus.get_content('DocumentCollection', {'play': play.id}))
 
         for witness_group in witness_groups:
-            all_sigla.append(strip_tags(witness_group.siglum_label))
+            all_sigla.append(strip_tags(witness_group.siglum_label).lower())
+
+        with open(corpus.path + '/files/' + play.prefix + '_sigla.json', 'w', encoding='utf-8') as sigla_out:
+            json.dump(all_sigla, sigla_out)
 
         # get all "note" tags, corresponding to TexualNote content
         # type so we can iterate over and build them
@@ -1074,173 +1148,181 @@ TEXTUAL NOTES INGESTION
             textual_note.xml_id = note['xml:id']
             textual_note.witness_meter = "0" * (len(witnesses) + 1)
 
-            textual_note.lines = get_line_ids(line_id_map, note['target'], note.attrs.get('targetEnd', None))
+            textual_note.lines, line_err_msg = get_line_ids(
+                note['target'],
+                note.attrs.get('targetEnd', None),
+                line_id_map,
+                ordered_line_ids
+            )
+            if line_err_msg:
+                report += "Error finding lines for textual note {0}: {1}\n\n".format(textual_note.xml_id, line_err_msg)
 
-            note_lemma = None
-            if note.app.find('lem', recursive=False):
-                note_lemma = tei_to_html(note.app.lem)
+            if textual_note.lines and not line_err_msg:
+                note_lemma = None
+                if note.app.find('lem', recursive=False):
+                    note_lemma = tei_to_html(note.app.lem)
 
-            current_color = 1
-            note_exclusions = []
-            note_exclusion_formula = ''
-            variants = note.app.find_all('appPart')
+                current_color = 1
+                note_exclusions = []
+                note_exclusion_formula = ''
+                variants = note.app.find_all('appPart')
 
-            for variant in variants:
-                textual_variant = corpus.get_content('TextualVariant')
-                textual_variant.play = play.id
+                for variant in variants:
+                    textual_variant = corpus.get_content('TextualVariant')
+                    textual_variant.play = play.id
 
-                references_selectively_quoted_witness = False
+                    references_selectively_quoted_witness = False
 
-                reading_description = variant.find('rdgDesc')
-                if reading_description:
-                    textual_variant.description = tei_to_html(reading_description)
+                    reading_description = variant.find('rdgDesc')
+                    if reading_description:
+                        textual_variant.description = tei_to_html(reading_description)
 
-                reading = variant.find('rdg')
-                if reading:
-                    if 'type' in reading.attrs:
-                        textual_variant.transform_type = reading['type']
-                        if 'subtype' in reading.attrs:
-                            textual_variant.transform_type += '_' + reading['subtype']
-                    else:
-                        textual_variant.transform_type = "punctuation"
-                    textual_variant.transform = tei_to_html(reading)
-
-                if note_lemma:
-                    textual_variant.lemma = note_lemma
-                else:
-                    lem_tag = variant.find('lem')
-                    if lem_tag:
-                        textual_variant.lemma = tei_to_html(lem_tag)
-
-                starting_siglum = None
-                ending_siglum = None
-                next_siglum_ends = False
-                include_all_following = False
-                exclusion_started = False
-                excluding_sigla = []
-
-                textual_variant.witness_formula = ""
-                for child in variant.wit.children:
-                    if child.name == 'siglum':
-                        siglum_label = strip_tags(tei_to_html(child)).replace(';', '')
-                        textual_variant.witness_formula += '''
-                            <a href="#" class="ref-siglum variant-siglum" onClick="navigate_to('siglum', '{0}', this); return false;">{0}</a>
-                        '''.format(siglum_label)
-                        if siglum_label not in all_sigla:
-                            references_selectively_quoted_witness = True
-
-                        if not starting_siglum:
-                            starting_siglum = siglum_label
-                        elif next_siglum_ends:
-                            ending_siglum = siglum_label
-                            next_siglum_ends = False
-                        elif exclusion_started:
-                            excluding_sigla.append(siglum_label)
-
-                    else:
-                        if 'etc.' in str(child.string):
-                            textual_variant.witness_formula += note_exclusion_formula
+                    reading = variant.find('rdg')
+                    if reading:
+                        if 'type' in reading.attrs:
+                            textual_variant.transform_type = reading['type']
+                            if 'subtype' in reading.attrs:
+                                textual_variant.transform_type += '_' + reading['subtype']
                         else:
-                            textual_variant.witness_formula += str(child.string)
+                            textual_variant.transform_type = "punctuation"
+                        textual_variant.transform = tei_to_html(reading)
 
-                        formula = str(child.string).strip()
+                    if note_lemma:
+                        textual_variant.lemma = note_lemma
+                    else:
+                        lem_tag = variant.find('lem')
+                        if lem_tag:
+                            textual_variant.lemma = tei_to_html(lem_tag)
 
-                        # handle '+' ranges
-                        if formula.startswith('+') or 'etc.' in formula:
-                            include_all_following = True
+                    starting_siglum = None
+                    ending_siglum = None
+                    next_siglum_ends = False
+                    include_all_following = False
+                    exclusion_started = False
+                    excluding_sigla = []
+
+                    textual_variant.witness_formula = ""
+                    for child in variant.wit.children:
+                        if child.name == 'siglum':
+                            siglum_label = strip_tags(tei_to_html(child)).replace(';', '')
+                            textual_variant.witness_formula += '''
+                                <a href="#" class="ref-siglum variant-siglum" onClick="navigate_to('siglum', '{0}', this); return false;">{0}</a>
+                            '''.format(siglum_label)
+                            if siglum_label.lower() not in all_sigla:
+                                references_selectively_quoted_witness = True
+
+                            if not starting_siglum:
+                                starting_siglum = siglum_label
+                            elif next_siglum_ends:
+                                ending_siglum = siglum_label
+                                next_siglum_ends = False
+                            elif exclusion_started:
+                                excluding_sigla.append(siglum_label)
+
+                        else:
+                            if 'etc.' in str(child.string):
+                                textual_variant.witness_formula += note_exclusion_formula
+                            else:
+                                textual_variant.witness_formula += str(child.string)
+
+                            formula = str(child.string).strip()
+
+                            # handle '+' ranges
+                            if formula.startswith('+') or 'etc.' in formula:
+                                include_all_following = True
+                                if '(−' in formula:
+                                    exclusion_started = True
+
+                            # handle exclusions
                             if '(−' in formula:
                                 exclusion_started = True
+                            elif formula.startswith(')') and exclusion_started:
+                                exclusion_started = False
 
-                        # handle exclusions
-                        if '(−' in formula:
-                            exclusion_started = True
-                        elif formula.startswith(')') and exclusion_started:
-                            exclusion_started = False
+                            # handle '-' ranges
+                            elif formula.startswith('-'):
+                                next_siglum_ends = True
 
-                        # handle '-' ranges
-                        elif formula.startswith('-'):
-                            next_siglum_ends = True
+                            # use ',' to delimit the need to add individual sigla or add ranges
+                            if ',' in formula:
+                                if starting_siglum and not exclusion_started:
 
-                        # use ',' to delimit the need to add individual sigla or add ranges
-                        if ',' in formula:
-                            if starting_siglum and not exclusion_started:
-
-                                # the "get_witness_ids" function will handle:
-                                # '-' ranges
-                                # '+' ranges
-                                # exclusions
-                                # individual sigla
-                                textual_variant.witnesses.extend(
-                                    get_witness_ids(
-                                        witnesses,
-                                        witness_groups,
-                                        starting_siglum,
-                                        ending_witness_siglum=ending_siglum,
-                                        include_all_following=include_all_following,
-                                        excluding_sigla=excluding_sigla + note_exclusions
+                                    # the "get_witness_ids" function will handle:
+                                    # '-' ranges
+                                    # '+' ranges
+                                    # exclusions
+                                    # individual sigla
+                                    textual_variant.witnesses.extend(
+                                        get_witness_ids(
+                                            witnesses,
+                                            witness_groups,
+                                            starting_siglum,
+                                            ending_witness_siglum=ending_siglum,
+                                            include_all_following=include_all_following,
+                                            excluding_sigla=excluding_sigla + note_exclusions
+                                        )
                                     )
-                                )
 
-                                starting_siglum = None
-                                ending_siglum = None
-                                include_all_following = False
-                                excluding_sigla = []
+                                    starting_siglum = None
+                                    ending_siglum = None
+                                    include_all_following = False
+                                    excluding_sigla = []
 
-                # handle any further additions of sigla at the end of the formula
-                if starting_siglum:
-                    textual_variant.witnesses.extend(
-                        get_witness_ids(
-                            witnesses,
-                            witness_groups,
-                            starting_siglum,
-                            ending_witness_siglum=ending_siglum,
-                            include_all_following=include_all_following,
-                            excluding_sigla=excluding_sigla + note_exclusions
+                    # handle any further additions of sigla at the end of the formula
+                    if starting_siglum:
+                        textual_variant.witnesses.extend(
+                            get_witness_ids(
+                                witnesses,
+                                witness_groups,
+                                starting_siglum,
+                                ending_witness_siglum=ending_siglum,
+                                include_all_following=include_all_following,
+                                excluding_sigla=excluding_sigla + note_exclusions
+                            )
                         )
-                    )
 
-                has_note_exclusions = False
-                try:
-                    textual_variant.variant, has_note_exclusions = perform_variant_transform(corpus, textual_note, textual_variant)
-                except:
-                    report += "Error when performing transform for variant in note {0}:\n{1}\n\n".format(
-                        textual_note.xml_id,
-                        traceback.format_exc()
-                    )
-                    textual_variant.has_bug = 1
+                    has_note_exclusions = False
+                    try:
+                        textual_variant.variant, has_note_exclusions = perform_variant_transform(corpus, textual_note, textual_variant)
+                    except:
+                        report += "Error when performing transform for variant in note {0}:\n{1}\n\n".format(
+                            textual_note.xml_id,
+                            traceback.format_exc()
+                        )
+                        textual_variant.has_bug = 1
 
-                # If this variant was of type 'lem,' then 'has_note_exclusions' will be set to True.
-                # When this is the case, there's no need to save the variant or color witness meters,
-                # as variants of type 'lem' are when the lemma matches the copy-text. Therefore, the
-                # witnesses associated with this variant will be considered note-wide exclusions.
-                if has_note_exclusions:
-                    note_exclusions += [strip_tags(w.siglum_label) for w in witnesses if w.id in textual_variant.witnesses]
-                    note_exclusion_formula = "+ (-{0})".format(textual_variant.witness_formula)
-                else:
-                    # If the 'note_exclusions' list has entries, it means an earlier variant for this note was
-                    # of type 'lem,' and therefore any witnesses pertaining to this variant need to be added
-                    # to the list of exclusions
-                    if note_exclusions:
+                    # If this variant was of type 'lem,' then 'has_note_exclusions' will be set to True.
+                    # When this is the case, there's no need to save the variant or color witness meters,
+                    # as variants of type 'lem' are when the lemma matches the copy-text. Therefore, the
+                    # witnesses associated with this variant will be considered note-wide exclusions.
+                    if has_note_exclusions:
                         note_exclusions += [strip_tags(w.siglum_label) for w in witnesses if w.id in textual_variant.witnesses]
+                        note_exclusion_formula = "+ (-{0})".format(textual_variant.witness_formula)
+                    else:
+                        # If the 'note_exclusions' list has entries, it means an earlier variant for this note was
+                        # of type 'lem,' and therefore any witnesses pertaining to this variant need to be added
+                        # to the list of exclusions
+                        if note_exclusions:
+                            note_exclusions += [strip_tags(w.siglum_label) for w in witnesses if w.id in textual_variant.witnesses]
 
-                    variant_witness_indicators = get_variant_witness_indicators(witnesses, textual_variant)
-                    textual_variant.witness_meter = make_witness_meter(
-                        variant_witness_indicators,
-                        marker=str(current_color),
-                        references_selectively_quoted_witness=references_selectively_quoted_witness
-                    )
+                        variant_witness_indicators = get_variant_witness_indicators(witnesses, textual_variant)
+                        textual_variant.witness_meter = make_witness_meter(
+                            variant_witness_indicators,
+                            marker=str(current_color),
+                            references_selectively_quoted_witness=references_selectively_quoted_witness
+                        )
 
-                    current_color += 2
-                    if current_color >= 10:
-                        current_color -= 9
+                        current_color += 2
+                        if current_color >= 10:
+                            current_color -= 9
 
-                    textual_note.witness_meter = collapse_indicators(textual_variant.witness_meter, textual_note.witness_meter)
+                        textual_note.witness_meter = collapse_indicators(textual_variant.witness_meter, textual_note.witness_meter)
 
-                    textual_variant.save()
-                    textual_note.variants.append(textual_variant.id)
+                        textual_variant.save()
+                        textual_note.variants.append(textual_variant.id)
 
-            textual_note.save()
-            note_counter += 1
+                textual_note.save()
+                note_counter += 1
 
         report += "{0} textual notes ingested.\n\n".format(note_counter)
 
@@ -1257,6 +1339,7 @@ TEXTUAL NOTES INGESTION
                 order_by="right.uri"
             )
             recolored_notes = {}
+
             for line in lines:
                 line.witness_meter = "0" * (len(witnesses) + 1)
                 if hasattr(line, '_exploration') and 'haslines' in line._exploration:
@@ -1287,21 +1370,22 @@ TEXTUAL NOTES INGESTION
                                             variant_indicators.append(chosen_marker)
 
                                     variant.witness_meter = "".join([str(i) for i in variant_indicators])
-                                    variant.save()
+                                    variant.save(do_indexing=['witness_meter'], do_linking=False, relabel=False)
                                     note.witness_meter = collapse_indicators(variant.witness_meter, note.witness_meter)
 
-                            note.save()
+                            note.save(do_indexing=['witness_meter', 'variants'], do_linking=False, relabel=False)
                             recolored_notes[note_id] = 1
 
                         line.witness_meter = collapse_indicators(note.witness_meter, line.witness_meter)
                         note_indicators = [int(i) for i in note.witness_meter]
                         color_offset += max(note_indicators) + 1
 
-                    line.save()
+                    line.save(do_indexing=['witness_meter'], do_linking=False, relabel=False)
+
             del lines
 
     except:
-        "An error prevented full ingestion of textual notes:\n{0}\n\n".format(traceback.format_exc())
+        report += "An error prevented full ingestion of textual notes:\n{0}\n\n".format(traceback.format_exc())
 
     del notes_tei
     return report
@@ -1349,25 +1433,26 @@ def get_witness_ids(
     including_sigla = []
 
     for witness_group in witness_groups:
-        if strip_tags(witness_group.siglum_label) == starting_witness_siglum:
+        if strip_tags(witness_group.siglum_label).lower() == starting_witness_siglum.lower():
             if not ending_witness_siglum and not include_all_following:
-                starting_witness_siglum = None
+                # starting_witness_siglum = None
                 for reffed_doc in witness_group.referenced_documents:
                     if reffed_doc.siglum_label not in excluding_sigla:
                         including_sigla.append(strip_tags(reffed_doc.siglum_label))
+                break
             else:
                 starting_witness_siglum = strip_tags(witness_group.referenced_documents[0].siglum_label)
-        elif ending_witness_siglum and strip_tags(witness_group.siglum_label) == ending_witness_siglum:
+        elif ending_witness_siglum and strip_tags(witness_group.siglum_label).lower() == ending_witness_siglum.lower():
             ending_witness_siglum = strip_tags(witness_group.referenced_documents[-1].siglum_label)
         elif excluding_sigla:
             original_length = len(excluding_sigla)
             for ex_index in range(0, original_length):
-                if excluding_sigla[ex_index] == strip_tags(witness_group.siglum_label):
+                if excluding_sigla[ex_index].lower() == strip_tags(witness_group.siglum_label).lower():
                     for reffed_doc in witness_group.referenced_documents:
                         excluding_sigla.append(strip_tags(reffed_doc.siglum_label))
 
     for witness in witnesses:
-        if not starting_found and strip_tags(witness.siglum_label) == starting_witness_siglum:
+        if not starting_found and strip_tags(witness.siglum_label).lower() == starting_witness_siglum.lower():
             witness_ids.append(witness.id)
             starting_found = True
         elif starting_found and (ending_witness_siglum or include_all_following) and not ending_found:
@@ -1795,7 +1880,7 @@ def handle_bibl_title(tag, toggle_italics=False):
     return html
 
 
-def parse_commentary(corpus, play, commentary_file_path):
+def parse_commentary(corpus, play, commentary_file_path, line_id_map, ordered_line_ids):
     report = '''
 ##########################################################
 COMMENTARY NOTE INGESTION
@@ -1814,28 +1899,32 @@ COMMENTARY NOTE INGESTION
 
             comm_tei = BeautifulSoup(tei_text, "xml")
 
-        line_id_map = {}
-        lines = corpus.get_content('PlayLine', {'play': play.id}, only=['id', 'xml_id'])
-        lines.order_by('line_number')
-        for line in lines:
-            line_id_map[line.xml_id] = line.id
-
         note_tags = comm_tei.find_all('note', attrs={'type': 'commentary'})
         unhandled = []
+
+        primary_witnesses = corpus.get_content("Reference", {'play': play.id, 'ref_type': 'primary_witness'}).order_by('+id')
+        pw_sigla = [pw.document.siglum for pw in primary_witnesses]
 
         for note_tag in note_tags:
             note = corpus.get_content('Commentary')
             note.play = play.id
             note.xml_id = note_tag['xml:id']
 
-            note.lines = get_line_ids(line_id_map, note_tag['target'], note_tag.attrs.get('targetEnd', None))
-            if len(note.lines) < 1:
-                report += "Error finding lines for commentary note w/ XML ID {0}\n\n".format(note.xml_id)
+            note.lines, line_err_msg = get_line_ids(
+                note_tag['target'],
+                note_tag.attrs.get('targetEnd', None),
+                line_id_map,
+                ordered_line_ids
+            )
+            if len(note.lines) < 1 or line_err_msg:
+                report += "Error finding lines for commentary note w/ XML ID {0}: {1}\n\n".format(note.xml_id, line_err_msg)
+
 
             note.contents = ""
             note_data = {
-                'wit_xml_ids': [pw.siglum for pw in play.primary_witnesses]
+                'wit_xml_ids': pw_sigla
             }
+
             for child in note_tag.children:
                 note.contents += handle_commentary_tag(child, note_data)
 
@@ -2467,29 +2556,25 @@ def get_attr_classes(attr, rend):
     return ["{0}-{1}".format(attr, slugify(r)) for r in rend.split() if r]
 
 
-def get_line_ids(line_id_map, xml_id_start, xml_id_end=None):
+def get_line_ids(xml_id_start, xml_id_end, line_id_map, ordered_line_ids):
     line_ids = []
+    err_msg = ""
 
     if xml_id_start and xml_id_end and len(xml_id_start.split()) == len(xml_id_end.split()):
         starts = xml_id_start.split()
         ends = xml_id_end.split()
-        all_line_ids = list(line_id_map.keys())
 
         for pair_index in range(0, len(starts)):
-            start_id = starts[pair_index].replace('#', '')
-            end_id = ends[pair_index].replace('#', '')
+            start_xml_id = starts[pair_index].replace('#', '')
+            end_xml_id = ends[pair_index].replace('#', '')
+            if _contains(line_id_map, [start_xml_id, end_xml_id]) and line_id_map[start_xml_id] and line_id_map[end_xml_id]:
+                start_id_index = ordered_line_ids.index(line_id_map[start_xml_id][0])
+                end_id_index = ordered_line_ids.index(line_id_map[end_xml_id][-1])
 
-            if all_line_ids.index(start_id) < all_line_ids.index(end_id):
-                started = False
-                for line_xml_id in all_line_ids:
-                    if not started and line_xml_id == start_id:
-                        started = True
-
-                    if started:
-                        line_ids.append(line_id_map[line_xml_id])
-
-                    if started and line_xml_id == end_id:
-                        break
+                if start_id_index < end_id_index:
+                    line_ids += ordered_line_ids[start_id_index:end_id_index + 1]
+            else:
+                err_msg += "Lines with XML IDs {0} and/or {1} not found!".format(start_xml_id, end_xml_id)
 
     elif xml_id_start:
         xml_ids = xml_id_start.replace('#', '').split()
@@ -2498,9 +2583,14 @@ def get_line_ids(line_id_map, xml_id_start, xml_id_end=None):
             xml_ids += xml_id_end.replace('#', '').split()
 
         for xml_id in xml_ids:
-            line_ids.append(line_id_map[xml_id])
+            if xml_id in line_id_map:
+                for line_id in line_id_map[xml_id]:
+                    if line_id not in line_ids:
+                        line_ids.append(line_id)
+            else:
+                err_msg += "Line with XML ID {0} not found! ".format(xml_id)
 
-    return line_ids
+    return line_ids, err_msg
 
 
 def stitch_lines(lines, embed_line_markers=False, embed_pipes=False):
@@ -2807,24 +2897,7 @@ def render_lines_html(corpus, play, starting_line_no=None, ending_line_no=None):
 
         for char_index in range(0, len(line.text)):
             location = make_text_location(line.line_number, char_index)
-            if location in taggings:
-                for closing_tag in taggings[location]['close']:
-                    line.rendered_html += closing_tag['html']
-                    remove_tag_index = -1
-                    for tag_index in range(0, len(open_tags)):
-                        if open_tags[tag_index]['id'] == closing_tag['id']:
-                            remove_tag_index = tag_index
-                            break
-                    if remove_tag_index > -1:
-                        open_tags.pop(remove_tag_index)
-
-                if 'empty' in taggings[location]:
-                    for empty_tag in taggings[location]['empty']:
-                        line.rendered_html += empty_tag['html']
-
-                for opening_tag in taggings[location]['open']:
-                    line.rendered_html += opening_tag['html']
-                    open_tags.append(opening_tag)
+            place_tags(location, line, taggings, open_tags)
 
             char = line.text[char_index]
             if char == '\xad':
@@ -2832,30 +2905,47 @@ def render_lines_html(corpus, play, starting_line_no=None, ending_line_no=None):
             line.rendered_html += char
 
         location = make_text_location(line.line_number, len(line.text))
-        if location in taggings:
-            for closing_tag in taggings[location]['close']:
-                line.rendered_html += closing_tag['html']
-                remove_tag_index = -1
-                for tag_index in range(0, len(open_tags)):
-                    if open_tags[tag_index]['id'] == closing_tag['id']:
-                        remove_tag_index = tag_index
-                        break
-                if remove_tag_index > -1:
-                    open_tags.pop(remove_tag_index)
-
-            for opening_tag in taggings[location]['open']:
-                line.rendered_html += opening_tag['html']
-                open_tags.append(opening_tag)
-
-            if 'empty' in taggings[location]:
-                for empty_tag in taggings[location]['empty']:
-                    line.rendered_html += empty_tag['html']
+        place_tags(location, line, taggings, open_tags)
 
         for open_tag in reversed(open_tags):
             close_html = "</{0}>".format(open_tag['html'][1:open_tag['html'].index(" ")])
             line.rendered_html += close_html
 
-        line.save()
+        line.save(do_linking=False)
     del lines
     taggings.clear()
 
+
+def place_tags(location, line, taggings, open_tags):
+    if location in taggings:
+        for closing_tag in taggings[location]['close']:
+            line.rendered_html += closing_tag['html']
+            remove_tag_index = -1
+            for tag_index in range(0, len(open_tags)):
+                if open_tags[tag_index]['id'] == closing_tag['id']:
+                    remove_tag_index = tag_index
+                    break
+            if remove_tag_index > -1:
+                open_tags.pop(remove_tag_index)
+
+        if 'empty' in taggings[location]:
+            for empty_tag in taggings[location]['empty']:
+                line.rendered_html += empty_tag['html']
+
+        for opening_tag in taggings[location]['open']:
+            line.rendered_html += opening_tag['html']
+            open_tags.append(opening_tag)
+
+
+def time_it(timer_name, stop=False):
+    if timer_name not in job_timers:
+        job_timers[timer_name] = {
+            'start': None,
+            'total': 0
+        }
+
+    if not stop:
+        job_timers[timer_name]['start'] = timer()
+    elif job_timers[timer_name]['start']:
+        job_timers[timer_name]['total'] += timer() - job_timers[timer_name]['start']
+        job_timers[timer_name]['start'] = None

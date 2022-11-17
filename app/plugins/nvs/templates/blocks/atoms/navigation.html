@@ -172,6 +172,15 @@
                 <li><a href="{% if site_request %}/appendix/mnd/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/mnd/Appendix/{% endif %}">Appendix</a></li>
             </ul>
           </li>
+          <!--<li class="navigation--dropdown nested{% if 'lr' in nvs_page %} active {% endif %}">
+            <button class="link">King Lear {% include 'svg/arrow.svg' %}</button>
+            <ul class="navigation--dropdown-inner">
+              <li><a href="{% if site_request %}/edition/lr/{% else %}/corpus/{{ corpus_id }}/play-viewer/lr/{% endif %}">Variorum Reader</a></li>
+              <li><a href="{% if site_request %}/front/lr/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/lr/Front Matter/{% endif %}">Front matter</a></li>
+              <li><a href="{% if site_request %}/bibliography/lr/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/lr/Bibliography/{% endif %}">Bibliography</a></li>
+              <li><a href="{% if site_request %}/appendix/lr/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/lr/Appendix/{% endif %}">Appendix</a></li>
+            </ul>
+          </li>-->
         </ul>
       </ul>
     </li>

@@ -261,15 +261,31 @@
           </div>
 
           <div>
-            <div class="edition-card--holder">
+            <div class="edition-card--holder"><!-- add "current" class to release -->
               <div class="edition-card--image-holder">
                 {% include 'svg/edition-overlay.svg' %}
                 <img src="{% static 'img/home/TKL-card.png' %}" alt="King Lear"/>
               </div>
               <div class="edition-card--text">
                 <div class="edition-card--text-inner">
-                  <small>In production<sup>*</sup></small>
+                    <small>Coming soon<sup>*</sup></small>
                   <h2>King Lear <span class="year">(1605)</span></h2>
+                </div>
+                <div class="edition-card--nav">
+                  <ul>
+                    <li class="roboto-uppercase"><a
+                        href="{% if site_request %}/edition/lr/{% else %}/corpus/{{ corpus_id }}/play-viewer/lr/{% endif %}">Variorum
+                      Reader</a></li>
+                    <li class="roboto-uppercase"><a
+                        href="{% if site_request %}/front/lr/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/lr/Front Matter/{% endif %}">Front
+                      matter</a></li>
+                    <li class="roboto-uppercase"><a
+                        href="{% if site_request %}/bibliography/lr/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/lr/Bibliography/{% endif %}">Bibliography</a>
+                    </li>
+                    <li class="roboto-uppercase"><a
+                        href="{% if site_request %}/appendix/lr/{% else %}/corpus/{{ corpus_id }}/paratext-viewer/lr/Appendix/{% endif %}">Appendix</a>
+                    </li>
+                  </ul>
                 </div>
               </div>
             </div>
