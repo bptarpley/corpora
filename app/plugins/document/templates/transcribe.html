@@ -341,7 +341,7 @@
         let project_url = '{{ document.uri }}/transcribe/{{ project.id }}/';
         let project_name = '{{ project.name }}';
 
-        let trans_text = {{ project.transcription_text|safe }};
+        let trans_text = {% if project.transcription_text %}{{ project.transcription_text|safe }}{% else %}[]{% endif %};
         let trans_cursor = {% if project.transcription_cursor %}{{ project.transcription_cursor }}{% else %}0{% endif %};
         let trans_id_differential = 1;
         let trans_text_to_import = null;
