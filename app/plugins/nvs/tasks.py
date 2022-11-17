@@ -553,13 +553,36 @@ FRONT MATTER INGESTION
     unhandled += list(set(pt_data['unhandled']))
     pt.save()
 
+    # extract acknowledgements
+    acknow = front_tei.find('div', type='acknowledgements')
+    if acknow:
+        pt = corpus.get_content('ParaText')
+        pt.play = play.id
+        pt.xml_id = acknow['xml:id']
+        pt.section = "Front Matter"
+        pt.order = 2
+        pt.level = 1
+        pt.html_content = ""
+
+        pt_data = {
+            'current_note': None,
+            'unhandled': [],
+            'corpus': corpus
+        }
+
+        for child in acknow.children:
+            pt.html_content += handle_paratext_tag(child, pt, pt_data)
+
+        unhandled += list(set(pt_data['unhandled']))
+        pt.save()
+
     # extract plan of work
     plan_of_work = front_tei.find('div', type='potw')
     pt = corpus.get_content('ParaText')
     pt.play = play.id
     pt.xml_id = plan_of_work['xml:id']
     pt.section = "Front Matter"
-    pt.order = 2
+    pt.order = 3
     pt.level = 1
     pt.html_content = ""
 
