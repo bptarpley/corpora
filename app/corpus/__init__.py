@@ -1189,8 +1189,7 @@ class File(mongoengine.EmbeddedDocument):
                 break
 
         if valid:
-            return File
-
+            return file
         return None
 
     def to_dict(self, parent_uri):
