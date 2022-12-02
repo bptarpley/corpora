@@ -1181,8 +1181,7 @@ class File(mongoengine.EmbeddedDocument):
         file = File()
         valid = True
         for attr in ['uri', 'primary_witness', 'path', 'basename', 'extension', 'byte_size',
-                     'description', 'provenance_type', 'provenance_id', 'height', 'width',
-                     'is_image', 'iiif_info', 'collection_label']:
+                     'description', 'provenance_type', 'provenance_id', 'height', 'width', 'iiif_info']:
             if attr in file_dict:
                 setattr(file, attr, file_dict[attr])
             else:
@@ -2971,8 +2970,8 @@ class Content(mongoengine.Document):
 
     def save(self, do_indexing=True, do_linking=True, relabel=True, **kwargs):
         super().save(**kwargs)
-        path_created = self._make_path()
         label_created = self._make_label(relabel)
+        path_created = self._make_path()
         uri_created = self._make_uri()
 
         if path_created or label_created or uri_created:
@@ -3028,6 +3027,10 @@ class Content(mongoengine.Document):
 
     def _make_label(self, force=True):
         if force or not self.label:
+            # make sure that if template is referencing cross_reference fields, we reload from database
+            if not self.label and re.search(r'{{[^}\.]*\.[^}\.]*\.[^}]*}}', self._ct.templates['Label'].template):
+                self.reload()
+
             label_template = Template(self._ct.templates['Label'].template)
             context = Context({self.content_type: self})
             self.label = label_template.render(context)
