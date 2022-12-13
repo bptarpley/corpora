@@ -1137,6 +1137,8 @@ def export_corpus(job_id):
 @db_task(priority=3)
 def restore_corpus(export_id):
     export = CorpusExport.objects(id=export_id)
+    export_directory = None
+
     if export.count() > 0:
         export = export[0]
         print("Attempting to restore corpus from export file {0}".format(export.path))
@@ -1245,7 +1247,7 @@ def restore_corpus(export_id):
 
 
         except:
-            if os.path.exists(export_directory):
+            if export_directory and os.path.exists(export_directory):
                 shutil.rmtree(export_directory)
             print(traceback.format_exc())
 

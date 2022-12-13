@@ -6,6 +6,7 @@ import logging
 import traceback
 from huey.contrib.djhuey import db_task
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from time import sleep
 from .content import REGISTRY as ARC_CONTENT_TYPE_SCHEMA
 from .content import Ascription
@@ -54,7 +55,17 @@ REGISTRY = {
         "configuration": {},
         "module": 'plugins.arc.tasks',
         "functions": ['guess_agent_uri']
-    }
+    },
+    "Clear ARC Archive": {
+        "version": "0.2",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "content_type": "ArcArchive",
+        "create_report": True,
+        "configuration": {},
+        "module": 'plugins.arc.tasks',
+        "functions": ['clear_archive']
+    },
 }
 
 archives_dir = '/import/arc_rdf'
@@ -144,6 +155,7 @@ def index_archives(job_id):
                 break
 
     if archives:
+        clear_cached_references(corpus)
         process_merged_agents(corpus)
 
         for archive in archives:
@@ -178,6 +190,101 @@ def get_or_create_archive(corpus, handle):
             print(traceback.format_exc())
 
     return archive, new
+
+
+@db_task(priority=2)
+def clear_archive(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+
+    es_logger = logging.getLogger('elasticsearch')
+    es_logger.setLevel(logging.WARNING)
+
+    deletions = {
+        'ArcArtifact': 0,
+        'ArcFederation': 0,
+        'ArcType': 0,
+        'ArcDiscipline': 0,
+        'ArcGenre': 0,
+        'ArcAgent': 0,
+        'ArcEntity': 0,
+        'ArcRole': 0
+    }
+
+    archive = job.content
+    if archive:
+        job.report("Deleting content associated with {0} archive...".format(archive.handle))
+
+        fed_ids = {}
+        type_ids = {}
+        disc_ids = {}
+        genre_ids = {}
+        agent_ids = {}
+        entity_ids = {}
+        role_ids = {}
+
+        artifacts = job.corpus.get_content('ArcArtifact', {'archive': archive.id})
+        total_arts = artifacts.count()
+
+        for art in artifacts:
+            for fed in art.federations:
+                fed_ids[str(fed.id)] = True
+
+            for arc_type in art.types:
+                type_ids[str(arc_type.id)] = True
+
+            for agent in art.agents:
+                agent_ids[str(agent.id)] = True
+                role_ids[str(agent.role.id)] = True
+                entity_ids[str(agent.entity.id)] = True
+
+            for disc in art.disciplines:
+                disc_ids[str(disc.id)] = True
+
+            for genre in art.genres:
+                genre_ids[str(genre.id)] = True
+
+            art.delete()
+
+            deletions['ArcArtifact'] += 1
+            if deletions['ArcArtifact'] % 100 == 0:
+                job.set_status('running', percent_complete=int((deletions['ArcArtifact'] / total_arts) * 100))
+
+        # wait for deletions to propagate to Neo4J before checking if orphans
+        sleep(5)
+
+        for fed_id in fed_ids.keys():
+            delete_if_orphaned(job.corpus, 'ArcFederation', fed_id, deletions)
+
+        for type_id in type_ids.keys():
+            delete_if_orphaned(job.corpus, 'ArcType', type_id, deletions)
+
+        for disc_id in disc_ids.keys():
+            delete_if_orphaned(job.corpus, 'ArcDiscipline', disc_id, deletions)
+
+        for genre_id in genre_ids.keys():
+            delete_if_orphaned(job.corpus, 'ArcGenre', genre_id, deletions)
+
+        for agent_id in agent_ids.keys():
+            delete_if_orphaned(job.corpus, 'ArcAgent', agent_id, deletions)
+
+        for role_id in role_ids.keys():
+            delete_if_orphaned(job.corpus, 'ArcRole', role_id, deletions)
+
+        for entity_id in entity_ids.keys():
+            delete_if_orphaned(job.corpus, 'ArcEntity', entity_id, deletions)
+
+    job.report('''Associated content deleted: \n{0}'''.format(
+        "\n".join(["{0}: {1}".format(d, deletions[d]) for d in deletions.keys()])
+    ))
+    job.complete(status='complete')
+
+
+def delete_if_orphaned(corpus, content_type, content_id, deletions):
+    content = corpus.get_content(content_type, content_id)
+    if content and content.is_orphan:
+        content.delete()
+        deletions[content_type] += 1
 
 
 def process_merged_agents(corpus):
@@ -216,6 +323,16 @@ def index_archive(job_id, archive_id, task=None):
     indexing_started = time.time()
     parse_times = []
     save_times = []
+    creations = {
+        'ArcArtifact': 0,
+        'ArcFederation': 0,
+        'ArcType': 0,
+        'ArcDiscipline': 0,
+        'ArcGenre': 0,
+        'ArcAgent': 0,
+        'ArcEntity': 0,
+        'ArcRole': 0
+    }
 
     try:
         cache = redis.Redis(host='redis', decode_responses=True)
@@ -267,8 +384,10 @@ WARNING(s) encountered while parsing {0} from {1}:
 {2}
                     '''.format(rdf_file_relative, archive.handle, "\n".join(warnings)))
 
+                artifact_count = 0
                 for art in artifacts:
                     save_start = time.time()
+                    new_artifact = False
 
                     if 'uri' not in art:
                         job.report('''
@@ -277,7 +396,7 @@ ERROR indexing an artifact in {0} from {1}: URI missing!
                         num_failures += 1
                         continue
 
-                    cached_art_id = get_reference(corpus, art['uri'], 'ArcArtifact', cache, make_new=False)
+                    cached_art_id = get_reference(job, art['uri'], 'ArcArtifact', cache, creations, make_new=False)
 
                     a = None
                     if cached_art_id:
@@ -285,6 +404,7 @@ ERROR indexing an artifact in {0} from {1}: URI missing!
                     else:
                         a = corpus.get_content('ArcArtifact')
                         a.external_uri = art['uri']
+                        new_artifact = True
 
                     if a:
                         try:
@@ -318,28 +438,33 @@ ERROR indexing an artifact in {0} from {1}: URI missing!
                                 a.full_text = 1 if art['full_text'] else 0
 
                             for fed in art['federations']:
-                                federation_id = get_reference(corpus, fed, 'ArcFederation', cache)
+                                federation_id = get_reference(job, fed, 'ArcFederation', cache, creations)
                                 if federation_id:
                                     a.federations.append(corpus.get_content_dbref('ArcFederation', federation_id))
 
                             for tp in art['types']:
-                                type_id = get_reference(corpus, tp, 'ArcType', cache)
+                                type_id = get_reference(job, tp, 'ArcType', cache, creations)
                                 if type_id:
                                     a.types.append(corpus.get_content_dbref('ArcType', type_id))
 
                             for agt in art['people']:
-                                agt_key = "{0}_|_{1}".format(agt['name'], agt['role_code'])
-                                agent_id = get_reference(corpus, agt_key, 'ArcAgent', cache)
+                                if 'uri' in agt:
+                                    agt_key = "{0}_|_{1}_|_{2}".format(agt['name'], agt['uri'], agt['role_code'])
+                                else:
+                                    agt_key = "{0}_|_{1}".format(agt['name'], agt['role_code'])
+
+                                agent_id = get_reference(job, agt_key, 'ArcAgent', cache, creations)
+
                                 if agent_id:
                                     a.agents.append(corpus.get_content_dbref('ArcAgent', agent_id))
 
                             for dsc in art['disciplines']:
-                                discipline_id = get_reference(corpus, dsc, 'ArcDiscipline', cache)
+                                discipline_id = get_reference(job, dsc, 'ArcDiscipline', cache, creations)
                                 if discipline_id:
                                     a.disciplines.append(corpus.get_content_dbref('ArcDiscipline', discipline_id))
 
                             for gnr in art['genres']:
-                                genre_id = get_reference(corpus, gnr, 'ArcGenre', cache)
+                                genre_id = get_reference(job, gnr, 'ArcGenre', cache, creations)
                                 if genre_id:
                                     a.genres.append(corpus.get_content_dbref('ArcGenre', genre_id))
 
@@ -400,6 +525,14 @@ ERROR indexing an artifact in {0} from {1}: URI missing!
                                 a.relateds.append(related)
 
                             a.save()
+                            if new_artifact:
+                                creations['ArcArtifact'] += 1
+
+                            artifact_count += 1
+                            if artifact_count % 100 == 0:
+                                job.set_status('running', percent_complete=int(
+                                    (((artifact_count / len(artifacts)) * 100) / 100 * len(rdf_files)) * 100
+                                ))
 
                         except:
                             job.report('''
@@ -422,12 +555,22 @@ ERROR occurred while readying the {0} archive for indexing:
 {1}
         '''.format(archive.handle, traceback.format_exc()))
 
-    job.report("FINISHED indexing the {0} archive (indexed {1} artifacts in {2} seconds).".format(archive.handle, artifacts_indexed, time.time() - indexing_started))
+    time_spent = relativedelta(seconds=int(time.time() - indexing_started))
+    job.report("FINISHED indexing the {0} archive (indexed {1} artifacts in {2}).\n".format(
+        archive.handle,
+        artifacts_indexed,
+        ' '.join('{0} {1}'.format(getattr(time_spent, interval), interval) for interval in ['days', 'hours', 'minutes', 'seconds'] if getattr(time_spent, interval))
+    ))
+    job.report("The following content was created:\n{0}".format(
+        "\n".join("{0}: {1}".format(c, creations[c]) for c in creations.keys())
+    ))
+    '''
     if parse_times and save_times:
         job.report("Avg parse time: {0} seconds; Avg save time: {1} seconds".format(
             sum(parse_times) / len(parse_times),
             sum(save_times) / len(save_times)
         ))
+    '''
 
     if task:
         job.complete_process(task.id)
@@ -517,6 +660,8 @@ def parse_rdf(rdf_file):
             'label': str(graph.value(bnode_uri, rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#label'))),
             'value': str(graph.value(bnode_uri, rdflib.term.URIRef('http://www.w3.org/1999/02/22-rdf-syntax-ns#value')))
         }
+        if bnodes[str(bnode_uri)]['value'] == 'None':
+            bnodes[str(bnode_uri)]['value'] = str(graph.value(bnode_uri, rdflib.term.URIRef('http://www.w3.org/2000/01/rdf-schema#value')))
 
     artifact_uris = [subj for subj in graph.subjects() if isinstance(subj, rdflib.term.URIRef)]
     artifact_uris = list(set(artifact_uris))
@@ -566,10 +711,19 @@ def parse_rdf(rdf_file):
 
                 # HANDLE ROLE CODES AND PEOPLE
                 elif prop.startswith('http://www.loc.gov/loc.terms/relators/'):
-                    art['people'].append({
-                        'name': str(value),
-                        'role_code': prop.replace('http://www.loc.gov/loc.terms/relators/', '')
-                    })
+                    role_code = prop.replace('http://www.loc.gov/loc.terms/relators/', '').strip()
+
+                    if isinstance(value, rdflib.term.BNode) and str(value) in bnodes:
+                        art['people'].append({
+                            'name': bnodes[str(value)]['label'].strip(),
+                            'role_code': role_code,
+                            'uri': bnodes[str(value)]['value'].strip(),
+                        })
+                    elif isinstance(value, rdflib.term.Literal):
+                        art['people'].append({
+                            'name': str(value).strip(),
+                            'role_code': role_code
+                        })
 
                 # DISCIPLINE
                 elif prop == 'http://www.collex.org/schema#discipline':
@@ -706,7 +860,7 @@ def parse_rdf(rdf_file):
     return artifacts, errors, warnings
 
 
-def get_reference(corpus, value, ref_type, cache, make_new=True):
+def get_reference(job, value, ref_type, cache, creations, make_new=True):
     ref = None
 
     try:
@@ -727,10 +881,6 @@ def get_reference(corpus, value, ref_type, cache, make_new=True):
                 'name': '{0}'
             },
             'ArcGenre': {
-                'name': '{0}'
-            },
-            'ArcEntity': {
-                'entity_type': 'PERSON',
                 'name': '{0}'
             },
             'ArcRole': {
@@ -756,10 +906,10 @@ def get_reference(corpus, value, ref_type, cache, make_new=True):
                     for field_name in single_key_reference_fields[ref_type].keys():
                         query[field_name] = single_key_reference_fields[ref_type][field_name].format(value)
 
-                    hits = corpus.search_content(
+                    hits = job.corpus.search_content(
                         ref_type,
                         page_size=5,
-                        fields_query=query,
+                        fields_filter=query,
                         only=list(query.keys())
                     )
 
@@ -775,40 +925,107 @@ def get_reference(corpus, value, ref_type, cache, make_new=True):
 
                     if not ref:
                         if ref_type == 'ArcEntity':
-                            alt_ent = corpus.search_content('ArcEntity', page_size=1, fields_filter={'alternate_names': value}, only=['id'])
+                            alt_ent = job.corpus.search_content('ArcEntity', page_size=1, fields_filter={'alternate_names': value, 'entity_type': 'PERSON'}, only=['id'])
                             if alt_ent and 'records' in alt_ent and len(alt_ent['records']) == 1:
                                 ref = alt_ent['records'][0]['id']
                                 make_new = False
 
                         if make_new:
-                            ref_obj = corpus.get_content(ref_type)
+                            ref_obj = job.corpus.get_content(ref_type)
                             for field_name in single_key_reference_fields[ref_type].keys():
                                 if hasattr(ref_obj, field_name):
                                     setattr(ref_obj, field_name, single_key_reference_fields[ref_type][field_name].format(value))
                             ref_obj.save()
+                            creations[ref_type] += 1
                             ref = str(ref_obj.id)
 
-                elif ref_type == 'ArcAgent': # need to speak entities instead of people
+                elif ref_type == 'ArcAgent':
+                    vals = value.split('_|_')
+                    pers_val = None
+                    role_val = None
+
+                    # Agent with URI specified
+                    if len(vals) == 3:
+                        pers_val = get_reference(job, "{0}_|_{1}".format(vals[0], vals[1]), 'ArcEntityURI', cache, creations)
+                        role_val = get_reference(job, vals[2], 'ArcRole', cache, creations)
+
+                    # Agent with no URI
+                    if len(vals) == 2:
+                        pers_val = get_reference(job, vals[0], 'ArcEntity', cache, creations)
+                        role_val = get_reference(job, vals[1], 'ArcRole', cache, creations)
+
+                    if pers_val and role_val:
+                        try:
+                            agt = job.corpus.get_content(ref_type, {'entity': pers_val, 'role': role_val})[0]
+                        except:
+                            if make_new:
+                                agt = job.corpus.get_content(ref_type)
+                                agt.entity = job.corpus.get_content_dbref('ArcEntity', pers_val)
+                                agt.role = job.corpus.get_content_dbref('ArcRole', role_val)
+                                agt.save()
+                                creations[ref_type] += 1
+                            else:
+                                agt = None
+
+                        if agt:
+                            ref = str(agt.id)
+
+                elif ref_type == 'ArcEntityURI':
                     vals = value.split('_|_')
                     if len(vals) == 2:
-                        pers_val = get_reference(corpus, vals[0], 'ArcEntity', cache)
-                        role_val = get_reference(corpus, vals[1], 'ArcRole', cache)
+                        entity = job.corpus.search_content(
+                            'ArcEntity',
+                            page_size=1,
+                            fields_filter={
+                                'external_uri': vals[1],
+                                'entity_type': 'PERSON'
+                            },
+                            only=['id', 'name']
+                        )
 
-                        if pers_val and role_val:
-                            try:
-                                agt = corpus.get_content(ref_type, {'entity': pers_val, 'role': role_val})[0]
-                            except:
-                                if make_new:
-                                    agt = corpus.get_content(ref_type)
-                                    agt.entity = corpus.get_content_dbref('ArcEntity', pers_val)
-                                    agt.role = corpus.get_content_dbref('ArcRole', role_val)
-                                    agt.save()
-                                else:
-                                    agt = None
+                        if entity and 'records' in entity and len(entity['records']) == 1:
+                            ref = entity['records'][0]['id']
 
-                            if agt:
-                                ref = str(agt.id)
+                            if entity['records'][0]['name'] != vals[0]:
+                                job.report("Name mismatch for entity with URI {0}: {1} (current) vs. {2} (RDF)".format(
+                                    vals[1],
+                                    entity['records'][0]['name'],
+                                    vals[0]
+                                ))
 
+                        if not ref:
+                            entity = job.corpus.get_content('ArcEntity')
+                            entity.name = vals[0]
+                            entity.entity_type = 'PERSON'
+                            entity.external_uri = vals[1]
+                            entity.external_uri_verified = True
+                            entity.save()
+                            creations['ArcEntity'] += 1
+
+                            ref = str(entity.id)
+
+                elif ref_type == 'ArcEntity':
+                    entity = job.corpus.search_content(
+                        'ArcEntity',
+                        page_size=1,
+                        fields_filter={
+                            'name': value,
+                            'entity_type': 'PERSON'
+                        },
+                        only=['id']
+                    )
+
+                    if entity and 'records' in entity and len(entity['records']) == 1:
+                        ref = entity['records'][0]['id']
+
+                    if not ref:
+                        entity = job.corpus.get_content('ArcEntity')
+                        entity.name = value
+                        entity.entity_type = 'PERSON'
+                        entity.save()
+                        creations['ArcEntity'] += 1
+
+                        ref = str(entity.id)
 
                 if ref:
                     cache.set(cache_key, ref, ex=expiry)
@@ -823,6 +1040,13 @@ def get_reference(corpus, value, ref_type, cache, make_new=True):
         '''.format(ref_type, value))
 
     return ref
+
+
+def clear_cached_references(corpus):
+    cache = corpus.redis_cache
+    for key in cache.scan_iter('corpora_arc_plugin*'):
+        cache.delete(key)
+
 
 @db_task(priority=2)
 def guess_agent_uri(job_id):
