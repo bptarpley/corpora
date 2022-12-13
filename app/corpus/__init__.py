@@ -1688,7 +1688,7 @@ class Corpus(mongoengine.Document):
                     field_values = [value_part for value_part in fields_filter[search_field].split('__') if value_part]
                     field_queries = []
                     for field_value in field_values:
-                        if '.' in search_field:
+                        if '.' in search_field and not (search_field.count('.') == 1 and search_field.endswith('.raw')):
                             field_parts = search_field.split('.')
                             field_queries.append(Q(
                                 "nested",
@@ -1701,6 +1701,12 @@ class Corpus(mongoengine.Document):
                         else:
                             if search_field == 'id':
                                 search_field = '_id'
+
+                            if '.' not in search_field:
+                                field_spec = self.content_types[content_type].get_field(search_field)
+                                if field_spec and field_spec.type == 'text':
+                                    search_field += '.raw'
+
                             field_queries.append(Q('term', **{search_field: field_value}))
 
                     if field_queries:
@@ -2480,26 +2486,12 @@ class Corpus(mongoengine.Document):
     def delete_content_type(self, content_type):
         if content_type in self.content_types:
             # Delete Neo4J nodes
-            # Commenting out deletion of child nodes:
-            # Sometimes child nodes are valid instances of content type
-            # nodes_deleted = 1
-            # while nodes_deleted > 0:
-            #    nodes_deleted = run_neo(
-            #        '''
-            #            MATCH (n:{0} {{corpus_id: $corpus_id}}) -[*]-> (x {{corpus_id: $corpus_id}})
-            #            WITH x LIMIT 1000
-            #            DETACH DELETE x
-            #            RETURN count(*)
-            #        '''.format(content_type),
-            #        {'corpus_id': str(self.id)}
-            #    )[0][0]
-
             nodes_deleted = 1
             while nodes_deleted > 0:
                 nodes_deleted = run_neo(
                     '''
                         MATCH (x:{0} {{corpus_id: $corpus_id}})
-                        WITH x LIMIT 1000
+                        WITH x LIMIT 5000
                         DETACH DELETE x
                         RETURN count(*)
                     '''.format(content_type),
@@ -2832,7 +2824,7 @@ class Corpus(mongoengine.Document):
             res = run_neo(
                 '''
                     MATCH (x {corpus_id: $corpus_id})
-                    WITH x LIMIT 10000
+                    WITH x LIMIT 5000
                     DETACH DELETE x
                     RETURN count(*)
                 ''',
@@ -2962,6 +2954,21 @@ class Content(mongoengine.Document):
 
             if type(value) is str:
                 self.field_intensities['{field_name}-{value}'.format(field_name=field_name, value=value)] = int(intensity)
+
+    @property
+    def is_orphan(self):
+        try:
+            cypher = '''
+                MATCH (c:{0} {{uri: '{1}'}}) <-[r]- ()
+                RETURN count(r) as count
+            '''.format(self.content_type, self.uri)
+
+            count = run_neo(cypher)
+
+            return count[0].value() == 0
+        except:
+            print(traceback.format_exc())
+            return False
 
     @classmethod
     def _pre_save(cls, sender, document, **kwargs):
