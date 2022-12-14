@@ -3321,6 +3321,8 @@ class Content(mongoengine.Document):
         for field in field_values.keys():
             if field == 'id':
                 field_values[field] = ObjectId(field_values[field])
+            if field in ['corpus_id', 'uri']:
+                continue
             setattr(self, field, field_values[field])
 
     def crystalize(self):
