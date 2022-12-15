@@ -923,21 +923,14 @@ def get_reference(job, value, ref_type, cache, creations, make_new=True):
                             ref = hit['id']
                             break
 
-                    if not ref:
-                        if ref_type == 'ArcEntity':
-                            alt_ent = job.corpus.search_content('ArcEntity', page_size=1, fields_filter={'alternate_names': value, 'entity_type': 'PERSON'}, only=['id'])
-                            if alt_ent and 'records' in alt_ent and len(alt_ent['records']) == 1:
-                                ref = alt_ent['records'][0]['id']
-                                make_new = False
-
-                        if make_new:
-                            ref_obj = job.corpus.get_content(ref_type)
-                            for field_name in single_key_reference_fields[ref_type].keys():
-                                if hasattr(ref_obj, field_name):
-                                    setattr(ref_obj, field_name, single_key_reference_fields[ref_type][field_name].format(value))
-                            ref_obj.save()
-                            creations[ref_type] += 1
-                            ref = str(ref_obj.id)
+                    if not ref and make_new:
+                        ref_obj = job.corpus.get_content(ref_type)
+                        for field_name in single_key_reference_fields[ref_type].keys():
+                            if hasattr(ref_obj, field_name):
+                                setattr(ref_obj, field_name, single_key_reference_fields[ref_type][field_name].format(value))
+                        ref_obj.save()
+                        creations[ref_type] += 1
+                        ref = str(ref_obj.id)
 
                 elif ref_type == 'ArcAgent':
                     vals = value.split('_|_')
@@ -993,7 +986,7 @@ def get_reference(job, value, ref_type, cache, creations, make_new=True):
                                     vals[0]
                                 ))
 
-                        if not ref:
+                        if not ref and make_new:
                             entity = job.corpus.get_content('ArcEntity')
                             entity.name = vals[0]
                             entity.entity_type = 'PERSON'
@@ -1019,13 +1012,19 @@ def get_reference(job, value, ref_type, cache, creations, make_new=True):
                         ref = entity['records'][0]['id']
 
                     if not ref:
-                        entity = job.corpus.get_content('ArcEntity')
-                        entity.name = value
-                        entity.entity_type = 'PERSON'
-                        entity.save()
-                        creations['ArcEntity'] += 1
+                        alt_ent = job.corpus.search_content('ArcEntity', page_size=1, fields_filter={'alternate_names': value, 'entity_type': 'PERSON'}, only=['id'])
+                        if alt_ent and 'records' in alt_ent and len(alt_ent['records']) == 1:
+                            ref = alt_ent['records'][0]['id']
+                            make_new = False
 
-                        ref = str(entity.id)
+                        if make_new:
+                            entity = job.corpus.get_content('ArcEntity')
+                            entity.name = value
+                            entity.entity_type = 'PERSON'
+                            entity.save()
+                            creations['ArcEntity'] += 1
+
+                            ref = str(entity.id)
 
                 if ref:
                     cache.set(cache_key, ref, ex=expiry)
