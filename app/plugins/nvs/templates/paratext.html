@@ -645,6 +645,7 @@
     $(document).ready(function() {
         corpora = new Corpora({'csrf_token': "{{ csrf_token }}"{% if site_request %},'host': '{{ corpora_url }}'{% endif %}});
 
+        // Place statement about digital edition of NVS before textual note section
         let textual_note_explanation = $('#textual_note_explanation_start');
         if (textual_note_explanation.length) {
             textual_note_explanation.prepend(`
@@ -666,6 +667,20 @@
                 </p>
             `);
         }
+
+        // Add credit to the MLA at end of Credits section
+        let section_headers = $('h2.level-1');
+        let found_credits = false;
+        section_headers.each(function() {
+            let header = $(this);
+            if (header.html() === 'Credits') found_credits = true;
+            else if (found_credits) {
+                let notice = document.createElement('p');
+                notice.innerHTML = `With founding sponsorship from the Modern Language Association of America, exclusive publisher of the NVS, 1936-2019.`;
+                $(notice).insertBefore(header);
+                found_credits = false;
+            }
+        });
 
         $('img.graphic').each(function() {
             let graphic = $(this);
