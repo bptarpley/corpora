@@ -181,7 +181,7 @@ def _generate_lincs_ttl(artifacts):
             ttl += '''<{uri}> a frbroo:F2_Expression ;\n'''.format(uri=art.external_uri.strip())
 
             # artifact "creation" node declaration (will specify agents and years later)
-            ttl += '''{tab}frbroo:P94i_was_created_by <{id}_creation> ;\n'''.format(tab=tab, id=art.id)
+            ttl += '''{tab}crm:P94i_was_created_by <{id}_creation> ;\n'''.format(tab=tab, id=art.id)
 
             # browser URL
             ttl += '''{tab}crm:P1_is_identified_by <{url}> ;\n'''.format(tab=tab, url=art.url.strip())
@@ -292,7 +292,7 @@ def _generate_lincs_ttl(artifacts):
     crm:P2_has_type <ARC_digital_surrogate>, <http://vocab.getty.edu/aat/300379790> .\n\n'''.format(id=art.id, label=art.label.strip())
 
             if art.date_of_edition:
-                ttl += '''<{id}_digital_surrogate> crm:P24i_was_created_by <{id}_digital_surrogate_creation> .
+                ttl += '''<{id}_digital_surrogate> crm:P94i_was_created_by <{id}_digital_surrogate_creation> .
 
 <{id}_digital_surrogate_creation> a crm:E65_Creation ;
     rdfs:label "Creation of ARC digital surrogate of {label}" ;
@@ -321,6 +321,8 @@ def _generate_lincs_ttl(artifacts):
 <{id}_digital_surrogate_review_timespan> a crm:E52_Time-Span ; 
     rdfs:label "Datetime of review of ARC digital surrogate of {label}" ;
     crm:P82_at_some_time_within "{year}" ;
+    crm:P82a_begin_of_the_begin "{year}-01-01T00:00:00"^^xsd:dateTime ;
+    crm:P82b_end_of_the_end "{year}-12-31T23:59:59"^^xsd:dateTime ;
     crm:P14_carried_out_by <{federation}> .
 
 <{id}_digital_surrogate_ingestion> a crm:E7_Activity ; 

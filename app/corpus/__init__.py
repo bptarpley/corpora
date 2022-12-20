@@ -1429,6 +1429,16 @@ class Corpus(mongoengine.Document):
             content_id
         )
 
+    def get_referencing_content_type_fields(self, content_type):
+        referencing = {}
+        for ct in self.content_types.keys():
+            for field in self.content_types[ct].fields:
+                if field.type == 'cross_reference' and field.cross_reference_type == content_type:
+                    if ct not in referencing:
+                        referencing[ct] = []
+                    referencing[ct].append(field)
+        return referencing
+
     def search_content(
             self,
             content_type,
@@ -3023,13 +3033,21 @@ class Content(mongoengine.Document):
         # mark any relevant content views as needs_refresh
         cvs = ContentView.objects(corpus=document._corpus, status='populated', relevant_cts=document.content_type)
         for cv in cvs:
-            print(cv.name)
             cv.set_status('needs_refresh')
             cv.save()
 
-        # delete any files
-        if document.path and os.path.exists(document.path):
-            document._corpus.queue_local_job(task_name="Content Deletion Cleanup", parameters={'content_path': document.path})
+        # determine if deletion cleanup needed
+        reffed_cts = document._corpus.get_referencing_content_type_fields(document.content_type)
+        if reffed_cts or document.path:
+            deletion = ContentDeletion()
+            if reffed_cts:
+                deletion.uri = document.uri
+            if document.path:
+                deletion.path = document.path
+            deletion.save()
+
+        #if document.path and os.path.exists(document.path):
+        #    document._corpus.queue_local_job(task_name="Content Deletion Cleanup", parameters={'content_path': document.path})
 
     def _make_label(self, force=True):
         if force or not self.label:
@@ -3579,6 +3597,30 @@ class ContentView(mongoengine.Document):
             'target_ct': self.target_ct,
             'status': self.status
         }
+
+
+class ContentDeletion(mongoengine.Document):
+    uri = mongoengine.StringField()
+    path = mongoengine.StringField()
+
+    @property
+    def corpus_id(self):
+        if self.uri and self.uri.count('/') == 4:
+            return self.uri.split('/')[2]
+        return None
+
+    @property
+    def content_type(self):
+        if self.uri and self.uri.count('/') == 4:
+            return self.uri.split('/')[3]
+        return None
+
+    @property
+    def content_id(self):
+        if self.uri and self.uri.count('/') == 4:
+            return self.uri.split('/')[4]
+        return None
+
 
 # SIGNALS FOR HANDLING MONGOENGINE DOCUMENT PRE/POST-DELETION (mostly for deleting Neo4J nodes)
 mongoengine.signals.post_save.connect(Corpus._post_save, sender=Corpus)
