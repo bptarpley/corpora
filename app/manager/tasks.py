@@ -10,7 +10,7 @@ import logging
 import math
 import redis
 from copy import deepcopy
-from corpus import Corpus, Job, get_corpus, File, run_neo, ContentView, CorpusExport, JobSite, GitRepo, CompletedTask
+from corpus import Corpus, Job, get_corpus, File, run_neo, ContentView, ContentDeletion, CorpusExport, JobSite, GitRepo, CompletedTask
 from huey.contrib.djhuey import db_task, db_periodic_task
 from huey import crontab
 from bson.objectid import ObjectId
@@ -208,23 +208,23 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['delete_corpus']
     },
-    "Content Deletion Cleanup": {
-        "version": "0",
-        "jobsite_type": "HUEY",
-        "track_provenance": False,
-        "content_type": "Corpus",
-        "configuration": {
-            "parameters": {
-                "content_path": {
-                    "value": "",
-                    "type": "text",
-                    "label": "Content Path"
-                }
-            }
-        },
-        "module": 'manager.tasks',
-        "functions": ['content_deletion_cleanup']
-    },
+    #"Content Deletion Cleanup": {
+    #    "version": "0",
+    #    "jobsite_type": "HUEY",
+    #    "track_provenance": False,
+    #    "content_type": "Corpus",
+    #    "configuration": {
+    #        "parameters": {
+    #            "content_path": {
+    #                "value": "",
+    #                "type": "text",
+    #                "label": "Content Path"
+    #            }
+    #        }
+    #    },
+    #    "module": 'manager.tasks',
+    #    "functions": ['content_deletion_cleanup']
+    #},
     "Merge Content": {
         "version": "0",
         "jobsite_type": "HUEY",
@@ -700,17 +700,6 @@ def delete_content_type(job_id):
 
 
 @db_task(priority=5)
-def content_deletion_cleanup(job_id):
-    job = Job(job_id)
-    job.set_status('running')
-    cleanup_path = job.get_param_value('content_path')
-    if os.path.exists(cleanup_path):
-        shutil.rmtree(cleanup_path)
-
-    job.complete(status='complete')
-
-
-@db_task(priority=5)
 def delete_content_type_field(job_id):
     job = Job(job_id)
     job.set_status('running')
@@ -1021,6 +1010,53 @@ def audit_content_views():
     for cv in cvs:
         cv.clear()
         cv.populate()
+
+
+@db_periodic_task(crontab(minute=1, hour='*'), priority=4)
+def content_deletion_cleanup():
+    corpora = {}
+    deletions = ContentDeletion.objects()
+    for deletion in deletions:
+        if deletion.uri:
+
+            del_corpus_id = deletion.corpus_id
+            del_content_type = deletion.content_type
+            del_content_id = deletion.content_id
+            refs_deleted = 0
+
+            if del_corpus_id not in corpora:
+                corpora[del_corpus_id] = {
+                    'instance': get_corpus(del_corpus_id),
+                    'ct_ref_fields': {}
+                }
+
+            if corpora[del_corpus_id]['instance']:
+                if del_content_type not in corpora[del_corpus_id]['ct_ref_fields']:
+                    corpora[del_corpus_id]['ct_ref_fields'][del_content_type] = corpora[del_corpus_id]['instance'].get_referencing_content_type_fields(del_content_type)
+
+                for reffing_ct in corpora[del_corpus_id]['ct_ref_fields'][del_content_type].keys():
+                    for reffing_field in corpora[del_corpus_id]['ct_ref_fields'][del_content_type][reffing_ct]:
+                        criteria = {reffing_field.name: del_content_id}
+                        if reffing_field.multiple:
+                            criteria = {"{0}__contains".format(reffing_field.name): del_content_id}
+
+                        reffing_contents = corpora[del_corpus_id]['instance'].get_content(reffing_ct, criteria).no_cache()
+                        reffing_contents = reffing_contents.batch_size(100)
+                        for reffing_content in reffing_contents:
+                            new_value = None
+                            if reffing_field.multiple:
+                                new_value = getattr(reffing_content, reffing_field.name)
+                                new_value = [ref for ref in new_value if not str(ref.id) == del_content_id]
+                            setattr(reffing_content, reffing_field.name, new_value)
+                            reffing_content.save()
+                            refs_deleted += 1
+
+            print('Removed {0} references to deleted content {1}'.format(refs_deleted, deletion.uri))
+
+        if deletion.path and os.path.exists(deletion.path):
+            shutil.rmtree(deletion.path)
+
+        deletion.delete()
 
 
 @db_task(priority=3)
