@@ -1503,7 +1503,7 @@ class Corpus(mongoengine.Document):
 
             # helper function for determining local operators for queries below
             def determine_local_operator(search_field, operator):
-                if search_field.endswith('+'):
+                if search_field.endswith('+') or search_field.endswith(' '):
                     return search_field[:-1], "and"
                 elif search_field.endswith('|'):
                     return search_field[:-1], "or"
@@ -1696,6 +1696,8 @@ class Corpus(mongoengine.Document):
             if fields_filter:
                 for search_field in fields_filter.keys():
                     field_values = [value_part for value_part in fields_filter[search_field].split('__') if value_part]
+                    search_field, local_operator = determine_local_operator(search_field, operator)
+
                     field_queries = []
                     for field_value in field_values:
                         if '.' in search_field and not (search_field.count('.') == 1 and search_field.endswith('.raw')):
@@ -1720,8 +1722,13 @@ class Corpus(mongoengine.Document):
                             field_queries.append(Q('term', **{search_field: field_value}))
 
                     if field_queries:
-                        if len(field_queries) > 1:
-                            filter.append(Q('bool', should=field_queries))
+                        if len(field_queries) > 1 or local_operator == 'exclude':
+                            if local_operator == 'and':
+                                filter.append(Q('bool', must=field_queries))
+                            elif local_operator == 'or':
+                                filter.append(Q('bool', should=field_queries))
+                            elif local_operator == 'exclude':
+                                filter.append(Q('bool', must_not=field_queries))
                         else:
                             filter.append(field_queries[0])
 
