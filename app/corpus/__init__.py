@@ -39,6 +39,8 @@ FIELD_LANGUAGES = {
     'spanish': "Spanish", 'swedish': "Swedish", 'turkish': "Turkish", 'thai': "Thai"
 }
 MIME_TYPES = ('text/html', 'text/css', 'text/xml', 'text/turtle', 'application/json')
+es_logger = logging.getLogger('elasticsearch')
+es_logger.setLevel(logging.ERROR)
 
 
 class Field(mongoengine.EmbeddedDocument):
