@@ -18,7 +18,7 @@ setup(
         'huey',
         'natsort',
         'Pillow',
-        'pypdf2',
+        'PyMuPDF',
         'google-cloud-vision',
         'nltk',
         'matplotlib',
