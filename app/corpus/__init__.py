@@ -3055,9 +3055,6 @@ class Content(mongoengine.Document):
                 deletion.path = document.path
             deletion.save()
 
-        #if document.path and os.path.exists(document.path):
-        #    document._corpus.queue_local_job(task_name="Content Deletion Cleanup", parameters={'content_path': document.path})
-
     def _make_label(self, force=True):
         if force or not self.label:
             # make sure that if template is referencing cross_reference fields, we reload from database
