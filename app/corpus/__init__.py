@@ -39,6 +39,8 @@ FIELD_LANGUAGES = {
     'spanish': "Spanish", 'swedish': "Swedish", 'turkish': "Turkish", 'thai': "Thai"
 }
 MIME_TYPES = ('text/html', 'text/css', 'text/xml', 'text/turtle', 'application/json')
+es_logger = logging.getLogger('elasticsearch')
+es_logger.setLevel(logging.ERROR)
 
 
 class Field(mongoengine.EmbeddedDocument):
@@ -3052,9 +3054,6 @@ class Content(mongoengine.Document):
             if document.path:
                 deletion.path = document.path
             deletion.save()
-
-        #if document.path and os.path.exists(document.path):
-        #    document._corpus.queue_local_job(task_name="Content Deletion Cleanup", parameters={'content_path': document.path})
 
     def _make_label(self, force=True):
         if force or not self.label:

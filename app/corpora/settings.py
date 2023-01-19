@@ -122,6 +122,7 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 TEMPLATES = [
     {
@@ -159,13 +160,6 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': '/conf/corpora_users.sqlite3',
-        #'ENGINE': 'djongo',
-        #'NAME': MONGO_DB,
-        #'USER': MONGO_USER,
-        #'PASSWORD': MONGO_PWD,
-        #'HOST': MONGO_HOST,
-        #'AUTH_SOURCE': MONGO_AUTH_SOURCE,
-        #'AUTH_MECHANISM': 'SCRAM-SHA-1',
     }
 }
 
@@ -197,6 +191,37 @@ connections.configure(
     default={'hosts': os.environ['CRP_ELASTIC_HOST'], 'timeout': 60}
 )
 
+ES_SYNONYM_OPTIONS = {}
+if 'CRP_ELASTIC_SYNONYM_OPTIONS' in os.environ:
+    syn_options = os.environ['CRP_ELASTIC_SYNONYM_OPTIONS'].split(',')
+    for syn_option in syn_options:
+        syn_specs = syn_option.split(':')
+        if len(syn_specs) == 3:
+            ES_SYNONYM_OPTIONS[syn_specs[0]] = {
+                'label': syn_specs[1],
+                'file': syn_specs[2]
+            }
+
+# Email Settings
+email_settings = [
+    'CRP_EMAIL_HOST',
+    'CRP_EMAIL_USE_TLS',
+    'CRP_EMAIL_PORT',
+    'CRP_EMAIL_USER',
+    'CRP_EMAIL_PASSWORD'
+]
+email_configured = True
+for email_setting in email_settings:
+    if email_setting not in os.environ:
+        email_configured = False
+if email_configured:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.environ['CRP_EMAIL_HOST']
+    EMAIL_USE_TLS = os.environ['CRP_EMAIL_USE_TLS'] == 'yes'
+    EMAIL_PORT = int(os.environ['CRP_EMAIL_PORT'])
+    EMAIL_HOST_USER = os.environ['CRP_EMAIL_USER']
+    EMAIL_HOST_PASSWORD = os.environ['CRP_EMAIL_PASSWORD']
+
 # Corpora allows users to create arbitrary content types, with the ability to name fields
 # however they want, with certain exceptions listed here:
 INVALID_FIELD_NAMES = [
@@ -209,17 +234,6 @@ INVALID_FIELD_NAMES = [
     "label",
     "uri"
 ]
-
-ES_SYNONYM_OPTIONS = {}
-if 'CRP_ELASTIC_SYNONYM_OPTIONS' in os.environ:
-    syn_options = os.environ['CRP_ELASTIC_SYNONYM_OPTIONS'].split(',')
-    for syn_option in syn_options:
-        syn_specs = syn_option.split(':')
-        if len(syn_specs) == 3:
-            ES_SYNONYM_OPTIONS[syn_specs[0]] = {
-                'label': syn_specs[1],
-                'file': syn_specs[2]
-            }
 
 # eMOP db info
 EMOP = {

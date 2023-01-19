@@ -549,6 +549,10 @@ ERROR occurred while indexing artifact with URI {0} in {1} from {2}:
 
             archive.last_indexed = datetime.now()
             archive.save()
+        else:
+            job.report('''
+Error: Unable to locate the directory for the {0} archive!
+            '''.format(archive.handle))
     except:
         job.report('''                         
 ERROR occurred while readying the {0} archive for indexing:

@@ -164,7 +164,7 @@ Ingestion Scope:    {4}
     try:
         es_logger = logging.getLogger('elasticsearch')
         es_log_level = es_logger.getEffectiveLevel()
-        es_logger.setLevel(logging.WARNING)
+        es_logger.setLevel(logging.ERROR)
 
         ensure_nvs_content_types(corpus)
 
