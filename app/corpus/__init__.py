@@ -3022,6 +3022,10 @@ class Content(mongoengine.Document):
             if do_linking:
                 self._do_linking()
 
+    def delete(self, track_deletions=True, **kwargs):
+        setattr(self, '_track_deletions', track_deletions)
+        super().delete(**kwargs)
+
     @classmethod
     def _pre_delete(cls, sender, document, **kwargs):
         # delete Neo4J node
@@ -3046,14 +3050,15 @@ class Content(mongoengine.Document):
             cv.save()
 
         # determine if deletion cleanup needed
-        reffed_cts = document._corpus.get_referencing_content_type_fields(document.content_type)
-        if reffed_cts or document.path:
-            deletion = ContentDeletion()
-            if reffed_cts:
-                deletion.uri = document.uri
-            if document.path:
-                deletion.path = document.path
-            deletion.save()
+        if hasattr(document, '_track_deletions') and document._track_deletions:
+            reffed_cts = document._corpus.get_referencing_content_type_fields(document.content_type)
+            if reffed_cts or document.path:
+                deletion = ContentDeletion()
+                if reffed_cts:
+                    deletion.uri = document.uri
+                if document.path:
+                    deletion.path = document.path
+                deletion.save()
 
     def _make_label(self, force=True):
         if force or not self.label:
