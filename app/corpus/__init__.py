@@ -2584,7 +2584,7 @@ class Corpus(mongoengine.Document):
                 'text': 'text',
                 'large_text': 'large_text',
                 'keyword': 'keyword',
-                'html': 'text',
+                'html': 'large_text',
                 'number': 'integer',
                 'decimal': 'float',
                 'boolean': 'boolean',
@@ -2669,7 +2669,7 @@ class Corpus(mongoengine.Document):
                         mapping.field(field.name, field_type, analyzer=field.get_elasticsearch_analyzer(), fields=subfields)
 
                     # large text fields assumed too large to provide a "raw" subfield for sorting
-                    elif field_type in ['large_text', 'html']:
+                    elif field_type == 'large_text':
                         mapping.field(field.name, 'text', analyzer=field.get_elasticsearch_analyzer())
                     else:
                         mapping.field(field.name, field_type)
