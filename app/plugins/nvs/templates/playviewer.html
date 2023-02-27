@@ -609,6 +609,29 @@
                 font-style: italic;
             }
 
+            /* LINEATION MARKERS */
+            span.open-bracket-marker, span.close-bracket-marker, span.open-half-bracket-marker, span.close-half-bracket-marker, span.asterix-marker, span.pipe-marker {
+                color: var(--nvs-mid-gray);
+            }
+            span.open-bracket-marker::after {
+                content: "[";
+            }
+            span.close-bracket-marker::after {
+                content: "]";
+            }
+            span.open-half-bracket-marker::after {
+                content: "⸢";
+            }
+            span.close-half-bracket-marker::after {
+                content: "⸣";
+            }
+            span.asterix-marker::after {
+                content: "*";
+            }
+            span.pipe-marker::after {
+                content: "|";
+            }
+
             .witness-meter, .variant-witness-meter {
                 -webkit-box-align: center!important;
                 -ms-flex-align: center!important;

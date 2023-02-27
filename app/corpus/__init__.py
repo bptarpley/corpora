@@ -2584,7 +2584,7 @@ class Corpus(mongoengine.Document):
                 'text': 'text',
                 'large_text': 'large_text',
                 'keyword': 'keyword',
-                'html': 'text',
+                'html': 'large_text',
                 'number': 'integer',
                 'decimal': 'float',
                 'boolean': 'boolean',
@@ -2669,7 +2669,7 @@ class Corpus(mongoengine.Document):
                         mapping.field(field.name, field_type, analyzer=field.get_elasticsearch_analyzer(), fields=subfields)
 
                     # large text fields assumed too large to provide a "raw" subfield for sorting
-                    elif field_type in ['large_text', 'html']:
+                    elif field_type == 'large_text':
                         mapping.field(field.name, 'text', analyzer=field.get_elasticsearch_analyzer())
                     else:
                         mapping.field(field.name, field_type)
@@ -3022,6 +3022,10 @@ class Content(mongoengine.Document):
             if do_linking:
                 self._do_linking()
 
+    def delete(self, track_deletions=True, **kwargs):
+        setattr(self, '_track_deletions', track_deletions)
+        super().delete(**kwargs)
+
     @classmethod
     def _pre_delete(cls, sender, document, **kwargs):
         # delete Neo4J node
@@ -3046,14 +3050,15 @@ class Content(mongoengine.Document):
             cv.save()
 
         # determine if deletion cleanup needed
-        reffed_cts = document._corpus.get_referencing_content_type_fields(document.content_type)
-        if reffed_cts or document.path:
-            deletion = ContentDeletion()
-            if reffed_cts:
-                deletion.uri = document.uri
-            if document.path:
-                deletion.path = document.path
-            deletion.save()
+        if hasattr(document, '_track_deletions') and document._track_deletions:
+            reffed_cts = document._corpus.get_referencing_content_type_fields(document.content_type)
+            if reffed_cts or document.path:
+                deletion = ContentDeletion()
+                if reffed_cts:
+                    deletion.uri = document.uri
+                if document.path:
+                    deletion.path = document.path
+                deletion.save()
 
     def _make_label(self, force=True):
         if force or not self.label:

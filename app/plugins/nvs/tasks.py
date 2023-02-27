@@ -470,13 +470,13 @@ def delete_play_data(corpus, play_prefix, ingestion_scope):
             # Also delete commentary play tags
             com_spans = corpus.get_content('PlayTag', {'play': play.id, 'name': 'comspan'})
             for com_span in com_spans:
-                com_span.delete()
+                com_span.delete(track_deletions=False)
 
         for nvs_ct in nvs_content_types:
             contents = corpus.get_content(nvs_ct, {'play': play.id})
             count = contents.count()
             for content in contents:
-                content.delete()
+                content.delete(track_deletions=False)
             report += '{0} {1}(s) deleted.\n'.format(count, nvs_ct)
 
         if ingestion_scope in ['Full', 'Playtext Only']:
@@ -1009,6 +1009,23 @@ def handle_playtext_tag(corpus, play, tag, line_info):
                 playtag_classes = 'linegroup {0}'.format(tag['type'])
                 if 'rend' in tag.attrs and tag['rend'] == 'italic':
                     playtag_classes += " italicized"
+
+            # anchor type=marker
+            elif tag.name == 'anchor' and 'type' in tag.attrs and tag['type'] == 'marker' and 'marker' in tag.attrs:
+                playtag_name = 'span'
+
+                if tag['marker'] == '[':
+                    playtag_classes = 'open-bracket-marker'
+                elif tag['marker'] == ']':
+                    playtag_classes = 'close-bracket-marker'
+                elif tag['marker'] == '⸢':
+                    playtag_classes = 'open-half-bracket-marker'
+                elif tag['marker'] == '⸣':
+                    playtag_classes = 'close-half-bracket-marker'
+                elif tag['marker'] == '*':
+                    playtag_classes = 'asterix-marker'
+                elif tag['marker'] == '|':
+                    playtag_classes = 'pipe-marker'
 
             else:
                 line_info['unhandled_tags'].append(tag.name)
@@ -2928,13 +2945,13 @@ def place_tags(location, line, taggings, open_tags):
             if remove_tag_index > -1:
                 open_tags.pop(remove_tag_index)
 
-        if 'empty' in taggings[location]:
-            for empty_tag in taggings[location]['empty']:
-                line.rendered_html += empty_tag['html']
-
         for opening_tag in taggings[location]['open']:
             line.rendered_html += opening_tag['html']
             open_tags.append(opening_tag)
+
+        if 'empty' in taggings[location]:
+            for empty_tag in taggings[location]['empty']:
+                line.rendered_html += empty_tag['html']
 
 
 def time_it(timer_name, stop=False):
