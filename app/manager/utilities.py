@@ -265,14 +265,14 @@ def build_search_params_from_dict(params):
                         field = field_parts[0]
                         interval = field_parts[1]
 
-                        if '.' in field:
-                            nested_path = field.split('.')[0]
-                            agg = A('nested', path=nested_path)
-                            A('histogram', field=field, interval=interval)
-                            search['aggregations'][agg_name] = agg
-                        else:
-                            search['aggregations'][agg_name] = A('histogram', field=field, interval=interval)
-
+                        if interval.isdigit() and int(interval) > 0:
+                            if '.' in field:
+                                nested_path = field.split('.')[0]
+                                agg = A('nested', path=nested_path)
+                                A('histogram', field=field, interval=int(interval))
+                                search['aggregations'][agg_name] = agg
+                            else:
+                                search['aggregations'][agg_name] = A('histogram', field=field, interval=int(interval))
 
         elif param == 'operator':
             search['operator'] = value
