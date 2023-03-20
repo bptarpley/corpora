@@ -256,6 +256,24 @@ def build_search_params_from_dict(params):
                     else:
                         search['aggregations'][agg_name] = A(metric_type, field=value)
 
+            elif param.startswith('a_histogram_'):
+                metric_parts = param.split('_')
+                if len(metric_parts) == 3:
+                    agg_name = metric_parts[2]
+                    field_parts = value.split('__')
+                    if len(field_parts) == 2:
+                        field = field_parts[0]
+                        interval = field_parts[1]
+
+                        if interval.isdigit() and int(interval) > 0:
+                            if '.' in field:
+                                nested_path = field.split('.')[0]
+                                agg = A('nested', path=nested_path)
+                                A('histogram', field=field, interval=int(interval))
+                                search['aggregations'][agg_name] = agg
+                            else:
+                                search['aggregations'][agg_name] = A('histogram', field=field, interval=int(interval))
+
         elif param == 'operator':
             search['operator'] = value
         elif param == 'page':

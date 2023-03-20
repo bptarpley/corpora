@@ -68,6 +68,7 @@ This endpoint accepts several different GET parameters (passed via the query str
 | `a_terms_[aggregation_name]` | To produce a list of unique values for a field and their corresponding counts (appears in the "meta" section of results). Any alphanumeric string may be used for [aggregation_name]. | [endpoint_url]?a_terms_uniquecolors=color
 | `a_min_[aggregation_name]` | To determine the min value for a field (appears in the "meta" section of results). Any alphanumeric string may be used for [aggregation_name]. | [endpoint_url]?a_min_lowestage=age
 | `a_max_[aggregation_name]` | To determine the max value for a field (appears in the "meta" section of results). Any alphanumeric string may be used for [aggregation_name]. | [endpoint_url]?a_max_highestage=age
+| `a_histogram_[aggregation_name]` | To produce a histogram of values at a given interval for a field (appears in the "meta" section of results). Any alphanumeric string may be used for [aggregation_name]. The value for this parameter must be a field name, two underscores, and then the desired interval. | [endpoint_url]?a_histogram_decades=age__10
 | `page-size` | To specify the size of each page of results | [endpoint_url]?page-size=50
 | `page` | To specify which page of results you'd like | [endpoint_url]?page=1
 | `page-token` | After 9,000 records worth of pages, you'll receive a "page token" in the JSON response which will need to be captured and specified in order to retrieve further pages. | [endpoint_url]?page-token=5f60bf2cc879ea00329af449
