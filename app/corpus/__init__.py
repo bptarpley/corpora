@@ -1972,7 +1972,7 @@ class Corpus(mongoengine.Document):
                             results['meta']['aggregations'][agg_name] = {}
 
                             if agg_type_map[agg_name].startswith('nested'):
-                                if agg_type_map[agg_name].endswith('_terms'):
+                                if agg_type_map[agg_name].endswith('_terms') or agg_type_map[agg_name].endswith('_histogram'):
                                     for agg_result in search_results['aggregations'][agg_name]['names']['buckets']:
                                         results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
                                 elif agg_type_map[agg_name].endswith('_max') or agg_type_map[agg_name].endswith('_min'):
@@ -1981,7 +1981,7 @@ class Corpus(mongoengine.Document):
                             elif agg_type_map[agg_name] in ['max', 'min']:
                                 results['meta']['aggregations'][agg_name] = search_results['aggregations'][agg_name]['value']
 
-                            elif agg_type_map[agg_name] == 'terms':
+                            elif agg_type_map[agg_name] in ['terms', 'histogram']:
                                 for agg_result in search_results['aggregations'][agg_name]['buckets']:
                                     results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
 
