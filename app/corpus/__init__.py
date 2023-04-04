@@ -99,7 +99,7 @@ class Field(mongoengine.EmbeddedDocument):
             elif self.type in ['embedded', 'file']:
                 return value.to_dict(parent_uri)
             elif self.type == 'geo_point':
-                return [value['coordinates'][1], value['coordinates'][0]]
+                return value['coordinates']
         return value
     
     def get_mongoengine_field_class(self):
@@ -1800,6 +1800,40 @@ class Corpus(mongoengine.Document):
                                     }}
                                 )
 
+                        elif field_type == 'geo_point' and 'to' in field_value:
+                            [top_left, bottom_right] = field_value.split('to')
+                            if top_left.count(',') == 1 and bottom_right.count(',') == 1:
+                                [top_left_lon, top_left_lat] = top_left.split(',')
+                                [bottom_right_lon, bottom_right_lat] = bottom_right.split(',')
+
+                                valid_geo_query = True
+                                try:
+                                    top_left_lon = float(top_left_lon)
+                                    top_left_lat = float(top_left_lat)
+                                    bottom_right_lon = float(bottom_right_lon)
+                                    bottom_right_lat = float(bottom_right_lat)
+
+                                    if not (is_valid_long_lat(top_left_lon, top_left_lat) and
+                                            is_valid_long_lat(bottom_right_lon, bottom_right_lat)):
+                                        valid_geo_query = False
+                                except:
+                                    valid_geo_query = False
+
+                                if valid_geo_query:
+                                    range_query = Q(
+                                        "geo_bounding_box",
+                                        **{search_field: {
+                                            'top_left': {
+                                                'lat': top_left_lat,
+                                                'lon': top_left_lon
+                                            },
+                                            'bottom_right': {
+                                                'lat': bottom_right_lat,
+                                                'lon': bottom_right_lon
+                                            }
+                                        }}
+                                    )
+
                         if range_query:
                             if '.' in search_field:
                                 field_parts = search_field.split('.')
@@ -3208,7 +3242,13 @@ class Content(mongoengine.Document):
 
                             for xref_field in self._corpus.content_types[field.cross_reference_type].fields:
                                 if xref_field.in_lists and xref_field.type != "cross_reference":
-                                    field_value[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
+                                    if xref_field.type == 'geo_point' and xref_field.multiple:
+                                        field_value[xref_field.name] = {
+                                            'type': 'MultiPoint',
+                                            'coordinates': [v['coordinates'] for v in getattr(xref, xref_field.name)]
+                                        }
+                                    else:
+                                        field_value[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
 
                         index_obj[field.name] = field_value
 
@@ -3218,7 +3258,7 @@ class Content(mongoengine.Document):
                     elif field.type == 'geo_point' and field.multiple:
                         index_obj[field.name] = {
                             'type': 'MultiPoint',
-                            'coordinates': [[v['coordinates'][1], v['coordinates'][0]] for v in field_value]
+                            'coordinates': [v['coordinates'] for v in field_value]
                         }
 
                     elif field.type not in ['file']:
@@ -3901,6 +3941,14 @@ def parse_date_string(date_string):
         pass
 
     return date_obj
+
+
+def is_valid_long_lat(longitude, latitude):
+    if longitude < -180 or longitude > 180:
+        return False
+    if latitude < -90 or latitude > 90:
+        return False
+    return True
 
 
 def ensure_connection():

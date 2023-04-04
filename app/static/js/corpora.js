@@ -903,11 +903,19 @@ class ContentTable {
             `);
             for (let x = 0; x < ct.fields.length; x++) {
                 if (ct.fields[x].in_lists) {
-                    table_header_row.append(`
+                    let header_row_html = `
                         <th scope="col">
                             <a href="#" class="${ct.name}${sender.id_suffix}-order-by" data-order-by="${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}">${ct.fields[x].label}</a>
                         </th>
-                    `);
+                    `;
+                    if (['geo_point', 'large_text'].includes(ct.fields[x].type)) {
+                        header_row_html = `
+                            <th scope="col">
+                                ${ct.fields[x].label}
+                            </th>
+                        `;
+                    }
+                    table_header_row.append(header_row_html);
                 }
             }
 

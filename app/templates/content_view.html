@@ -174,7 +174,7 @@
             geo_point: function(field, value) {
                 return `
                     <div class="col-10 d-flex align-center field-value ${field.type}-value">
-                        <div id="${field.name}-map-viewer" class="w-100 geo_point-map" data-latitude="${value[0]}" data-longitude="${value[1]}" style="height: 300px;"></div>
+                        <div id="${field.name}-map-viewer" class="w-100 geo_point-map" data-latitude="${value[1]}" data-longitude="${value[0]}" style="height: 300px;"></div>
                     </div>
                 `;
             },
