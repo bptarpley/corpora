@@ -21,14 +21,14 @@ from PIL import Image
 from django.conf import settings
 from django.utils.text import slugify
 from elasticsearch_dsl import Index, Mapping, analyzer, Keyword, Text, Integer, Date, \
-    Nested, token_filter, char_filter, Q, A, Search
+    GeoPoint, GeoShape, Nested, token_filter, char_filter, Q, A, Search
 from elasticsearch_dsl.query import SimpleQueryString, Ids
 from elasticsearch_dsl.connections import get_connection
 from django.template import Template, Context
 from .language_settings import REGISTRY as lang_settings
 
 
-FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'file', 'repo', 'link', 'iiif-image', 'cross_reference', 'embedded')
+FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'file', 'repo', 'link', 'iiif-image', 'geo_point', 'cross_reference', 'embedded')
 FIELD_LANGUAGES = {
     'arabic': "Arabic", 'armenian': "Armenian", 'basque': "Basque", 'bengali': "Bengali", 'brazilian': "Brazilian",
     'bulgarian': "Bulgarian", 'catalan': "Catalan", 'cjk': "CJK", 'czech': "Czech", 'danish': "Danish", 'dutch': "Dutch",
@@ -70,10 +70,12 @@ class Field(mongoengine.EmbeddedDocument):
                 dict_value = {}
                 for key in value.keys():
                     dict_value[key] = self.to_primitive(value[key], parent_uri)
+
             else:
                 dict_value = []
                 for val in value:
                     dict_value.append(self.to_primitive(val, parent_uri, field_intensities))
+
         else:
             dict_value = self.to_primitive(value, parent_uri, field_intensities)
 
@@ -96,6 +98,8 @@ class Field(mongoengine.EmbeddedDocument):
                 return value.to_dict()
             elif self.type in ['embedded', 'file']:
                 return value.to_dict(parent_uri)
+            elif self.type == 'geo_point':
+                return [value['coordinates'][1], value['coordinates'][0]]
         return value
     
     def get_mongoengine_field_class(self):
@@ -123,6 +127,8 @@ class Field(mongoengine.EmbeddedDocument):
             return mongoengine.EmbeddedDocumentField(File)
         elif self.type == 'repo':
             return mongoengine.EmbeddedDocumentField(GitRepo)
+        elif self.type == 'geo_point':
+            return mongoengine.PointField()
         elif self.type != 'cross_reference':
             if self.unique and not self.unique_with:
                 return mongoengine.StringField(unique=True, sparse=True)
@@ -1938,11 +1944,18 @@ class Corpus(mongoengine.Document):
                         results['meta']['num_pages'] = 0
                         results['meta']['has_next_page'] = False
 
+                    # identify any multi-valued geo_point fields, as their output needs to be adjusted
+                    multi_geo_fields = [f.name for f in self.content_types[content_type].fields if f.type == 'geo_point' and f.multiple]
+
                     hit = None
                     for hit in search_results['hits']['hits']:
                         record = deepcopy(hit['_source'])
                         record['id'] = hit['_id']
                         record['_search_score'] = hit['_score']
+
+                        for multi_geo_field in multi_geo_fields:
+                            if multi_geo_field in record:
+                                record[multi_geo_field] = record[multi_geo_field]['coordinates']
 
                         if fields_highlight:
                             if 'highlight' in hit:
@@ -2440,8 +2453,6 @@ class Corpus(mongoengine.Document):
                             self.content_types[ct_name].fields[field_index].language = schema['fields'][x].get('language', default_field_values['language'])
                             self.content_types[ct_name].fields[field_index].autocomplete = schema['fields'][x].get('autocomplete', default_field_values['autocomplete'])
 
-            #print(json.dump(self.content_types[ct_name].to_dict()))
-
             # now that old and new fields have been reconciled, sort them according to the order found in the schema
             schema_ordered = [self.content_types[ct_name].get_field(f_spec['name']) for f_spec in schema['fields']]
             self.content_types[ct_name].fields = schema_ordered
@@ -2592,6 +2603,7 @@ class Corpus(mongoengine.Document):
                 'file': 'keyword',
                 'image': 'keyword',
                 'iiif-image': 'keyword',
+                'geo_point': GeoPoint(),
                 'link': 'keyword',
                 'cross_reference': None,
                 'document': 'text',
@@ -2671,6 +2683,10 @@ class Corpus(mongoengine.Document):
                     # large text fields assumed too large to provide a "raw" subfield for sorting
                     elif field_type == 'large_text':
                         mapping.field(field.name, 'text', analyzer=field.get_elasticsearch_analyzer())
+
+                    elif field.type == 'geo_point' and field.multiple:
+                        mapping.field(field.name, GeoShape())
+
                     else:
                         mapping.field(field.name, field_type)
 
@@ -3011,8 +3027,14 @@ class Content(mongoengine.Document):
             if isinstance(do_indexing, list):
                 cx_fields = [f for f in cx_fields if f in do_indexing]
 
+            geo_fields = [field.name for field in self._ct.fields if field.type == 'geo_point']
+            if isinstance(do_indexing, list):
+                geo_fields = [f for f in geo_fields if f in do_indexing]
+
             if cx_fields:
                 self.reload(*cx_fields)
+            if geo_fields:
+                self.reload(*geo_fields)
 
             if do_indexing:
                 if isinstance(do_indexing, list):
@@ -3192,6 +3214,12 @@ class Content(mongoengine.Document):
 
                     elif field.type == 'file' and hasattr(field_value, 'path'):
                         index_obj[field.name] = field_value.path
+
+                    elif field.type == 'geo_point' and field.multiple:
+                        index_obj[field.name] = {
+                            'type': 'MultiPoint',
+                            'coordinates': [[v['coordinates'][1], v['coordinates'][0]] for v in field_value]
+                        }
 
                     elif field.type not in ['file']:
                         index_obj[field.name] = field.get_dict_value(field_value, self.uri)
