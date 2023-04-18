@@ -1071,9 +1071,22 @@ def guess_agent_uri(job_id):
         except:
             existing_attribution = None
 
+
+        # Ensure we're not hitting the VIAF API too frequently with our parallelized tasks
+        key = f'corpus_{corpus.id}_last_viaf_api_call'
+        now = int(datetime.now().timestamp())
+        last_called = corpus.redis_cache.get(key)
+
+        while last_called and (now - int(last_called) < 3):
+            print('Throttling VIAF API call...')
+            sleep(3)
+            now = int(datetime.now().timestamp())
+            last_called = corpus.redis_cache.get(key)
+
+        corpus.redis_cache.set(key, now)
+
         vapi = ViafAPI()
         persons = vapi.find_person(agent.entity.name)
-        sleep(3) # trying to limit rate of VIAF queries
 
         if persons:
             people_data = []
