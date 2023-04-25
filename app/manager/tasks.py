@@ -434,23 +434,18 @@ def bulk_launch_jobs(job_id):
             search_params['page'] = page
             results = corpus.search_content(content_type, **search_params)
             if results:
-                job_ids = []
                 if results['meta']['num_pages'] > num_pages:
                     num_pages = results['meta']['num_pages']
 
                 for record in results['records']:
-                    job_ids.append(
-                        corpus.queue_local_job(
-                            content_type=content_type,
-                            content_id=record['id'],
-                            task_id=task_id,
-                            scholar_id=job.scholar_id,
-                            parameters=job_params
-                        )
+                    corpus.queue_local_job(
+                        content_type=content_type,
+                        content_id=record['id'],
+                        task_id=task_id,
+                        scholar_id=job.scholar_id,
+                        parameters=job_params
                     )
 
-                for j_id in job_ids:
-                    run_job(j_id)
             page += 1
 
     job.complete('complete')
@@ -535,7 +530,7 @@ def check_jobs():
         proceed = True
 
     if proceed:
-        jobs = Job.get_jobs()
+        jobs = Job.get_jobs(limit=settings.NUM_JOBS_PER_MINUTE)
         for job in jobs:
             if job.jobsite.name == 'Local':
                 if job.status == 'running':
@@ -550,7 +545,15 @@ def check_jobs():
                             task_function(job.id)
                         else:
                             job.complete(status='complete')
+
+                    # clean up timed out (likely errored out) jobs
+                    elif datetime.now().timestamp() - job.status_time.timestamp() > settings.JOB_TIMEOUT_SECS:
+                        if job.report_path:
+                            job.report("ERROR: Job timed out or experienced an unexpected failure.")
+                        job.complete(status='error')
+
                 elif job.status == 'queueing':
+                    job.set_status('enqueued')
                     run_job(job.id)
 
 
