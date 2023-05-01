@@ -1940,6 +1940,9 @@ class Corpus(mongoengine.Document):
 
                 if not sorting_by_id:
                     adjusted_fields_sort.append({
+                        '_score': 'desc'
+                    })
+                    adjusted_fields_sort.append({
                         '_id': 'asc'
                     })
                 search_cmd = search_cmd.sort(*adjusted_fields_sort)
