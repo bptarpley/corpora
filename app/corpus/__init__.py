@@ -1564,10 +1564,12 @@ class Corpus(mongoengine.Document):
                         search_field: {'query': field_value}
                     }
 
-                    if field_type in ['text', 'large_text', 'html']:
-                        search_criteria[search_field]['operator'] = 'and'
-                        search_criteria[search_field]['fuzziness'] = 'AUTO'
-                    elif field_type == 'date':
+                    # Todo: Make fuzzy searches an option somehow, perhaps with the z_ prefix?
+                    #if field_type in ['text', 'large_text', 'html']:
+                    #    search_criteria[search_field]['operator'] = 'and'
+                    #    search_criteria[search_field]['fuzziness'] = 'AUTO'
+
+                    if field_type == 'date':
                         search_criteria[search_field]['query'] = parse_date_string(field_value).isoformat()
 
                     if '.' in search_field:
