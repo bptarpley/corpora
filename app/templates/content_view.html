@@ -21,7 +21,7 @@
         {{ default_css }}
         {% endif %}
     </style>
-    <!--<link href="{% static 'css/vis-network.min.css' %}" rel="stylesheet">-->
+    {% if has_geo_field %}<link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">{% endif %}
 
 {% endblock %}
 
@@ -76,6 +76,7 @@
     <script src="{% static 'js/filepond.js' %}"></script>
     <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
     <script src="{% static 'js/vis-network.js' %}"></script>
+    {% if has_geo_field %}<script src="{% static 'js/leaflet.js' %}"></script>{% endif %}
     <script type="application/javascript">
         let corpus_id = '{{ corpus_id }}';
         let corpus_uri = `/corpus/${corpus_id}`;
@@ -87,6 +88,7 @@
         let content = null;
         let popup = {% if popup %}true{% else %}false{% endif %};
         let has_widget = {% if view_widget_url %}true{% else %}false{% endif %};
+        let has_geo_field = {% if has_geo_field %}true{% else %}false{% endif %};
         let network = null;
         let last_table = null;
 
@@ -169,6 +171,13 @@
                     </div>
                 `;
             },
+            geo_point: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-center field-value ${field.type}-value">
+                        <div id="${field.name}-map-viewer" class="w-100 geo_point-map" data-latitude="${value[1]}" data-longitude="${value[0]}" style="height: 300px;"></div>
+                    </div>
+                `;
+            },
             cross_reference: function(field, value) {
                 let intensity_indicator = '';
                 if (field.has_intensity && value.hasOwnProperty('intensity')) intensity_indicator = ` (${value.intensity})`;
@@ -199,6 +208,7 @@
                 build_content_div();
                 corpora.get_content(corpus_id, content_type_name, content_id, function(content_data) {
                     content = content_data;
+                    console.log(content);
                     inject_content();
 
                     {% if view_widget_url %}
@@ -301,7 +311,9 @@
                                 if (field.type !== 'link' && index !== 0) {
                                     field_div.append('<div class="col-xs-12 col-sm-2">&nbsp;</div>');
                                 }
-                                field_div.append(field_templates[field.type](field, value));
+                                let multi_field = Object.assign({}, field);
+                                multi_field.name = `${multi_field.name}-${index}`;
+                                field_div.append(field_templates[field.type](multi_field, value));
                             });
                         } else {
                             field_div.append(field_templates[field.type](field, (content[field.name] || content[field.name] === 0) ? content[field.name] : "", ""));
@@ -310,6 +322,19 @@
                         field_div.append(`<div class="col-10 d-flex align-left field-value ${field.type}-value"><span class="badge badge-secondary">Not set</span></div>`);
                     }
                 }
+            }
+
+            if (has_geo_field) {
+                $('.geo_point-map').each(function() {
+                    let map_div = $(this);
+                    let coords = [parseFloat(map_div.data('latitude')), parseFloat(map_div.data('longitude'))];
+                    let map = L.map(map_div[0].id).setView(coords, 13);
+                    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    }).addTo(map);
+                    L.marker(coords).addTo(map);
+                });
             }
 
             hide_loading_overlay();

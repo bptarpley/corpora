@@ -272,6 +272,7 @@
                             <option value="date">Date</option>
                             <option value="link">Link</option>
                             <option value="iiif-image">IIIF Image URL</option>
+                            <option value="geo_point">Point (Long, Lat)</option>
                             <option value="file">File Upload</option>
                             <option value="cross_reference">Cross Reference</option>
                         </select>
@@ -770,6 +771,7 @@
             file: 'File',
             link: 'Link',
             'iiif-image': 'IIIF Image URL',
+            geo_point: 'Point',
             cross_reference: 'Cross Reference',
             embedded: 'Embedded'
         };
@@ -1099,7 +1101,9 @@
                         for (let ct_name in corpus.content_types) {
                             ct_schema.push(corpus.content_types[ct_name]);
                         }
-                        
+
+                        console.log(JSON.stringify(ct_schema, null, 4));
+
                         $('#ct-schema').val(JSON.stringify(ct_schema));
                         $('#ct-schema-form').submit();
                     });
@@ -1851,11 +1855,14 @@
                     setTimeout(function() {
                         const old_fields = [...corpus.content_types[ct_name].fields];
                         const new_order = [];
-                        $(`#${ct_div_prefix}-f-table .tm-ct-field`).each(function() {new_order.push($(this).data('field-index'))});
-                        console.log(new_order);
+                        $(`#${ct_div_prefix}-f-table .tm-ct-field`).each(function() {new_order.push($(this).data('field-name'))});
                         corpus.content_types[ct_name].fields = [];
-                        new_order.map(idx => corpus.content_types[ct_name].fields.push(old_fields[idx]));
-                        console.log(corpus.content_types[ct_name].fields);
+                        new_order.map(f_name => {
+                            for (let old_idx = 0; old_idx < old_fields.length; old_idx++) {
+                                if (old_fields[old_idx].name === f_name)
+                                  corpus.content_types[ct_name].fields.push(old_fields[old_idx])
+                            }
+                        });
                     }, 1000);
                 });
             }
@@ -1916,7 +1923,7 @@
                 }
 
                 f_table.append(`
-                    <tr id="${f_div_prefix}-row" class="tm-ct-field" data-field-index="${f_index}">
+                    <tr id="${f_div_prefix}-row" class="tm-ct-field" data-field-name="${ct.fields[f_index].name}">
                         <td id="${f_div_prefix}-name" class="font-weight-bold">${ct.fields[f_index].name}</td>
                         <td id="${f_div_prefix}-label">${ct.fields[f_index].label}</td>
                         <td id="${f_div_prefix}-type">${field_type_display}</td>

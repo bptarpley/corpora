@@ -481,6 +481,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
     edit_widget_url = None
     content_ids = request.POST.get('content-ids', None)
     content_query = request.POST.get('content-query', None)
+    has_geo_field = False
 
     if (context['scholar'].is_admin or role == 'Editor') and corpus and content_type in corpus.content_types:
         if corpus.content_types[content_type].edit_widget_url and content_id:
@@ -533,6 +534,11 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                             str(content.id)
                         ))
 
+        for field in corpus.content_types[content_type].fields:
+            if field.type == 'geo_point':
+                has_geo_field = True
+                break
+
         return render(
             request,
             'content_edit.html',
@@ -542,6 +548,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                 'response': context,
                 'content_type': content_type,
                 'edit_widget_url': edit_widget_url,
+                'has_geo_field': has_geo_field,
                 'content_id': content_id,
                 'content_ids': content_ids,
                 'content_query': content_query
@@ -558,6 +565,7 @@ def view_content(request, corpus_id, content_type, content_id):
     popup = 'popup' in request.GET
     view_widget_url = None
     default_css = None
+    has_geo_field = False
 
     if not corpus or content_type not in corpus.content_types:
         raise Http404("Corpus does not exist, or you are not authorized to view it.")
@@ -584,6 +592,11 @@ def view_content(request, corpus_id, content_type, content_id):
         else:
             raise Http404("Content does not exist, or you are not authorized to view it.")
 
+    for field in corpus.content_types[content_type].fields:
+        if field.type == 'geo_point':
+            has_geo_field = True
+            break
+
     return render(
         request,
         'content_view.html',
@@ -596,7 +609,8 @@ def view_content(request, corpus_id, content_type, content_id):
             'content_type': content_type,
             'content_id': content_id,
             'view_widget_url': view_widget_url,
-            'default_css': default_css
+            'default_css': default_css,
+            'has_geo_field': has_geo_field
         }
     )
 

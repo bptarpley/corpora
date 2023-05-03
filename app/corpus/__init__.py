@@ -21,14 +21,14 @@ from PIL import Image
 from django.conf import settings
 from django.utils.text import slugify
 from elasticsearch_dsl import Index, Mapping, analyzer, Keyword, Text, Integer, Date, \
-    Nested, token_filter, char_filter, Q, A, Search
+    GeoPoint, GeoShape, Nested, token_filter, char_filter, Q, A, Search
 from elasticsearch_dsl.query import SimpleQueryString, Ids
 from elasticsearch_dsl.connections import get_connection
 from django.template import Template, Context
 from .language_settings import REGISTRY as lang_settings
 
 
-FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'file', 'repo', 'link', 'iiif-image', 'cross_reference', 'embedded')
+FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'file', 'repo', 'link', 'iiif-image', 'geo_point', 'cross_reference', 'embedded')
 FIELD_LANGUAGES = {
     'arabic': "Arabic", 'armenian': "Armenian", 'basque': "Basque", 'bengali': "Bengali", 'brazilian': "Brazilian",
     'bulgarian': "Bulgarian", 'catalan': "Catalan", 'cjk': "CJK", 'czech': "Czech", 'danish': "Danish", 'dutch': "Dutch",
@@ -70,10 +70,12 @@ class Field(mongoengine.EmbeddedDocument):
                 dict_value = {}
                 for key in value.keys():
                     dict_value[key] = self.to_primitive(value[key], parent_uri)
+
             else:
                 dict_value = []
                 for val in value:
                     dict_value.append(self.to_primitive(val, parent_uri, field_intensities))
+
         else:
             dict_value = self.to_primitive(value, parent_uri, field_intensities)
 
@@ -96,6 +98,8 @@ class Field(mongoengine.EmbeddedDocument):
                 return value.to_dict()
             elif self.type in ['embedded', 'file']:
                 return value.to_dict(parent_uri)
+            elif self.type == 'geo_point':
+                return value['coordinates']
         return value
     
     def get_mongoengine_field_class(self):
@@ -123,6 +127,8 @@ class Field(mongoengine.EmbeddedDocument):
             return mongoengine.EmbeddedDocumentField(File)
         elif self.type == 'repo':
             return mongoengine.EmbeddedDocumentField(GitRepo)
+        elif self.type == 'geo_point':
+            return mongoengine.PointField()
         elif self.type != 'cross_reference':
             if self.unique and not self.unique_with:
                 return mongoengine.StringField(unique=True, sparse=True)
@@ -1558,10 +1564,12 @@ class Corpus(mongoengine.Document):
                         search_field: {'query': field_value}
                     }
 
-                    if field_type in ['text', 'large_text', 'html']:
-                        search_criteria[search_field]['operator'] = 'and'
-                        search_criteria[search_field]['fuzziness'] = 'AUTO'
-                    elif field_type == 'date':
+                    # Todo: Make fuzzy searches an option somehow, perhaps with the z_ prefix?
+                    #if field_type in ['text', 'large_text', 'html']:
+                    #    search_criteria[search_field]['operator'] = 'and'
+                    #    search_criteria[search_field]['fuzziness'] = 'AUTO'
+
+                    if field_type == 'date':
                         search_criteria[search_field]['query'] = parse_date_string(field_value).isoformat()
 
                     if '.' in search_field:
@@ -1794,6 +1802,40 @@ class Corpus(mongoengine.Document):
                                     }}
                                 )
 
+                        elif field_type == 'geo_point' and 'to' in field_value:
+                            [top_left, bottom_right] = field_value.split('to')
+                            if top_left.count(',') == 1 and bottom_right.count(',') == 1:
+                                [top_left_lon, top_left_lat] = top_left.split(',')
+                                [bottom_right_lon, bottom_right_lat] = bottom_right.split(',')
+
+                                valid_geo_query = True
+                                try:
+                                    top_left_lon = float(top_left_lon)
+                                    top_left_lat = float(top_left_lat)
+                                    bottom_right_lon = float(bottom_right_lon)
+                                    bottom_right_lat = float(bottom_right_lat)
+
+                                    if not (is_valid_long_lat(top_left_lon, top_left_lat) and
+                                            is_valid_long_lat(bottom_right_lon, bottom_right_lat)):
+                                        valid_geo_query = False
+                                except:
+                                    valid_geo_query = False
+
+                                if valid_geo_query:
+                                    range_query = Q(
+                                        "geo_bounding_box",
+                                        **{search_field: {
+                                            'top_left': {
+                                                'lat': top_left_lat,
+                                                'lon': top_left_lon
+                                            },
+                                            'bottom_right': {
+                                                'lat': bottom_right_lat,
+                                                'lon': bottom_right_lon
+                                            }
+                                        }}
+                                    )
+
                         if range_query:
                             if '.' in search_field:
                                 field_parts = search_field.split('.')
@@ -1900,6 +1942,9 @@ class Corpus(mongoengine.Document):
 
                 if not sorting_by_id:
                     adjusted_fields_sort.append({
+                        '_score': 'desc'
+                    })
+                    adjusted_fields_sort.append({
                         '_id': 'asc'
                     })
                 search_cmd = search_cmd.sort(*adjusted_fields_sort)
@@ -1938,11 +1983,18 @@ class Corpus(mongoengine.Document):
                         results['meta']['num_pages'] = 0
                         results['meta']['has_next_page'] = False
 
+                    # identify any multi-valued geo_point fields, as their output needs to be adjusted
+                    multi_geo_fields = [f.name for f in self.content_types[content_type].fields if f.type == 'geo_point' and f.multiple]
+
                     hit = None
                     for hit in search_results['hits']['hits']:
                         record = deepcopy(hit['_source'])
                         record['id'] = hit['_id']
                         record['_search_score'] = hit['_score']
+
+                        for multi_geo_field in multi_geo_fields:
+                            if multi_geo_field in record:
+                                record[multi_geo_field] = record[multi_geo_field]['coordinates']
 
                         if fields_highlight:
                             if 'highlight' in hit:
@@ -2440,8 +2492,6 @@ class Corpus(mongoengine.Document):
                             self.content_types[ct_name].fields[field_index].language = schema['fields'][x].get('language', default_field_values['language'])
                             self.content_types[ct_name].fields[field_index].autocomplete = schema['fields'][x].get('autocomplete', default_field_values['autocomplete'])
 
-            #print(json.dump(self.content_types[ct_name].to_dict()))
-
             # now that old and new fields have been reconciled, sort them according to the order found in the schema
             schema_ordered = [self.content_types[ct_name].get_field(f_spec['name']) for f_spec in schema['fields']]
             self.content_types[ct_name].fields = schema_ordered
@@ -2592,6 +2642,7 @@ class Corpus(mongoengine.Document):
                 'file': 'keyword',
                 'image': 'keyword',
                 'iiif-image': 'keyword',
+                'geo_point': GeoPoint(),
                 'link': 'keyword',
                 'cross_reference': None,
                 'document': 'text',
@@ -2671,6 +2722,10 @@ class Corpus(mongoengine.Document):
                     # large text fields assumed too large to provide a "raw" subfield for sorting
                     elif field_type == 'large_text':
                         mapping.field(field.name, 'text', analyzer=field.get_elasticsearch_analyzer())
+
+                    elif field.type == 'geo_point' and field.multiple:
+                        mapping.field(field.name, GeoShape())
+
                     else:
                         mapping.field(field.name, field_type)
 
@@ -3011,8 +3066,14 @@ class Content(mongoengine.Document):
             if isinstance(do_indexing, list):
                 cx_fields = [f for f in cx_fields if f in do_indexing]
 
+            geo_fields = [field.name for field in self._ct.fields if field.type == 'geo_point']
+            if isinstance(do_indexing, list):
+                geo_fields = [f for f in geo_fields if f in do_indexing]
+
             if cx_fields:
                 self.reload(*cx_fields)
+            if geo_fields:
+                self.reload(*geo_fields)
 
             if do_indexing:
                 if isinstance(do_indexing, list):
@@ -3186,12 +3247,24 @@ class Content(mongoengine.Document):
 
                             for xref_field in self._corpus.content_types[field.cross_reference_type].fields:
                                 if xref_field.in_lists and xref_field.type != "cross_reference":
-                                    field_value[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
+                                    if xref_field.type == 'geo_point' and xref_field.multiple:
+                                        field_value[xref_field.name] = {
+                                            'type': 'MultiPoint',
+                                            'coordinates': [v['coordinates'] for v in getattr(xref, xref_field.name)]
+                                        }
+                                    else:
+                                        field_value[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
 
                         index_obj[field.name] = field_value
 
                     elif field.type == 'file' and hasattr(field_value, 'path'):
                         index_obj[field.name] = field_value.path
+
+                    elif field.type == 'geo_point' and field.multiple:
+                        index_obj[field.name] = {
+                            'type': 'MultiPoint',
+                            'coordinates': [v['coordinates'] for v in field_value]
+                        }
 
                     elif field.type not in ['file']:
                         index_obj[field.name] = field.get_dict_value(field_value, self.uri)
@@ -3873,6 +3946,14 @@ def parse_date_string(date_string):
         pass
 
     return date_obj
+
+
+def is_valid_long_lat(longitude, latitude):
+    if longitude < -180 or longitude > 180:
+        return False
+    if latitude < -90 or latitude > 90:
+        return False
+    return True
 
 
 def ensure_connection():

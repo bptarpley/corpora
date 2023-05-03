@@ -4,6 +4,7 @@
 
 {% block css %}
     <link href="{% static 'css/filepond.css' %}" rel="stylesheet">
+    {% if has_geo_field %}<link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">{% endif %}
 {% endblock %}
 
 {% block modals %}
@@ -127,6 +128,7 @@
 {% block js %}
     <script src="{% static 'js/filepond.js' %}"></script>
     <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
+  {% if has_geo_field %}<script src="{% static 'js/leaflet.js' %}"></script>{% endif %}
     <script type="application/javascript">
         let corpus_id = '{{ corpus_id }}';
         let content_type = '{{ content_type }}';
@@ -157,6 +159,9 @@
         let content_search_timer;
         let content_selection_input_id = null;
         let content_selection_type = null;
+
+        let latlong_timer = null;
+        let map_markers = {};
 
         let input_templates = {
             text: function(field, value, id_suffix) {
@@ -258,6 +263,34 @@
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
                         <input type="text" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" value="${value}" ${bulk_editing ? 'disabled' : ''}>
+                        ${multi_remover(field, id_suffix)}
+                    </div>
+                `;
+            },
+            geo_point: function(field, value, id_suffix) {
+                return `
+                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}" style="flex-direction: column;">
+                        <div class="row no-gutters">
+                          <div class="col-sm-6">
+                            <label for="${field.name}-value${id_suffix}-lat">Latitude</label>
+                          </div>
+                          <div class="col-sm-6">
+                            <label for="${field.name}-value${id_suffix}-long">Longitude</label>
+                          </div>
+                        </div>
+                        <div class="row no-gutters">
+                          <div class="col-sm-6">
+                            <input type="number" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}-lat" value="${value && value.length === 2 ? value[1] : ''}" ${bulk_editing ? 'disabled' : ''}>
+                          </div>
+                          <div class="col-sm-6">
+                            <input type="number" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}-long" value="${value && value.length === 2 ? value[0] : ''}" ${bulk_editing ? 'disabled' : ''}>
+                          </div>
+                        </div>
+                        <div class="row no-gutters">
+                          <div id="${field.name}-value${id_suffix}-map" class="col-sm-12" style="height: 200px;">
+                          </div>
+                        </div>
+                        <input type="hidden" id="${field.name}-value${id_suffix}" class="edit-field-input geo_point-input" value="${value && value.length === 2 ? value[0] + ',' + value[1] : ''}">
                         ${multi_remover(field, id_suffix)}
                     </div>
                 `;
@@ -435,7 +468,7 @@
                     );
                 } else if (field.type === 'cross_reference') {
                     assign_content_selection_events();
-                }
+                } else if (field.type === 'geo_point') setup_geo_inputs();
                 multi_field_counter += 1;
             });
         }
@@ -446,6 +479,7 @@
             let has_html_field = false;
             let has_file_field = false;
             let has_xref_field = false;
+            let has_geo_field = {% if has_geo_field %}true{% else %}false{% endif %};
 
             if (bulk_editing) {
                 page_title.html(`Bulk Editing ${content_type}(s)`);
@@ -495,6 +529,10 @@
                 assign_content_selection_events();
             }
 
+            if (has_geo_field) {
+                setup_geo_inputs();
+            }
+
             if (bulk_editing) {
                 $('.bulk-edit-indicator').change(function() {
                     let field_name = $(this).data('field');
@@ -522,6 +560,84 @@
             hide_loading_overlay();
         }
 
+        function setup_geo_inputs() {
+            let geo_point_inputs = $('.geo_point-input');
+
+            geo_point_inputs.each(function() {
+                let geo_point_input = $(this);
+                let id_prefix = geo_point_input[0].id;
+                let lat_input = $(`#${id_prefix}-lat`);
+                let long_input = $(`#${id_prefix}-long`);
+                let map = L.map(`${id_prefix}-map`);
+
+                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                }).addTo(map);
+
+                const set_marker = (lat_input, long_input, geo_point_input, map) => {
+                    let lat = parseFloat(lat_input.val());
+                    let long = parseFloat(long_input.val());
+                    let reset_view = false;
+
+                    while (lat < -90) {
+                        lat += 180;
+                        reset_view = true;
+                    }
+                    while (lat > 90) {
+                        lat -= 180;
+                        reset_view = true;
+                    }
+                    while (long < -180) {
+                        long += 360;
+                        reset_view = true;
+                    }
+                    while (long > 180) {
+                        long -= 360;
+                        reset_view = true;
+                    }
+
+                    let coords = [lat, long];
+
+                    let last_marker_id = geo_point_input.data('marker');
+                    if (last_marker_id) {
+                        map.removeLayer(map_markers[last_marker_id]);
+                        delete map_markers[last_marker_id];
+                    }
+                    let marker = L.marker(coords);
+                    marker.addTo(map);
+                    map_markers[marker._leaflet_id] = marker;
+                    geo_point_input.data('marker', marker._leaflet_id);
+                    geo_point_input.val(`${long_input.val()},${lat_input.val()}`);
+                    if (reset_view) map.setView(coords, 13);
+                    return coords;
+                };
+
+                if (lat_input.val() && long_input.val()) {
+                    let coords = set_marker(lat_input, long_input, geo_point_input, map);
+                    map.setView(coords, 13);
+                } else
+                    map.locate({setView: true});
+
+                map.on('click', function(e) {
+                    lat_input.val(e.latlng.lat);
+                    long_input.val(e.latlng.lng);
+                    let coords = set_marker(lat_input, long_input, geo_point_input, map);
+                    lat_input.val(coords[0]);
+                    long_input.val(coords[1]);
+                });
+
+                $(`#${id_prefix}-lat, #${id_prefix}-long`).on('change paste keyup', function() {
+                    clearTimeout(latlong_timer);
+                    latlong_timer = setTimeout(function() {
+                        set_marker(lat_input, long_input, geo_point_input, map);
+                    }, 1000);
+                });
+
+                geo_point_input.removeClass('geo_point-input');
+            });
+        }
+
         function bundle_content() {
             let bundle = {};
 
@@ -540,7 +656,10 @@
                         else if (field.type === 'html') data['value'] = tinymce.get(input[0].id).getContent();
                         else if (field.type === 'number') data['value'] = parseInt(input.val());
                         else if (field.type === 'decimal') data['value'] = parseFloat(input.val());
-                        else data['value'] = input.val();
+                        else if (field.type === 'geo_point' && input.val()) {
+                            let longlat_strs = input.val().split(',');
+                            data['value'] = [parseFloat(longlat_strs[0]), parseFloat(longlat_strs[1])];
+                        } else data['value'] = input.val();
 
                         if (field.has_intensity) {
                             let intensity_input = $(`#${input[0].id}-intensity`);

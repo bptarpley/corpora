@@ -256,6 +256,8 @@ REST_FRAMEWORK = {
 # Huey config
 HUEY = PriorityRedisHuey('corpora', host='redis')
 NUM_HUEY_WORKERS = os.environ.get('CRP_HUEY_WORKERS')
+NUM_JOBS_PER_MINUTE = int(os.environ.get('CRP_NUM_JOBS_PER_MINUTE', 200))
+JOB_TIMEOUT_SECS = int(os.environ.get('CRP_JOB_TIMEOUT_SECS', 86400))
 
 # iPython Notebook Config
 NOTEBOOK_ARGUMENTS = [

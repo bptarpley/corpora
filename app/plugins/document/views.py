@@ -462,6 +462,7 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
                     only=['page_refno', 'complete']
                 )
                 if transcriptions:
+                    # find the ref_no for the first uncompleted page
                     for ordered_ref_no, page in document.ordered_pages(pageset):
                         trans_found = False
                         for trans in transcriptions:
@@ -469,9 +470,14 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
                                 trans_found = True
                                 break
                         if not trans_found:
-                            ref_no = ordered_ref_no
                             break
-                else:
+
+                    # make sure we entered the for-loop and capture the last ordered_ref_no
+                    if 'ordered_ref_no' in locals():
+                        ref_no = ordered_ref_no
+
+                # if we still don't have a ref_no, just set it to the first
+                if not ref_no:
                     if pageset:
                         ref_no = document.page_sets[pageset].ref_nos[0]
                     else:

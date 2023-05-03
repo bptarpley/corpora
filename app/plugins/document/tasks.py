@@ -277,11 +277,11 @@ def extract_pdf_pages(job_id):
         ref_no = 1
         for pdf_page in pdf_obj:
             pix = pdf_page.get_pixmap(matrix=fitz.Matrix(2, 2))
-            threshold = pix.width / 2
+            mode = "RGBA" if pix.alpha else "RGB"
+            img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
 
             if split_images:
-                mode = "RGBA" if pix.alpha else "RGB"
-                img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+                threshold = pix.width / 2
 
                 img_a = img.crop((0, 0, threshold, pix.height))
                 process_page_file(
@@ -309,7 +309,7 @@ def extract_pdf_pages(job_id):
                     page_file_label,
                     str(job.id),
                     primary_witness,
-                    image=pix
+                    image=img
                 )
 
             if extract_text:
