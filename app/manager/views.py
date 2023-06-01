@@ -541,7 +541,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
             elif 'delete-content' in request.POST:
                 content_label = content.label
                 content.delete()
-                return redirect("/corpus/{0}/?msg={1} successfully deleted.".format(
+                return redirect("/corpus/{0}/?msg={1} is being deleted.".format(
                     corpus_id,
                     content_label
                 ))
