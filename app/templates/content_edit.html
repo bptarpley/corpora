@@ -83,6 +83,33 @@
             </div>
         </div>
     </div>
+
+  <!-- CONTENT DELETION CONFIRMATION MODAL -->
+  <div class="modal fade" id="deletion-confirmation-modal" tabindex="-1" role="dialog" aria-labelledby="deletion-confirmation-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="deletion-confirmation-modal-label">Confirm Deletion</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="deletion-confirmation-modal-message" class="alert alert-danger">
+            Are you sure you want to delete this content?
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="delete-content" value="y" />
+            <button type="submit" class="btn btn-primary">Delete</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 
 {% block main %}
@@ -110,6 +137,7 @@
                         <button type="button" class="btn btn-primary" id="content-save-button">Save</button>
                         <button type="button" class="btn btn-primary" id="content-save-and-create-button">Save and Create New</button>
                         <a role="button" href="/corpus/{{ corpus_id }}/" class="btn btn-secondary">Cancel</a>
+                        <button id="content-delete-button" class="btn btn-sm btn-danger float-right" title="Delete" data-toggle="modal" data-target="#deletion-confirmation-modal"><span class="fas fa-trash-alt"></span></button>
                     </div>
                     {% if edit_widget_url %}
                             </div>

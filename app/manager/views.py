@@ -492,47 +492,59 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                 content_id=content_id
             )
 
-        if request.method == 'POST' and _contains(request.POST, ['corpora-content-edit', 'content-bundle']):
-
+        if request.method == 'POST':
             content = corpus.get_content(content_type, content_id)
-            content_bundle = request.POST.get('content-bundle', None)
-            if content_bundle:
-                content_bundle = json.loads(content_bundle)
-                print(json.dumps(content_bundle, indent=4))
 
-                if content_ids or content_query:
-                    run_job(corpus.queue_local_job(
-                        task_name='Bulk Edit Content',
-                        parameters={
-                            'content_type': content_type,
-                            'content_ids': content_ids,
-                            'content_query': content_query,
-                            'content_bundle': content_bundle,
-                            'scholar_id': str(context['scholar'].id)
-                        }
-                    ))
-                    return redirect("/corpus/{0}/?msg=Bulk edit content job submitted.".format(corpus_id))
+            # save content
+            if _contains(request.POST, ['corpora-content-edit', 'content-bundle']):
 
-                else:
-                    process_content_bundle(
-                        corpus,
-                        content_type,
-                        content,
-                        content_bundle,
-                        context['scholar'].id
-                    )
+                content_bundle = request.POST.get('content-bundle', None)
+                if content_bundle:
+                    content_bundle = json.loads(content_bundle)
+                    print(json.dumps(content_bundle, indent=4))
 
-                    if 'save-and-create' in request.POST:
-                        return redirect("/corpus/{0}/{1}/?msg={1} saved.".format(
-                            corpus_id,
-                            content_type
+                    if content_ids or content_query:
+                        run_job(corpus.queue_local_job(
+                            task_name='Bulk Edit Content',
+                            parameters={
+                                'content_type': content_type,
+                                'content_ids': content_ids,
+                                'content_query': content_query,
+                                'content_bundle': content_bundle,
+                                'scholar_id': str(context['scholar'].id)
+                            }
                         ))
+                        return redirect("/corpus/{0}/?msg=Bulk edit content job submitted.".format(corpus_id))
+
                     else:
-                        return redirect("/corpus/{0}/{1}/{2}".format(
-                            corpus_id,
+                        process_content_bundle(
+                            corpus,
                             content_type,
-                            str(content.id)
-                        ))
+                            content,
+                            content_bundle,
+                            context['scholar'].id
+                        )
+
+                        if 'save-and-create' in request.POST:
+                            return redirect("/corpus/{0}/{1}/?msg={1} saved.".format(
+                                corpus_id,
+                                content_type
+                            ))
+                        else:
+                            return redirect("/corpus/{0}/{1}/{2}".format(
+                                corpus_id,
+                                content_type,
+                                str(content.id)
+                            ))
+
+            # delete content
+            elif 'delete-content' in request.POST:
+                content_label = content.label
+                content.delete()
+                return redirect("/corpus/{0}/?msg={1} is being deleted.".format(
+                    corpus_id,
+                    content_label
+                ))
 
         for field in corpus.content_types[content_type].fields:
             if field.type == 'geo_point':
