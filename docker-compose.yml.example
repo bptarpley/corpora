@@ -21,6 +21,7 @@ services:
     command: ./start.sh
     environment:
       CRP_HOST: localhost
+      CRP_INSTALLED_PLUGINS: tesseract,csv
       CRP_MONGO_HOST: mongo
       CRP_MONGO_DB: corpora
       CRP_MONGO_USER: corpora
