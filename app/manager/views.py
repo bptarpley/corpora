@@ -1379,7 +1379,7 @@ def api_corpora(request):
         context['search'] = {
             'general_query': "*",
             'page': 1,
-            'page-size': 50
+            'page_size': 50
         }
 
     if context['scholar'] and context['scholar'].is_admin:

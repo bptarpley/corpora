@@ -66,19 +66,28 @@ INSTALLED_APPS = [
     'manager',
     'plugins',
     'plugins.document',
+]
+
+installed_plugins = os.environ.get('CRP_INSTALLED_PLUGINS', '')
+if installed_plugins:
+    installed_plugins = [f'plugins.{p.strip()}' for p in installed_plugins.split(',') if p]
+    INSTALLED_APPS += installed_plugins
+
+INSTALLED_APPS += [
+    'rest_framework',
+    'rest_framework.authtoken',
+]
+
+'''
     'plugins.tesseract',
     'plugins.csv',
-    #'plugins.google_cloud_vision',
-    #'plugins.nlp',
     'plugins.emop',
     'plugins.nvs',
     'plugins.cervantes',
     'plugins.arc',
     'plugins.femcon',
     'plugins.melp',
-    'rest_framework',
-    'rest_framework.authtoken',
-]
+'''
 
 MIDDLEWARE = [
     'manager.middleware.SiteMiddleware',
@@ -146,15 +155,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'corpora.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/2.1/ref/settings/#databases
-
-MONGO_DB = os.environ['CRP_MONGO_DB']
-MONGO_USER = os.environ['CRP_MONGO_USER']
-MONGO_PWD = os.environ['CRP_MONGO_PWD']
-MONGO_HOST = os.environ['CRP_MONGO_HOST']
-MONGO_AUTH_SOURCE = os.environ.get('CRP_MONGO_AUTH_SOURCE', 'admin')
-MONGO_POOLSIZE = os.environ['CRP_MONGO_POOLSIZE']
+# DATABASE CONFIG
 
 DATABASES = {
     'default': {
@@ -163,7 +164,27 @@ DATABASES = {
     }
 }
 
+# Register any plugin databases
+for app in INSTALLED_APPS:
+    if app.startswith('plugins.'):
+        app_label = app.replace('plugins.', '')
+        if os.path.exists(BASE_DIR + f'/plugins/{app_label}/models.py'):
+            if app not in DATABASES:
+                DATABASES[app] = {
+                    'ENGINE': 'django.db.backends.sqlite3',
+                    'NAME': f'/conf/{app}.sqlite3',
+                }
+
+DATABASE_ROUTERS = ['plugins.PluginModelRouter']
+
 # Mongoengine connection
+MONGO_DB = os.environ['CRP_MONGO_DB']
+MONGO_USER = os.environ['CRP_MONGO_USER']
+MONGO_PWD = os.environ['CRP_MONGO_PWD']
+MONGO_HOST = os.environ['CRP_MONGO_HOST']
+MONGO_AUTH_SOURCE = os.environ.get('CRP_MONGO_AUTH_SOURCE', 'admin')
+MONGO_POOLSIZE = os.environ['CRP_MONGO_POOLSIZE']
+
 connect(
     MONGO_DB,
     host=MONGO_HOST,
@@ -188,7 +209,10 @@ except:
 
 # Elasticsearch configuration
 connections.configure(
-    default={'hosts': os.environ['CRP_ELASTIC_HOST'], 'timeout': 60}
+    default={
+        'hosts': os.environ['CRP_ELASTIC_HOST'],
+        'timeout': 60,
+    },
 )
 
 ES_SYNONYM_OPTIONS = {}
