@@ -191,6 +191,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-secondary" onclick="ignore_finished_jobs = true;" data-dismiss="modal">Ignore these events</button>
                     <button type="button" class="btn btn-primary" onclick="window.location = window.location.href.replace(location.hash, '');">Refresh</button>
                 </div>
             </div>
@@ -728,6 +729,7 @@
         let import_editor;
         let template_editor;
         let job_report_timer = null;
+        let ignore_finished_jobs = false;
 
         // VARS FOR FILE UPLOADS/IMPORTS
         let file_upload_path = '';
@@ -2347,7 +2349,9 @@
         }
 
         function job_finished() {
-            $('#job-finished-modal').modal();
+            if (!ignore_finished_jobs) {
+                $('#job-finished-modal').modal();
+            }
         }
 
         // THIS GETS CALLED BY JOB WIDGET IN IFRAME
