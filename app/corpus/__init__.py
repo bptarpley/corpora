@@ -2955,7 +2955,7 @@ class Corpus(mongoengine.Document):
             corpus_dict['content_types'][ct_name] = self.content_types[ct_name].to_dict()
 
         if include_views:
-            content_views = ContentView.objects(corpus=self.id, status='populated').order_by('name')
+            content_views = ContentView.objects(corpus=self.id, status__in=['populated', 'needs_refresh']).order_by('name')
             for cv in content_views:
                 if cv.target_ct in corpus_dict['content_types']:
                     if 'views' not in corpus_dict['content_types'][cv.target_ct]:
@@ -3595,7 +3595,7 @@ class ContentView(mongoengine.Document):
                     if filtered_with_graph_path:
                         search_dict['content_view'] = self.es_document_id
 
-                    search_dict['page-size'] = 1000
+                    search_dict['page_size'] = 1000
                     search_dict['only'] = ['id']
 
                     ids = []
@@ -3617,7 +3617,7 @@ class ContentView(mongoengine.Document):
                                 self.set_status("error: content views must contain less than 60,000 results")
 
                             if 'next_page_token' in results['meta']:
-                                search_dict['page-token'] = results['meta']['next_page_token']
+                                search_dict['next_page_token'] = results['meta']['next_page_token']
 
                         page += 1
 
