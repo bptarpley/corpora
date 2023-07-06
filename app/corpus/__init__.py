@@ -1504,10 +1504,74 @@ class Corpus(mongoengine.Document):
 
             # GENERAL QUERY
             if general_query:
-                if operator == 'and':
-                    must.append(SimpleQueryString(query=general_query))
-                else:
-                    should.append(SimpleQueryString(query=general_query))
+
+                # Since we want the general query to search all fields (including nested ones),
+                # we need to break out nested fields from top level ones so we can search them
+                top_fields = []
+                top_query = None
+                nested_fields = []
+                nested_queries = []
+                nested_query = None
+                final_query = None
+
+                # determine what kinds of fields this search is eligible for
+                valid_field_types = ['text', 'large_text', 'keyword', 'html']
+                if general_query == '*':
+                    valid_field_types += ['number', 'decimal']
+                elif general_query.isdecimal():
+                    valid_field_types.append('number')
+                elif general_query.replace('.', '').isdecimal():
+                    valid_field_types.append('decimal')
+
+                for f in self.content_types[content_type].fields:
+                    if f.in_lists:
+                        if f.type == 'cross_reference':
+                            nested_fields.append(f.name)
+
+                        # not all fields (like date fields) can be searched with simple query strings,
+                        # so we'll filter out the ones that are incompatible
+                        elif f.type in valid_field_types:
+                            top_fields.append(f.name)
+
+                # top level fields can be handled by a single simple query string search
+                if top_fields:
+                    top_query = SimpleQueryString(query=general_query, fields=top_fields)
+
+                # nested fields, however, must each receive their own nested query
+                for nested_field in nested_fields:
+                    nested_queries.append(
+                        Q(
+                            "nested",
+                            path=nested_field,
+                            query=SimpleQueryString(query=general_query, fields=[f"{nested_field}.label"])
+                        )
+                    )
+                # if there's more than one nested query, we need to "bool" them together
+                # using OR (what elasticsearch refers to as "should")
+                if len(nested_queries) > 1:
+                    nested_query = Q('bool', should=nested_queries)
+                elif nested_queries:
+                    nested_query = nested_queries[0]
+
+                # if there are no nested fields, keep it simple:
+                if top_query and not nested_query:
+                    final_query = top_query
+
+                # if there are only nested fields, no need for a combined bool query:
+                elif nested_query and not top_query:
+                    final_query = nested_query
+
+                # if we have both, rig up a combined bool query:
+                elif top_query and nested_query:
+                    final_query = Q('bool', should=[top_query, nested_query])
+
+                if final_query:
+                    if operator == 'and':
+                        must.append(final_query)
+                    else:
+                        should.append(final_query)
+
+            # OTHER KINDS OF QUERY
 
             # helper function for determining local operators for queries below
             def determine_local_operator(search_field, operator):
@@ -1563,11 +1627,6 @@ class Corpus(mongoengine.Document):
                     search_criteria = {
                         search_field: {'query': field_value}
                     }
-
-                    # Todo: Make fuzzy searches an option somehow, perhaps with the z_ prefix?
-                    #if field_type in ['text', 'large_text', 'html']:
-                    #    search_criteria[search_field]['operator'] = 'and'
-                    #    search_criteria[search_field]['fuzziness'] = 'AUTO'
 
                     if field_type == 'date':
                         search_criteria[search_field]['query'] = parse_date_string(field_value).isoformat()

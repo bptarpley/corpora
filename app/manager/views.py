@@ -1469,12 +1469,24 @@ def api_corpus(request, corpus_id):
 def api_content(request, corpus_id, content_type, content_id=None):
     context = _get_context(request)
     content = {}
+    render_template = _clean(request.GET, 'render_template', None)
 
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
 
     if corpus and content_type in corpus.content_types:
         if content_id:
             content = corpus.get_content(content_type, content_id, context['only'])
+
+            if render_template and render_template in corpus.content_types[content_type].templates:
+                if content.id:
+                    django_template = Template(corpus.content_types[content_type].templates[render_template].template)
+                    context = Context({content_type: content})
+
+                    return HttpResponse(
+                        django_template.render(context),
+                        content_type=corpus.content_types[content_type].templates[render_template].mime_type
+                    )
+
             content = content.to_dict()
         else:
             if context['search']:
