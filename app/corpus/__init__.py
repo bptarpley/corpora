@@ -1506,12 +1506,13 @@ class Corpus(mongoengine.Document):
             if general_query:
 
                 # Since we want the general query to search all fields (including nested ones),
-                # we need to break out nested fields from top level ones so we can search them
+                # we need to break out nested fields from top level ones so we can search them.
+                # We must also separate out date fields since they need to be treated differently.
+
                 top_fields = []
-                top_query = None
+                date_fields = []
                 nested_fields = []
-                nested_queries = []
-                nested_query = None
+                general_queries = []
                 final_query = None
 
                 if general_query == '*':
@@ -1520,53 +1521,65 @@ class Corpus(mongoengine.Document):
                     # determine what kinds of fields this search is eligible for
                     valid_field_types = ['text', 'large_text', 'keyword', 'html']
 
-                    # try numeric fields
+                    # try numeric
                     if general_query.isdecimal():
                         valid_field_types += ['number', 'decimal']
                     elif general_query.replace('.', '').isdecimal():
                         valid_field_types.append('decimal')
+
+                    # try date
+                    date_query_value = parse_date_string(general_query)
+                    date_query_end_value = None
+                    if date_query_value:
+                        date_query_value = date_query_value.isoformat()
+                        # see if we're dealing with just a year so we
+                        # can include the beginning and end of year as a range
+                        if len(general_query) == 4:
+                            date_query_end_value = parse_date_string(f"12/31/{general_query}").isoformat()
 
                     for f in self.content_types[content_type].fields:
                         if f.in_lists:
                             if f.type == 'cross_reference':
                                 nested_fields.append(f.name)
 
-                            # not all fields (like date fields) can be searched with simple query strings,
-                            # so we'll filter out the ones that are incompatible
+                            elif f.type == 'date':
+                                date_fields.append(f.name)
+
                             elif f.type in valid_field_types:
                                 top_fields.append(f.name)
 
                     # top level fields can be handled by a single simple query string search
                     if top_fields:
-                        top_query = SimpleQueryString(query=general_query, fields=top_fields)
+                        general_queries.append(SimpleQueryString(query=general_query, fields=top_fields))
 
                     # nested fields, however, must each receive their own nested query
                     for nested_field in nested_fields:
-                        nested_queries.append(
+                        general_queries.append(
                             Q(
                                 "nested",
                                 path=nested_field,
                                 query=SimpleQueryString(query=general_query, fields=[f"{nested_field}.label"])
                             )
                         )
-                    # if there's more than one nested query, we need to "bool" them together
-                    # using OR (what elasticsearch refers to as "should")
-                    if len(nested_queries) > 1:
-                        nested_query = Q('bool', should=nested_queries)
-                    elif nested_queries:
-                        nested_query = nested_queries[0]
 
-                    # if there are no nested fields, keep it simple:
-                    if top_query and not nested_query:
-                        final_query = top_query
+                    # date fields should use the converted value, and possibly a range query
+                    if date_fields and date_query_value:
+                        if date_query_end_value:
+                            for date_field in date_fields:
+                                general_queries.append(Q(
+                                    "range",
+                                    **{date_field: {
+                                        'gte': date_query_value,
+                                        'lte': date_query_end_value
+                                }}))
+                        else:
+                            general_queries.append(SimpleQueryString(query=date_query_value, fields=date_fields))
 
-                    # if there are only nested fields, no need for a combined bool query:
-                    elif nested_query and not top_query:
-                        final_query = nested_query
-
-                    # if we have both, rig up a combined bool query:
-                    elif top_query and nested_query:
-                        final_query = Q('bool', should=[top_query, nested_query])
+                    # now that we've built our various queries, let's OR them together if necessary:
+                    if len(general_queries) > 1:
+                        final_query = Q('bool', should=general_queries)
+                    elif general_queries:
+                        final_query = general_queries[0]
 
                 if final_query:
                     if operator == 'and':
