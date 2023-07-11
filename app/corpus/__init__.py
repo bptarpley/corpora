@@ -1639,23 +1639,37 @@ class Corpus(mongoengine.Document):
 
                 for field_value in field_values:
                     q = None
+                    q_type = 'match'
 
                     search_criteria = {
                         search_field: {'query': field_value}
                     }
 
                     if field_type == 'date':
-                        search_criteria[search_field]['query'] = parse_date_string(field_value).isoformat()
+                        date_value = parse_date_string(field_value)
+                        if date_value:
+                            # if this is an entire year, let's build a range query instead
+                            if len(field_value) == 4 and field_value.isdecimal():
+                                end_date_value = parse_date_string(f"12/31/{field_value}")
+                                q_type = 'range'
+                                search_criteria = {
+                                    search_field: {
+                                        'gte': date_value.isoformat(),
+                                        'lte': end_date_value.isoformat()
+                                    }
+                                }
+                            else:
+                                search_criteria[search_field]['query'] = date_value.isoformat()
 
                     if '.' in search_field:
                         field_parts = search_field.split('.')
                         q = Q(
                             "nested",
                             path=field_parts[0],
-                            query=Q('match', **search_criteria)
+                            query=Q(q_type, **search_criteria)
                         )
                     else:
-                        q = Q('match', **search_criteria)
+                        q = Q(q_type, **search_criteria)
 
                     if q:
                         if local_operator == 'and':
