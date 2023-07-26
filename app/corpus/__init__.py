@@ -1504,10 +1504,90 @@ class Corpus(mongoengine.Document):
 
             # GENERAL QUERY
             if general_query:
-                if operator == 'and':
-                    must.append(SimpleQueryString(query=general_query))
+
+                # Since we want the general query to search all fields (including nested ones),
+                # we need to break out nested fields from top level ones so we can search them.
+                # We must also separate out date fields since they need to be treated differently.
+
+                top_fields = []
+                date_fields = []
+                nested_fields = []
+                general_queries = []
+                final_query = None
+
+                if general_query == '*':
+                    final_query = SimpleQueryString(query=general_query)
                 else:
-                    should.append(SimpleQueryString(query=general_query))
+                    # determine what kinds of fields this search is eligible for
+                    valid_field_types = ['text', 'large_text', 'keyword', 'html']
+
+                    # try numeric
+                    if general_query.isdecimal():
+                        valid_field_types += ['number', 'decimal']
+                    elif general_query.replace('.', '').isdecimal():
+                        valid_field_types.append('decimal')
+
+                    # try date
+                    date_query_value = parse_date_string(general_query)
+                    date_query_end_value = None
+                    if date_query_value:
+                        date_query_value = date_query_value.isoformat()
+                        # see if we're dealing with just a year so we
+                        # can include the beginning and end of year as a range
+                        if len(general_query) == 4:
+                            date_query_end_value = parse_date_string(f"12/31/{general_query}").isoformat()
+
+                    for f in self.content_types[content_type].fields:
+                        if f.in_lists:
+                            if f.type == 'cross_reference':
+                                nested_fields.append(f.name)
+
+                            elif f.type == 'date':
+                                date_fields.append(f.name)
+
+                            elif f.type in valid_field_types:
+                                top_fields.append(f.name)
+
+                    # top level fields can be handled by a single simple query string search
+                    if top_fields:
+                        general_queries.append(SimpleQueryString(query=general_query, fields=top_fields))
+
+                    # nested fields, however, must each receive their own nested query
+                    for nested_field in nested_fields:
+                        general_queries.append(
+                            Q(
+                                "nested",
+                                path=nested_field,
+                                query=SimpleQueryString(query=general_query, fields=[f"{nested_field}.label"])
+                            )
+                        )
+
+                    # date fields should use the converted value, and possibly a range query
+                    if date_fields and date_query_value:
+                        if date_query_end_value:
+                            for date_field in date_fields:
+                                general_queries.append(Q(
+                                    "range",
+                                    **{date_field: {
+                                        'gte': date_query_value,
+                                        'lte': date_query_end_value
+                                }}))
+                        else:
+                            general_queries.append(SimpleQueryString(query=date_query_value, fields=date_fields))
+
+                    # now that we've built our various queries, let's OR them together if necessary:
+                    if len(general_queries) > 1:
+                        final_query = Q('bool', should=general_queries)
+                    elif general_queries:
+                        final_query = general_queries[0]
+
+                if final_query:
+                    if operator == 'and':
+                        must.append(final_query)
+                    else:
+                        should.append(final_query)
+
+            # OTHER KINDS OF QUERY
 
             # helper function for determining local operators for queries below
             def determine_local_operator(search_field, operator):
@@ -1559,28 +1639,37 @@ class Corpus(mongoengine.Document):
 
                 for field_value in field_values:
                     q = None
+                    q_type = 'match'
 
                     search_criteria = {
                         search_field: {'query': field_value}
                     }
 
-                    # Todo: Make fuzzy searches an option somehow, perhaps with the z_ prefix?
-                    #if field_type in ['text', 'large_text', 'html']:
-                    #    search_criteria[search_field]['operator'] = 'and'
-                    #    search_criteria[search_field]['fuzziness'] = 'AUTO'
-
                     if field_type == 'date':
-                        search_criteria[search_field]['query'] = parse_date_string(field_value).isoformat()
+                        date_value = parse_date_string(field_value)
+                        if date_value:
+                            # if this is an entire year, let's build a range query instead
+                            if len(field_value) == 4 and field_value.isdecimal():
+                                end_date_value = parse_date_string(f"12/31/{field_value}")
+                                q_type = 'range'
+                                search_criteria = {
+                                    search_field: {
+                                        'gte': date_value.isoformat(),
+                                        'lte': end_date_value.isoformat()
+                                    }
+                                }
+                            else:
+                                search_criteria[search_field]['query'] = date_value.isoformat()
 
                     if '.' in search_field:
                         field_parts = search_field.split('.')
                         q = Q(
                             "nested",
                             path=field_parts[0],
-                            query=Q('match', **search_criteria)
+                            query=Q(q_type, **search_criteria)
                         )
                     else:
-                        q = Q('match', **search_criteria)
+                        q = Q(q_type, **search_criteria)
 
                     if q:
                         if local_operator == 'and':
@@ -2955,7 +3044,7 @@ class Corpus(mongoengine.Document):
             corpus_dict['content_types'][ct_name] = self.content_types[ct_name].to_dict()
 
         if include_views:
-            content_views = ContentView.objects(corpus=self.id, status='populated').order_by('name')
+            content_views = ContentView.objects(corpus=self.id, status__in=['populated', 'needs_refresh']).order_by('name')
             for cv in content_views:
                 if cv.target_ct in corpus_dict['content_types']:
                     if 'views' not in corpus_dict['content_types'][cv.target_ct]:
@@ -3595,7 +3684,7 @@ class ContentView(mongoengine.Document):
                     if filtered_with_graph_path:
                         search_dict['content_view'] = self.es_document_id
 
-                    search_dict['page-size'] = 1000
+                    search_dict['page_size'] = 1000
                     search_dict['only'] = ['id']
 
                     ids = []
@@ -3617,7 +3706,7 @@ class ContentView(mongoengine.Document):
                                 self.set_status("error: content views must contain less than 60,000 results")
 
                             if 'next_page_token' in results['meta']:
-                                search_dict['page-token'] = results['meta']['next_page_token']
+                                search_dict['next_page_token'] = results['meta']['next_page_token']
 
                         page += 1
 
