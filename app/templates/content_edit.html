@@ -195,7 +195,7 @@
             text: function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}" data-index="${id_suffix}">
-                        <textarea class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" rows="20" ${bulk_editing ? 'disabled' : ''}>${value}</textarea>
+                        <textarea class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" rows="5" ${bulk_editing ? 'disabled' : ''}>${value}</textarea>
                         ${multi_remover(field, id_suffix)}
                     </div>
                 `;
