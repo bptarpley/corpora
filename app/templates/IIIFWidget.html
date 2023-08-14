@@ -14,8 +14,12 @@
 
 {% block js %}
     <script src="{% static 'js/openseadragon.min.js' %}"></script>
+    <script src="{% static 'js/openseadragon-imaginghelper.min.js' %}"></script>
     <script type="application/javascript">
         let dragon = null;
+        let dragon_helper = null;
+        let viewport_event = null;
+        let viewport_timer = null;
 
         $(document).ready(function() {
             let main_container = $('#main-container');
@@ -38,6 +42,27 @@
                 showRotationControl: true,
                 tileSources:   ["{{ image_url }}"]
             });
+            dragon_helper = dragon.activateImagingHelper({onImageViewChanged: function(event) {
+                viewport_event = event
+                clearTimeout(viewport_timer)
+                viewport_timer = setTimeout(function() {
+                    let point = viewport_event.viewportOrigin
+
+                    let top_left_x = dragon_helper.logicalToDataX(0.0)
+                    let top_left_y = dragon_helper.logicalToDataY(0.0)
+                    let bottom_right_x = dragon_helper.logicalToDataX(1.0)
+                    let bottom_right_y = dragon_helper.logicalToDataY(1.0)
+                    let width = bottom_right_x - top_left_x
+                    let height = bottom_right_y - top_left_y
+
+                    console.log(`
+                        x: ${width * point.x}
+                        y: ${height * point.y}
+                        width: ${viewport_event.viewportWidth * width}
+                    `)
+                }, 1000)
+
+            }});
 
             hide_loading_overlay();
         });
