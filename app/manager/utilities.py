@@ -1,14 +1,9 @@
 from corpus import *
 from mongoengine.queryset.visitor import Q
 from django.utils.html import escape
-from bs4 import BeautifulSoup
-from math import ceil
-from bson.objectid import ObjectId
-from google.cloud import vision
+from urllib.parse import unquote
 from elasticsearch_dsl import A
 import traceback
-import shutil
-import json
 import redis
 
 
@@ -416,6 +411,9 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                             elif field.type == 'date':
                                 value = parse_date_string(value)
 
+                            elif field.type == 'html':
+                                value = unquote(value)
+
                         if field.multiple:
                             if valid_value:
                                 getattr(content, field_name).append(value)
@@ -450,6 +448,12 @@ def _contains_any(obj, keys):
         if key in obj:
             return True
     return False
+
+
+def _replace_all(target, replacement_pairs):
+    for pair in replacement_pairs:
+        target = target.replace(pair[0], pair[1])
+    return target
 
 
 def _clean(obj, key, default_value=''):
