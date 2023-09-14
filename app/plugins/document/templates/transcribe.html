@@ -255,7 +255,7 @@
         </span>
         <span id="region-controls" class="control-group">
             <b>Regions</b>
-            <button id="draw-region" type="button" class="btn btn-sm btn-primary ml-3">Draw</button>
+            <button id="draw-region" type="button" class="btn btn-sm btn-primary ml-3"><u>D</u>raw</button>
             <button id="select-region" type="button" class="btn btn-sm btn-primary ml-1">Select</button>
             <button id="clear-regions" type="button" class="btn btn-sm btn-secondary ml-1">Clear</button>
             <button id="split-regions" type="button" class="btn btn-sm btn-secondary ml-1">Split</button>
@@ -646,6 +646,8 @@
             $(document).keyup(function(e) {
                 if (e.which === 27) {
                     reset_mode();
+                } else if (e.which === 68 && !currently_editing) {
+                    draw_region();
                 }
             });
 
