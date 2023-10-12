@@ -815,9 +815,9 @@
                     let options = `top=${top},left=${left},popup=true`;
                     let creation_url = `/corpus/${corpus_id}/${content_selection_type}/?popup=y`;
                     return window.open(creation_url, '_blank', options);
-                });
+                })
 
-                $('#content-selection-modal').modal();
+                $('#content-selection-modal').modal()
             });
         }
 
@@ -866,20 +866,35 @@
                     $(`#${input_id}-div`).remove();
                 }
             });
+
+            // content selection filter box
+            let filter_box = $('#content-selection-modal-filter-box')
+            filter_box.keyup(function (e) {
+                let key = e.which
+                if (key === 13) {
+                    refresh_content_selection()
+                } else {
+                  clearTimeout(content_search_timer)
+                  content_search_timer = setTimeout(refresh_content_selection, 500)
+                }
+            })
+
+            // modal show event
+            let content_modal = $('#content-selection-modal')
+            content_modal.on('shown.bs.modal', function(e) {
+              filter_box.val('')
+              filter_box.focus()
+            })
         }
 
-        // content selection filter box
-        $('#content-selection-modal-filter-box').keypress(function (e) {
-            let key = e.which;
-            if (key === 13) {
-                refresh_content_selection();
-            }
-        });
 
         function refresh_content_selection() {
-            let query = $('#content-selection-modal-filter-box').val();
-            content_selection_vars.q = query;
-            select_content(content_selection_type, content_selection_input_id);
+            clearTimeout(content_search_timer)
+            let query = $('#content-selection-modal-filter-box').val()
+            content_selection_vars.q = query + '*'
+            content_selection_vars.page = 1
+            delete content_selection_vars['s_label']
+            select_content(content_selection_type, content_selection_input_id)
         }
 
         // previous select content page click event
