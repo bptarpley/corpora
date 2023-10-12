@@ -891,6 +891,7 @@
         function refresh_content_selection() {
             clearTimeout(content_search_timer)
             let query = $('#content-selection-modal-filter-box').val()
+            query = query.replaceAll("'", ' ')
             content_selection_vars.q = query + '*'
             content_selection_vars.page = 1
             delete content_selection_vars['s_label']
