@@ -1055,6 +1055,8 @@
             if (page_regions.hasOwnProperty(region_id) && page_regions[region_id].hasOwnProperty('rect')) {
                 let color = 'red';
                 if (page_regions[region_id].hasOwnProperty('transcription')) color = '#17BEBB';
+                if (page_regions[region_id].metadata && page_regions[region_id].metadata.needs_attention) color = '#E9FF70';
+
                 page_regions[region_id].rect.attr({fill: color, stroke: color});
             }
         }
