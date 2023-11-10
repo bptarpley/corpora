@@ -147,6 +147,11 @@
                                             </div>
                                         </div>
                                     {% endif %}
+                                    <div class="form-group">
+                                      <input type="hidden" name="captcha-check" value="{{ captcha_hash|safe }}">
+                                      <img src="data:image/png;base64,{{ captcha_image|safe }}">
+                                      <input type="text" class="form-control" name="captcha-word" placeholder="Enter captcha">
+                                    </div>
                                 </div>
                                 <div class="card-footer">
                                     <button type="submit" class="btn btn-primary mr-1">{% if register %}Register{% else %}Update{% endif %}</button>

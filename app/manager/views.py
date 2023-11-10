@@ -28,6 +28,7 @@ from .utilities import(
     order_content_schema,
     process_content_bundle
 )
+from .captcha import generate_captcha, validate_captcha
 from rest_framework.decorators import api_view 
 from rest_framework.authtoken.models import Token
 
@@ -1076,10 +1077,6 @@ def scholar(request):
     response = _get_context(request)
     register = False
 
-    #if settings.USE_SSL and not response['url'].startswith('https'):
-    #    secure_url = response['url'].replace('http://', 'https://')
-    #    return redirect(secure_url)
-
     if not response['scholar'] and 'register' in request.GET:
         register = True
 
@@ -1093,64 +1090,69 @@ def scholar(request):
         response['scholar'].save()
         response = _get_context(request)
 
-    if request.method == 'POST' and _contains(request.POST, ['username', 'password', 'password2', 'fname', 'lname', 'email']):
+    if request.method == 'POST' and _contains(request.POST, ['username', 'password', 'password2', 'fname', 'lname', 'email', 'captcha-check', 'captcha-word']):
         username = _clean(request.POST, 'username')
         password = _clean(request.POST, 'password')
         password2 = _clean(request.POST, 'password2')
         fname = _clean(request.POST, 'fname')
         lname = _clean(request.POST, 'lname')
         email = _clean(request.POST, 'email')
+        captcha_hash = _clean(request.POST, 'captcha-check')
+        captcha_word = _clean(request.POST, 'captcha-word')
 
-        valid_ips = True
-        auth_token_ips = [request.POST[val] for val in request.POST.keys() if val.startswith('auth-token-ip-')]
-        for auth_token_ip in auth_token_ips:
-            try:
-                ip = ip_address(auth_token_ip)
-            except:
-                valid_ips = False
+        if validate_captcha(captcha_word, captcha_hash):
+            valid_ips = True
+            auth_token_ips = [request.POST[val] for val in request.POST.keys() if val.startswith('auth-token-ip-')]
+            for auth_token_ip in auth_token_ips:
+                try:
+                    ip = ip_address(auth_token_ip)
+                except:
+                    valid_ips = False
 
-        if valid_ips:
-            if password and password == password2:
-                if not response['scholar']:
-                    user = User.objects.create_user(
-                        username,
-                        email,
-                        password
-                    )
-                    user.first_name = fname
-                    user.last_name = lname
-                    user.save()
+            if valid_ips:
+                if password and password == password2:
+                    if not response['scholar']:
+                        user = User.objects.create_user(
+                            username,
+                            email,
+                            password
+                        )
+                        user.first_name = fname
+                        user.last_name = lname
+                        user.save()
 
-                    response['scholar'] = Scholar()
-                    response['scholar'].username = username
-                    response['scholar'].fname = fname
-                    response['scholar'].lname = lname
-                    response['scholar'].email = email
-                    response['scholar'].auth_token_ips = auth_token_ips
+                        response['scholar'] = Scholar()
+                        response['scholar'].username = username
+                        response['scholar'].fname = fname
+                        response['scholar'].lname = lname
+                        response['scholar'].email = email
+                        response['scholar'].auth_token_ips = auth_token_ips
 
-                    token, created = Token.objects.get_or_create(user=user)
-                    response['scholar'].auth_token = token.key
-                    response['scholar'].save()
-                    clear_cached_session_scholar(user.id)
+                        token, created = Token.objects.get_or_create(user=user)
+                        response['scholar'].auth_token = token.key
+                        response['scholar'].save()
+                        clear_cached_session_scholar(user.id)
 
-                    return redirect("/scholar?msg=You have successfully registered. Please login below.")
+                        return redirect("/scholar?msg=You have successfully registered. Please login below.")
+                    else:
+                        response['scholar'].fname = fname
+                        response['scholar'].lname = lname
+                        response['scholar'].email = email
+                        response['scholar'].auth_token_ips = auth_token_ips
+                        response['scholar'].save()
+
+                        user = User.objects.get(username=username)
+                        user.set_password(password)
+                        user.save()
+                        clear_cached_session_scholar(user.id)
+
+                        response['messages'].append("Your account settings have been saved successfully.")
                 else:
-                    response['scholar'].fname = fname
-                    response['scholar'].lname = lname
-                    response['scholar'].email = email
-                    response['scholar'].auth_token_ips = auth_token_ips
-                    response['scholar'].save()
-
-                    user = User.objects.get(username=username)
-                    user.set_password(password)
-                    user.save()
-                    clear_cached_session_scholar(user.id)
-
-                    response['messages'].append("Your account settings have been saved successfully.")
+                    response['errors'].append('You must provide a password, and passwords must match!')
             else:
-                response['errors'].append('You must provide a password, and passwords must match!')
+                response['errors'].append('One or more of your API IP addresses is invalid!')
         else:
-            response['errors'].append('One or more of your API IP addresses is invalid!')
+            response['errors'].append('Capcha word must match image!')
 
     elif request.method == 'POST' and _contains(request.POST, ['username', 'password']):
         username = _clean(request.POST, 'username')
@@ -1169,12 +1171,16 @@ def scholar(request):
         else:
             response['errors'].append('Invalid credentials provided!')
 
+    captcha_image, captcha_hash = generate_captcha()
+
     return render(
         request,
         'scholar.html',
         {
             'response': response,
-            'register': register
+            'register': register,
+            'captcha_image': captcha_image,
+            'captcha_hash': captcha_hash
         }
     )
 
