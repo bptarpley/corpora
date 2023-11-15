@@ -893,6 +893,8 @@
             let query = $('#content-selection-modal-filter-box').val()
             query = query.replaceAll("'", ' ')
             content_selection_vars.q = query + '*'
+            content_selection_vars['t_label'] = `${query}`
+            content_selection_vars['operator'] = 'or'
             content_selection_vars.page = 1
             delete content_selection_vars['s_label']
             select_content(content_selection_type, content_selection_input_id)
