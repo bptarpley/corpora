@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 
 import os
 import json
+import traceback
 from mongoengine import connect
 from huey import PriorityRedisHuey
 from neo4j import GraphDatabase
@@ -212,6 +213,7 @@ try:
     with NEO4J.session() as test_session:
         test_session.run("MATCH (n) RETURN count(n) as count")
 except:
+    print(traceback.format_exc())
     print("Neo4J database uninitialized.")
     NEO4J = None
 
