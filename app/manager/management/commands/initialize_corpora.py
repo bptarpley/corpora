@@ -1,13 +1,8 @@
 import time
-import importlib
-import traceback
-from copy import deepcopy
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
-from neo4j import GraphDatabase
-from django.conf import settings
-from elasticsearch_dsl import Index, Mapping, Keyword, Text, Boolean, normalizer
+from elasticsearch_dsl import Boolean, normalizer
 from corpus import *
 
 initialized_file = '/corpora/initialized'
@@ -40,110 +35,17 @@ class Command(BaseCommand):
         print("---------------------------\n")
 
         # Ensure NEO4J users/passwords set and constraints exist
-        if not settings.NEO4J:
-            # attempting to connect with default creds.
-            initial_neo = GraphDatabase.driver(
-                "bolt://{0}".format(os.environ['CRP_NEO4J_HOST']),
-                auth=('neo4j', 'neo4j')
-            )
-            temp_default_pwd = 'initpwd'
-
-            with initial_neo.session() as neo:
-                # change default password (must do in order to proceed with new account creation)
-                neo.run(
-                    "CALL dbms.security.changePassword('{0}')".format(temp_default_pwd)
-                )
-
-            initial_neo.close()
-            initial_neo = GraphDatabase.driver(
-                "bolt://{0}".format(os.environ['CRP_NEO4J_HOST']),
-                auth=('neo4j', temp_default_pwd)
-            )
-
-            with initial_neo.session() as neo:
-                # create admin account
-                neo.run(
-                    "CALL dbms.security.createUser",
-                    username=os.environ['CRP_NEO4J_USER'],
-                    password=os.environ['CRP_NEO4J_PWD'],
-                    requirePasswordChange=False
-                )
-
-                # BELOW COMMENTED OUT FOR Neo4J Community
-                '''
-                # grant admin account admin privs
-                neo.run(
-                    "CALL dbms.security.addRoleToUser",
-                    roleName="admin",
-                    username=os.environ['CRP_NEO4J_USER']
-                )
-
-                # create read-only user
-                neo.run(
-                    "CALL dbms.security.createUser",
-                    username=os.environ['CRP_NEO4J_RO_USER'],
-                    password=os.environ['CRP_NEO4J_RO_PWD'],
-                    requirePasswordChange=False
-                )
-
-                # grant read-only account privs
-                neo.run(
-                    "CALL dbms.security.addRoleToUser",
-                    roleName="reader",
-                    username=os.environ['CRP_NEO4J_RO_USER']
-                )
-                '''
-
-            initial_neo.close()
-
-            # setup NEO4J default connection
-            settings.NEO4J = GraphDatabase.driver(
-                "bolt://{0}".format(os.environ['CRP_NEO4J_HOST']),
-                auth=(os.environ['CRP_NEO4J_USER'], os.environ['CRP_NEO4J_PWD'])
-            )
-
-            # delete default user
-            with settings.NEO4J.session() as neo:
-                neo.run(
-                    "CALL dbms.security.deleteUser",
-                    username="neo4j"
-                )
-
-            print("\t-- NEO4J USERS INITIALIZED :)")
-        else:
-            print("\t-- NEO4J USERS INITIALIZED :)")
-
         with settings.NEO4J.session() as neo:
-            constraints = ' '.join([r.get("description") for r in neo.run("CALL db.constraints")])
-            constraint_created = False
+            neo.run("CREATE CONSTRAINT s_Scholar IF NOT EXISTS FOR (s:_Scholar) REQUIRE s.uri IS UNIQUE")
+            neo.run("CREATE CONSTRAINT cCorpus IF NOT EXISTS FOR (c:Corpus) REQUIRE c.uri IS UNIQUE")
+            neo.run("CREATE CONSTRAINT f_File IF NOT EXISTS FOR (f:_File) REQUIRE f.uri IS UNIQUE")
+            neo.run("CREATE INDEX corpus_id_File IF NOT EXISTS FOR (f:_File) ON (f.corpus_id)")
+            neo.run("CREATE CONSTRAINT js_JobSite IF NOT EXISTS FOR (js:_JobSite) REQUIRE js.uri IS UNIQUE")
+            neo.run("CREATE CONSTRAINT t_Task IF NOT EXISTS FOR (t:_Task) REQUIRE t.uri IS UNIQUE")
+            neo.run("CREATE CONSTRAINT j_Job IF NOT EXISTS FOR (j:_Job) REQUIRE j.uri IS UNIQUE")
+            neo.run("CREATE CONSTRAINT p_Process IF NOT EXISTS FOR (p:_Process) REQUIRE p.uri IS UNIQUE")
 
-            if ":_Scholar" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(s:_Scholar) ASSERT s.uri IS UNIQUE")
-                constraint_created = True
-            if ":Corpus" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(c:Corpus) ASSERT c.uri IS UNIQUE")
-                constraint_created = True
-            if ":_File" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(f:_File) ASSERT f.uri IS UNIQUE")
-                neo.run("CREATE INDEX ON :_File(corpus_id)")
-                constraint_created = True
-            if ":_JobSite" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(js:_JobSite) ASSERT js.uri IS UNIQUE")
-                constraint_created = True
-            if ":_Task" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(t:_Task) ASSERT t.uri IS UNIQUE")
-                constraint_created = True
-            if ":_Job" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(j:_Job) ASSERT j.uri IS UNIQUE")
-                constraint_created = True
-            if ":_Process" not in constraints:
-                neo.run("CREATE CONSTRAINT ON(p:_Process) ASSERT p.uri IS UNIQUE")
-                constraint_created = True
-
-            if constraint_created:
-                print("\t-- NEO4J CONSTRAINTS CREATED :)")
-            else:
-                print("\t-- NEO4J CONSTRAINTS EXIST :)")
+            print("\t-- NEO4J CONSTRAINTS EXIST :)")
 
         local_jobsite = None
         try:
@@ -254,6 +156,7 @@ class Command(BaseCommand):
         # Register new plug-in tasks (or update existing with new version)
         jobsites = JobSite.objects()
         tasks = Task.objects()
+        existing_task_ids = []
         apps = [app for app in settings.INSTALLED_APPS if app.startswith('plugins.')]
         apps.append('manager')
 
@@ -269,6 +172,7 @@ class Command(BaseCommand):
                         for existing_task in tasks:
                             if existing_task.name == name and existing_task.jobsite_type == 'HUEY':
                                 found_existing_task = True
+                                existing_task_ids.append(str(existing_task.id))
                                 if existing_task.version != plugin_task['version']:
                                     old_version = existing_task.version
                                     existing_task.version = plugin_task['version']
@@ -312,6 +216,32 @@ class Command(BaseCommand):
                                         old_version,
                                         plugin_task['version']
                                     ))
+
+        # delete stale tasks
+        for task in tasks:
+            if str(task.id) not in existing_task_ids:
+                print(f'\nDeleting stale task {task.name}...')
+                if task.content_type == 'Corpus':
+                    corpora = Corpus.objects.filter(provenance__task=task.id)
+                    for corpus in corpora:
+                        corpus.provenance = [p for p in corpus.provenance if p.task != task]
+                        corpus.save()
+
+                else:
+                    for corpus in Corpus.objects:
+                        if task.content_type in corpus.content_types:
+                            contents = corpus.get_content(task.content_type, {'provenance__task': task.id})
+                            for content in contents:
+                                content.provenance = [p for p in content.provenance if p.task != task]
+                                content.save()
+
+                for jobsite in jobsites:
+                    if task.name in jobsite.task_registry:
+                        del jobsite.task_registry[task.name]
+                        jobsite.save()
+
+                task.delete()
+
 
         print("\n---------------------------")
         print(" CORPORA INITIALIZED")
