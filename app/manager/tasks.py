@@ -15,12 +15,12 @@ from huey.contrib.djhuey import db_task, db_periodic_task
 from huey import crontab
 from bson.objectid import ObjectId
 from django.conf import settings
-from django.utils.http import urlquote
+from urllib.parse import quote
 from elasticsearch_dsl.connections import get_connection
 from PIL import Image
 from datetime import datetime
 from subprocess import call
-from manager.utilities import _contains, build_search_params_from_dict, order_content_schema, process_content_bundle
+from manager.utilities import _contains, build_search_params_from_dict, order_content_schema, process_content_bundle, publish_message
 from django.utils.text import slugify
 from zipfile import ZipFile
 
@@ -692,6 +692,21 @@ def adjust_content_slice(corpus, content_type, start, end, reindex, relabel, res
 
 
 @db_task(priority=5)
+def scrub_all_provenance():
+    corpora = Corpus.objects()
+    for corpus in corpora:
+        corpus.provenance = []
+        corpus.save()
+
+        for content_type in corpus.content_types.keys():
+            contents = corpus.get_content(content_type, {"provenance__exists": True, "provenance__not__size": 0}).no_cache()
+            contents = contents.batch_size(10)
+            for content in contents:
+                content.provenance = []
+                content.save()
+
+
+@db_task(priority=5)
 def delete_content_type(job_id):
     job = Job(job_id)
     job.set_status('running')
@@ -1301,7 +1316,7 @@ def make_mongo_uri():
     uri_invalid_chars = ":/?#[]@"
     escaped_pwd = settings.MONGO_PWD
     for invalid_char in uri_invalid_chars:
-        escaped_pwd = escaped_pwd.replace(invalid_char, urlquote(invalid_char))
+        escaped_pwd = escaped_pwd.replace(invalid_char, quote(invalid_char))
 
     return "mongodb://{user}:{pwd}@{host}:27017/{db}?authSource={auth_source}".format(
         user=settings.MONGO_USER,

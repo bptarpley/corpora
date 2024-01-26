@@ -309,189 +309,127 @@ class JobSite(mongoengine.Document):
         )
 
 
+class Process(mongoengine.EmbeddedDocument):
+    id = mongoengine.StringField()
+    status = mongoengine.StringField()
+    created = mongoengine.DateTimeField(default=datetime.now())
+
+
 class Job(object):
-    def __init__(self, id=None):
-        if id:
-            self._load(id)
-        else:
-            self.id = None
-            self.corpus_id = None
-            self.content_type = None
-            self.content_id = None
-            self.task_id = None
-            self.jobsite_id = None
-            self.scholar_id = None
-            self.submitted_time = None
-            self.status = None
-            self.status_time = None
-            self.report_path = None
-            self.stage = 0
-            self.timeout = 0
-            self.tries = 0
-            self.error = ""
-            self.configuration = {}
-            self.percent_complete = 0
+    def __new__(cls, job_id=None):
+        if job_id:
+            return JobTracker.objects(id=job_id)[0]
+        return JobTracker()
 
-    def _load(self, id):
-        results = run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri })
-                return j
-            ''',
-            {
-                'job_uri': "/job/{0}".format(id)
+    @staticmethod
+    def setup_retry_for_completed_task(corpus, scholar, content_type, content_id, completed_task):
+        task_matches = Task.objects.filter(name=completed_task.task_name, version=completed_task.task_version)
+        if task_matches.count() == 1:
+            task = task_matches[0]
+            local_jobsite = JobSite.objects(name='Local')[0]
+
+            j = Job()
+            j.id = completed_task.job_id
+            j.corpus = corpus
+            j.content_type = content_type
+            j.content_id = content_id
+            j.task_id = str(task.id)
+            j.jobsite = local_jobsite
+            j.scholar = scholar
+            j.configuration = deepcopy(completed_task.task_configuration)
+            j.status = 'preparing'
+            j.save()
+            return j
+
+        return None
+
+    @staticmethod
+    def get_jobs(corpus_id=None, content_type=None, content_id=None, count_only=False, limit=None, skip=0):
+        jobs = JobTracker.objects()
+        if corpus_id:
+            jobs = jobs.filter(corpus=corpus_id)
+
+            if content_type:
+                jobs = jobs.filter(content_type=content_type)
+
+                if content_id:
+                    jobs = jobs.filter(content_id=content_id)
+
+        if count_only:
+            counts = {
+                'total': jobs.count(),
+                'by_status': {},
+                'by_task': {},
             }
-        )
-        if len(results) == 1 and 'j' in results[0].keys():
-            self._load_from_result(results[0]['j'])
 
-    def _load_from_result(self, result):
-        self.id = result['uri'].replace('/job/', '')
-        self.corpus_id = result['corpus_id']
-        self.content_type = result['content_type']
-        self.content_id = result['content_id']
-        self.task_id = result['task_id']
-        self.jobsite_id = result['jobsite_id']
-        self.scholar_id = result['scholar_id']
-        self.submitted_time = datetime.fromtimestamp(result['submitted_time'])
-        self.status = result['status']
-        self.status_time = datetime.fromtimestamp(result['status_time'])
-        if 'report_path' in result:
-            self.report_path = result['report_path']
-        else:
-            self.report_path = None
-        self.stage = result['stage']
-        self.timeout = result['timeout']
-        self.tries = result['tries']
-        self.error = result['error']
-        if 'percent_complete' in result:
-            self.percent_complete = result['percent_complete']
-        else:
-            self.percent_complete = 0
-        self.configuration = json.loads(result['configuration'])
-
-        # check process completion
-        results = run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri }) -[rel:hasProcess]-> (p:_Process)
-                return p
-            ''',
-            {'job_uri': "/job/{0}".format(self.id)}
-        )
-        if results:
-            processes_created = len(results)
-            processes_completed = 0
-            for proc in results:
-                if proc['p']['status'] == 'complete':
-                    processes_completed += 1
-            if processes_completed > 0:
-                self.percent_complete = int((processes_completed / processes_created) * 100)
-
-    def save(self):
-        if not self.id:
-            self.id = str(ObjectId())
-        if not self.submitted_time:
-            self.submitted_time = datetime.now()
-        if not self.status_time:
-            self.status_time = self.submitted_time
-        if not self.content_id and self.content_type == 'Corpus':
-            run_neo(
-                '''
-                    MATCH (c:Corpus {{ uri: $corpus_uri }})
-                    MERGE (j:_Job {{ uri: $job_uri }})
-                    SET j.corpus_id = $job_corpus_id
-                    SET j.content_type = $job_content_type
-                    SET j.content_id = $job_content_id
-                    SET j.task_id = $job_task_id
-                    SET j.jobsite_id = $job_jobsite_id
-                    SET j.scholar_id = $job_scholar_id
-                    SET j.submitted_time = $job_submitted_time
-                    SET j.status = $job_status
-                    SET j.status_time = $job_status_time
-                    SET j.report_path = $job_report_path
-                    SET j.stage = $job_stage
-                    SET j.timeout = $job_timeout
-                    SET j.tries = $job_tries
-                    SET j.error = $job_error
-                    SET j.percent_complete = $percent_complete
-                    SET j.configuration = $job_configuration
-                    MERGE (c) -[:hasJob]-> (j)
-                '''.format(self.content_type),
-                {
-                    'corpus_uri': "/corpus/{0}".format(self.corpus_id),
-                    'job_uri': "/job/{0}".format(self.id),
-                    'job_corpus_id': self.corpus_id,
-                    'job_content_type': self.content_type,
-                    'job_content_id': self.content_id,
-                    'job_task_id': self.task_id,
-                    'job_jobsite_id': self.jobsite_id,
-                    'job_scholar_id': self.scholar_id,
-                    'job_submitted_time': int(self.submitted_time.timestamp()),
-                    'job_status': self.status,
-                    'job_status_time': int(self.status_time.timestamp()),
-                    'job_report_path': self.report_path,
-                    'job_stage': self.stage,
-                    'job_timeout': self.timeout,
-                    'job_tries': self.tries,
-                    'job_error': self.error,
-                    'percent_complete': self.percent_complete,
-                    'job_configuration': json.dumps(self.configuration)
+            by_status_pipeline = [{"$group": {
+                "_id": "$status",
+                "count": {"$sum": 1}
+            }},
+            {"$group": {
+                "_id": None,
+                "counts": {
+                    "$push": {"k": "$_id", "v": "$count"}
                 }
-            )
-        else:
-            run_neo(
-                '''
-                    MATCH (c:Corpus {{ uri: $corpus_uri }})
-                    MATCH (d:{0} {{ uri: $content_uri }})
-                    MERGE (j:_Job {{ uri: $job_uri }})
-                    SET j.corpus_id = $job_corpus_id
-                    SET j.content_type = $job_content_type
-                    SET j.content_id = $job_content_id
-                    SET j.task_id = $job_task_id
-                    SET j.jobsite_id = $job_jobsite_id
-                    SET j.scholar_id = $job_scholar_id
-                    SET j.submitted_time = $job_submitted_time
-                    SET j.status = $job_status
-                    SET j.status_time = $job_status_time
-                    SET j.report_path = $job_report_path
-                    SET j.stage = $job_stage
-                    SET j.timeout = $job_timeout
-                    SET j.tries = $job_tries
-                    SET j.error = $job_error
-                    SET j.percent_complete = $percent_complete
-                    SET j.configuration = $job_configuration
-                    MERGE (c) -[:hasJob]-> (j) -[:hasJobTarget]-> (d)
-                '''.format(self.content_type),
-                {
-                    'corpus_uri': "/corpus/{0}".format(self.corpus_id),
-                    'content_uri': "/corpus/{0}/{1}/{2}".format(self.corpus_id, self.content_type, self.content_id),
-                    'job_uri': "/job/{0}".format(self.id),
-                    'job_corpus_id': self.corpus_id,
-                    'job_content_type': self.content_type,
-                    'job_content_id': self.content_id,
-                    'job_task_id': self.task_id,
-                    'job_jobsite_id': self.jobsite_id,
-                    'job_scholar_id': self.scholar_id,
-                    'job_submitted_time': int(self.submitted_time.timestamp()),
-                    'job_status': self.status,
-                    'job_status_time': int(self.status_time.timestamp()),
-                    'job_report_path': self.report_path,
-                    'job_stage': self.stage,
-                    'job_timeout': self.timeout,
-                    'job_tries': self.tries,
-                    'job_error': self.error,
-                    'percent_complete': self.percent_complete,
-                    'job_configuration': json.dumps(self.configuration)
-                }
-            )
+            }},
+            {"$replaceRoot": {
+                "newRoot": {"$arrayToObject": "$counts"}
+            }}]
+            counts['by_status'] = [s for s in jobs.aggregate(by_status_pipeline)]
+
+            by_task_pipeline = [{"$group": {
+                "_id": "$task_id",
+                "count": {"$sum": 1}
+            }},
+                {"$group": {
+                    "_id": None,
+                    "counts": {
+                        "$push": {"k": "$_id", "v": "$count"}
+                    }
+                }},
+                {"$replaceRoot": {
+                    "newRoot": {"$arrayToObject": "$counts"}
+                }}]
+            counts['by_task'] = [s for s in jobs.aggregate(by_task_pipeline)]
+
+            return counts
+        elif skip and limit:
+            jobs = jobs[skip:(skip + limit)]
+        elif limit:
+            jobs = jobs[:limit]
+        elif skip:
+            jobs = jobs[skip:]
+
+        return jobs
+
+
+class JobTracker(mongoengine.Document):
+    corpus = mongoengine.ReferenceField('Corpus')
+    content_type = mongoengine.StringField()
+    content_id = mongoengine.StringField()
+    task_id = mongoengine.StringField()
+    jobsite = mongoengine.ReferenceField(JobSite)
+    scholar = mongoengine.ReferenceField('Scholar')
+    submitted_time = mongoengine.DateTimeField(default=datetime.now)
+    status = mongoengine.StringField()
+    status_time = mongoengine.DateTimeField(default=datetime.now)
+    report_path = mongoengine.StringField()
+    stage = mongoengine.IntField(default=0)
+    timeout = mongoengine.IntField()
+    tries = mongoengine.IntField(default=0)
+    error = mongoengine.StringField()
+    configuration = mongoengine.DictField()
+    processes = mongoengine.EmbeddedDocumentListField(Process)
+    percent_complete = mongoengine.IntField(default=0)
 
     def to_dict(self):
         return {
-            'id': self.id,
+            'id': str(self.id),
             'corpus_id': self.corpus_id,
             'content_type': self.content_type,
             'content_id': self.content_id,
             'task_id': self.task_id,
+            'task_name': self.task.name,
             'jobsite_id': self.jobsite_id,
             'scholar_id': self.scholar_id,
             'submitted_time': int(self.submitted_time.timestamp()),
@@ -517,20 +455,16 @@ class Job(object):
         if percent_complete:
             self.percent_complete = percent_complete
 
-        run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri })
-                SET j.status = $job_status
-                SET j.status_time = $job_status_time
-                SET j.percent_complete = $percent_complete
-            ''',
-            {
-                'job_uri': "/job/{0}".format(self.id),
-                'job_status': self.status,
-                'job_status_time': int(self.status_time.timestamp()),
-                'percent_complete': self.percent_complete
-            }
-        )
+        self.save()
+        self.publish_status()
+
+    def publish_status(self):
+        publish_message(self.corpus_id, 'job', {
+            'job_id': self.id,
+            'task_name': self.task.name,
+            'status': self.status,
+            'percent_complete': self.percent_complete,
+        })
 
     def report(self, message, overwrite=False):
         if self.task.create_report and self.report_path:
@@ -542,53 +476,37 @@ class Job(object):
                 report_out.write(message + '\n')
 
     def add_process(self, process_id):
-        run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri })
-                MERGE (p:_Process { uri: $process_uri })
-                SET p.status = 'running'
-                SET p.created = $process_created
-                MERGE (j) -[rel:hasProcess]-> (p)
-            ''',
-            {
-                'job_uri': "/job/{0}".format(self.id),
-                'process_uri': "/job/{0}/process/{1}".format(self.id, process_id),
-                'process_created': int(datetime.now().timestamp())
-            }
-        )
+        p = Process()
+        p.id = process_id
+        p.status = 'running'
+        p.created = datetime.now()
+        self.processes.append(p)
+        self.save()
 
     def complete_process(self, process_id):
-        run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri }) -[rel:hasProcess]-> (p:_Process { uri: $process_uri })
-                SET p.status = 'complete'
-            ''',
-            {
-                'job_uri': "/job/{0}".format(self.id),
-                'process_uri': "/job/{0}/process/{1}".format(self.id, process_id)
-            }
-        )
+        self.reload('processes')
+
+        completed_count = 0
+        for p_index in range(0, len(self.processes)):
+            if self.processes[p_index].id == process_id:
+                self.processes[p_index].status = 'complete'
+                completed_count += 1
+            elif self.processes[p_index].status == 'complete':
+                completed_count += 1
+
+        self.percent_complete = int((completed_count / len(self.processes)) * 100)
+        self.save()
+
+        self.publish_status()
 
     def clear_processes(self):
-        run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri }) -[rel:hasProcess]-> (p:_Process)
-                DETACH DELETE p
-            ''',
-            {'job_uri': "/job/{0}".format(self.id)}
-        )
+        self.processes = []
+        self.save()
 
     def kill(self):
-        results = run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri }) -[rel:hasProcess]-> (p:_Process)
-                return p
-            ''',
-            {'job_uri': "/job/{0}".format(self.id)}
-        )
-        if results:
-            for proc in results:
-                task_id = proc['p']['uri'].split('/')[-1]
+        if self.processes:
+            for proc in self.processes:
+                task_id = proc.id
                 if task_id:
                     try:
                         settings.HUEY.revoke_by_id(task_id)
@@ -596,49 +514,42 @@ class Job(object):
                         print('Attempt to revoke process {0} in Huey task queue failed:'.format(task_id))
                         print(traceback.format_exc())
 
-        run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri })
-                OPTIONAL MATCH (j) -[rel:hasProcess]-> (p)
-                DETACH DELETE j, p
-            ''',
-            {
-                'job_uri': '/job/{0}'.format(self.id)
-            }
-        )
+        self.delete()
 
     @property
-    def corpus(self):
-        if not hasattr(self, '_corpus'):
-            self._corpus = Corpus.objects(id=self.corpus_id)[0]
-        return self._corpus
+    def corpus_id(self):
+        if self.corpus:
+            return str(self.corpus.id)
+        return None
 
     @property
     def content(self):
+        if self.content_type == 'Corpus':
+            return self.corpus
         if not hasattr(self, '_content'):
-            if self.content_type == 'Corpus':
-                return self.corpus
-            else:
-                self._content = self.corpus.get_content(self.content_type, self.content_id)
+            self._content = self.corpus.get_content(self.content_type, self.content_id)
         return self._content
 
     @property
     def task(self):
         if not hasattr(self, '_task'):
-            self._task = Task.objects(id=self.task_id)[0]
+            try:
+                self._task = Task.objects(id=self.task_id)[0]
+            except:
+                self._task = None
         return self._task
 
     @property
-    def jobsite(self):
-        if not hasattr(self, '_jobsite'):
-            self._jobsite = JobSite.objects(id=self.jobsite_id)[0]
-        return self._jobsite
+    def jobsite_id(self):
+        if self.jobsite:
+            return str(self.jobsite.id)
+        return None
 
     @property
-    def scholar(self):
-        if not hasattr(self, '_scholar'):
-            self._scholar = Scholar.objects(id=self.scholar_id)[0]
-        return self._scholar
+    def scholar_id(self):
+        if self.scholar:
+            return str(self.scholar.id)
+        return None
 
     def complete(self, status=None, error_msg=None):
         if status:
@@ -652,12 +563,11 @@ class Job(object):
 
         if self.task.track_provenance:
             ct = CompletedTask()
-            ct.job_id = self.id
-            ct.task = self.task.id
+            ct.job_id = str(self.id)
+            ct.task_name = self.task.name
             ct.task_version = self.task.version
             ct.task_configuration = deepcopy(self.configuration)
-            ct.jobsite = ObjectId(self.jobsite_id)
-            ct.scholar = ObjectId(self.scholar_id)
+            ct.scholar_name = f"{self.scholar.fname} {self.scholar.lname} ({self.scholar.username})".strip()
             ct.submitted = self.submitted_time
             ct.completed = self.status_time
             ct.report_path = self.report_path
@@ -667,92 +577,8 @@ class Job(object):
             self.content.provenance.append(ct)
             self.content.save()
 
-        run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri })
-                OPTIONAL MATCH (j) -[rel:hasProcess]-> (p)
-                DETACH DELETE j, p
-            ''',
-            {
-                'job_uri': '/job/{0}'.format(self.id)
-            }
-        )
-
-    @staticmethod
-    def setup_retry_for_completed_task(corpus_id, content_type, content_id, completed_task):
-        j = Job()
-        j.id = completed_task.job_id
-        j.corpus_id = corpus_id
-        j.content_type = content_type
-        j.content_id = content_id
-        j.task_id = str(completed_task.task.id)
-        j.jobsite_id = str(completed_task.jobsite.id)
-        j.scholar_id = str(completed_task.scholar.id)
-        j.configuration = deepcopy(completed_task.task_configuration)
-        j.status = 'preparing'
-        j.save()
-        return j
-
-    @staticmethod
-    def get_jobs(corpus_id=None, content_type=None, content_id=None, count_only=False, limit=None, skip=0):
-        jobs = []
-        results = None
-
-        return_statement = "RETURN j"
-        if count_only:
-            return_statement = "RETURN count(j) as job_count"
-        elif limit:
-            return_statement += " SKIP {0} LIMIT {1}".format(skip, limit)
-
-        if not corpus_id and not content_type and not content_id:
-            results = run_neo(
-                '''
-                    MATCH (j:_Job)
-                    {0}
-                '''.format(return_statement), {}
-            )
-        elif corpus_id and not content_type:
-            results = run_neo(
-                '''
-                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[rel:hasJob]-> (j:_Job)
-                    {0}
-                '''.format(return_statement),
-                {
-                    'corpus_uri': "/corpus/{0}".format(corpus_id)
-                }
-            )
-        elif corpus_id and content_type and not content_id:
-            results = run_neo(
-                '''
-                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:_Job) -[:hasJobTarget]-> (d:{0})
-                    {1}
-                '''.format(content_type, return_statement),
-                {
-                    'corpus_uri': "/corpus/{0}".format(corpus_id)
-                }
-            )
-        elif corpus_id and content_type and content_id:
-            results = run_neo(
-                '''
-                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:_Job) -[:hasJobTarget]-> (d:{0} {{ uri: $content_uri }})
-                    {1}
-                '''.format(content_type, return_statement),
-                {
-                    'corpus_uri': "/corpus/{0}".format(corpus_id),
-                    'content_uri': "/corpus/{0}/{1}/{2}".format(corpus_id, content_type, content_id)
-                }
-            )
-
-        if results:
-            if count_only:
-                return results[0]['job_count']
-
-            for result in results:
-                j = Job()
-                j._load_from_result(result['j'])
-                jobs.append(j)
-
-        return jobs
+        self.publish_status()
+        self.delete()
 
 
 class Scholar(mongoengine.Document):
@@ -841,6 +667,40 @@ class Scholar(mongoengine.Document):
                 'value': value
             }
         )
+        
+    def to_dict(self):
+        scholar_dict = {
+            'username': self.username,
+            'fname': self.fname,
+            'lname': self.lname,
+            'email': self.email,
+            'is_admin': self.is_admin,
+            'available_corpora': {},
+
+        }
+        if self.is_admin:
+            for corpus in Corpus.objects:
+                scholar_dict['available_corpora'][str(corpus.id)] = {
+                    'name': corpus.name,
+                    'role': 'Admin'
+                }
+
+            scholar_dict['available_jobsites'] = [str(js.id) for js in JobSite.objects]
+            scholar_dict['available_tasks'] = [str(task.id) for task in Task.objects]
+
+        else:
+            if self.available_corpora:
+                corpora = Corpus.objects(id__in=list(self.available_corpora.keys())).only('id', 'name')
+                for corpus in corpora:
+                    scholar_dict['available_corpora'][str(corpus.id)] = {
+                        'name': corpus.name,
+                        'role': self.available_corpora[str(corpus.id)]
+                    }
+
+            scholar_dict['available_jobsites'] = [str(js.id) for js in self.available_jobsites]
+            scholar_dict['available_tasks'] = [str(task.id) for task in self.available_tasks]
+
+        return scholar_dict
 
     @classmethod
     def _post_delete(cls, sender, document, **kwargs):
@@ -861,11 +721,10 @@ class Scholar(mongoengine.Document):
 
 class CompletedTask(mongoengine.EmbeddedDocument):
     job_id = mongoengine.StringField()
-    task = mongoengine.ReferenceField(Task)
+    task_name = mongoengine.StringField()
     task_version = mongoengine.StringField()
     task_configuration = mongoengine.DictField()
-    jobsite = mongoengine.ReferenceField(JobSite)
-    scholar = mongoengine.ReferenceField(Scholar)
+    scholar_name = mongoengine.StringField()
     submitted = mongoengine.DateTimeField()
     completed = mongoengine.DateTimeField()
     status = mongoengine.StringField()
@@ -875,51 +734,30 @@ class CompletedTask(mongoengine.EmbeddedDocument):
     @classmethod
     def from_dict(cls, prov_info):
         prov = CompletedTask()
-        valid = True
-        for attr in ['job_id', 'task_configuration', 'status', 'report_path', 'error']:
+        for attr in [
+            'job_id',
+            'task_name',
+            'task_version',
+            'task_configuration',
+            'scholar_name',
+            'submitted',
+            'completed',
+            'status',
+            'report_path',
+            'error'
+        ]:
             if attr in prov_info:
                 setattr(prov, attr, prov_info[attr])
-            else:
-                valid = False
 
-        if valid:
-            if 'task_id' in prov_info and 'jobsite_id' in prov_info and 'scholar_id' in prov_info and 'submitted' in prov_info and 'completed' in prov_info:
-                try:
-                    task = Task.objects(id=prov_info['task_id'])[0]
-                    prov.task = task
-
-                    if 'task_version' in prov_info:
-                        prov.task_version = prov_info['task_version']
-
-                    jobsite = JobSite.objects(id=prov_info['jobsite_id'])[0]
-                    prov.jobsite = jobsite
-
-                    scholar = Scholar.objects(id=prov_info['scholar_id'])[0]
-                    prov.scholar = scholar
-
-                    prov.submitted = datetime.fromtimestamp(prov_info['submitted'])
-                    prov.completed = datetime.fromtimestamp(prov_info['completed'])
-                except:
-                    print(traceback.format_exc())
-                    valid = False
-            else:
-                valid = False
-
-        if valid:
-            return prov
-
-        return None
+        return prov
 
     def to_dict(self):
         return {
             'job_id': self.job_id,
-            'task_id': str(self.task.id),
-            'task_name': str(self.task.name),
+            'task_name': self.task_name,
             'task_version': self.task_version,
             'task_configuration': deepcopy(self.task_configuration),
-            'jobsite_id': str(self.jobsite.id),
-            'scholar_id': str(self.scholar.id),
-            'scholar_name': "{0} {1}".format(self.scholar.fname, self.scholar.lname),
+            'scholar_name': self.scholar_name,
             'submitted': int(self.submitted.timestamp()),
             'completed': int(self.completed.timestamp()),
             'status': self.status,
@@ -1356,6 +1194,7 @@ class Corpus(mongoengine.Document):
                 content = self.get_content(content_type)
                 content.from_dict(fields)
                 content.save()
+                content._newly_created = True
 
                 if cache_key:
                     self.redis_cache.set(cache_key, str(content.id), ex=settings.REDIS_CACHE_EXPIRY_SECONDS)
@@ -2021,7 +1860,7 @@ class Corpus(mongoengine.Document):
                                     adjusted_fields_sort.append({
                                         full_field_name + '.raw' if field_type == 'text' else full_field_name: {
                                             'order': sort_direction['order'],
-                                            'nested_path': field_name
+                                            'nested': { 'path': field_name }
                                         }
                                     })
                                 else:
@@ -2828,18 +2667,21 @@ class Corpus(mongoengine.Document):
 
         if task_id:
             task = Task.objects(id=task_id)[0]
+            scholar = None
+            if scholar_id:
+                scholar = Scholar.objects(id=scholar_id)[0]
 
             if not content_type and task.content_type == 'Corpus':
                 content_type = 'Corpus'
 
             if content_type:
                 job = Job()
-                job.corpus_id = str(self.id)
+                job.corpus = self
                 job.task_id = str(task_id)
                 job.content_type = content_type
                 job.content_id = str(content_id) if content_id else None
-                job.scholar_id = str(scholar_id) if scholar_id else None
-                job.jobsite_id = str(local_jobsite.id)
+                job.scholar = scholar
+                job.jobsite = local_jobsite
                 job.status = "queueing"
                 job.configuration = deepcopy(task.configuration)
 
@@ -4018,11 +3860,11 @@ def get_network_json(cypher):
 
 
 def ensure_neo_indexes(node_names):
-    existing_node_indexes = [row['tokenNames'][0] for row in run_neo("CALL db.indexes", {})]
+    existing_node_indexes = [row['labelsOrTypes'][0] for row in run_neo("SHOW INDEXES", {}) if row['labelsOrTypes']]
     for node_name in node_names:
         if node_name not in existing_node_indexes:
-            run_neo("CREATE CONSTRAINT ON(ct:{0}) ASSERT ct.uri IS UNIQUE".format(node_name), {})
-            run_neo("CREATE INDEX ON :{0}(corpus_id)".format(node_name), {})
+            run_neo("CREATE CONSTRAINT IF NOT EXISTS FOR (ct:{0}) REQUIRE ct.uri IS UNIQUE".format(node_name), {})
+            run_neo("CREATE INDEX IF NOT EXISTS FOR (ct:{0}) ON (ct.corpus_id)".format(node_name), {})
 
 
 def parse_date_string(date_string):
@@ -4058,3 +3900,8 @@ def ensure_connection():
             authentication_source=settings.MONGO_AUTH_SOURCE,
             maxpoolsize=settings.MONGO_POOLSIZE
         )
+
+
+def publish_message(corpus_id, message_type, data={}):
+    protocol = 'https' if settings.USE_SSL else 'http'
+    r = requests.get(f'{protocol}://host.docker.internal/api/publish/{corpus_id}/{message_type}/', params=data)

@@ -119,85 +119,6 @@
         </div>
     </div>
 
-    <!-- JOB MODAL -->
-    <div class="modal fade" id="job-modal" tabindex="-1" role="dialog" aria-labelledby="job-modal-label" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <form id="job-form" method="post">
-                    {% csrf_token %}
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="job-modal-label">Run a Job</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label for="jobsite-selector">Jobsite</label>
-                            <select id="jobsite-selector" class="form-control" name="jobsite">
-                            </select>
-                        </div>
-                        <div id="task-selector-div" class="form-group">
-                            <label for="task-selector">Task</label>
-                            <select id="task-selector" class="form-control" name="task">
-                            </select>
-                        </div>
-                        <div id="task-parameters-div">
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-primary" id="job-submit-button" disabled>Run</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Job Report Modal -->
-    <div class="modal fade" id="job-report-modal" tabindex="-1" role="dialog" aria-labelledby="job-report-modal-label" aria-hidden="true">
-        <div class="modal-dialog modal-lg" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Job Report</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <pre id="job-report-div">Loading...</pre>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Job Finished Modal -->
-    <div class="modal fade" id="job-finished-modal" tabindex="-1" role="dialog" aria-labelledby="job-finished-modal-label" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="job-finished-modal-label">Job Completed</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="alert alert-success">
-                        One or more jobs have completed for this corpus. Click the "Refresh" button below to view results.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-secondary" onclick="ignore_finished_jobs = true;" data-dismiss="modal">Ignore these events</button>
-                    <button type="button" class="btn btn-primary" onclick="window.location = window.location.href.replace(location.hash, '');">Refresh</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- CONTENT TYPE MODAL -->
     <div class="modal fade" id="new-ct-modal" tabindex="-1" role="dialog" aria-labelledby="new-ct-modal-label" aria-hidden="true">
         <div class="modal-dialog" role="document">
@@ -623,8 +544,8 @@
                                 </span>
                             </div>
                         </div>
-                        <div class="card-body">
-                            <iframe id="job-iframe" src="/jobs/corpus/{{ corpus_id }}/" width="100%" frameBorder="0"></iframe>
+                        <div id="jobs-container" class="card-body">
+                            <!-- jobs populated here by JavaScript -->
                         </div>
                     </div>
 
@@ -719,9 +640,10 @@
         let available_tasks = {{ available_tasks|safe }};
         let corpus = null;
         let template_formats = null;
-        let jobsites = [];
-        let local_jobsite_id = null;
-        let tasks = [];
+        //let jobsites = [];
+        //let local_jobsite_id = null;
+        //let tasks = [];
+        let job_manager = null
         let plugin_schema = [];
         let ct_tables = {};
         let ct_graph = null;
@@ -776,23 +698,23 @@
             geo_point: 'Point',
             cross_reference: 'Cross Reference',
             embedded: 'Embedded'
-        };
-        const FIELD_LANGUAGES = {{ field_languages|safe }};
-        const INVALID_FIELD_NAMES = {{ invalid_field_names|safe }};
+        }
+        const FIELD_LANGUAGES = {{ field_languages|safe }}
+        const INVALID_FIELD_NAMES = {{ invalid_field_names|safe }}
 
         // fires once HTML DOM has loaded
         $(document).ready(function() {
             // query corpora api for corpus data
             corpora.get_corpus(corpus_id, function(corpus_data) {
-                corpus = corpus_data;
+                corpus = corpus_data
 
                 // core metadata
-                $('#corpus-name-span').html(corpus.name);
-                $('#corpus-desc-span').html(corpus.description);
-                $('#corpus-path-span').html(corpus.path);
+                $('#corpus-name-span').html(corpus.name)
+                $('#corpus-desc-span').html(corpus.description)
+                $('#corpus-path-span').html(corpus.path)
 
                 // user metadata
-                let corpus_metadata_div = $('#corpus-metadata-div');
+                let corpus_metadata_div = $('#corpus-metadata-div')
                 for (let key in corpus.kvp) {
                     if (!key.startsWith("_") && (typeof(corpus.kvp[key]) == "string" || typeof(corpus.kvp[key]) == "boolean")) {
                         corpus_metadata_div.append(`
@@ -800,50 +722,12 @@
                                 <h5>${key}</h5>
                                 ${corpus.kvp[key]}
                             </div>
-                        `);
+                        `)
                     }
                 }
 
-                // load corpus provenance
-                let provenance_div = $('#provenance-div');
-                if (corpus.provenance.length > 0) { provenance_div.html(''); }
-                corpus.provenance.forEach( prov => {
-                    let retry_form = '';
-                    let report_button = '';
-                    if (role === 'Admin' || role === 'Editor') {
-                        retry_form = `
-                            <form method="post">
-                                <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
-                                <input type="hidden" name="retry-job-id" value="${prov.job_id}">
-                                <button type="submit" role="button" class="btn btn-danger">Retry</button>
-                            </form>
-                        `;
-
-                        if (prov.report_path) {
-                            report_button = `
-                                <button type="button" onClick="view_job_report('${prov.job_id}');" class="btn btn-primary mr-1">View Report</button>
-                            `;
-                        }
-                    }
-
-                    provenance_div.append(`
-                        <div id="provenance-${prov.job_id}-div" class="alert alert-${prov.status === "complete" ? 'success' : 'danger'} provenance">
-                            <div class="row">
-                                <div class="col-sm-10">
-                                    Task: <b>${prov.task_name}</b><br />
-                                    Completed: ${corpora.time_string(prov.completed)}
-                                </div>
-                                <div class="col-sm-2">
-                                    ${report_button}
-                                    ${retry_form}
-                                </div>
-                            </div>
-                        </div>
-                    `);
-                });
-
                 // load corpus files
-                let corpus_files_div = $('#corpus-files-div');
+                let corpus_files_div = $('#corpus-files-div')
                 if (Object.keys(corpus.files).length > 0) {
                     corpus_files_div.html(`
                         <table class="table table-striped">
@@ -867,20 +751,20 @@
                             <tbody id="corpus-files-table-body">
                             </tbody>
                         </table>
-                    `);
+                    `)
 
-                    let corpus_files_tbody = $('#corpus-files-table-body');
+                    let corpus_files_tbody = $('#corpus-files-table-body')
                     for (let file_key in corpus.files) {
-                        let file = corpus.files[file_key];
+                        let file = corpus.files[file_key]
 
-                        let file_url = corpora.file_url(file.uri);
+                        let file_url = corpora.file_url(file.uri)
                         if (file.is_image) {
-                            file_url = corpora.image_url(file.uri);
+                            file_url = corpora.image_url(file.uri)
                         }
 
-                        let open_mode = 'target="_blank"';
+                        let open_mode = 'target="_blank"'
                         if (file.extension === 'zip') {
-                            open_mode = `download="${file.basename}"`;
+                            open_mode = `download="${file.basename}"`
                         }
 
                         corpus_files_tbody.append(`
@@ -901,64 +785,64 @@
                                     ${file.byte_size}
                                 </td>
                             </tr>
-                        `);
+                        `)
                     }
 
-                    let files_footer = $('#corpus-files-footer');
-                    let select_all_box = $('#corpus-files-select-all-checkbox');
-                    let delete_button = $('#corpus-files-delete-button');
-                    files_footer.removeClass('d-none');
-                    files_footer.addClass('d-flex');
+                    let files_footer = $('#corpus-files-footer')
+                    let select_all_box = $('#corpus-files-select-all-checkbox')
+                    let delete_button = $('#corpus-files-delete-button')
+                    files_footer.removeClass('d-none')
+                    files_footer.addClass('d-flex')
 
                     select_all_box.change(function() {
-                        let is_selected = select_all_box.is(':checked');
+                        let is_selected = select_all_box.is(':checked')
 
                         $('.corpus-file-checkbox').each(function() {
-                            $(this).prop("checked", is_selected);
-                            $(this).attr("disabled", is_selected);
+                            $(this).prop("checked", is_selected)
+                            $(this).attr("disabled", is_selected)
                         });
-                        delete_button.attr("disabled", !is_selected);
+                        delete_button.attr("disabled", !is_selected)
                     });
 
                     $('.corpus-file-checkbox').change(function() {
-                        let file_selected = false;
+                        let file_selected = false
                         $('.corpus-file-checkbox').each(function() {
-                            if ($(this).is(':checked')) file_selected = true;
+                            if ($(this).is(':checked')) file_selected = true
                         });
-                        if (file_selected) delete_button.attr('disabled', false);
-                        else delete_button.attr('disabled', true);
+                        if (file_selected) delete_button.attr('disabled', false)
+                        else delete_button.attr('disabled', true)
                     });
 
                     delete_button.click(function() {
-                        let files_to_delete = $('#corpus-files-to-delete');
-                        let file_keys = [];
+                        let files_to_delete = $('#corpus-files-to-delete')
+                        let file_keys = []
 
-                        if (select_all_box.is(':checked')) files_to_delete.val('ALL');
+                        if (select_all_box.is(':checked')) files_to_delete.val('ALL')
                         else {
                             $('.corpus-file-checkbox').each(function() {
-                                let checkbox = $(this);
-                                if (checkbox.is(':checked')) file_keys.push(checkbox.data('file_key'));
-                            });
-                            files_to_delete.val(file_keys.join(','));
+                                let checkbox = $(this)
+                                if (checkbox.is(':checked')) file_keys.push(checkbox.data('file_key'))
+                            })
+                            files_to_delete.val(file_keys.join(','))
                         }
 
-                        $('#corpus-files-delete-form').submit();
+                        $('#corpus-files-delete-form').submit()
                     });
                 }
 
                 // load corpus repos
                 if (Object.keys(corpus.repos).length > 0) {
-                    let corpus_repos_div = $('#corpus-repos-div');
-                    corpus_repos_div.html('');
+                    let corpus_repos_div = $('#corpus-repos-div')
+                    corpus_repos_div.html('')
                     for (let repo_name in corpus.repos) {
-                        let repo = corpus.repos[repo_name];
+                        let repo = corpus.repos[repo_name]
                         if (repo.error) {
                             corpus_repos_div.append(`
                                 <div class="alert alert-danger">
                                     <b>${repo.name}</b><br/>
                                     Error pulling from branch "${repo.remote_branch}"!
                                 </div>
-                            `);
+                            `)
                         }
                         else {
                             corpus_repos_div.append(`
@@ -972,34 +856,34 @@
                                         <button type="button" class="btn btn-secondary repo-delete-button" data-repo-name="${repo.name}"><span class="fas fa-trash-alt"></span></button>
                                     </div>
                                 </div>
-                            `);
+                            `)
                         }
                     }
 
                     // repo deletion button click
                     $('.repo-delete-button').off('click').on('click', function() {
-                        let button = $(this);
-                        let repo_name = button.data('repo-name');
-                        let multi_form = $('#multiselect-form');
+                        let button = $(this)
+                        let repo_name = button.data('repo-name')
+                        let multi_form = $('#multiselect-form')
                         $('#deletion-confirmation-modal-message').html(`
                             Are you sure you want to delete the "${repo_name}" repository?
-                        `);
+                        `)
                         multi_form.append(`
                             <input type='hidden' class="repo-deletion-input" name='repo' value='${repo_name}'/>
-                        `);
-                        let deletion_modal = $('#deletion-confirmation-modal');
-                        deletion_modal.modal();
+                        `)
+                        let deletion_modal = $('#deletion-confirmation-modal')
+                        deletion_modal.modal()
                         deletion_modal.on('hidden.bs.modal', function (e) {
-                            $('.repo-deletion-input').remove();
+                            $('.repo-deletion-input').remove()
                         })
-                    });
+                    })
                 }
 
                 // load content views
-                let cv_sticky_nav = $('#views-nav');
+                let cv_sticky_nav = $('#views-nav')
                 $('.content-view-table').each(function() {
-                    let table_div = $(this);
-                    console.log(table_div[0].id);
+                    let table_div = $(this)
+                    console.log(table_div[0].id)
                     let table = new ContentTable({
                         container_id: table_div[0].id,
                         corpora: corpora,
@@ -1008,9 +892,9 @@
                         content_view: table_div.data('es-doc-id'),
                         content_view_id: table_div.data('id'),
                         label: table_div.data('name')
-                    });
+                    })
                     cv_sticky_nav.append(` | <a href="#${table_div[0].id}">${table_div.data('name')}</a>`);
-                });
+                })
                 $('#new-content-view-button').click(function() {
                     corpora.create_content_view(corpus, function(data) {
                         $('#content-views-body').append(`
@@ -1022,7 +906,7 @@
                                 data-name="${data.name}"
                                 data-id="${data.id}">
                             </div>
-                        `);
+                        `)
                         let table = new ContentTable({
                             container_id: `content-view-table-${data.id}`,
                             corpora: corpora,
@@ -1031,61 +915,61 @@
                             content_view: data.es_document_id,
                             content_view_id: data.id,
                             label: data.name
-                        });
-                        $(`#content-view-table-${data.id}`)[0].scrollIntoView();
-                    });
-                });
+                        })
+                        $(`#content-view-table-${data.id}`)[0].scrollIntoView()
+                    })
+                })
 
                 // setup content type manager
                 if (role === 'Editor' || role === 'Admin') {
                     // setup the editor for importing a content type schema
-                    import_editor = ace.edit("import-editor");
-                    import_editor.setTheme("ace/theme/monokai");
-                    let editor_session = import_editor.getSession();
-                    editor_session.setMode("ace/mode/json");
+                    import_editor = ace.edit("import-editor")
+                    import_editor.setTheme("ace/theme/monokai")
+                    let editor_session = import_editor.getSession()
+                    editor_session.setMode("ace/mode/json")
                     // check for editor syntax errors (JSON) to disable import button
                     editor_session.on('changeAnnotation', function() {
-                        let import_button = $('#import-button');
-                        let syntax_error = false;
-                        let annotations = import_editor.getSession().getAnnotations();
+                        let import_button = $('#import-button')
+                        let syntax_error = false
+                        let annotations = import_editor.getSession().getAnnotations()
                         annotations.map(ann => {
-                            if (ann.type === 'error') syntax_error = true;
-                        });
+                            if (ann.type === 'error') syntax_error = true
+                        })
                         if (syntax_error) {
-                            import_button.prop('disabled', true);
-                            import_button.html('Fix Syntax Error...');
+                            import_button.prop('disabled', true)
+                            import_button.html('Fix Syntax Error...')
                         } else {
-                            import_button.prop('disabled', false);
-                            import_button.html('Import');
+                            import_button.prop('disabled', false)
+                            import_button.html('Import')
                         }
                     });
 
                     // setup the editor for editing template
-                    template_editor = ace.edit("template-editor");
-                    template_editor.setTheme("ace/theme/monokai");
-                    template_editor.getSession().setMode("ace/mode/django");
+                    template_editor = ace.edit("template-editor")
+                    template_editor.setTheme("ace/theme/monokai")
+                    template_editor.getSession().setMode("ace/mode/django")
 
                     // populate synonym file options
                     if (corpus.hasOwnProperty('available_synonyms')) {
-                        let synonym_box = $('#new-f-synonym-box');
+                        let synonym_box = $('#new-f-synonym-box')
                         for (let synonym_option in corpus.available_synonyms) {
                             synonym_box.append(`
                                 <option value='${synonym_option}'>${corpus.available_synonyms[synonym_option].label}</option>
-                            `);
+                            `)
                         }
                     }
 
                     // setup event for showing schema import modal
                     $('#show-import-modal-button').click(function () {
-                        import_editor.setValue('');
-                        $('#import-modal-label').html('Import Schema');
-                        $('#import-button').removeClass('d-none');
-                        $('#import-modal').modal();
-                    });
+                        import_editor.setValue('')
+                        $('#import-modal-label').html('Import Schema')
+                        $('#import-button').removeClass('d-none')
+                        $('#import-modal').modal()
+                    })
 
                     // setup event for clicking "Import" button on schema import modal
                     $('#import-button').click(function () {
-                        let import_schema = JSON.parse(import_editor.getValue());
+                        let import_schema = JSON.parse(import_editor.getValue())
                         for (let x = 0; x < import_schema.length; x++) {
                             if (!corpus.content_types.hasOwnProperty(import_schema[x].name)) {
                                 corpus.content_types[import_schema[x].name] = import_schema[x];
@@ -1353,6 +1237,22 @@
                 }
 
                 // SETUP JOBS
+                if (role === 'Editor' || role === 'Admin') {
+                    job_manager = new JobManager({
+                        jobs_container: 'jobs-container',
+                        provenance_container: 'provenance-div',
+                        provenance: corpus.provenance,
+                        corpora: corpora,
+                        corpus: corpus,
+                        content_type: 'Corpus',
+                        scholar_id: scholar_id,
+                    })
+
+                    $('#run-job-button').click(function () {
+                        job_manager.new_job("Corpus", null)
+                    });
+                }
+                /*
                 corpora.get_jobsites(function (jobsites_data) {
                     jobsites = jobsites_data;
 
@@ -1398,6 +1298,7 @@
                         }
                     });
                 });
+                 */
 
                 // SETUP PLUGIN CONTENT SCHEMA IMPORT
                 corpora.get_plugin_schema(function(schemas) {
@@ -1447,6 +1348,13 @@
                     multi_form.attr('action', '');
                     multi_form.submit();
                 });
+
+                // LAUNCH NOTEBOOK EVENT
+                if (role === 'Editor' || role === 'Admin') {
+                    $('#launch-notebook-button').click(function () {
+                        $('#launch-notebook-form').submit();
+                    })
+                }
 
                 let scroll_location = location.hash;
                 location.hash = '';
@@ -2154,6 +2062,7 @@
             $('#new-repo-name-box').val(pep8_variable_format($('#new-repo-name-box').val()));
         });
 
+        /*
         // JOB FUNCTIONALITY
         function load_tasks(jobsite_id) {
             let task_selector = $('#task-selector');
@@ -2272,6 +2181,15 @@
                                 ${note_html}
                             </div>
                         `;
+                    } else if (parameters[parameter]['type'] === 'xref') {
+                        parameter_html = `
+                          <div class="form-group">
+                            <label for="${parameter}-content-label">${parameters[parameter]['label']}</label>
+                            <input type="text" id="${parameter}-content-label" readonly>
+                            <button id="${parameter}-selection-button" class="btn btn-secondary">Select</button>
+                            <input type="hidden" id="${parameter}-content-id" name="${parameter}">
+                          </div>
+                        `
                     } else if (parameters[parameter]['type'] === 'boolean') {
                         let checked = parameters[parameter]['value'] ? 'checked' : '';
 
@@ -2320,7 +2238,18 @@
                         $(`#${parameter}-pep8-text-box`).focusout(function () {
                             let pep8_box = $(`#${parameter}-pep8-text-box`);
                             pep8_box.val(pep8_variable_format(pep8_box.val()));
-                        });
+                        })
+                    } else if (parameters[parameter]['type'] === 'xref') {
+                      let id_input = $(`#${parameter}-content-id`)
+                      let label_input = $(`#${parameter}-content-label`)
+                      let selector = new ContentSelector({
+                        corpora: corpora,
+                        corpus: corpus,
+                        content_type: parameters[parameter['content_type']]
+                      }, function(selection) {
+                        id_input.val(selection.id)
+                        label_input.val(selection.label)
+                      })
                     }
                 }
             }
@@ -2347,6 +2276,7 @@
                 }
             });
         }
+        */
 
         function job_finished() {
             if (!ignore_finished_jobs) {

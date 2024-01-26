@@ -1,10 +1,12 @@
+import redis
+import traceback
 from corpus import *
 from mongoengine.queryset.visitor import Q
 from django.utils.html import escape
+from django.conf import settings
 from urllib.parse import unquote
 from elasticsearch_dsl import A
-import traceback
-import redis
+from django_eventstream import send_event
 
 
 def get_scholar_corpora(scholar, only=[], page=1, page_size=50):
@@ -436,6 +438,10 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
             content.save(relabel=True)
 
 
+def send_alert(corpus_id, alert_type, message):
+    send_event(corpus_id, 'alert', {'type': alert_type, 'message': message})
+
+
 def _contains(obj, keys):
     for key in keys:
         if key not in obj:
@@ -463,3 +469,11 @@ def _clean(obj, key, default_value=''):
     else:
         return default_value
 
+
+def fix_mongo_json(json_string):
+    oid_pattern = re.compile(r'{"\$oid": "([^"]*)"}')
+    oid_matches = oid_pattern.finditer(json_string)
+    for oid_match in oid_matches:
+        json_string = json_string.replace(oid_match[0], f'"{ oid_match.group(1) }"')
+
+    return json_string.replace('"_id":', '"id":')
