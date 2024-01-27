@@ -18,13 +18,15 @@ python3 manage.py collectstatic --no-input
 python3 manage.py initialize_corpora
 touch /apps/initialized
 
-# PRODUCTION
-echo Starting Daphne
-exec daphne corpora.asgi:application -b 0.0.0.0 -p 8000 -v 0 -t 300 &
-
-# DEVELOPMENT
-#echo Starting Django Development Server
-#exec python3 manage.py runserver 0.0.0.0:8000 &
+if [ "$CRP_DEVELOPMENT" = "yes" ]; then
+    # DEVELOPMENT
+    echo Starting Django Development Server
+    exec python3 manage.py runserver 0.0.0.0:8000 &
+else
+    # PRODUCTION
+    echo Starting Daphne
+    exec daphne corpora.asgi:application -b 0.0.0.0 -p 8000 -v 0 -t 300 &
+fi
 
 # Start Huey
 python3 manage.py run_huey -w ${CRP_HUEY_WORKERS}

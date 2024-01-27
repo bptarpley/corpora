@@ -39,6 +39,11 @@ elif 'CRP_HOSTS' in os.environ:
 if 'host.docker.internal' not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append('host.docker.internal')
 
+CSRF_TRUSTED_ORIGINS = []
+for host in ALLOWED_HOSTS:
+    CSRF_TRUSTED_ORIGINS.append(f'http://{host}')
+    CSRF_TRUSTED_ORIGINS.append(f'https://{host}')
+
 if os.path.exists('/conf/corpora_sites.json'):
     with open('/conf/corpora_sites.json', 'r') as sites_in:
         CORPORA_SITES = json.load(sites_in)
