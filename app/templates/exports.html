@@ -83,7 +83,7 @@
                                         <td class="export-path"
                                             data-export-path="{{ export.path }}"
                                             data-export-id="{{ export.id }}"></td>
-                                        <td>{{ export.created }}</td>
+                                        <td class="export-time-string">{{ export.created }}</td>
                                         <td>
                                             {% if export.status == "restoring" %}
                                                 <div class="alert alert-secondary">
@@ -171,12 +171,17 @@
         });
 
         $(document).ready(function() {
+            $('.export-time-string').each(function() {
+                let cell = $(this)
+                cell.html(corpora.time_string(cell.html()))
+            })
+
             let corpus_search = {
                 q: '*',
                 page: 1,
                 'page-size': 1000,
                 's_name.raw': 'asc'
-            };
+            }
             corpora.get_corpora(corpus_search, function(corpora_data) {
                 if (corpora_data.hasOwnProperty('records')) {
                     corpora_data.records.forEach(corpus => {

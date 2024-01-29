@@ -957,6 +957,7 @@ def exports(request):
                         response['messages'].append('Export successfully deleted.')
 
         exports = CorpusExport.objects.order_by('corpus_name', 'created')
+        exports = [e.to_dict() for e in exports]
 
         return render(
             request,

@@ -2926,7 +2926,19 @@ class CorpusExport(mongoengine.Document):
     name = mongoengine.StringField(unique_with='corpus_id')
     path = mongoengine.StringField()
     status = mongoengine.StringField()
-    created = mongoengine.DateTimeField(default=datetime.now())
+    created = mongoengine.DateTimeField(default=datetime.now)
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'corpus_id': self.corpus_id,
+            'corpus_name': self.corpus_name,
+            'corpus_description': self.corpus_description,
+            'name': self.name,
+            'path': self.path,
+            'status': self.status,
+            'created': int(self.created.timestamp())
+        }
 
 
 class Content(mongoengine.Document):
