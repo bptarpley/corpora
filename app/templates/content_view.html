@@ -149,6 +149,14 @@
                     </div>
                 `;
             },
+            timespan: function(field, value) {
+                console.log(value)
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${corpora.timespan_string(value)}
+                    </div>
+                `;
+            },
             file: function(field, value) {
                 return `
                     <div class="col-10 d-flex align-left field-value ${field.type}-value">

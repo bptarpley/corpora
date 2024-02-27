@@ -192,6 +192,7 @@
                             <option value="decimal">Decimal</option>
                             <option value="boolean">Boolean</option>
                             <option value="date">Date</option>
+                            <option value="timespan">Timespan</option>
                             <option value="link">Link</option>
                             <option value="iiif-image">IIIF Image URL</option>
                             <option value="geo_point">Point (Long, Lat)</option>
@@ -692,6 +693,7 @@
             decimal: 'Decimal',
             boolean: 'Boolean',
             date: 'Date',
+            timespan: 'Timespan',
             file: 'File',
             link: 'Link',
             'iiif-image': 'IIIF Image URL',
@@ -1252,53 +1254,6 @@
                         job_manager.new_job("Corpus", null)
                     });
                 }
-                /*
-                corpora.get_jobsites(function (jobsites_data) {
-                    jobsites = jobsites_data;
-
-                    if (role === 'Editor' || role === 'Admin') {
-                        let jobsite_selector = $('#jobsite-selector');
-
-                        for (let x = 0; x < jobsites.length; x++) {
-                            if (role === 'Admin' || available_jobsites.includes(_id(jobsites[x]))) {
-                                jobsite_selector.append(`
-                                    <option value="${_id(jobsites[x])}" class="${jobsites[x]["type"]}">
-                                        ${jobsites[x]["name"]}
-                                    </option>
-                                `);
-                                if (jobsites[x].name === 'Local') {
-                                    local_jobsite_id = _id(jobsites[x]);
-                                }
-                            }
-                        }
-                    }
-
-                    corpora.get_tasks('Corpus', function (tasks_data) {
-                        tasks = tasks_data.filter(function (value, index, arr) {
-                            return value.track_provenance;
-                        });
-
-                        if (role === 'Editor' || role === 'Admin') {
-                            load_tasks(local_jobsite_id);
-                            $("#jobsite-selector").on("change", function () {
-                                load_tasks($('#jobsite-selector :selected').val());
-                            });
-
-                            $('#run-job-button').click(function () {
-                                $('#job-modal').modal();
-                            });
-
-                            $('#job-submit-button').click(function () {
-                                $('#job-form').submit();
-                            });
-
-                            $('#launch-notebook-button').click(function () {
-                                $('#launch-notebook-form').submit();
-                            })
-                        }
-                    });
-                });
-                 */
 
                 // SETUP PLUGIN CONTENT SCHEMA IMPORT
                 corpora.get_plugin_schema(function(schemas) {
@@ -2061,222 +2016,6 @@
         $('#new-repo-name-box').focusout(function () {
             $('#new-repo-name-box').val(pep8_variable_format($('#new-repo-name-box').val()));
         });
-
-        /*
-        // JOB FUNCTIONALITY
-        function load_tasks(jobsite_id) {
-            let task_selector = $('#task-selector');
-            task_selector.html('');
-
-            for (let js_index = 0; js_index < jobsites.length; js_index ++) {
-                if (_id(jobsites[js_index]) === jobsite_id) {
-                    let jobsite_type = jobsites[js_index].type;
-                    let tasks_populated = 0;
-                    for (let t_index = 0; t_index < tasks.length; t_index ++) {
-                        if(tasks[t_index].jobsite_type === jobsite_type) {
-                            task_selector.append(`
-                                <option value="${_id(tasks[t_index])}">
-                                    ${tasks[t_index]["name"]}
-                                </option>
-                            `);
-
-                            if (tasks_populated === 0) {
-                                load_task_parameters(tasks[t_index]);
-                            }
-                            tasks_populated += 1;
-                        }
-                    }
-
-                    if (tasks_populated > 0) {
-                        $(`#task-selector-div`).removeClass("d-none");
-                        $(`#job-submit-button`).attr('disabled', false);
-                    } else {
-                        $(`#task-selector-div`).addClass("d-none");
-                        $(`#job-submit-button`).attr('disabled', true);
-                    }
-                }
-            }
-
-            $('#task-selector').change(function() {
-                let selected_task_id = $('#task-selector').val();
-                for (let t_index = 0; t_index < tasks.length; t_index++) {
-                    if (_id(tasks[t_index]) === selected_task_id) {
-                        load_task_parameters(tasks[t_index]);
-                    }
-                }
-            });
-        }
-
-        function load_task_parameters(task) {
-            $('#task-parameters-div').html('');
-
-            let parameters = task['configuration']['parameters'];
-            for (let parameter in parameters) {
-                if (parameters[parameter].hasOwnProperty('type')) {
-                    let parameter_html = '';
-                    let note_html = '';
-                    if (parameters[parameter].hasOwnProperty('note')) {
-                        note_html = `<span class='text-muted'>${parameters[parameter]['note']}</span>`;
-                    }
-
-                    if (parameters[parameter]['type'] === 'corpus_file') {
-                        let select_options = '';
-                        Object.keys(corpus.files).forEach(file_key => {
-                            select_options += `<option value="${file_key}">${corpus.files[file_key].basename}</option>`;
-                        });
-
-                        parameter_html = `
-                            <div class="form-group">
-                                <label for="${parameter}-file-selector">${parameters[parameter]['label']}</label>
-                                <select id="${parameter}-file-selector" class="form-control" name="${parameter}">
-                                    ${select_options}
-                                </select>
-                                ${note_html}
-                            </div>
-                        `;
-                    } else if (parameters[parameter]['type'] === 'corpus_repo') {
-                        let select_options = '';
-                        Object.keys(corpus.repos).forEach(repo_name => {
-                            select_options += `<option value="${repo_name}">${repo_name}</option>`;
-                        });
-
-                        parameter_html = `
-                            <div class="form-group">
-                                <label for="${parameter}-repo-selector">${parameters[parameter]['label']}</label>
-                                <select id="${parameter}-repo-selector" class="form-control" name="${parameter}">
-                                    ${select_options}
-                                </select>
-                                ${note_html}
-                            </div>
-                        `;
-                    } else if (parameters[parameter]['type'] === 'content_type') {
-                        let select_options = '';
-                        Object.keys(corpus.content_types).forEach(ct => {
-                            select_options += `<option value="${ct}">${corpus.content_types[ct].name}</option>`;
-                        });
-
-                        parameter_html = `
-                            <div class="form-group">
-                                <label for="${parameter}-ct-selector">${parameters[parameter]['label']}</label>
-                                <select id="${parameter}-ct-selector" class="form-control" name="${parameter}">
-                                    ${select_options}
-                                </select>
-                                ${note_html}
-                            </div>
-                        `;
-                    } else if (parameters[parameter]['type'] === 'content_type_field') {
-                        let select_options = '';
-                        Object.keys(corpus.content_types).forEach(ct => {
-                            corpus.content_types[ct].fields.map(f => {
-                                select_options += `<option value="${ct}->${f.name}">${ct} -> ${f.label}</option>`;
-                            });
-                        });
-
-                        parameter_html = `
-                            <div class="form-group">
-                                <label for="${parameter}-ct-field-selector">${parameters[parameter]['label']}</label>
-                                <select id="${parameter}-ct-field-selector" class="form-control" name="${parameter}">
-                                    ${select_options}
-                                </select>
-                                ${note_html}
-                            </div>
-                        `;
-                    } else if (parameters[parameter]['type'] === 'xref') {
-                        parameter_html = `
-                          <div class="form-group">
-                            <label for="${parameter}-content-label">${parameters[parameter]['label']}</label>
-                            <input type="text" id="${parameter}-content-label" readonly>
-                            <button id="${parameter}-selection-button" class="btn btn-secondary">Select</button>
-                            <input type="hidden" id="${parameter}-content-id" name="${parameter}">
-                          </div>
-                        `
-                    } else if (parameters[parameter]['type'] === 'boolean') {
-                        let checked = parameters[parameter]['value'] ? 'checked' : '';
-
-                        parameter_html = `
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" id="${parameter}-boolean-checkbox" name="${parameter}" ${checked}>
-                                <label class="form-check-label" for="${parameter}-boolean-checkbox">${parameters[parameter]['label']}</label>
-                            </div>
-                        `;
-                    } else if (parameters[parameter]['type'] === 'choice' && parameters[parameter].hasOwnProperty('choices')) {
-                        let select_options = '';
-                        parameters[parameter]['choices'].forEach(choice => {
-                            select_options += `<option>${choice}</option>\n`;
-                        });
-
-                        parameter_html = `
-                            <div class="form-group">
-                                <label for="${parameter}-choice-selector">${parameters[parameter]['label']}</label>
-                                <select id="${parameter}-choice-selector" class="form-control" name="${parameter}">
-                                    ${select_options}
-                                </select>
-                                ${note_html}
-                            </div>
-                        `;
-                    } else if (parameters[parameter]['type'] === 'pep8_text') {
-                        parameter_html = `
-                            <div class="form-group">
-                                <label for="${parameter}-pep8-text-box">${parameters[parameter]['label']}</label>
-                                <input type="text" class="form-control" id="${parameter}-pep8-text-box" name="${parameter}" />
-                                ${note_html}
-                            </div>
-                        `;
-                    } else if (parameters[parameter]['type'] === 'text') {
-                        parameter_html = `
-                            <div class="form-group">
-                                <label for="${parameter}-text-box">${parameters[parameter]['label']}</label>
-                                <input type="text" class="form-control" id="${parameter}-text-box" name="${parameter}" />
-                                ${note_html}
-                            </div>
-                        `;
-                    }
-
-                    $('#task-parameters-div').append(parameter_html);
-
-                    if (parameters[parameter]['type'] === 'pep8_text') {
-                        $(`#${parameter}-pep8-text-box`).focusout(function () {
-                            let pep8_box = $(`#${parameter}-pep8-text-box`);
-                            pep8_box.val(pep8_variable_format(pep8_box.val()));
-                        })
-                    } else if (parameters[parameter]['type'] === 'xref') {
-                      let id_input = $(`#${parameter}-content-id`)
-                      let label_input = $(`#${parameter}-content-label`)
-                      let selector = new ContentSelector({
-                        corpora: corpora,
-                        corpus: corpus,
-                        content_type: parameters[parameter['content_type']]
-                      }, function(selection) {
-                        id_input.val(selection.id)
-                        label_input.val(selection.label)
-                      })
-                    }
-                }
-            }
-        }
-
-        function view_job_report(job_id) {
-            $('#job-report-modal').modal();
-            $('#job-report-modal').on('hidden.bs.modal', function (e) {
-                clearTimeout(job_report_timer);
-            })
-            load_job_report(job_id);
-        }
-
-        function load_job_report(job_id) {
-            let no_cache_string = Math.random().toString(36).substring(7);
-            let report_url = `/corpus/${corpus_id}/get-file/?path=job_reports/${job_id}.txt&no-cache=${no_cache_string}`;
-            let report_div = $('#job-report-div');
-
-            report_div.load(report_url, function() {
-                report_div.scrollTop(report_div[0].scrollHeight);
-
-                if (!report_div.html().includes('CORPORA JOB COMPLETE')) {
-                    job_report_timer = setTimeout(load_job_report.bind(null, job_id), 10000);
-                }
-            });
-        }
-        */
 
         function job_finished() {
             if (!ignore_finished_jobs) {

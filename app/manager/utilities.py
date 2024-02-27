@@ -410,6 +410,15 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                                     if not content.id and field_name not in temp_file_fields:
                                         temp_file_fields.append(field_name)
 
+                            elif field.type == 'timespan':
+                                span = Timespan()
+                                span.start = parse_date_string(value['start'])
+                                span.end = parse_date_string(value['end'])
+                                span.uncertain = value['uncertain']
+                                span.granularity = value['granularity']
+                                span.normalize()
+                                value = span
+
                             elif field.type == 'date':
                                 value = parse_date_string(value)
 

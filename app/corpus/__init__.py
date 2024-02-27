@@ -11,6 +11,7 @@ import redis
 import requests
 import git
 import re
+import calendar
 from math import ceil
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -28,7 +29,7 @@ from django.template import Template, Context
 from .language_settings import REGISTRY as lang_settings
 
 
-FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'file', 'repo', 'link', 'iiif-image', 'geo_point', 'cross_reference', 'embedded')
+FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'timespan', 'file', 'repo', 'link', 'iiif-image', 'geo_point', 'cross_reference', 'embedded')
 FIELD_LANGUAGES = {
     'arabic': "Arabic", 'armenian': "Armenian", 'basque': "Basque", 'bengali': "Bengali", 'brazilian': "Brazilian",
     'bulgarian': "Bulgarian", 'catalan': "Catalan", 'cjk': "CJK", 'czech': "Czech", 'danish': "Danish", 'dutch': "Dutch",
@@ -96,7 +97,7 @@ class Field(mongoengine.EmbeddedDocument):
                 return value_dict
             elif self.type == 'repo':
                 return value.to_dict()
-            elif self.type in ['embedded', 'file']:
+            elif self.type in ['embedded', 'file', 'timespan']:
                 return value.to_dict(parent_uri)
             elif self.type == 'geo_point':
                 return value['coordinates']
@@ -127,6 +128,8 @@ class Field(mongoengine.EmbeddedDocument):
             return mongoengine.EmbeddedDocumentField(File)
         elif self.type == 'repo':
             return mongoengine.EmbeddedDocumentField(GitRepo)
+        elif self.type == 'timespan':
+            return mongoengine.EmbeddedDocumentField(Timespan, default=Timespan)
         elif self.type == 'geo_point':
             return mongoengine.PointField()
         elif self.type != 'cross_reference':
@@ -1058,6 +1061,51 @@ class File(mongoengine.EmbeddedDocument):
         }
 
 
+class Timespan(mongoengine.EmbeddedDocument):
+    start = mongoengine.DateTimeField()
+    end = mongoengine.DateTimeField()
+    uncertain = mongoengine.BooleanField(default=False)
+    granularity = mongoengine.StringField(choices=('Year', 'Month', 'Day', 'Time'))
+
+    def normalize(self):
+        if self.start and self.granularity and self.granularity not in ['Time']:
+            start_year = self.start.year
+            start_month = self.start.month
+            start_day = self.start.day
+
+            end_year = self.end.year if self.end else start_year
+            end_month = self.end.month if self.end else start_month
+            end_day = self.end.day if self.end else start_day
+
+            if self.granularity in ['Month', 'Year']:
+                start_day = 1
+
+                if self.granularity == 'Year':
+                    start_month = 1
+                    end_month = 12
+
+                end_day = calendar.monthrange(end_year, end_month)[1]
+
+            self.start = parse_date_string(f"{start_year}-{start_month}-{start_day} 00:00")
+            self.end = parse_date_string(f"{end_year}-{end_month}-{end_day} 23:59")
+
+    def to_dict(self, parent_uri=None):
+        start_dt = None
+        if self.start:
+            start_dt = self.start.isoformat()
+
+        end_dt = None
+        if self.end:
+            end_dt = self.end.isoformat()
+
+        return {
+            'start': start_dt,
+            'end': end_dt,
+            'uncertain': self.uncertain,
+            'granularity': self.granularity
+        }
+
+
 class GitRepo(mongoengine.EmbeddedDocument):
 
     name = mongoengine.StringField()
@@ -1341,15 +1389,118 @@ class Corpus(mongoengine.Document):
             must_not = []
             filter = []
 
+            # HELPER FUNCTIONS
+
+            def determine_local_operator(search_field, operator):
+                if search_field.endswith('+') or search_field.endswith(' '):
+                    return search_field[:-1], "and"
+                elif search_field.endswith('|'):
+                    return search_field[:-1], "or"
+                elif search_field.endswith('-'):
+                    return search_field[:-1], "exclude"
+                return search_field, operator
+
+            def generate_timespan_query(timespan_field, date_query_value, date_query_end_value=None, include_all_before_or_after=False):
+                should_queries = []
+
+                # create the various ingredients for creating queries depending on the situation
+                ts_end_exists = Q('exists', field=f'{timespan_field}.end')
+                ts_start_lte_dq_start = Q('range', **{f'{timespan_field}.start': {
+                    'lte': date_query_value
+                }})
+                ts_start_gte_dq_start = Q('range', **{f'{timespan_field}.start': {
+                    'gte': date_query_value
+                }})
+                ts_end_gte_dq_start = Q('range', **{f'{timespan_field}.end': {
+                    'gte': date_query_value
+                }})
+                ts_start_lte_dq_end = Q('range', **{f'{timespan_field}.start': {
+                    'lte': date_query_end_value
+                }})
+                ts_end_gte_dq_end = Q('range', **{f'{timespan_field}.end': {
+                    'gte': date_query_end_value
+                }})
+                ts_end_lte_dq_end = Q('range', **{f'{timespan_field}.end': {
+                    'lte': date_query_end_value
+                }})
+
+                # if we're matching all timespans before or after a date
+                if include_all_before_or_after:
+                    if date_query_value and not date_query_end_value:
+                        ts_with_end = Q('bool', must=[ts_end_exists, ts_end_gte_dq_start])
+                        ts_no_end = Q('bool', must_not=[ts_end_exists], must=[ts_start_gte_dq_start])
+                        should_queries = [ts_with_end, ts_no_end]
+
+                    elif date_query_end_value and not date_query_value:
+                        should_queries.append(Q('bool', must=[ts_end_exists, ts_start_lte_dq_end]))
+
+                # if we're matching all timespans by an exact start date or within a range. start date required
+                elif date_query_value:
+
+                    if date_query_end_value:
+                        ts_with_end = Q(
+                            'bool',
+                            must=[ts_end_exists],
+                            should=[
+                                Q('bool', must=[
+                                    ts_start_lte_dq_end,
+                                    ts_end_gte_dq_end
+                                ]),
+                                Q('bool', must=[
+                                    ts_start_lte_dq_start,
+                                    ts_end_gte_dq_start
+                                ]),
+                                Q('bool', must=[
+                                    ts_start_gte_dq_start,
+                                    ts_start_lte_dq_end
+                                ]),
+                                Q('bool', must=[
+                                    ts_end_gte_dq_start,
+                                    ts_end_lte_dq_end
+                                ])
+                            ]
+                        )
+
+                        ts_no_end = Q(
+                            'bool',
+                            must_not=[ts_end_exists],
+                            must=[Q('range', **{f'{timespan_field}.start': {
+                                'gte': date_query_value,
+                                'lte': date_query_end_value
+                            }})]
+                        )
+
+                        should_queries = [ts_with_end, ts_no_end]
+                    else:
+                        ts_with_end = Q('bool', must=[
+                            ts_end_exists,
+                            ts_start_lte_dq_start,
+                            ts_end_gte_dq_start
+                        ])
+
+                        ts_no_end = Q(
+                            'bool',
+                            must_not=[ts_end_exists],
+                            must=[Q('match', **{f'{timespan_field}.start': {
+                                'query': date_query_value
+                            }})]
+                        )
+
+                        should_queries = [ts_with_end, ts_no_end]
+
+                if should_queries:
+                    return Q('nested', path=timespan_field, query=Q('bool', should=should_queries))
+
             # GENERAL QUERY
             if general_query:
 
                 # Since we want the general query to search all fields (including nested ones),
                 # we need to break out nested fields from top level ones so we can search them.
-                # We must also separate out date fields since they need to be treated differently.
+                # We must also separate out date/timespan fields since they need to be treated differently.
 
                 top_fields = []
                 date_fields = []
+                timespan_fields = []
                 nested_fields = []
                 general_queries = []
                 final_query = None
@@ -1384,6 +1535,9 @@ class Corpus(mongoengine.Document):
                             elif f.type == 'date':
                                 date_fields.append(f.name)
 
+                            elif f.type == 'timespan':
+                                timespan_fields.append(f.name)
+
                             elif f.type in valid_field_types:
                                 top_fields.append(f.name)
 
@@ -1414,6 +1568,12 @@ class Corpus(mongoengine.Document):
                         else:
                             general_queries.append(SimpleQueryString(query=date_query_value, fields=date_fields))
 
+                    if timespan_fields and date_query_value:
+                        for timespan_field in timespan_fields:
+                            timespan_query = generate_timespan_query(timespan_field, date_query_value, date_query_end_value)
+                            if timespan_query:
+                                general_queries.append(timespan_query)
+
                     # now that we've built our various queries, let's OR them together if necessary:
                     if len(general_queries) > 1:
                         final_query = Q('bool', should=general_queries)
@@ -1425,18 +1585,6 @@ class Corpus(mongoengine.Document):
                         must.append(final_query)
                     else:
                         should.append(final_query)
-
-            # OTHER KINDS OF QUERY
-
-            # helper function for determining local operators for queries below
-            def determine_local_operator(search_field, operator):
-                if search_field.endswith('+') or search_field.endswith(' '):
-                    return search_field[:-1], "and"
-                elif search_field.endswith('|'):
-                    return search_field[:-1], "or"
-                elif search_field.endswith('-'):
-                    return search_field[:-1], "exclude"
-                return search_field, operator
 
             # FIELDS QUERY
             for search_field in fields_query.keys():
@@ -1484,31 +1632,38 @@ class Corpus(mongoengine.Document):
                         search_field: {'query': field_value}
                     }
 
-                    if field_type == 'date':
+                    if field_type in ['date', 'timespan']:
                         date_value = parse_date_string(field_value)
+                        end_date_value = None
                         if date_value:
+                            date_value = date_value.isoformat()
                             # if this is an entire year, let's build a range query instead
                             if len(field_value) == 4 and field_value.isdecimal():
-                                end_date_value = parse_date_string(f"12/31/{field_value}")
+                                end_date_value = parse_date_string(f"12/31/{field_value}").isoformat()
+
+                        if field_type == 'date':
+                            if end_date_value:
                                 q_type = 'range'
                                 search_criteria = {
                                     search_field: {
-                                        'gte': date_value.isoformat(),
-                                        'lte': end_date_value.isoformat()
+                                        'gte': date_value,
+                                        'lte': end_date_value
                                     }
                                 }
                             else:
-                                search_criteria[search_field]['query'] = date_value.isoformat()
+                                search_criteria[search_field]['query'] = date_value
 
-                    if '.' in search_field:
-                        field_parts = search_field.split('.')
-                        q = Q(
-                            "nested",
-                            path=field_parts[0],
-                            query=Q(q_type, **search_criteria)
-                        )
-                    else:
-                        q = Q(q_type, **search_criteria)
+                            if '.' in search_field:
+                                field_parts = search_field.split('.')
+                                q = Q(
+                                    "nested",
+                                    path=field_parts[0],
+                                    query=Q(q_type, **search_criteria)
+                                )
+                            else:
+                                q = Q(q_type, **search_criteria)
+                        elif field_type == 'timespan':
+                            q = generate_timespan_query(search_field, date_value, end_date_value)
 
                     if q:
                         if local_operator == 'and':
@@ -1697,38 +1852,61 @@ class Corpus(mongoengine.Document):
                             else:
                                 field_type = self.content_types[content_type].get_field(search_field).type
 
-                        if field_type in ['number', 'decimal', 'date']:
+                        if field_type in ['number', 'decimal', 'date', 'timespan']:
                             # default field conversion for number value
                             field_converter = lambda x: int(x)
 
                             if field_type == 'decimal':
                                 field_converter = lambda x: float(x)
-                            elif field_type == 'date':
+                            elif field_type in ['date', 'timespan']:
                                 field_converter = lambda x: parse_date_string(x).isoformat()
 
                             range_parts = [part for part in field_value.split('to') if part]
                             if len(range_parts) == 2:
-                                range_query = Q(
-                                    "range",
-                                    **{search_field: {
-                                        'gte': field_converter(range_parts[0]),
-                                        'lte': field_converter(range_parts[1])
-                                    }}
-                                )
+                                if field_type == 'timespan':
+                                    range_query = generate_timespan_query(
+                                        search_field,
+                                        field_converter(range_parts[0]),
+                                        field_converter(range_parts[1])
+                                    )
+                                else:
+                                    range_query = Q(
+                                        "range",
+                                        **{search_field: {
+                                            'gte': field_converter(range_parts[0]),
+                                            'lte': field_converter(range_parts[1])
+                                        }}
+                                    )
                             elif len(range_parts) == 1 and field_value.endswith('to'):
-                                range_query = Q(
-                                    "range",
-                                    **{search_field: {
-                                        'gte': field_converter(range_parts[0]),
-                                    }}
-                                )
+                                if field_type == 'timespan':
+                                    range_query = generate_timespan_query(
+                                        search_field,
+                                        field_converter(range_parts[0]),
+                                        None,
+                                        True
+                                    )
+                                else:
+                                    range_query = Q(
+                                        "range",
+                                        **{search_field: {
+                                            'gte': field_converter(range_parts[0]),
+                                        }}
+                                    )
                             elif len(range_parts) == 1 and field_value.startswith('to'):
-                                range_query = Q(
-                                    "range",
-                                    **{search_field: {
-                                        'lte': field_converter(range_parts[0]),
-                                    }}
-                                )
+                                if field_type == 'timespan':
+                                    range_query = generate_timespan_query(
+                                        search_field,
+                                        None,
+                                        field_converter(range_parts[0]),
+                                        True
+                                    )
+                                else:
+                                    range_query = Q(
+                                        "range",
+                                        **{search_field: {
+                                            'lte': field_converter(range_parts[0]),
+                                        }}
+                                    )
 
                         elif field_type == 'geo_point' and 'to' in field_value:
                             [top_left, bottom_right] = field_value.split('to')
@@ -1845,6 +2023,11 @@ class Corpus(mongoengine.Document):
                             })
                             sorting_by_id = True
                         else:
+                            # check if timespan field so we can add .start to field_name
+                            ct_field = self.content_types[content_type].get_field(field_name)
+                            if ct_field and ct_field.type == 'timespan':
+                                field_name += '.start'
+
                             if '.' in field_name:
                                 field_parts = field_name.split('.')
                                 field_name = field_parts[0]
@@ -2567,6 +2750,7 @@ class Corpus(mongoengine.Document):
                 'decimal': 'float',
                 'boolean': 'boolean',
                 'date': 'date',
+                'timespan': 'keyword',
                 'file': 'keyword',
                 'image': 'keyword',
                 'iiif-image': 'keyword',
@@ -2653,6 +2837,14 @@ class Corpus(mongoengine.Document):
 
                     elif field.type == 'geo_point' and field.multiple:
                         mapping.field(field.name, GeoShape())
+
+                    elif field.type == 'timespan':
+                        mapping.field(field.name, Nested(properties={
+                            'start': 'date',
+                            'end': 'date',
+                            'uncertain': 'boolean',
+                            'granularity': 'keyword'
+                        }))
 
                     else:
                         mapping.field(field.name, field_type)

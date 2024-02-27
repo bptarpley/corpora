@@ -5,6 +5,11 @@
 {% block css %}
     <link href="{% static 'css/filepond.css' %}" rel="stylesheet">
     {% if has_geo_field %}<link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">{% endif %}
+    <style>
+        label {
+          font-weight: bold;
+        }
+    </style>
 {% endblock %}
 
 {% block modals %}
@@ -260,6 +265,70 @@
                     </div>
                 `;
             },
+            timespan: function(field, value, id_suffix) {
+                let is_uncertain = false
+                let granularity = 'Day'
+                let start_date = ''
+                let end_date = ''
+                let start_time = ''
+                let end_time = ''
+
+                if (value.hasOwnProperty('uncertain') && ['t', 'T', 'true', 'True', 1, true].includes(value.uncertain)) { is_uncertain = true; }
+                if (value.hasOwnProperty('granularity') && value.granularity) granularity = value.granularity
+                if (value.hasOwnProperty('start') && value.start) {
+                    let start_parts = value.start.split('T')
+                    start_date = start_parts[0]
+                    start_time = start_parts[1]
+                }
+                if (value.hasOwnProperty('end') && value.end) {
+                    let end_parts = value.end.split('T')
+                    end_date = end_parts[0]
+                    end_time = end_parts[1]
+                }
+
+                return `
+                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div pl-3" data-field="${field.name}" style="flex-direction: column;">
+                        <div class="row">
+                          <div class="col-sm-6 form-group">
+                            <label for="${field.name}-value${id_suffix}-start">Start Date</label>
+                            <input type="date" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}-start" value="${start_date}" ${bulk_editing ? 'disabled' : ''}>
+                          </div>
+                          <div class="col-sm-6 form-group">
+                            <label for="${field.name}-value${id_suffix}-end">End Date</label>
+                            <input type="date" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}-end" value="${end_date}" ${bulk_editing ? 'disabled' : ''}>
+                          </div>
+                        </div>
+                        <div id="${field.name}-value${id_suffix}-time-row" class="row${granularity === 'Time' ? '' : ' d-none'}">
+                          <div class="col-sm-6 form-group">
+                            <label for="${field.name}-value${id_suffix}-start-time">Start Time</label>
+                            <input type="time" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}-start-time" value="${start_time}" ${bulk_editing ? 'disabled' : ''}>
+                          </div>
+                          <div class="col-sm-6 form-group">
+                            <label for="${field.name}-value${id_suffix}-end-time">End Time</label>
+                            <input type="time" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}-end-time" value="${end_time}" ${bulk_editing ? 'disabled' : ''}>
+                          </div>
+                        </div>
+                        <div class="row">
+                          <div class="col-sm-6">
+                            <div class="form-check form-check-inline">
+                              <input class="form-check-input ${field.name}-control" type="checkbox" id="${field.name}-value${id_suffix}-uncertain" ${is_uncertain ? 'checked': ''}  ${bulk_editing ? 'disabled' : ''}>
+                              <label class="form-check-label" for="${field.name}-value${id_suffix}-uncertain">Uncertain?</label>
+                            </div>
+                          </div>
+                          <div class="col-sm-6 form-group">
+                                <label for="${field.name}-value${id_suffix}-granularity">Granularity</label>
+                                <select id="${field.name}-value${id_suffix}-granularity" class="form-control ${field.name}-control timespan-granularity-selector" data-id-prefix="${field.name}-value${id_suffix}">
+                                  <option ${granularity === 'Year' ? 'selected': ''}>Year</option>
+                                  <option ${granularity === 'Month' ? 'selected': ''}>Month</option>
+                                  <option ${granularity === 'Day' ? 'selected': ''}>Day</option>
+                                  <option ${granularity === 'Time' ? 'selected': ''}>Time</option>
+                                </select>
+                          </div>
+                        </div>
+                        ${multi_remover(field, id_suffix)}
+                    </div>
+                `;
+            },
             file: function(field, value, id_suffix) {
                 console.log(value);
                 let sub_path = '';
@@ -465,16 +534,18 @@
                         }
                     });
                 }
-                bundle_content();
-                let content_form = $('#content-form');
-                content_form.submit();
+
+                if (bundle_content()) {
+                    let content_form = $('#content-form');
+                    content_form.submit();
+                }
             });
 
             $('#content-save-and-create-button').click(function() {
                 let content_form = $('#content-form');
                 content_form.append('<input type="hidden" name="save-and-create" value="y" />');
-                bundle_content();
-                content_form.submit();
+                if (bundle_content())
+                    content_form.submit()
             });
 
             $('.add_multi_field_button').click(function() {
@@ -507,6 +578,7 @@
             let has_html_field = false;
             let has_file_field = false;
             let has_xref_field = false;
+            let has_timespan_field = false
             let has_geo_field = {% if has_geo_field %}true{% else %}false{% endif %};
 
             if (bulk_editing) {
@@ -523,6 +595,7 @@
 
                 if (field.type === 'html') { has_html_field = true; }
                 else if (field.type === 'file') { has_file_field = true; }
+                else if (field.type === 'timespan') { has_timespan_field = true }
                 else if (field.type === 'cross_reference') { has_xref_field = true; }
 
                 if (field.type !== 'embedded') {
@@ -562,6 +635,18 @@
 
             if (has_geo_field) {
                 setup_geo_inputs();
+            }
+
+            if (has_timespan_field) {
+                $('body').on('change', '.timespan-granularity-selector', function(){
+                  let selector = $(this)
+                  let id_prefix = selector.data('id-prefix')
+                  let granularity = selector.val()
+                  let time_row = $(`#${id_prefix}-time-row`)
+
+                  if (granularity === 'Time') time_row.removeClass('d-none')
+                  else time_row.addClass('d-none')
+                })
             }
 
             if (bulk_editing) {
@@ -670,7 +755,8 @@
         }
 
         function bundle_content() {
-            let bundle = {};
+            let bundle = {}
+            let errors = []
 
             $('.edit-field').each(function() {
                 let div = $(this);
@@ -690,6 +776,33 @@
                         else if (field.type === 'geo_point' && input.val()) {
                             let longlat_strs = input.val().split(',');
                             data['value'] = [parseFloat(longlat_strs[0]), parseFloat(longlat_strs[1])];
+                        } else if (field.type === 'timespan' && input.val()) {
+                            let timespan = {
+                                start: input.val(),
+                                end: null,
+                                uncertain: false,
+                                granularity: 'Day'
+                            }
+                            let id_prefix = input.attr('id').replace('-start', '')
+
+                            let end_input = $(`#${id_prefix}-end`)
+                            let uncertain_input = $(`#${id_prefix}-uncertain`)
+                            let granularity_input = $(`#${id_prefix}-granularity`)
+                            let start_time_input = $(`#${id_prefix}-start-time`)
+                            let end_time_input = $(`#${id_prefix}-end-time`)
+
+                            if (end_input.length && end_input.val()) timespan.end = end_input.val()
+                            if (uncertain_input.length && uncertain_input.is(':checked')) timespan.uncertain = true
+                            if (granularity_input.length && granularity_input.val()) timespan.granularity = granularity_input.val()
+                            if (timespan.granularity === 'Time') {
+                                if (start_time_input.length && start_time_input.val()) timespan.start = `${timespan.start} ${start_time_input.val()}`
+                                if (timespan.end && end_time_input.length && end_time_input.val()) timespan.end = `${timespan.end} ${end_time_input.val()}`
+                            }
+
+                            if (timespan.end && timespan.start < timespan.end)
+                                data['value'] = timespan
+                            else errors.push(`Start date/time must be earlier than end date/time for field "${field.label}."`)
+
                         } else data['value'] = input.val();
 
                         if (field.has_intensity) {
@@ -704,10 +817,17 @@
             });
 
             console.log(bundle);
-            $('#content-form').append(`
-                <input type="hidden" id="content-bundle" name="content-bundle">
-            `);
-            $('#content-bundle').val(JSON.stringify(bundle));
+
+            if (errors.length === 0) {
+                $('#content-form').append(`
+                    <input type="hidden" id="content-bundle" name="content-bundle">
+                `);
+                $('#content-bundle').val(JSON.stringify(bundle))
+                return true
+            } else {
+                alert(`One or more errors were encountered: ${errors.join(' ')}`)
+                return false
+            }
         }
 
         function remove_multi_field(div_id) {
@@ -886,7 +1006,6 @@
               filter_box.focus()
             })
         }
-
 
         function refresh_content_selection() {
             clearTimeout(content_search_timer)

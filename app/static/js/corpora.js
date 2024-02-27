@@ -699,14 +699,56 @@ class Corpora {
         return `${id}/${region}/${size}/${rotation}/${quality}.${format}`
     }
 
-    time_string(timestamp) {
-        let date = new Date(timestamp*1000)
-        return date.toLocaleString('en-US', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })
+    time_string(timestamp, from_mongo=true, just_time=false, adjust_for_timezone=true) {
+        let date = null
+        if (from_mongo) date = new Date(timestamp*1000)
+        else date = new Date(timestamp)
+
+        let representation = null
+        if (adjust_for_timezone) representation = date.toLocaleString('en-US', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })
+        else representation = date.toLocaleString('en-US')
+
+        if (just_time) representation = representation.split(', ')[1]
+        return representation
     }
 
-    date_string(timestamp) {
+    date_string(timestamp, granularity='Day', adjust_for_timezone=true) {
         let date = new Date(timestamp)
-        return date.toISOString().split('T')[0]
+        if (granularity === 'Day')
+            return date.toISOString().split('T')[0]
+        else if (granularity === 'Year')
+            return date.toLocaleString('default', { year: 'numeric' })
+        else if (granularity === 'Month')
+            return date.toLocaleString('default', { month: 'long', year: 'numeric' })
+        else if (granularity === 'Time')
+            return this.time_string(timestamp, false, false, adjust_for_timezone)
+    }
+
+    timespan_string(timespan) {
+        let uncertain_prefix = ''
+        let granularity = timespan.granularity ?? 'Day'
+        let start_string = ''
+        let end_string = ''
+        let range_combinator = ''
+
+        if (timespan.start) {
+            start_string = this.date_string(timespan.start, granularity)
+            if (timespan.uncertain) uncertain_prefix = 'Around '
+
+            if (timespan.end) {
+                end_string = this.date_string(timespan.end, granularity)
+
+                if (start_string !== end_string) {
+                    range_combinator = ' - '
+                    if (timespan.uncertain) {
+                        uncertain_prefix = 'Between '
+                        range_combinator = ' and '
+                    }
+                } else end_string = ''
+            }
+        }
+
+        return `${uncertain_prefix}${start_string}${range_combinator}${end_string}`
     }
 }
 
@@ -1392,6 +1434,8 @@ class ContentTable {
                                     for (let y in value) {
                                         if (field.type === 'date') {
                                             multi_value += `, ${corpora.date_string(value[y])}`
+                                        } else if (field.type === 'timespan') {
+                                            multi_value += `, ${corpora.timespan_string(value[y])}`
                                         }
                                         else {
                                             multi_value += `, ${value[y]}`
@@ -1405,6 +1449,9 @@ class ContentTable {
                             }
                             else if (field.type === 'date') {
                                 value = corpora.date_string(value)
+                            } else if (field.type === 'timespan') {
+                                console.log(value)
+                                value = corpora.timespan_string(value)
                             } else if (field.type === 'iiif-image') {
                                 value = `<img src='${value}/full/,100/0/default.png' />`
                             } else if (field.type === 'file' && ['.png', '.jpg', '.gif', 'jpeg'].includes(value.toLowerCase().substring(value.length - 4))) {
@@ -3214,6 +3261,7 @@ class JobManager {
                         this.report_no_jobs()
                     }
 
+                    let loc = window.location
                     let alert = $(`
                         <div class="alert alert-${info.status === "complete" ? 'success' : 'danger'}"
                             style="width: 95%; float: left; margin: 0px;">
@@ -3221,7 +3269,7 @@ class JobManager {
                           You may wish to 
                           <button type="button"
                               class="btn btn-link"
-                              onclick="window.location.reload()"
+                              onclick="window.location.replace('${loc.protocol}//${loc.host}${loc.pathname}')"
                               style="padding: 0px; vertical-align: unset;">
                             refresh the page
                           </button>
