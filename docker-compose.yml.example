@@ -7,7 +7,7 @@ version: '3'
 services:
 
   nginx:
-    image: nginx
+    image: nginx:1.19.10
     links:
       - corpora:corpora
       - iiif:iiif
