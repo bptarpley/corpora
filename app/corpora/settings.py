@@ -36,8 +36,8 @@ if 'CRP_HOST' in os.environ:
 elif 'CRP_HOSTS' in os.environ:
     ALLOWED_HOSTS = [h for h in os.environ['CRP_HOSTS'].split(',') if h]
 
-if 'host.docker.internal' not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append('host.docker.internal')
+if 'nginx' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('nginx')
 
 CSRF_TRUSTED_ORIGINS = []
 for host in ALLOWED_HOSTS:

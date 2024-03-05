@@ -4107,5 +4107,4 @@ def ensure_connection():
 
 
 def publish_message(corpus_id, message_type, data={}):
-    protocol = 'https' if settings.USE_SSL else 'http'
-    r = requests.get(f'{protocol}://host.docker.internal/api/publish/{corpus_id}/{message_type}/', params=data)
+    r = requests.get(f'http://nginx/api/publish/{corpus_id}/{message_type}/', params=data)
