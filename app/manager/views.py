@@ -1101,7 +1101,7 @@ def scholar(request):
         captcha_word = _clean(request.POST, 'captcha-word')
 
         if validate_captcha(captcha_word, captcha_hash):
-            if register and not User.objects.filter(username=username).exists():
+            if (register and not User.objects.filter(username=username).exists()) or (User.objects.filter(username=username).exists() and not register):
 
                 valid_ips = True
                 auth_token_ips = [request.POST[val] for val in request.POST.keys() if val.startswith('auth-token-ip-')]
