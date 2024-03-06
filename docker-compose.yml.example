@@ -1,6 +1,6 @@
 # Be sure to replace all instances of /your/corpora/basedir with a local directory, such as /Users/username/corpora :)
-# Inside that directory, also be sure to create the following subdirectories: corpora, conf, static, archive, link, and
-# search. If you plan on using plugins that interact with Git repositories, also create an ssh directory.
+# Inside that directory, also be sure to create the following subdirectories: corpora, conf, static, archive, link,
+# iiif, and search. If you plan on using plugins that interact with Git repositories, also create an ssh directory.
 
 version: '3'
 
@@ -64,9 +64,11 @@ services:
     image: redis:7.0.14
 
   iiif:
-    image: pulibrary/cantaloupe
+    image: bptarpley/iiif
     volumes:
-      - /your/corpora/basedir/corpora:/var/lib/cantaloupe/images/corpora
+      - /your/corpora/basedir/corpora:/var/iiif/imageroot/corpora
+      - /your/corpora/basedir/iiif/cache:/var/iiif/cache
+      - /your/corpora/basedir/iiif/temp:/var/iiif/temp
       - ./iiif/cantaloupe.properties:/etc/cantaloupe.properties
 
   mongo:
