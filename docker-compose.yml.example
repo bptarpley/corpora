@@ -90,7 +90,7 @@ services:
       - /your/corpora/basedir/link:/data
 
   elastic:
-    image: elasticsearch:8.11.1
+    image: elasticsearch:8.12.2
     environment:
       discovery.type: single-node
       indices.id_field_data.enabled: "true"
