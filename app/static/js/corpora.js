@@ -3192,12 +3192,13 @@ class JobManager {
         let no_cache_string = Math.random().toString(36).substring(7)
         let report_url = `/corpus/${this.corpus.id}/get-file/?path=job_reports/${job_id}.txt&no-cache=${no_cache_string}`
         let report_div = $('#job-report-div')
+        let sender = this
 
         report_div.load(report_url, function() {
             report_div.scrollTop(report_div[0].scrollHeight)
 
             if (!report_div.html().includes('CORPORA JOB COMPLETE')) {
-                this.job_report_timer = setTimeout(() => { this.load_job_report(job_id) }, 10000)
+                sender.job_report_timer = setTimeout(() => { sender.load_job_report(job_id) }, 10000)
             }
         })
     }
