@@ -1285,7 +1285,7 @@ def restore_corpus(export_id):
                                             print("Collection {0} successfully restored :)".format(collection))
                                             if foreign_import:
                                                 db = corpus._get_db()
-                                                db[collection].update({}, {'$set': {'provenance': []}}, multi=True)
+                                                db[collection].update_many({}, {'$set': {'provenance': []}})
 
                                             adjust_content_slice(corpus, ct_name, None, None, True, True, True, True, foreign_import)
                                         else:
