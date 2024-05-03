@@ -1284,11 +1284,9 @@ def restore_corpus(export_id):
                                         if call(command) == 0:
                                             print("Collection {0} successfully restored :)".format(collection))
                                             if foreign_import:
-                                                contents = corpus.get_content(ct_name, all=True)
-                                                for content in contents:
-                                                    content.provenance = []
-                                                    content.save(do_indexing=False, do_linking=False)
-                                                
+                                                db = corpus._get_db()
+                                                db[collection].update({}, {'$set': {'provenance': []}}, multi=True)
+
                                             adjust_content_slice(corpus, ct_name, None, None, True, True, True, True, foreign_import)
                                         else:
                                             print("Error restoring collection {0}! Halting restore.".format(collection))
