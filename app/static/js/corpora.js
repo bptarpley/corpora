@@ -1843,12 +1843,12 @@ class ContentGraph {
                     $('body').append(`
                         <div id="${pane_id}"
                             class="content-pane"
-                            style="background-color: rgba(255, 255, 255, .8)
-                                width: 200px
-                                height: 225px
-                                position: absolute
-                                top: ${pane_y}px
-                                left: ${pane_x}px
+                            style="background-color: rgba(255, 255, 255, .8);
+                                width: 200px;
+                                height: 225px;
+                                position: absolute;
+                                top: ${pane_y}px;
+                                left: ${pane_x}px;
                                 pointer-events: auto;"
                             data-uri="${clicked_uri}">
     
