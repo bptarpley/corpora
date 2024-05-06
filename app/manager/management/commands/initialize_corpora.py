@@ -221,6 +221,8 @@ class Command(BaseCommand):
         for task in tasks:
             if str(task.id) not in existing_task_ids:
                 print(f'\nDeleting stale task {task.name}...')
+
+                ''' # NOT NEEDED ANYMORE SINCE COMPLETED TASKS NO LONGER USE DB REFERENCES
                 if task.content_type == 'Corpus':
                     corpora = Corpus.objects.filter(provenance__task=task.id)
                     for corpus in corpora:
@@ -234,6 +236,7 @@ class Command(BaseCommand):
                             for content in contents:
                                 content.provenance = [p for p in content.provenance if p.task != task]
                                 content.save()
+                '''
 
                 for jobsite in jobsites:
                     if task.name in jobsite.task_registry:
