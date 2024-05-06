@@ -951,6 +951,11 @@ def exports(request):
                         restore_corpus(str(export.id))
                         response['messages'].append('Corpus restore successfully launched.')
 
+                    elif export_action == 'cancel':
+                        export.status = 'created'
+                        export.save()
+                        response['messages'].append('Corpus restore cancelled.')
+
                     elif export_action == 'delete':
                         os.remove(export.path)
                         export.delete()
