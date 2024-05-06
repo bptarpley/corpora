@@ -1352,6 +1352,7 @@ class Corpus(mongoengine.Document):
             only=[],
             excludes=[],
             content_view=None,
+            grouped_searches=[],
             operator="and",
             highlight_num_fragments=5,
             highlight_fragment_size=100,
@@ -1359,7 +1360,8 @@ class Corpus(mongoengine.Document):
             aggregations={},
             next_page_token=None,
             es_debug=False,
-            es_debug_query=False
+            es_debug_query=False,
+            generate_query_only=False
     ):
         results = {
             'meta': {
@@ -1375,6 +1377,7 @@ class Corpus(mongoengine.Document):
         }
 
         if content_type in self.content_types:
+
             start_index = (page - 1) * page_size
             end_index = page * page_size
 
@@ -1388,6 +1391,20 @@ class Corpus(mongoengine.Document):
             must = []
             must_not = []
             filter = []
+
+            if grouped_searches:
+                for grouped_search_params in grouped_searches:
+                    grouped_search_params['generate_query_only'] = True
+                    grouped_search = self.search_content(
+                        content_type=content_type,
+                        **grouped_search_params
+                    )
+
+                    if grouped_search:
+                        if operator == 'and':
+                            must.append(grouped_search)
+                        elif operator == 'or':
+                            should.append(grouped_search)
 
             # HELPER FUNCTIONS
 
@@ -1969,6 +1986,9 @@ class Corpus(mongoengine.Document):
             if should or must or must_not or filter:
 
                 search_query = Q('bool', should=should, must=must, must_not=must_not, filter=filter)
+
+                if generate_query_only:
+                    return search_query
 
                 extra = {'track_total_hits': True}
                 if fields_query and fields_highlight:

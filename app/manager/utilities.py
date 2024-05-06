@@ -135,6 +135,7 @@ def _get_context(req):
 
 def build_search_params_from_dict(params):
     search = {}
+    grouped_params = {}
     
     default_search = {
         'general_query': '',
@@ -148,6 +149,7 @@ def build_search_params_from_dict(params):
         'fields_highlight': [],
         'fields_sort': [],
         'aggregations': {},
+        'grouped_searches': [],
         'content_view': None,
         'page': 1,
         'page_size': 50,
@@ -177,7 +179,7 @@ def build_search_params_from_dict(params):
             'page-token',
             'es_debug',
             'es_debug_query'
-        ] or param[:2] in ['q_', 't_', 'p_', 's_', 'f_', 'r_', 'w_', 'e_', 'a_']:
+        ] or param[:2] in ['q_', 't_', 'p_', 's_', 'f_', 'r_', 'w_', 'e_', 'a_', '1_', '2_', '3_', '4_', '5_', '6_', '7_', '8_', '9_']:
             search = default_search
 
         if param == 'highlight_fields':
@@ -282,11 +284,26 @@ def build_search_params_from_dict(params):
         elif param == 'es_debug_query':
             search['es_debug_query'] = True
 
+        # extract params for grouped searches
+        elif param[:2] in ['1_', '2_', '3_', '4_', '5_', '6_', '7_', '8_', '9_']:
+            group_num = param[1]
+            group_param = param[2:]
+            if group_num not in grouped_params:
+                grouped_params[group_num] = {}
+            grouped_params[group_num][group_param] = value
+
+    # build group searches
+    if grouped_params:
+        for group_num in grouped_params.keys():
+            search['grouped_searches'].append(build_search_params_from_dict(grouped_params[group_num]))
+
+        print(json.dumps(search['grouped_searches']))
+
     if search:
         has_query = False
         for search_param in [
             'general_query', 'fields_query', 'fields_filter', 'fields_wildcard', 'fields_range', 'fields_filter',
-            'fields_phrase', 'fields_term'
+            'fields_phrase', 'fields_term', 'grouped_searches'
         ]:
             if search[search_param]:
                 has_query = True
