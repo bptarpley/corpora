@@ -1033,8 +1033,11 @@ def audit_content_views():
 @db_periodic_task(crontab(minute=1, hour='*'), priority=4)
 def content_deletion_cleanup():
     corpora = {}
+    reindex_cts = []
     deletions = ContentDeletion.objects()
     for deletion in deletions:
+        deletion_handled = True
+
         if deletion.uri:
 
             del_corpus_id = deletion.corpus_id
@@ -1066,15 +1069,41 @@ def content_deletion_cleanup():
                                 new_value = getattr(reffing_content, reffing_field.name)
                                 new_value = [ref for ref in new_value if not str(ref.id) == del_content_id]
                             setattr(reffing_content, reffing_field.name, new_value)
-                            reffing_content.save()
-                            refs_deleted += 1
 
-            print('Removed {0} references to deleted content {1}'.format(refs_deleted, deletion.uri))
+                            try:
+                                reffing_content.save(do_indexing=False, do_linking=False)
+                                refs_deleted += 1
 
-        if deletion.path and os.path.exists(deletion.path):
-            shutil.rmtree(deletion.path)
+                                reindex_ct = f"{del_corpus_id}_{reffing_ct}"
+                                if reindex_ct not in reindex_cts:
+                                    reindex_cts.append(reindex_ct)
+                            except:
+                                caught_error = traceback.format_exc()
+                                if "Tried to save duplicate unique keys" in caught_error:
+                                    reffing_content.delete()
+                                    refs_deleted += 1
+                                else:
+                                    print(caught_error)
+                                    deletion_handled = False
 
-        deletion.delete()
+                print('Removed {0} references to deleted content {1}'.format(refs_deleted, deletion.uri))
+
+        if deletion_handled:
+            if deletion.path and os.path.exists(deletion.path):
+                shutil.rmtree(deletion.path)
+
+            deletion.delete()
+
+    for reindex_ct in reindex_cts:
+        reindex_ct_parts = reindex_ct.split('_')
+        if reindex_ct_parts[0] in corpora:
+            corpora[reindex_ct_parts[0]].queue_local_job(task_name="Adjust Content", parameters={
+                'content_type': reindex_ct_parts[1],
+                'reindex': True,
+                'relabel': True,
+                'resave': False,
+                'related_content_types': ''
+            })
 
 
 @db_task(priority=3)
