@@ -2736,7 +2736,7 @@ class Corpus(mongoengine.Document):
                         if delete_index:
                             db[collection_name].drop_index(index_name)
                     print('indexes cleared. now attemtpting to unset fields...')
-                    db[collection_name].update({}, {'$unset': {field_name: 1}}, multi=True)
+                    db[collection_name].update_many({}, {'$unset': {field_name: 1}})
 
     def build_content_type_elastic_index(self, content_type):
         if content_type in self.content_types:
