@@ -1417,6 +1417,98 @@ class Corpus(mongoengine.Document):
                     return search_field[:-1], "exclude"
                 return search_field, operator
 
+            def generate_default_queries(query, query_ct, field=None, nested_prefix=''):
+                # Since we want the general query to search all fields (including nested ones),
+                # we need to break out nested fields from top level ones so we can search them.
+                # We must also separate out date/timespan fields since they need to be treated differently.
+
+                top_fields = []
+                date_fields = []
+                timespan_fields = []
+                nested_fields = []
+                general_queries = []
+                final_query = None
+
+                # determine what kinds of fields this search is eligible for
+                valid_field_types = ['text', 'large_text', 'keyword', 'html']
+
+                # try numeric
+                if query.isdecimal():
+                    valid_field_types += ['number', 'decimal']
+                elif query.replace('.', '').isdecimal():
+                    valid_field_types.append('decimal')
+
+                # try date
+                date_query_value = parse_date_string(query)
+                date_query_end_value = None
+                if date_query_value:
+                    date_query_value = date_query_value.isoformat()
+                    # see if we're dealing with just a year so we
+                    # can include the beginning and end of year as a range
+                    if len(query) == 4 and query.isdecimal():
+                        date_query_end_value = parse_date_string(f"12/31/{query}").isoformat()
+
+                if field and field in ['label', 'uri', 'id']:
+                    top_fields.append(f"{nested_prefix}{field}")
+                else:
+                    candidate_fields = [f for f in self.content_types[query_ct].fields if (not field) or f.name == field]
+                    for f in candidate_fields:
+                        if f.in_lists:
+                            # we shouldn't include xref fields if nested_prefix exists (this indicates we're already in a nested context)
+                            if f.type == 'cross_reference' and not nested_prefix:
+                                nested_fields.append(f.name)
+
+                            elif f.type == 'date':
+                                date_fields.append(f"{nested_prefix}{f.name}")
+
+                            elif f.type == 'timespan':
+                                timespan_fields.append(f"{nested_prefix}{f.name}")
+
+                            elif f.type in valid_field_types:
+                                top_fields.append(f"{nested_prefix}{f.name}")
+
+                # top level fields can be handled by a single simple query string search
+                if top_fields:
+                    general_queries.append(SimpleQueryString(query=query, fields=top_fields))
+
+                # nested fields, however, must each receive their own nested query.
+                for nested_field in nested_fields:
+                    general_queries.append(
+                        Q(
+                            "nested",
+                            path=nested_field,
+                            query=SimpleQueryString(query=query, fields=[f"{nested_field}.label"])
+                        )
+                    )
+
+                # date fields should use the converted value, and possibly a range query
+                if date_fields and date_query_value:
+                    if date_query_end_value:
+                        for date_field in date_fields:
+                            general_queries.append(Q(
+                                "range",
+                                **{date_field: {
+                                    'gte': date_query_value,
+                                    'lte': date_query_end_value
+                                }}))
+                    else:
+                        general_queries.append(SimpleQueryString(query=date_query_value, fields=date_fields))
+
+                if timespan_fields and date_query_value:
+                    for timespan_field in timespan_fields:
+                        timespan_query = generate_timespan_query(timespan_field, date_query_value,
+                                                                 date_query_end_value)
+                        if timespan_query:
+                            general_queries.append(timespan_query)
+
+                # now that we've built our various queries, let's OR them together if necessary:
+                if len(general_queries) > 1:
+                    final_query = Q('bool', should=general_queries)
+                elif general_queries:
+                    final_query = general_queries[0]
+
+                return final_query
+
             def generate_timespan_query(timespan_field, date_query_value, date_query_end_value=None, include_all_before_or_after=False):
                 should_queries = []
 
@@ -1510,105 +1602,44 @@ class Corpus(mongoengine.Document):
 
             # GENERAL QUERY
             if general_query:
-
-                # Since we want the general query to search all fields (including nested ones),
-                # we need to break out nested fields from top level ones so we can search them.
-                # We must also separate out date/timespan fields since they need to be treated differently.
-
-                top_fields = []
-                date_fields = []
-                timespan_fields = []
-                nested_fields = []
-                general_queries = []
-                final_query = None
-
                 if general_query == '*':
-                    final_query = SimpleQueryString(query=general_query)
+                    general_query = SimpleQueryString(query=general_query)
                 else:
-                    # determine what kinds of fields this search is eligible for
-                    valid_field_types = ['text', 'large_text', 'keyword', 'html']
+                    general_query = generate_default_queries(general_query, content_type)
 
-                    # try numeric
-                    if general_query.isdecimal():
-                        valid_field_types += ['number', 'decimal']
-                    elif general_query.replace('.', '').isdecimal():
-                        valid_field_types.append('decimal')
-
-                    # try date
-                    date_query_value = parse_date_string(general_query)
-                    date_query_end_value = None
-                    if date_query_value:
-                        date_query_value = date_query_value.isoformat()
-                        # see if we're dealing with just a year so we
-                        # can include the beginning and end of year as a range
-                        if len(general_query) == 4:
-                            date_query_end_value = parse_date_string(f"12/31/{general_query}").isoformat()
-
-                    for f in self.content_types[content_type].fields:
-                        if f.in_lists:
-                            if f.type == 'cross_reference':
-                                nested_fields.append(f.name)
-
-                            elif f.type == 'date':
-                                date_fields.append(f.name)
-
-                            elif f.type == 'timespan':
-                                timespan_fields.append(f.name)
-
-                            elif f.type in valid_field_types:
-                                top_fields.append(f.name)
-
-                    # top level fields can be handled by a single simple query string search
-                    if top_fields:
-                        general_queries.append(SimpleQueryString(query=general_query, fields=top_fields))
-
-                    # nested fields, however, must each receive their own nested query
-                    for nested_field in nested_fields:
-                        general_queries.append(
-                            Q(
-                                "nested",
-                                path=nested_field,
-                                query=SimpleQueryString(query=general_query, fields=[f"{nested_field}.label"])
-                            )
-                        )
-
-                    # date fields should use the converted value, and possibly a range query
-                    if date_fields and date_query_value:
-                        if date_query_end_value:
-                            for date_field in date_fields:
-                                general_queries.append(Q(
-                                    "range",
-                                    **{date_field: {
-                                        'gte': date_query_value,
-                                        'lte': date_query_end_value
-                                }}))
-                        else:
-                            general_queries.append(SimpleQueryString(query=date_query_value, fields=date_fields))
-
-                    if timespan_fields and date_query_value:
-                        for timespan_field in timespan_fields:
-                            timespan_query = generate_timespan_query(timespan_field, date_query_value, date_query_end_value)
-                            if timespan_query:
-                                general_queries.append(timespan_query)
-
-                    # now that we've built our various queries, let's OR them together if necessary:
-                    if len(general_queries) > 1:
-                        final_query = Q('bool', should=general_queries)
-                    elif general_queries:
-                        final_query = general_queries[0]
-
-                if final_query:
+                if general_query:
                     if operator == 'and':
-                        must.append(final_query)
+                        must.append(general_query)
                     else:
-                        should.append(final_query)
+                        should.append(general_query)
 
             # FIELDS QUERY
             for search_field in fields_query.keys():
                 field_values = [value_part for value_part in fields_query[search_field].split('__') if value_part]
                 search_field, local_operator = determine_local_operator(search_field, operator)
-                field_type = None
 
+                for field_value in field_values:
+                    q = None
+
+                    if '.' in search_field:
+                        [field_name, nested_field_name] = search_field.split('.')
+                        field = self.content_types[content_type].get_field(field_name)
+                        if field:
+                            xref_ct = field.cross_reference_type
+                            q = generate_default_queries(field_value, xref_ct, nested_field_name, f'{field_name}.')
+                            q = Q('nested', path=field_name, query=q)
+                    else:
+                        q = generate_default_queries(field_value, content_type, search_field)
+
+                    if q:
+                        if local_operator == 'and':
+                            must.append(q)
+                        elif local_operator == 'or':
+                            should.append(q)
+                        elif local_operator == 'exclude':
+                            must_not.append(q)
+
+                '''
                 if '.' in search_field:
                     field_parts = search_field.split('.')
                     xref_ct = self.content_types[content_type].get_field(field_parts[0]).cross_reference_type
@@ -1681,14 +1712,7 @@ class Corpus(mongoengine.Document):
                                 q = Q(q_type, **search_criteria)
                         elif field_type == 'timespan':
                             q = generate_timespan_query(search_field, date_value, end_date_value)
-
-                    if q:
-                        if local_operator == 'and':
-                            must.append(q)
-                        elif local_operator == 'or':
-                            should.append(q)
-                        elif local_operator == 'exclude':
-                            must_not.append(q)
+                '''
 
             # PHRASE QUERY
             for search_field in fields_phrase.keys():
