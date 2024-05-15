@@ -1115,7 +1115,7 @@ class GitRepo(mongoengine.EmbeddedDocument):
     last_pull = mongoengine.DateTimeField()
     error = mongoengine.BooleanField(default=False)
 
-    def pull(self, parent):
+    def pull(self, parent, username=None, password=None):
         if self.path and self.remote_url and self.remote_branch:
             repo = None
 
@@ -1123,7 +1123,12 @@ class GitRepo(mongoengine.EmbeddedDocument):
             if not os.path.exists(self.path):
                 os.makedirs(self.path)
                 repo = git.Repo.init(self.path)
-                origin = repo.create_remote('origin', self.remote_url)
+
+                url = self.remote_url
+                if username and password and 'https://' in url:
+                    url = url.replace('https://', f'https://{username}:{password}@')
+
+                origin = repo.create_remote('origin', url)
                 assert origin.exists()
                 assert origin == repo.remotes.origin == repo.remotes['origin']
                 origin.fetch()
