@@ -105,6 +105,20 @@
                             <label for="new-repo-url-box">URL</label>
                             <input id="new-repo-url-box" type="text" class="form-control" name="new-repo-url">
                         </div>
+                        <div class="form-check">
+                            <input id="new-repo-auth-box" type="checkbox" class="form-check-input" name="new-repo-auth">
+                            <label for="new-repo-auth-box">Authentication Required</label>
+                        </div>
+                        <div id="new-repo-credentials-div" class="d-none">
+                            <div class="form-group">
+                                <label for="new-repo-user-box">Username</label>
+                                <input id="new-repo-user-box" type="text" class="form-control" name="new-repo-user">
+                            </div>
+                            <div class="form-group">
+                                <label for="new-repo-pwd-box">Password</label>
+                                <input id="new-repo-pwd-box" type="password" class="form-control" name="new-repo-pwd">
+                            </div>
+                        </div>
                         <div class="form-group">
                             <label for="new-repo-branch-box">Branch</label>
                             <input id="new-repo-branch-box" type="text" class="form-control" name="new-repo-branch">
@@ -2006,20 +2020,31 @@
 
         // REPO FUNCTIONALITY
         $('#add-corpus-repo-button').click(function() {
-            $('#new-repo-name-box').val('');
-            $('#new-repo-url-box').val('');
-            $('#new-repo-branch-box').val('master');
-            $('#new-repo-modal').modal();
-        });
+            $('#new-repo-name-box').val('')
+            $('#new-repo-url-box').val('')
+            $('#new-repo-auth-box').prop('checked', false)
+            $('#new-repo-credentials-div').addClass('d-none')
+            $('#new-repo-user-box').val('')
+            $('#new-repo-pwd-box').val('')
+            $('#new-repo-branch-box').val('master')
+            $('#new-repo-modal').modal()
+        })
+
+        $('#new-repo-auth-box').change(function() {
+            let auth_div = $('#new-repo-credentials-div')
+
+            if ($(this).is(':checked')) auth_div.removeClass('d-none')
+            else auth_div.addClass('d-none')
+        })
 
         // PEP8 CLASS FORMAT REPO NAME
         $('#new-repo-name-box').focusout(function () {
-            $('#new-repo-name-box').val(pep8_variable_format($('#new-repo-name-box').val()));
-        });
+            $('#new-repo-name-box').val(pep8_variable_format($('#new-repo-name-box').val()))
+        })
 
         function job_finished() {
             if (!ignore_finished_jobs) {
-                $('#job-finished-modal').modal();
+                $('#job-finished-modal').modal()
             }
         }
 
