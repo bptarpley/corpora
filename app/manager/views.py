@@ -164,9 +164,16 @@ def corpus(request, corpus_id):
                     if repo.name not in corpus.repos and not os.path.exists(repo.path):
                         corpus.repos[repo.name] = repo
                         corpus.save()
-                        run_job(corpus.queue_local_job(task_name="Pull Corpus Repo", parameters={
-                            'repo_name': repo.name,
-                        }))
+
+                        clone_job_params = { 'repo_name': repo.name }
+                        if 'new-repo-auth' in request.POST:
+                            repo_user = _clean(request.POST, 'new-repo-user')
+                            repo_pwd = _clean(request.POST, 'new-repo-pwd')
+                            if repo_user and repo_pwd:
+                                clone_job_params['repo_user'] = repo_user
+                                clone_job_params['repo_pwd'] = repo_pwd
+
+                        run_job(corpus.queue_local_job(task_name="Pull Corpus Repo", parameters=clone_job_params))
                         response['messages'].append('Repository "{0}" successfully added to this corpus.'.format(repo.name))
                     else:
                         response['errors'].append('A repository with that name already exists in this corpus!')

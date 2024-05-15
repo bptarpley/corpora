@@ -304,7 +304,7 @@ REGISTRY = {
         "functions": ['convert_foreign_key_to_xref']
     },
     "Pull Corpus Repo": {
-        "version": "0.0",
+        "version": "0.1",
         "jobsite_type": "HUEY",
         "track_provenance": False,
         "content_type": "Corpus",
@@ -314,6 +314,18 @@ REGISTRY = {
                     "value": "",
                     "type": "text",
                     "label": "Repo Name",
+                },
+                "repo_user": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Repo User",
+                    "note": "Optional"
+                },
+                "repo_pwd": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Repo Password",
+                    "note": "Optional"
                 },
             },
         },
@@ -969,9 +981,12 @@ def pull_repo(job_id):
     job = Job(job_id)
     job.set_status('running')
     repo_name = job.get_param_value('repo_name')
+    repo_user = job.get_param_value('repo_user')
+    repo_pwd = job.get_param_value('repo_pwd')
+
     if repo_name in job.corpus.repos:
         try:
-            job.corpus.repos[repo_name].pull(job.corpus)
+            job.corpus.repos[repo_name].pull(job.corpus, repo_user, repo_pwd)
         except:
             job.corpus.repos[repo_name].error = True
             job.corpus.save()
