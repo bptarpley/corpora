@@ -1753,28 +1753,29 @@ class Corpus(mongoengine.Document):
                 field_values = [value_part for value_part in fields_term[search_field].split('__') if value_part]
                 search_field, local_operator = determine_local_operator(search_field, operator)
 
-                q = None
+                for field_value in field_values:
+                    q = None
 
-                if '.' in search_field:
-                    field_parts = search_field.split('.')
-                    q = Q(
-                        "nested",
-                        path=field_parts[0],
-                        query=Q(
-                            'terms',
-                            **{search_field: field_values}
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        q = Q(
+                            "nested",
+                            path=field_parts[0],
+                            query=Q(
+                                'term',
+                                **{search_field: field_value}
+                            )
                         )
-                    )
-                else:
-                    q = Q('terms', **{search_field: field_values})
+                    else:
+                        q = Q('term', **{search_field: field_value})
 
-                if q:
-                    if local_operator == 'and':
-                        must.append(q)
-                    elif local_operator == 'or':
-                        should.append(q)
-                    elif local_operator == 'exclude':
-                        must_not.append(q)
+                    if q:
+                        if local_operator == 'and':
+                            must.append(q)
+                        elif local_operator == 'or':
+                            should.append(q)
+                        elif local_operator == 'exclude':
+                            must_not.append(q)
 
             # WILDCARD QUERY
             for search_field in fields_wildcard.keys():
