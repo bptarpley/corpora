@@ -165,7 +165,7 @@ def build_search_params_from_dict(params):
         value = params[param]
         search_field_name = param[2:]
 
-        if not search and param in [
+        if not search and (param in [
             'q',
             'page',
             'page-size',
@@ -179,8 +179,8 @@ def build_search_params_from_dict(params):
             'page-token',
             'es_debug',
             'es_debug_query'
-        ] or param[:2] in ['q_', 't_', 'p_', 's_', 'f_', 'r_', 'w_', 'e_', 'a_', '1_', '2_', '3_', '4_', '5_', '6_', '7_', '8_', '9_']:
-            search = default_search
+        ] or param[:2] in ['q_', 't_', 'p_', 's_', 'f_', 'r_', 'w_', 'e_', 'a_', '1_', '2_', '3_', '4_', '5_', '6_', '7_', '8_', '9_']):
+            search = deepcopy(default_search)
 
         if param == 'highlight_fields':
             search['fields_highlight'] = value.split(',')
@@ -286,7 +286,7 @@ def build_search_params_from_dict(params):
 
         # extract params for grouped searches
         elif param[:2] in ['1_', '2_', '3_', '4_', '5_', '6_', '7_', '8_', '9_']:
-            group_num = param[1]
+            group_num = param[0]
             group_param = param[2:]
             if group_num not in grouped_params:
                 grouped_params[group_num] = {}
@@ -295,9 +295,7 @@ def build_search_params_from_dict(params):
     # build group searches
     if grouped_params:
         for group_num in grouped_params.keys():
-            search['grouped_searches'].append(build_search_params_from_dict(grouped_params[group_num]))
-
-        print(json.dumps(search['grouped_searches']))
+            search['grouped_searches'].append(deepcopy(build_search_params_from_dict(grouped_params[group_num])))
 
     if search:
         has_query = False
