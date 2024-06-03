@@ -211,6 +211,23 @@
                     $('.restore-button').click(function() {
                         let export_id = $(this).data('export-id');
                         let export_corpus_id = $(this).data('export-corpus-id');
+                        if (corpus_ids.includes(export_corpus_id)) {
+                            alert("A corpus with this ID already exists, and must be deleted before attempting this restore.")
+                        } else {
+                            confirm(
+                                'Restore Corpus Export?',
+                                'In order to restore this export, please ensure that no corpus with this ID already exists in Corpora. If so, it must be deleted first! Also, if this is an export from a different instance of Corpora, no job provenance data will be included in the restore.',
+                                {
+                                    'export-action': 'restore',
+                                    'export-id': export_id
+                                }
+                            );
+                        }
+                    });
+
+                    $('.cancel-restore-button').click(function() {
+                        let export_id = $(this).data('export-id');
+                        let export_corpus_id = $(this).data('export-corpus-id');
 
                         confirm(
                             'Cancel Corpus Restore?',
@@ -221,8 +238,6 @@
                             }
                         );
                     });
-
-
 
                     $('.delete-button').click(function() {
                         let export_id = $(this).data('export-id');
