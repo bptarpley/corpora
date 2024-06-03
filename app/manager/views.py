@@ -2065,26 +2065,20 @@ def api_submit_jobs(request, corpus_id):
                         send_alert(corpus_id, 'error', "Error submitting job!")
 
         elif _contains(request.POST, ['retry-job-id', 'retry-content-type']):
-            print('in retry block')
             retried = False
             job_id = _clean(request.POST, 'retry-job-id').strip()
             content_type = _clean(request.POST, 'retry-content-type').strip()
             content_id = _clean(request.POST, 'retry-content-id', None)
             content = None
 
-            print(f"{job_id} {content_type} {content_id}")
-
             if content_type == 'Corpus':
                 content = corpus
             elif content_id:
                 content = corpus.get_content(content_type, content_id.strip())
-                print(f'tried to get content {content.id}')
 
             if content:
-                print('found content')
                 for prov in content.provenance:
                     if prov.job_id == job_id:
-                        print('found prov')
                         job = Job.setup_retry_for_completed_task(corpus, context['scholar'], content_type, content_id, prov)
                         content.modify(pull__provenance=prov)
                         run_job(job.id)
