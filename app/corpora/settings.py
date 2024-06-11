@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 
 import os
 import json
+import traceback
 from mongoengine import connect
 from huey import PriorityRedisHuey
 from neo4j import GraphDatabase
@@ -35,6 +36,14 @@ if 'CRP_HOST' in os.environ:
 elif 'CRP_HOSTS' in os.environ:
     ALLOWED_HOSTS = [h for h in os.environ['CRP_HOSTS'].split(',') if h]
 
+if 'nginx' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('nginx')
+
+CSRF_TRUSTED_ORIGINS = []
+for host in ALLOWED_HOSTS:
+    CSRF_TRUSTED_ORIGINS.append(f'http://{host}')
+    CSRF_TRUSTED_ORIGINS.append(f'https://{host}')
+
 if os.path.exists('/conf/corpora_sites.json'):
     with open('/conf/corpora_sites.json', 'r') as sites_in:
         CORPORA_SITES = json.load(sites_in)
@@ -55,6 +64,9 @@ if '.' not in DEFAULT_USER_EMAIL:
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
+    'channels',
+    'django_eventstream',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -94,6 +106,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'django_grip.GripMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -153,6 +166,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'corpora.wsgi.application'
+ASGI_APPLICATION = 'corpora.asgi.application'
 
 
 # DATABASE CONFIG
@@ -199,11 +213,12 @@ NEO4J = None
 try:
     NEO4J = GraphDatabase.driver(
         "bolt://{0}".format(os.environ['CRP_NEO4J_HOST']),
-        auth=(os.environ['CRP_NEO4J_USER'], os.environ['CRP_NEO4J_PWD'])
+        auth=('neo4j', os.environ['CRP_NEO4J_PWD'])
     )
     with NEO4J.session() as test_session:
         test_session.run("MATCH (n) RETURN count(n) as count")
 except:
+    print(traceback.format_exc())
     print("Neo4J database uninitialized.")
     NEO4J = None
 
@@ -256,7 +271,8 @@ INVALID_FIELD_NAMES = [
     "provenance",
     "path",
     "label",
-    "uri"
+    "uri",
+    "objects",
 ]
 
 # eMOP db info

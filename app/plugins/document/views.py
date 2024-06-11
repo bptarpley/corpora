@@ -275,12 +275,12 @@ def document(request, corpus_id, document_id):
                 task_parameters = [key for key in task.configuration['parameters'].keys()]
                 if _contains(request.POST, task_parameters):
                     job = Job()
-                    job.corpus_id = corpus_id
+                    job.corpus = corpus.id
                     job.content_type = 'Document'
                     job.content_id = document_id
                     job.task_id = str(task.id)
-                    job.scholar_id = str(response['scholar'].id)
-                    job.jobsite_id = str(jobsite.id)
+                    job.scholar = response['scholar'].id
+                    job.jobsite = jobsite.id
                     job.status = "preparing"
                     job.configuration = task.configuration
                     for parameter in task_parameters:
@@ -524,10 +524,11 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
                     page_regions = json.loads(transcription.data)
                 elif new_transcription:
                     if ocr_file and os.path.exists(ocr_file):
+                        ocr_type = 'HOCR'
                         if ocr_file.lower().endswith('.object'):
-                            page_regions = get_page_regions(ocr_file, 'GCV', project.transcription_level)
-                        elif ocr_file.lower().endswith('.hocr'):
-                            page_regions = get_page_regions(ocr_file, 'HOCR', project.transcription_level)
+                            ocr_type = 'GCV'
+
+                        page_regions = get_page_regions(image_file, ocr_file, ocr_type, project.transcription_level)
 
                     if page_regions:
                         transcription.data = json.dumps(page_regions)
@@ -702,8 +703,15 @@ def get_document_page_file_collections(scholar, corpus_id, document_id, pfc_slug
     return page_file_collections
 
 
-def get_page_regions(ocr_file, ocr_type, granularity='line'):
+def get_page_regions(image_file, ocr_file, ocr_type, granularity='line'):
+    print('getting page regions...')
     regions = []
+    size_adjustment_percentage = None
+
+    if 'iiif_info' in image_file and _contains(image_file['iiif_info'], ['width', 'height']):
+        image_width = image_file['iiif_info']['width']
+        if image_width > 3000:
+            size_adjustment_percentage = 3000 / image_width
 
     if os.path.exists(ocr_file):
         if ocr_type == 'GCV':
@@ -753,13 +761,22 @@ def get_page_regions(ocr_file, ocr_type, granularity='line'):
                 content = content.strip()
 
                 if content:
-                    regions.append({
+                    region = {
                         'x': int(bbox_parts[1]),
                         'y': int(bbox_parts[2]),
                         'width': int(bbox_parts[3]) - int(bbox_parts[1]),
                         'height': int(bbox_parts[4]) - int(bbox_parts[2]),
                         'ocr_content': content.strip()
-                    })
+                    }
+
+                    if size_adjustment_percentage is not None:
+                        print('adjusting region...')
+                        region['x'] = region['x'] / size_adjustment_percentage
+                        region['y'] = region['y'] / size_adjustment_percentage
+                        region['width'] = region['width'] / size_adjustment_percentage
+                        region['height'] = region['height'] / size_adjustment_percentage
+
+                    regions.append(region)
 
     return regions
 

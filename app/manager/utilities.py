@@ -1,10 +1,12 @@
+import redis
+import traceback
 from corpus import *
 from mongoengine.queryset.visitor import Q
 from django.utils.html import escape
+from django.conf import settings
 from urllib.parse import unquote
 from elasticsearch_dsl import A
-import traceback
-import redis
+from django_eventstream import send_event
 
 
 def get_scholar_corpora(scholar, only=[], page=1, page_size=50):
@@ -133,6 +135,7 @@ def _get_context(req):
 
 def build_search_params_from_dict(params):
     search = {}
+    grouped_params = {}
     
     default_search = {
         'general_query': '',
@@ -146,6 +149,7 @@ def build_search_params_from_dict(params):
         'fields_highlight': [],
         'fields_sort': [],
         'aggregations': {},
+        'grouped_searches': [],
         'content_view': None,
         'page': 1,
         'page_size': 50,
@@ -161,7 +165,7 @@ def build_search_params_from_dict(params):
         value = params[param]
         search_field_name = param[2:]
 
-        if not search and param in [
+        if not search and (param in [
             'q',
             'page',
             'page-size',
@@ -175,8 +179,8 @@ def build_search_params_from_dict(params):
             'page-token',
             'es_debug',
             'es_debug_query'
-        ] or param[:2] in ['q_', 't_', 'p_', 's_', 'f_', 'r_', 'w_', 'e_', 'a_']:
-            search = default_search
+        ] or param[:2] in ['q_', 't_', 'p_', 's_', 'f_', 'r_', 'w_', 'e_', 'a_', '1_', '2_', '3_', '4_', '5_', '6_', '7_', '8_', '9_']):
+            search = deepcopy(default_search)
 
         if param == 'highlight_fields':
             search['fields_highlight'] = value.split(',')
@@ -280,11 +284,24 @@ def build_search_params_from_dict(params):
         elif param == 'es_debug_query':
             search['es_debug_query'] = True
 
+        # extract params for grouped searches
+        elif param[:2] in ['1_', '2_', '3_', '4_', '5_', '6_', '7_', '8_', '9_']:
+            group_num = param[0]
+            group_param = param[2:]
+            if group_num not in grouped_params:
+                grouped_params[group_num] = {}
+            grouped_params[group_num][group_param] = value
+
+    # build group searches
+    if grouped_params:
+        for group_num in grouped_params.keys():
+            search['grouped_searches'].append(deepcopy(build_search_params_from_dict(grouped_params[group_num])))
+
     if search:
         has_query = False
         for search_param in [
             'general_query', 'fields_query', 'fields_filter', 'fields_wildcard', 'fields_range', 'fields_filter',
-            'fields_phrase', 'fields_term'
+            'fields_phrase', 'fields_term', 'grouped_searches'
         ]:
             if search[search_param]:
                 has_query = True
@@ -408,6 +425,15 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                                     if not content.id and field_name not in temp_file_fields:
                                         temp_file_fields.append(field_name)
 
+                            elif field.type == 'timespan':
+                                span = Timespan()
+                                span.start = parse_date_string(value['start'])
+                                span.end = parse_date_string(value['end'])
+                                span.uncertain = value['uncertain']
+                                span.granularity = value['granularity']
+                                span.normalize()
+                                value = span
+
                             elif field.type == 'date':
                                 value = parse_date_string(value)
 
@@ -434,6 +460,10 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                     content._move_temp_file(temp_file_field)
 
             content.save(relabel=True)
+
+
+def send_alert(corpus_id, alert_type, message):
+    send_event(corpus_id, 'alert', {'type': alert_type, 'message': message})
 
 
 def _contains(obj, keys):
@@ -463,3 +493,11 @@ def _clean(obj, key, default_value=''):
     else:
         return default_value
 
+
+def fix_mongo_json(json_string):
+    oid_pattern = re.compile(r'{"\$oid": "([^"]*)"}')
+    oid_matches = oid_pattern.finditer(json_string)
+    for oid_match in oid_matches:
+        json_string = json_string.replace(oid_match[0], f'"{ oid_match.group(1) }"')
+
+    return json_string.replace('"_id":', '"id":')

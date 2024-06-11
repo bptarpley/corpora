@@ -170,14 +170,14 @@
                 jobsites.map(jobsite => {
                     jobsite_div.append(`
                         <div class="form-check">
-                            <input class="form-check-input job-perm" type="checkbox" id="jobsite-${_id(jobsite)}" name="jobsite-${_id(jobsite)}">
-                            <label class="form-check-label" for="jobsite-${_id(jobsite)}">${jobsite.name} (${jobsite.type})</label>
+                            <input class="form-check-input job-perm" type="checkbox" id="jobsite-${jobsite.id}" name="jobsite-${jobsite.id}">
+                            <label class="form-check-label" for="jobsite-${jobsite.id}">${jobsite.name} (${jobsite.type})</label>
                         </div>
                     `);
 
                     Object.keys(jobsite.task_registry).map(task_name => {
                         let task = jobsite.task_registry[task_name];
-                        let task_id = task['task_id']['$oid'];
+                        let task_id = task.task_id
                         jobsite_div.append(`
                             <div class="form-check ml-3">
                                 <input class="form-check-input job-perm" type="checkbox" id="task-${task_id}" name="task-${task_id}">

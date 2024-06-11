@@ -5,7 +5,7 @@ import tarfile
 import urllib.parse
 from ipaddress import ip_address
 from django.shortcuts import render, redirect, HttpResponse
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -26,34 +26,43 @@ from .utilities import(
     get_tasks,
     clear_cached_session_scholar,
     order_content_schema,
-    process_content_bundle
+    process_content_bundle,
+    fix_mongo_json,
+    send_alert
 )
 from .captcha import generate_captcha, validate_captcha
 from rest_framework.decorators import api_view 
 from rest_framework.authtoken.models import Token
+from django_eventstream import send_event
 
 
 @login_required
 def corpora(request):
     response = _get_context(request)
 
-    if response['scholar'].is_admin and request.method == 'POST' and 'new-corpus-name' in request.POST:
-        c_name = unescape(_clean(request.POST, 'new-corpus-name'))
-        c_desc = unescape(_clean(request.POST, 'new-corpus-desc'))
-        c_open = unescape(_clean(request.POST, 'new-corpus-open'))
+    if response['scholar'].is_admin and request.method == 'POST':
+        if 'new-corpus-name' in request.POST:
+            c_name = unescape(_clean(request.POST, 'new-corpus-name'))
+            c_desc = unescape(_clean(request.POST, 'new-corpus-desc'))
+            c_open = unescape(_clean(request.POST, 'new-corpus-open'))
 
-        c = Corpus()
-        c.name = c_name
-        c.description = c_desc
-        c.open_access = True if c_open else False
-        c.save()
+            c = Corpus()
+            c.name = c_name
+            c.description = c_desc
+            c.open_access = True if c_open else False
+            c.save()
 
-        from plugins.document.content import REGISTRY
-        for schema in REGISTRY:
-            c.save_content_type(schema)
+            from plugins.document.content import REGISTRY
+            for schema in REGISTRY:
+                c.save_content_type(schema)
 
-        sleep(4)
-        response['messages'].append("{0} corpus successfully created.".format(c.name))
+            sleep(4)
+            response['messages'].append("{0} corpus successfully created.".format(c.name))
+        elif 'admin-action' in request.POST:
+            action = _clean(request.POST, 'admin-action')
+            if action == 'scrub-provenance':
+                scrub_all_provenance()
+                response['messages'].append("Provenance scrubbing job launched!")
 
     return render(
         request,
@@ -155,9 +164,16 @@ def corpus(request, corpus_id):
                     if repo.name not in corpus.repos and not os.path.exists(repo.path):
                         corpus.repos[repo.name] = repo
                         corpus.save()
-                        run_job(corpus.queue_local_job(task_name="Pull Corpus Repo", parameters={
-                            'repo_name': repo.name,
-                        }))
+
+                        clone_job_params = { 'repo_name': repo.name }
+                        if 'new-repo-auth' in request.POST:
+                            repo_user = _clean(request.POST, 'new-repo-user')
+                            repo_pwd = _clean(request.POST, 'new-repo-pwd')
+                            if repo_user and repo_pwd:
+                                clone_job_params['repo_user'] = repo_user
+                                clone_job_params['repo_pwd'] = repo_pwd
+
+                        run_job(corpus.queue_local_job(task_name="Pull Corpus Repo", parameters=clone_job_params))
                         response['messages'].append('Repository "{0}" successfully added to this corpus.'.format(repo.name))
                     else:
                         response['errors'].append('A repository with that name already exists in this corpus!')
@@ -242,16 +258,6 @@ def corpus(request, corpus_id):
                     response['messages'].append("Job successfully submitted.")
                 else:
                     response['errors'].append("Please provide values for all task parameters.")
-
-            # HANDLE JOB RETRY
-            elif _contains(request.POST, ['retry-job-id']):
-                retry_job_id = _clean(request.POST, 'retry-job-id')
-                for completed_task in corpus.provenance:
-                    if completed_task.job_id == retry_job_id:
-                        job = Job.setup_retry_for_completed_task(corpus_id, 'Corpus', None, completed_task)
-                        corpus.modify(pull__provenance=completed_task)
-                        run_job(job.id)
-                        response['messages'].append("Job successfully retried.")
 
             # HANDLE JOB KILL
             elif _contains(request.POST, ['kill-job-id']):
@@ -952,12 +958,18 @@ def exports(request):
                         restore_corpus(str(export.id))
                         response['messages'].append('Corpus restore successfully launched.')
 
+                    elif export_action == 'cancel':
+                        export.status = 'created'
+                        export.save()
+                        response['messages'].append('Corpus restore cancelled.')
+
                     elif export_action == 'delete':
                         os.remove(export.path)
                         export.delete()
                         response['messages'].append('Export successfully deleted.')
 
         exports = CorpusExport.objects.order_by('corpus_name', 'created')
+        exports = [e.to_dict() for e in exports]
 
         return render(
             request,
@@ -1101,56 +1113,60 @@ def scholar(request):
         captcha_word = _clean(request.POST, 'captcha-word')
 
         if validate_captcha(captcha_word, captcha_hash):
-            valid_ips = True
-            auth_token_ips = [request.POST[val] for val in request.POST.keys() if val.startswith('auth-token-ip-')]
-            for auth_token_ip in auth_token_ips:
-                try:
-                    ip = ip_address(auth_token_ip)
-                except:
-                    valid_ips = False
+            if (register and not User.objects.filter(username=username).exists()) or (User.objects.filter(username=username).exists() and not register):
 
-            if valid_ips:
-                if password and password == password2:
-                    if not response['scholar']:
-                        user = User.objects.create_user(
-                            username,
-                            email,
-                            password
-                        )
-                        user.first_name = fname
-                        user.last_name = lname
-                        user.save()
+                valid_ips = True
+                auth_token_ips = [request.POST[val] for val in request.POST.keys() if val.startswith('auth-token-ip-')]
+                for auth_token_ip in auth_token_ips:
+                    try:
+                        ip = ip_address(auth_token_ip)
+                    except:
+                        valid_ips = False
 
-                        response['scholar'] = Scholar()
-                        response['scholar'].username = username
-                        response['scholar'].fname = fname
-                        response['scholar'].lname = lname
-                        response['scholar'].email = email
-                        response['scholar'].auth_token_ips = auth_token_ips
+                if valid_ips:
+                    if password and password == password2:
+                        if not response['scholar']:
+                            user = User.objects.create_user(
+                                username,
+                                email,
+                                password
+                            )
+                            user.first_name = fname
+                            user.last_name = lname
+                            user.save()
 
-                        token, created = Token.objects.get_or_create(user=user)
-                        response['scholar'].auth_token = token.key
-                        response['scholar'].save()
-                        clear_cached_session_scholar(user.id)
+                            response['scholar'] = Scholar()
+                            response['scholar'].username = username
+                            response['scholar'].fname = fname
+                            response['scholar'].lname = lname
+                            response['scholar'].email = email
+                            response['scholar'].auth_token_ips = auth_token_ips
 
-                        return redirect("/scholar?msg=You have successfully registered. Please login below.")
+                            token, created = Token.objects.get_or_create(user=user)
+                            response['scholar'].auth_token = token.key
+                            response['scholar'].save()
+                            clear_cached_session_scholar(user.id)
+
+                            return redirect("/scholar?msg=You have successfully registered. Please login below.")
+                        else:
+                            response['scholar'].fname = fname
+                            response['scholar'].lname = lname
+                            response['scholar'].email = email
+                            response['scholar'].auth_token_ips = auth_token_ips
+                            response['scholar'].save()
+
+                            user = User.objects.get(username=username)
+                            user.set_password(password)
+                            user.save()
+                            clear_cached_session_scholar(user.id)
+
+                            response['messages'].append("Your account settings have been saved successfully.")
                     else:
-                        response['scholar'].fname = fname
-                        response['scholar'].lname = lname
-                        response['scholar'].email = email
-                        response['scholar'].auth_token_ips = auth_token_ips
-                        response['scholar'].save()
-
-                        user = User.objects.get(username=username)
-                        user.set_password(password)
-                        user.save()
-                        clear_cached_session_scholar(user.id)
-
-                        response['messages'].append("Your account settings have been saved successfully.")
+                        response['errors'].append('You must provide a password, and passwords must match!')
                 else:
-                    response['errors'].append('You must provide a password, and passwords must match!')
+                    response['errors'].append('One or more of your API IP addresses is invalid!')
             else:
-                response['errors'].append('One or more of your API IP addresses is invalid!')
+                response['errors'].append('This username already exists!')
         else:
             response['errors'].append('Capcha word must match image!')
 
@@ -1161,6 +1177,21 @@ def scholar(request):
         if user:
             if user.is_active:
                 login(request, user)
+
+                # make sure a scholar object exists for this user.
+                # sometimes after a migration scholar data can be lost, especially if scholar data
+                # was not exported (in case just individual corpora and user credentials were
+                # migrated).
+                if Scholar.objects(username=username).count() == 0:
+                    s = Scholar()
+                    s.username = username
+                    s.fname = user.first_name
+                    s.lname = user.last_name
+                    s.email = user.email
+                    s.auth_token_ips = []
+                    token, created = Token.objects.get_or_create(user=user)
+                    s.auth_token = token.key
+                    s.save()
 
                 if 'next' in request.GET:
                     return redirect(request.GET['next'])
@@ -1415,26 +1446,9 @@ def api_scholar(request, scholar_id=None):
     if context['scholar'] and context['scholar'].is_admin:
         if scholar_id:
             scholar = Scholar.objects(id=scholar_id)[0]
-            scholar_dict = {
-                'username': scholar.username,
-                'fname': scholar.fname,
-                'lname': scholar.lname,
-                'email': scholar.email,
-                'is_admin': scholar.is_admin,
-                'available_corpora': {},
-                'available_jobsites': [str(js.id) for js in scholar.available_jobsites],
-                'available_tasks': [str(task.id) for task in scholar.available_tasks]
-            }
-            if scholar.available_corpora:
-                corpora = Corpus.objects(id__in=list(scholar.available_corpora.keys())).only('id', 'name')
-                for corpus in corpora:
-                    scholar_dict['available_corpora'][str(corpus.id)] = {
-                        'name': corpus.name,
-                        'role': scholar.available_corpora[str(corpus.id)]
-                    }
 
             return HttpResponse(
-                json.dumps(scholar_dict),
+                json.dumps(scholar.to_dict()),
                 content_type='application/json'
             )
 
@@ -1445,6 +1459,11 @@ def api_scholar(request, scholar_id=None):
                 json.dumps(scholars),
                 content_type='application/json'
             )
+    elif context['scholar'] and str(context['scholar'].id) == scholar_id:
+        return HttpResponse(
+            json.dumps(context['scholar'].to_dict()),
+            content_type='application/json'
+        )
     else:
         raise Http404("You are not authorized to access this endpoint.")
 
@@ -1465,10 +1484,9 @@ def api_corpus(request, corpus_id):
             content_type='application/json'
         )
     else:
-        return HttpResponse(
-            "{}",
-            content_type='application/json'
-        )
+        return JsonResponse({
+            'error_message': "Corpus not found!"
+        }, status=404)
 
 
 @api_view(['GET'])
@@ -1505,6 +1523,7 @@ def api_content(request, corpus_id, content_type, content_id=None):
         content_type='application/json'
     )
 
+
 @api_view(['GET'])
 def api_suggest(request, corpus_id, content_type):
     context = _get_context(request)
@@ -1533,6 +1552,7 @@ def api_suggest(request, corpus_id, content_type):
         json.dumps(suggestions),
         content_type='application/json'
     )
+
 
 @api_view(['GET', 'POST'])
 def api_content_view(request, corpus_id, content_view_id=None):
@@ -1912,7 +1932,7 @@ def api_jobsites(request):
     jobsites = get_jobsites(response['scholar'])
 
     return HttpResponse(
-        jobsites.to_json(),
+        fix_mongo_json(jobsites.to_json()),
         content_type='application/json'
     )
 
@@ -1923,17 +1943,29 @@ def api_tasks(request, content_type=None):
     tasks = get_tasks(response['scholar'], content_type=content_type)
 
     return HttpResponse(
-        tasks.to_json(),
+        fix_mongo_json(tasks.to_json()),
         content_type='application/json'
     )
 
+
+@api_view(['GET'])
+def api_job(request, corpus_id=None, job_id=None):
+    if corpus_id and job_id:
+        context = _get_context(request)
+        corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+        if corpus:
+            return HttpResponse(
+                json.dumps(Job(job_id).to_dict()),
+                content_type='application/json'
+            )
+    return Http404("Job not found.")
 
 @api_view(['GET'])
 def api_jobs(request, corpus_id=None, content_type=None, content_id=None):
     context = _get_context(request)
     payload = {
         'meta': {
-            'total': 0,
+            'counts': { 'total': 0, 'by_status': {}, 'by_task': {} },
             'page': int(_clean(request.GET, 'page', '1')),
             'page_size': int(_clean(request.GET, 'page-size', '50')),
             'num_pages': 0,
@@ -1949,7 +1981,7 @@ def api_jobs(request, corpus_id=None, content_type=None, content_id=None):
     cached_tasks = {}
 
     if not corpus_id and context['scholar'] and context['scholar'].is_admin:
-        payload['meta']['total'] = Job.get_jobs(count_only=True)
+        payload['meta']['counts'] = Job.get_jobs(count_only=True)
         results = Job.get_jobs(
             limit=limit,
             skip=skip
@@ -1958,7 +1990,7 @@ def api_jobs(request, corpus_id=None, content_type=None, content_id=None):
     elif corpus_id:
         corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
         if corpus:
-            payload['meta']['total'] = Job.get_jobs(
+            payload['meta']['counts'] = Job.get_jobs(
                 corpus_id=corpus_id,
                 content_type=content_type,
                 content_id=content_id,
@@ -1971,7 +2003,7 @@ def api_jobs(request, corpus_id=None, content_type=None, content_id=None):
                 skip=skip
             )
 
-    if payload['meta']['page'] * payload['meta']['page_size'] < payload['meta']['total']:
+    if payload['meta']['page'] * payload['meta']['page_size'] < payload['meta']['counts']['total']:
         payload['meta']['has_next_page'] = True
 
     for job in results:
@@ -1997,30 +2029,66 @@ def api_jobs(request, corpus_id=None, content_type=None, content_id=None):
     )
 
 
-@api_view(['GET'])
-def api_corpus_jobs(request, corpus_id):
-    jobs = Job.get_jobs(corpus_id=corpus_id)
-    payload = []
-    for job in jobs:
-        payload.append(job.to_dict())
+@api_view(['POST'])
+def api_submit_jobs(request, corpus_id):
+    context = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
 
-    return HttpResponse(
-        json.dumps(payload),
-        content_type='application/json'
-    )
+    if corpus and role in ['Admin', 'Editor']:
+        if 'job-submissions' in request.POST:
+            job_submissions = json.loads(request.POST['job-submissions'])
+            for job_submission in job_submissions:
+                if _contains(job_submission, ['jobsite_id', 'task_id', 'parameters', 'content_type', 'content_id']):
+                    try:
+                        jobsite = JobSite.objects(id=job_submission['jobsite_id'])[0]
+                        task = Task.objects(id=job_submission['task_id'])[0]
 
+                        job = Job()
+                        job.corpus = corpus
+                        job.content_type = job_submission['content_type']
+                        job.content_id = job_submission['content_id']
+                        job.task_id = str(task.id)
+                        job.scholar = context['scholar']
+                        job.jobsite = jobsite
+                        job.status = "preparing"
+                        job.configuration = deepcopy(task.configuration)
 
-@api_view(['GET'])
-def api_content_jobs(request, corpus_id, content_type, content_id):
-    jobs = Job.get_jobs(corpus_id=corpus_id, content_type=content_type, content_id=content_id)
-    payload = []
-    for job in jobs:
-        payload.append(job.to_dict())
+                        for param in task.configuration['parameters'].keys():
+                            if param in job_submission['parameters']:
+                                job.configuration['parameters'][param]['value'] = job_submission['parameters'][param]
 
-    return HttpResponse(
-        json.dumps(payload),
-        content_type='application/json'
-    )
+                        job.save()
+                        run_job(job.id)
+                        send_alert(corpus_id, 'success', f'Job submitted: {task.name}')
+                    except:
+                        print(traceback.format_exc())
+                        send_alert(corpus_id, 'error', "Error submitting job!")
+
+        elif _contains(request.POST, ['retry-job-id', 'retry-content-type']):
+            retried = False
+            job_id = _clean(request.POST, 'retry-job-id').strip()
+            content_type = _clean(request.POST, 'retry-content-type').strip()
+            content_id = _clean(request.POST, 'retry-content-id', None)
+            content = None
+
+            if content_type == 'Corpus':
+                content = corpus
+            elif content_id:
+                content = corpus.get_content(content_type, content_id.strip())
+
+            if content:
+                for prov in content.provenance:
+                    if prov.job_id == job_id:
+                        job = Job.setup_retry_for_completed_task(corpus, context['scholar'], content_type, content_id, prov)
+                        content.modify(pull__provenance=prov)
+                        run_job(job.id)
+                        send_alert(corpus_id, 'success', f'Task {prov.task_name} successfully retried.')
+                        retried = True
+
+            if not retried:
+                send_alert(corpus_id, 'error', "Error retrying job!")
+
+    return HttpResponse(status=204)
 
 
 @api_view(['GET', 'POST'])
@@ -2048,3 +2116,15 @@ def api_scholar_preference(request, content_type, preference):
         json.dumps(value),
         content_type='application/json'
     )
+
+
+@api_view(['GET'])
+def api_publish(request, corpus_id, message_type):
+    data = {}
+    for param in request.GET.keys():
+        data[param] = request.GET[param]
+
+    if data:
+        send_event(corpus_id, message_type, data)
+
+    return HttpResponse(status=204)

@@ -20,7 +20,7 @@
         }
 
         .page-image {
-            cursor: pointer;
+            cursor: pointer
         }
 
         .page-card .card-body {
@@ -37,7 +37,7 @@
             overflow-y: scroll;
         }
 
-        #provenance-div {
+        #doc-provenance-div {
             max-height: 200px;
             overflow: auto;
             -ms-overflow-style: -ms-autohiding-scrollbar;
@@ -192,132 +192,6 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                         <button type="button" class="btn btn-primary" id="import-pages-submit-button" onclick="import_pages();" disabled>Import</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Job Modal -->
-    <div class="modal fade" id="job-modal" tabindex="-1" role="dialog" aria-labelledby="job-modal-label" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <form id="job-form" method="post">
-                    {% csrf_token %}
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="job-modal-label">Run Job</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label for="job-jobsite-selector">Jobsite</label>
-                            <select id="job-jobsite-selector" class="form-control" name="jobsite">
-                            </select>
-                        </div>
-                        <div id="job-task-selector-div" class="form-group">
-                            <label for="job-task-selector">Task</label>
-                            <select id="job-task-selector" class="form-control" name="task">
-                            </select>
-                        </div>
-                        <div id="job-task-parameters-div">
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-primary" id="job-submit-button" onclick="run_job();" disabled>Run Job</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Job Report Modal -->
-    <div class="modal fade" id="job-report-modal" tabindex="-1" role="dialog" aria-labelledby="job-report-modal-label" aria-hidden="true">
-        <div class="modal-dialog modal-lg" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Job Report</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <pre id="job-report-div">Loading...</pre>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- OCR Modal -->
-    <div class="modal fade" id="ocr-modal" tabindex="-1" role="dialog" aria-labelledby="ocr-modal-label" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <form id="ocr-form" method="post">
-                    {% csrf_token %}
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="ocr-modal-label">Perform OCR</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label for="ocr-jobsite-selector">Jobsite</label>
-                            <select id="ocr-jobsite-selector" class="form-control" name="jobsite">
-                            </select>
-                        </div>
-                        <div id="ocr-task-selector-div" class="form-group">
-                            <label for="ocr-task-selector">Task</label>
-                            <select id="ocr-task-selector" class="form-control" name="task">
-                            </select>
-                        </div>
-                        <div id="ocr-task-parameters-div">
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-primary" id="ocr-submit-button" onclick="perform_ocr();" disabled>Perform OCR</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Analyze Modal -->
-    <div class="modal fade" id="analyze-modal" tabindex="-1" role="dialog" aria-labelledby="analyze-modal-label" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <form id="analyze-form" method="post">
-                    {% csrf_token %}
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="analyze-modal-label">Analyze</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label for="analyze-jobsite-selector">Jobsite</label>
-                            <select id="analyze-jobsite-selector" class="form-control" name="jobsite">
-                            </select>
-                        </div>
-                        <div id="analyze-task-selector-div" class="form-group">
-                            <label for="analyze-task-selector">Task</label>
-                            <select id="analyze-task-selector" class="form-control" name="task">
-                            </select>
-                        </div>
-                        <div id="analyze-task-parameters-div">
-
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-primary" id="analyze-submit-button" onclick="analyze();" disabled>Analyze</button>
                     </div>
                 </form>
             </div>
@@ -505,14 +379,14 @@
                                         <div class="d-flex w-100 justify-content-between align-items-center">
                                             <h4>Running Jobs</h4>
                                             <span>
-                                        {% if response.scholar.is_admin or role == 'Editor' %}
-                                            <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
-                                        {% endif %}
-                                    </span>
+                                                {% if response.scholar.is_admin or role == 'Editor' %}
+                                                    <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
+                                                {% endif %}
+                                            </span>
                                         </div>
                                     </div>
-                                    <div class="card-body">
-                                        <iframe src="/jobs/corpus/{{ corpus_id }}/Document/{{ document_id }}/" width="100%" height="100%" frameBorder="0"></iframe>
+                                    <div id="jobs-container" class="card-body">
+                                        <!-- populated by JavaScript -->
                                     </div>
                                 </div>
                             </div>
@@ -549,7 +423,7 @@
                                 {% if response.scholar.is_admin or role == 'Editor' %}
                                     <button id="import-pages-button" class="btn btn-primary rounded" type="button">Import</button>
                                 {% else %}
-                                    &nbsp;
+                                    &nbsp
                                 {% endif %}
                                     </span>
                                 </div>
@@ -669,123 +543,124 @@
     <script src="{% static 'js/ace/ace.js' %}"></script>
     <script src="{% static 'js/vis-network.js' %}"></script>
     <script type="application/javascript">
-        let corpus_id = '{{ corpus_id }}';
-        let corpus = null;
+        let corpus_id = '{{ corpus_id }}'
+        let corpus = null
 
-        let document_id = '{{ document_id }}';
-        let document_uri = `/corpus/${corpus_id}/Document/${document_id}`;
-        let doc = null;
-        let network = null;
+        let document_id = '{{ document_id }}'
+        let document_uri = `/corpus/${corpus_id}/Document/${document_id}`
+        let doc = null
+        let network = null
 
-        let role = '{{ role }}';
-        let popup = {% if popup %}true{% else %}false{% endif %};
+        let role = '{{ role }}'
+        let popup = {% if popup %}true{% else %}false{% endif %}
 
-        let file_upload_path = '';
-        let file_uploads = [];
-        let import_files = [];
+        let file_upload_path = ''
+        let file_uploads = []
+        let import_files = []
 
-        let import_pages_files = [];
-        let jobsites = [];
-        let local_jobsite_id = null;
-        let job_report_timer = null;
-        let tasks = [];
-        let bbox_collections = [];
+        let import_pages_files = []
+        let job_manager = null
+        let jobsites = []
+        let local_jobsite_id = null
+        let job_report_timer = null
+        let tasks = []
+        let bbox_collections = []
         let pfc_setting = {
             left: null,
             right: null
-        };
-        let ref_no = 1;
-        let page_observer = null;
+        }
+        let ref_no = 1
+        let page_observer = null
 
         // CREATE FILE POND FOR IMPORT PAGES MODAL
         const import_pages_pond = FilePond.create(document.querySelector('#import-pages-filepond'), {
             allowMultiple: true,
             allowRevert: false
-        });
+        })
         import_pages_pond.on('processfile', (error, file) => {
             if(!error) {
-                $("#import-pages-submit-button").attr('disabled', false);
-                import_pages_files.push(file.filename.replace(new RegExp('[^a-zA-Z0-9\\.\\-]', "gm"), '_'));
+                $("#import-pages-submit-button").attr('disabled', false)
+                import_pages_files.push(file.filename.replace(new RegExp('[^a-zA-Z0-9\\.\\-]', "gm"), '_'))
             }
-        });
+        })
 
         // CREATE FILE POND FOR IMPORT DOCUMENT FILES (SELECT FILE) MODAL
         const import_document_file_pond = FilePond.create(document.querySelector('#import-document-filepond'), {
             allowMultiple: true,
             allowRevert: false
-        });
+        })
         import_document_file_pond.on('addfile', (error, file) => {
             if(!error) {
-                file_uploads.push(file.filename);
+                file_uploads.push(file.filename)
             }
-        });
+        })
         import_document_file_pond.on('processfile', (error, file) => {
             if(!error) {
-                import_files.push(`${file_upload_path}/${file.filename}`);
-                let import_button = $('#file-upload-import-button');
-                import_button.html(`Import ${import_files.length} File(s)`);
-                import_button.attr('disabled', false);
-                let index = file_uploads.indexOf(file.filename);
+                import_files.push(`${file_upload_path}/${file.filename}`)
+                let import_button = $('#file-upload-import-button')
+                import_button.html(`Import ${import_files.length} File(s)`)
+                import_button.attr('disabled', false)
+                let index = file_uploads.indexOf(file.filename)
                 if (index !== -1) { file_uploads.splice(index, 1); }
                 if (file_uploads.length === 0) {
-                    upload_file(file_upload_path);
+                    upload_file(file_upload_path)
                 }
             }
-        });
+        })
 
         $('#page-carousel').on('slide.bs.carousel', function(ev) {
-            let lazy;
-            lazy = $(ev.relatedTarget).find("img[data-src]");
-            lazy.attr("src", lazy.data('src'));
-            lazy.removeAttr("data-src");
-        });
+            let lazy
+            lazy = $(ev.relatedTarget).find("img[data-src]")
+            lazy.attr("src", lazy.data('src'))
+            lazy.removeAttr("data-src")
+        })
 
         $(document).ready(function() {
             corpora.get_jobsites(function(jobsites_data) {
-                jobsites = jobsites_data;
+                jobsites = jobsites_data
                 for (let x = 0; x < jobsites.length; x++) {
                     if (jobsites[x].name === 'Local') {
-                        local_jobsite_id = _id(jobsites[x]);
+                        local_jobsite_id = jobsites[x].id
                     }
                 }
 
                 corpora.get_tasks('Document', function(tasks_data) {
-                    tasks = tasks_data;
+                    tasks = tasks_data
 
                     corpora.get_corpus(corpus_id, function(corpus_data) {
-                        corpus = corpus_data;
-                        add_breadcrumb(corpus.name, `/corpus/${corpus_id}/`);
+                        corpus = corpus_data
+                        add_breadcrumb(corpus.name, `/corpus/${corpus_id}/`)
 
                         // ------------------------
                         // SETUP DOCUMENT
                         // ------------------------
                         corpora.get_content(corpus_id, 'Document', document_id, function (document_data) {
-                            doc = document_data;
-                            add_breadcrumb(doc.label, document_uri);
+                            doc = document_data
+                            add_breadcrumb(doc.label, document_uri)
 
-                            let page_title = $('#page-title');
-                            page_title.html(doc.label);
+                            let page_title = $('#page-title')
+                            page_title.html(doc.label)
                             if (['Editor', 'Admin'].includes(corpus.scholar_role)) {
                                 page_title.append(`
                                     <a href="/corpus/${corpus_id}/Document/${doc.id}/edit/">
                                         <span class="fas fa-edit"></span>
                                     </a>
-                                `);
+                                `)
                             }
 
                             // LOAD DOCUMENT METADATA
-                            let doc_metadata_list = $('#doc-metadata-list');
+                            let doc_metadata_list = $('#doc-metadata-list')
                             corpus.content_types.Document.fields.forEach( field => {
                                 if (field.multiple) {
                                     if (doc[field.name].length) {
-                                        let field_values = [];
+                                        let field_values = []
 
                                         if (['text', 'large_text', 'keyword', 'number'].includes(field.type)) {
-                                            field_values = doc[field.name];
+                                            field_values = doc[field.name]
                                         } else if (field.type === "cross_reference") {
                                             doc[field.name].map(field_value => {
-                                                field_values.push(`<a href="${field_value.uri}/">${field_value.label}</a>`);
-                                            });
+                                                field_values.push(`<a href="${field_value.uri}/">${field_value.label}</a>`)
+                                            })
                                         }
 
                                         doc_metadata_list.append(`
@@ -793,7 +668,7 @@
                                                 <h5>${field.label}</h5>
                                                 ${field_values.join('<br />')}
                                             </div>
-                                        `);
+                                        `)
                                     }
                                 } else {
                                     if (doc[field.name]) {
@@ -803,53 +678,21 @@
                                                     <h5>${field.label}</h5>
                                                     ${doc[field.name]}
                                                 </div>
-                                            `);
+                                            `)
                                         } else if (field.type === "cross_reference") {
                                             doc_metadata_list.append(`
                                                 <div class="list-group-item">
                                                     <h5>${field.label}</h5>
                                                     <a href="${doc[field.name].uri}/">${doc[field.name].label}</a>
                                                 </div>
-                                            `);
+                                            `)
                                         }
                                     }
                                 }
-                            });
-
-                            // LOAD DOCUMENT PROVENANCE
-                            let doc_provenance_div = $('#doc-provenance-div');
-                            if (doc.provenance.length > 0) { doc_provenance_div.html(''); }
-                            doc.provenance.forEach( prov => {
-                                let retry_form = '';
-                                let report_button = '';
-                                if (role === 'Admin' || role === 'Editor') {
-                                    retry_form = `
-                                        <form method="post">
-                                            <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
-                                            <input type="hidden" name="retry-job-id" value="${prov.job_id}">
-                                            <button type="submit" role="button" class="btn btn-danger">Retry</button>
-                                        </form>
-                                    `;
-
-                                    if (prov.report_path) {
-                                        report_button = `
-                                            <button type="button" onClick="view_job_report('${prov.job_id}');" class="btn btn-primary mr-1">View Report</button>
-                                        `;
-                                    }
-                                }
-
-                                doc_provenance_div.append(`
-                                    <div id="provenance-${prov.job_id}-div" class="alert alert-${prov.status === "complete" ? 'success' : 'danger'} provenance">
-                                        Task: <b>${prov.task_name}</b><br />
-                                        Completed: ${corpora.time_string(prov.completed)}<br/>
-                                        ${report_button}
-                                        ${retry_form}
-                                    </div>
-                                `);
-                            });
+                            })
 
                             // LOAD DOCUMENT FILES
-                            let doc_files_div = $('#doc-files-div');
+                            let doc_files_div = $('#doc-files-div')
                             if (Object.keys(doc.files).length > 0) {
                                 doc_files_div.html(`
                                     <table class="table table-striped">
@@ -870,20 +713,20 @@
                                         <tbody id="doc-files-table-body">
                                         </tbody>
                                     </table>
-                                `);
+                                `)
 
-                                let doc_files_tbody = $('#doc-files-table-body');
+                                let doc_files_tbody = $('#doc-files-table-body')
                                 for (let file_key in doc.files) {
-                                    let file = doc.files[file_key];
+                                    let file = doc.files[file_key]
 
-                                    let file_url = corpora.file_url(file.uri);
+                                    let file_url = corpora.file_url(file.uri)
                                     if (file.is_image) {
-                                        file_url = corpora.image_url(file.uri);
+                                        file_url = corpora.image_url(file.uri)
                                     }
 
-                                    let open_mode = 'target="_blank"';
+                                    let open_mode = 'target="_blank"'
                                     if (file.extension === 'zip') {
-                                        open_mode = `download="${file.basename}"`;
+                                        open_mode = `download="${file.basename}"`
                                     }
 
                                     doc_files_tbody.append(`
@@ -901,30 +744,30 @@
                                                 ${file.byte_size}
                                             </td>
                                         </tr>
-                                    `);
+                                    `)
                                 }
 
                                 if (doc.has_primary_text) {
                                     doc_files_div.append(`
                                         <a href="${document_uri}/tei-skeleton" class="btn btn-primary ml-1" download>Download TEI XML Skeleton</a>
-                                    `);
+                                    `)
                                     if (role === 'Admin' || role === 'Editor') {
                                         doc_files_div.append(`
                                             <a href="${document_uri}/edit-xml/?use_tei_skeleton=y" class="btn btn-primary ml-1">Create TEI XML</a>
-                                        `);
+                                        `)
                                     }
                                 }
                             }
 
                             // SETUP DOCUMENT FILE IMPORT BUTTON
                             $('#import-document-files-button').click(function() {
-                                upload_file(doc.path);
-                            });
+                                upload_file(doc.path)
+                            })
 
                             // LOAD DOCUMENT PAGESETS
-                            let doc_pageset_div = $('#doc-pageset-div');
+                            let doc_pageset_div = $('#doc-pageset-div')
                             if (Object.keys(doc.page_sets).length > 0) {
-                                doc_pageset_div.html('');
+                                doc_pageset_div.html('')
                                 doc_pageset_div.append(`
                                     <table class="table table-striped">
                                         <thead class="thead-dark">
@@ -943,17 +786,17 @@
                                         </thead>
                                         <tbody id="doc-pageset-tbody">
                                     </table>
-                                `);
+                                `)
 
-                                let doc_pageset_tbody = $('#doc-pageset-tbody');
-                                let tei_buttons = "";
+                                let doc_pageset_tbody = $('#doc-pageset-tbody')
+                                let tei_buttons = ""
                                 for (let ps_key in doc.page_sets) {
                                     if (doc.has_primary_text) {
                                         tei_buttons = `
                                             <a href="${document_uri}/tei-skeleton?pageset=${ps_key}" class="btn btn-primary ml-1" download>Download TEI XML Skeleton</a>
-                                        `;
+                                        `
                                         if (role === 'Admin' || role === 'Editor') {
-                                            tei_buttons += `<a href="${document_uri}/edit-xml/?pageset=${ps_key}" target="_blank" class="btn btn-primary ml-1">Create TEI XML</a>`;
+                                            tei_buttons += `<a href="${document_uri}/edit-xml/?pageset=${ps_key}" target="_blank" class="btn btn-primary ml-1">Create TEI XML</a>`
                                         }
                                     }
 
@@ -972,29 +815,29 @@
                                                 ${tei_buttons}
                                             </td>
                                         </tr>
-                                    `);
+                                    `)
                                 }
                             }
 
                             // LOAD PAGE FILE COLLECTIONS
-                            let doc_pfc_div = $('#doc-pfc-div');
-                            let page_viewer_left_options = $('#page-viewer-left-options');
-                            let page_viewer_right_options = $('#page-viewer-right-options');
+                            let doc_pfc_div = $('#doc-pfc-div')
+                            let page_viewer_left_options = $('#page-viewer-left-options')
+                            let page_viewer_right_options = $('#page-viewer-right-options')
                             if (Object.keys(doc.page_file_collections).length > 0) {
-                                doc_pfc_div.html('<div class="list-group" id="doc-pfc-group"></div>');
-                                let doc_pfc_group = $('#doc-pfc-group');
-                                let pfc_counter = 0;
+                                doc_pfc_div.html('<div class="list-group" id="doc-pfc-group"></div>')
+                                let doc_pfc_group = $('#doc-pfc-group')
+                                let pfc_counter = 0
                                 for (let slug in doc.page_file_collections) {
-                                    let pfc = doc.page_file_collections[slug];
-                                    let label = pfc.label;
-                                    let text_consolidation_form = '';
+                                    let pfc = doc.page_file_collections[slug]
+                                    let label = pfc.label
+                                    let text_consolidation_form = ''
 
                                     if (label.includes('GCV TextAnnotation Object') || label.includes('HOCR')) {
-                                        bbox_collections.push(slug);
+                                        bbox_collections.push(slug)
                                     } else if (label.includes('Image')) {
                                         page_viewer_left_options.append(`
                                             <a class="dropdown-item" href="javascript: set_collection('left', '${slug}');">${label}</a>
-                                        `);
+                                        `)
                                     } else if (label.includes('Plain Text') && (role === 'Editor' || role === 'Admin')) {
                                         text_consolidation_form = `
                                             <form method="post">
@@ -1003,22 +846,22 @@
                                                 <input type="hidden" name="consolidate-files" value="y"/>
                                                 <button type="submit" class="btn btn-primary mr-2">Create a Consolidated Text File</button>
                                             </form>
-                                        `;
+                                        `
                                         page_viewer_right_options.append(`
                                             <a class="dropdown-item" href="javascript: set_collection('right', '${slug}');">${label}</a>
-                                        `);
+                                        `)
                                     } else if (label.includes('HTML')) {
                                         page_viewer_right_options.append(`
                                             <a class="dropdown-item" href="javascript: set_collection('right', '${slug}');">${label}</a>
-                                        `);
+                                        `)
                                     }
 
-                                    let zip_file_form = '';
+                                    let zip_file_form = ''
                                     if (local_jobsite_id) {
-                                        let zip_page_file_task_id = '';
+                                        let zip_page_file_task_id = ''
                                         for (let x = 0; x < tasks.length; x++) {
                                             if (tasks[x].name === "Zip Page File Collection") {
-                                                zip_page_file_task_id = _id(tasks[x]);
+                                                zip_page_file_task_id = tasks[x].id
                                             }
                                         }
 
@@ -1031,7 +874,7 @@
                                                     <input type="hidden" name="task" value="${zip_page_file_task_id}"/>
                                                     <button type="submit" class="btn btn-primary">Create a .zip File</button>
                                                 </form>
-                                            `;
+                                            `
                                         }
                                     }
 
@@ -1067,37 +910,37 @@
                                                 </tbody>
                                             </table>
                                         </div>
-                                    `);
+                                    `)
 
-                                    let doc_pfc_div = $(`#page-file-collection-${pfc_counter}`);
-                                    let doc_pfc_indicator = $(`#page-file-collection-${pfc_counter}-indicator`);
+                                    let doc_pfc_div = $(`#page-file-collection-${pfc_counter}`)
+                                    let doc_pfc_indicator = $(`#page-file-collection-${pfc_counter}-indicator`)
                                     doc_pfc_div.on('shown.bs.collapse', function() {
-                                        doc_pfc_indicator.removeClass('fa-caret-right');
-                                        doc_pfc_indicator.addClass('fa-caret-down');
-                                    });
+                                        doc_pfc_indicator.removeClass('fa-caret-right')
+                                        doc_pfc_indicator.addClass('fa-caret-down')
+                                    })
                                     doc_pfc_div.on('hidden.bs.collapse', function() {
-                                        doc_pfc_indicator.removeClass('fa-caret-down');
-                                        doc_pfc_indicator.addClass('fa-caret-right');
-                                    });
+                                        doc_pfc_indicator.removeClass('fa-caret-down')
+                                        doc_pfc_indicator.addClass('fa-caret-right')
+                                    })
 
-                                    let doc_pfc_tbody = $(`#doc-pfc-${pfc_counter}-tbody`);
+                                    let doc_pfc_tbody = $(`#doc-pfc-${pfc_counter}-tbody`)
                                     for (let ref_no in pfc.page_files) {
-                                        let file = pfc.page_files[ref_no];
+                                        let file = pfc.page_files[ref_no]
 
-                                        let mode = 'target="_blank"';
+                                        let mode = 'target="_blank"'
                                         if (label.includes('Object')) { mode = 'download'; }
 
-                                        let link = `<a href="${corpora.file_url(file.uri)}" ${mode}>${file.basename}</a>`;
+                                        let link = `<a href="${corpora.file_url(file.uri)}" ${mode}>${file.basename}</a>`
                                         if (label.includes('Image')) {
-                                            link = `<a href="${corpora.image_url(file.uri)}" ${mode}>${file.basename}</a>`;
+                                            link = `<a href="${corpora.image_url(file.uri)}" ${mode}>${file.basename}</a>`
                                         }
 
-                                        let actions = '';
+                                        let actions = ''
                                         if (label.includes('HOCR') || label.includes('GCV TextAnnotation')) {
-                                            actions = `<a href="${document_uri}/draw-page-regions/${ref_no}/?ocrfile=${file.path}" target="_blank" class="btn btn-primary ml-1">Fix OCR Regions</a>`;
+                                            actions = `<a href="${document_uri}/draw-page-regions/${ref_no}/?ocrfile=${file.path}" target="_blank" class="btn btn-primary ml-1">Fix OCR Regions</a>`
                                         }
                                         if ((label.includes('XML')) && (role === 'Editor' || role === 'Admin')) {
-                                            actions += `<a href="${document_uri}/edit-xml/?path=${corpora.file_url(file.uri)}" class="btn btn-primary ml-1">Edit XML</a>`;
+                                            actions += `<a href="${document_uri}/edit-xml/?path=${corpora.file_url(file.uri)}" class="btn btn-primary ml-1">Edit XML</a>`
                                         }
 
                                         doc_pfc_tbody.append(`
@@ -1115,10 +958,10 @@
                                                     ${actions}
                                                 </td>
                                             </tr>
-                                        `);
+                                        `)
                                     }
 
-                                    pfc_counter += 1;
+                                    pfc_counter += 1
                                 }
                             }
 
@@ -1128,107 +971,146 @@
                                 document_uri,
                                 'page_viewer_left_collection',
                                 function (left_pref) {
-                                    pfc_setting.left = left_pref;
+                                    pfc_setting.left = left_pref
                                 }
-                            );
+                            )
 
                             corpora.get_preference(
                                 'Document',
                                 document_uri,
                                 'page_viewer_right_collection',
                                 function (right_pref) {
-                                    pfc_setting.right = right_pref;
-                                    $('#page-viewer-control-div').removeClass('d-none');
-                                    //show_page();
-                                    load_pages();
+                                    pfc_setting.right = right_pref
+                                    $('#page-viewer-control-div').removeClass('d-none')
+                                    //show_page()
+                                    load_pages()
                                 }
-                            );
+                            )
 
                             // SETUP PAGE TASK BUTTONS
                             if(doc.pages && (role === 'Editor' || role === 'Admin')) {
                                 $('#page-action-buttons-span').append(`
                                     <button id="create-pageset-button" class="btn btn-primary rounded ml-1" type="button">Create Page Set</button>
-                                    <button id="perform-ocr-button" class="btn btn-primary rounded ml-1" type="button">Perform OCR</button>
                                     <button id="transcribe-button" class="btn btn-primary rounded ml-1" type="button">Transcribe</button>
-                                    <button id="analyze-button" class="btn btn-primary rounded ml-1 d-none" type="button">Analyze</button>
-                                `);
+                                `)
 
                                 // ---------------------
                                 // SETUP PAGE SET MODAL
                                 // ---------------------
                                 $("#create-pageset-button").click(function() {
-                                    $("#pageset-modal").modal();
-                                });
+                                    $("#pageset-modal").modal()
+                                })
 
                                 // -----------------
-                                // SETUP JOB MODAL
+                                // SETUP JOB MANAGER
                                 // -----------------
+                                job_manager = new JobManager({
+                                    jobs_container: 'jobs-container',
+                                    provenance_container: 'doc-provenance-div',
+                                    provenance: doc.provenance,
+                                    corpora: corpora,
+                                    corpus: corpus,
+                                    content_type: 'Document',
+                                    content_id: document_id,
+                                    scholar_id: scholar_id,
+                                    custom_parameter_types: {
+                                        page_file_collection: function(param_name, param) {
+                                            let select_options = ''
+                                            for (let slug in doc.page_file_collections) {
+                                                select_options += `<option value="${slug}">${doc.page_file_collections[slug].label}</option>\n`
+                                            }
+
+                                            return `
+                                                <div class="form-group">
+                                                    <label for="${param_name}-collection-selector">${param.label}</label>
+                                                    <select id="${param_name}-collection-selector" class="form-control job-parameter-value" name="${param_name}">
+                                                        ${select_options}
+                                                    </select>
+                                                    ${param.note ? `<span class='text-muted'>${param.note}</span>` : ''}
+                                                </div>
+                                            `
+                                        },
+                                        document_pageset: function(param_name, param) {
+                                            let select_options = ''
+                                            Object.keys(doc.page_sets).forEach(ps_key => {
+                                                select_options += `<option value="${ps_key}">${doc.page_sets[ps_key].label}</option>`
+                                            })
+
+                                            return `
+                                                <div class="form-group">
+                                                    <label for="${param_name}-ps-selector">${param.label}</label>
+                                                    <select id="${param_name}-ps-selector" class="form-control job-parameter-value" name="${param_name}">
+                                                        <option value="none">All Pages</option>
+                                                        ${select_options}
+                                                    </select>
+                                                    ${param.note ? `<span class='text-muted'>${param.note}</span>` : ''}
+                                                </div>
+                                            `
+                                        },
+                                        document_file: function(param_name, param) {
+                                            let select_options = ''
+                                            Object.keys(doc.files).forEach(file_key => {
+                                                select_options += `<option value="${file_key}">${doc.files[file_key].basename}</option>`
+                                            })
+
+                                            return `
+                                                <div class="form-group">
+                                                    <label for="${param_name}-file-selector">${param.label}</label>
+                                                    <select id="${param_name}-file-selector" class="form-control job-parameter-value" name="${param_name}">
+                                                        ${select_options}
+                                                    </select>
+                                                    ${param.note ? `<span class='text-muted'>${param.note}</span>` : ''}
+                                                </div>
+                                            `
+                                        },
+                                        document_transcription_project: function(param_name, param) {
+                                            let select_options = ''
+                                            $('option.transcription-project').each(function() {
+                                                let trans_project = $(this)
+                                                select_options += `<option value="${trans_project.attr('value')}">${trans_project.html()}</option>`
+                                            })
+
+                                            return `
+                                                <div class="form-group">
+                                                    <label for="${param_name}-trans-project-selector">${param.label}</label>
+                                                    <select id="${param_name}-trans-project-selector" class="form-control job-parameter-value" name="${param_name}">
+                                                        ${select_options}
+                                                    </select>
+                                                    ${param.note ? `<span class='text-muted'>${param.note}</span>` : ''}
+                                                </div>
+                                            `
+                                        }
+                                    }
+                                })
+
                                 $("#run-job-button").click(function() {
-                                    load_jobsites("job", "job");
-                                    $("#job-modal").modal();
-                                });
+                                    job_manager.new_job('Document', document_id)
+                                })
 
-                                $("#job-jobsite-selector").on("change", function() {
-                                    load_tasks($('#job-jobsite-selector :selected').attr('class'), 'job', 'job');
-                                });
-
-                                $("#job-task-selector").on("change", function() {
-                                    load_task_parameters($('#job-task-selector').val(), 'job');
-                                });
-
-                                $("#job-submit-button").click(function() {
-                                    $("#job-form").submit();
-                                });
-
-                                // -----------------
-                                // SETUP OCR MODAL
-                                // -----------------
-                                $("#perform-ocr-button").click(function() {
-                                    load_jobsites("ocr", "OCR");
-                                    $("#ocr-modal").modal();
-                                });
-
-                                $("#ocr-jobsite-selector").on("change", function() {
-                                    load_tasks($('#ocr-jobsite-selector :selected').attr('class'), 'ocr', 'OCR');
-                                });
-
-                                $("#ocr-task-selector").on("change", function() {
-                                    load_task_parameters($('#ocr-task-selector').val(), 'ocr');
-                                });
-
-                                $("#ocr-submit-button").click(function() {
-                                    $("#ocr-form").submit();
-                                });
-
-                                // -------------------
-                                // SETUP ANALYZE MODAL
-                                // -------------------
-                                $("#analyze-button").click(function() {
-                                    load_jobsites("analyze", "Analyze");
-                                    $("#analyze-modal").modal();
-                                });
-
-                                $("#analyze-jobsite-selector").on("change", function() {
-                                    load_tasks($('#analyze-jobsite-selector :selected').attr('class'), 'analyze', 'Analyze');
-                                });
-
-                                $("#analyze-task-selector").on("change", function() {
-                                    load_task_parameters($('#analyze-task-selector').val(), 'analyze');
-                                });
-
-                                $("#analyze-submit-button").click(function() {
-                                    $("#analyze-form").submit();
-                                });
+                                setTimeout(function() {
+                                    $('#job-modal').on('show.bs.modal', function() {
+                                        let tasks_to_remove = []
+                                        $('.job-task').each(function() {
+                                            let task_name = $(this).html()
+                                            if (task_name.includes("Import Document Pages")) {
+                                                tasks_to_remove.push(this)
+                                            }
+                                        })
+                                        tasks_to_remove.forEach(t => {
+                                            $(t).remove()
+                                        })
+                                    })
+                                }, 3000)
 
                                 // -------------------
                                 // SETUP TRANSCRIBE MODAL
                                 // -------------------
-                                let trans_project_selector = $('#trans-project-selector');
-                                let trans_pageset_selector = $('#trans-pageset-selector');
-                                let trans_image_pfc_selector = $('#trans-image-pfc-selector');
-                                let trans_ocr_pfc_selector = $('#trans-ocr-pfc-selector');
-                                let trans_plain_text_selector = $('#trans-plain-text-selector');
-                                let trans_go_button = $('#trans-go-button');
+                                let trans_project_selector = $('#trans-project-selector')
+                                let trans_pageset_selector = $('#trans-pageset-selector')
+                                let trans_image_pfc_selector = $('#trans-image-pfc-selector')
+                                let trans_ocr_pfc_selector = $('#trans-ocr-pfc-selector')
+                                let trans_plain_text_selector = $('#trans-plain-text-selector')
+                                let trans_go_button = $('#trans-go-button')
 
                                 // project selector
                                 let trans_project_search = {
@@ -1237,35 +1119,34 @@
                                 }
                                 corpora.list_content(corpus_id, 'TranscriptionProject', trans_project_search, function(data) {
                                     if (data && data.hasOwnProperty('meta') && data.hasOwnProperty('records') && data.records.length) {
-                                        console.log(data);
-                                        let trans_projects = '';
+                                        let trans_projects = ''
                                         data.records.map(trans_project => {
                                             trans_projects += `
-                                                <option value='${trans_project.id}' ${trans_projects ? '' : 'selected'}>${trans_project.name}</option>
-                                            `;
-                                        });
-                                        trans_project_selector.prepend(trans_projects);
-                                        trans_go_button.html('Continue');
+                                                <option class='transcription-project' value='${trans_project.id}' ${trans_projects ? '' : 'selected'}>${trans_project.name}</option>
+                                            `
+                                        })
+                                        trans_project_selector.prepend(trans_projects)
+                                        trans_go_button.html('Continue')
                                     } else {
-                                        $('#trans-project-group').addClass('d-none');
-                                        $('#trans-new-project-div').removeClass('d-none');
+                                        $('#trans-project-group').addClass('d-none')
+                                        $('#trans-new-project-div').removeClass('d-none')
                                     }
-                                }, true);
+                                }, true)
                                 trans_project_selector.change(function() {
                                     if (trans_project_selector.val() === 'new') {
-                                        $('#trans-new-project-div').removeClass('d-none');
-                                        trans_go_button.html('Start');
+                                        $('#trans-new-project-div').removeClass('d-none')
+                                        trans_go_button.html('Start')
                                     } else {
-                                        $('#trans-new-project-div').addClass('d-none');
-                                        trans_go_button.html('Continue');
+                                        $('#trans-new-project-div').addClass('d-none')
+                                        trans_go_button.html('Continue')
                                     }
-                                });
+                                })
 
                                 // page set selector
                                 for (let ps_key in doc.page_sets) {
                                     trans_pageset_selector.append(`
                                         <option value="${ps_key}">${doc.page_sets[ps_key].label}</option>
-                                    `);
+                                    `)
                                 }
 
                                 // image/ocr collection selector
@@ -1273,30 +1154,30 @@
                                     if (pfc_key.includes('image')) {
                                         trans_image_pfc_selector.append(`
                                             <option value="${pfc_key}">${doc.page_file_collections[pfc_key].label}</option>
-                                        `);
+                                        `)
                                     } else if (pfc_key.includes('hocr')) {
                                         trans_ocr_pfc_selector.append(`
                                             <option value="${pfc_key}">${doc.page_file_collections[pfc_key].label}</option>
-                                        `);
+                                        `)
                                     }
                                 }
-                                trans_ocr_pfc_selector.append(`<option value="none">None</option>`);
+                                trans_ocr_pfc_selector.append(`<option value="none">None</option>`)
 
                                 // plain text selector
                                 Object.keys(doc.files).forEach(file_key => {
                                     if (doc.files[file_key].extension === 'txt')
-                                        trans_plain_text_selector.append(`<option value="${file_key}">${doc.files[file_key].basename}</option>`);
-                                });
+                                        trans_plain_text_selector.append(`<option value="${file_key}">${doc.files[file_key].basename}</option>`)
+                                })
 
                                 $('#transcribe-button').click(function() {
-                                    $('#trans-modal').modal();
-                                });
+                                    $('#trans-modal').modal()
+                                })
                             }
 
                             if (!popup) {
                                 // INITIAL EXPLORE VIZ LOAD
-                                let explore_container_width = $('#content-nav-tabs').innerWidth();
-                                $('#explore-div').css("width", `${explore_container_width}px`);
+                                let explore_container_width = $('#content-nav-tabs').innerWidth()
+                                $('#explore-div').css("width", `${explore_container_width}px`)
                                 network = new ContentGraph(
                                     corpora,
                                     corpus_data,
@@ -1308,163 +1189,163 @@
                                         'width': explore_container_width,
                                         'height': 800
                                     }
-                                );
-                                $('#explore-tab').removeClass('disabled');
+                                )
+                                $('#explore-tab').removeClass('disabled')
 
                                 $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
                                     if (e.target.id === 'explore-tab') {
-                                        network.network.fit({nodes: [document_uri]});
+                                        network.network.fit({nodes: [document_uri]})
                                     }
-                                });
-                            }
+                                })
 
-                            // ASSOCIATED CONTENT
-                            let associated_cts = {};
-                            for (let content_type in corpus.content_types) {
-                                let ct = corpus.content_types[content_type];
-                                ct.fields.map(field => {
-                                    if (field.type === 'cross_reference' && field.cross_reference_type === 'Document') {
-                                        associated_cts[ct.name] = field.name;
+                                // ASSOCIATED CONTENT
+                                let associated_cts = {}
+                                for (let content_type in corpus.content_types) {
+                                    let ct = corpus.content_types[content_type]
+                                    ct.fields.map(field => {
+                                        if (field.type === 'cross_reference' && field.cross_reference_type === 'Document') {
+                                            associated_cts[ct.name] = field.name
+                                        }
+                                    })
+                                }
+
+                                if (associated_cts) {
+                                    $('#associated-content-div').html('')
+                                    for (let ct_name in associated_cts) {
+                                        let associated_search = {
+                                            page: 1,
+                                            'page-size': 5,
+                                        }
+                                        associated_search[`f_${associated_cts[ct_name]}.id`] = document_id
+
+                                        let ct_table = new ContentTable({
+                                            container_id: 'associated-content-div',
+                                            corpora: corpora,
+                                            corpus: corpus,
+                                            content_type: ct_name,
+                                            search: associated_search
+                                        })
                                     }
-                                });
-                            }
-
-                            if (associated_cts) {
-                                $('#associated-content-div').html('');
-                                for (let ct_name in associated_cts) {
-                                    let associated_search = {
-                                        page: 1,
-                                        'page-size': 5,
-                                    };
-                                    associated_search[`f_${associated_cts[ct_name]}.id`] = document_id;
-
-                                    let ct_table = new ContentTable({
-                                        container_id: 'associated-content-div',
-                                        corpora: corpora,
-                                        corpus: corpus,
-                                        content_type: ct_name,
-                                        search: associated_search
-                                    });
                                 }
                             }
 
-                            hide_loading_overlay();
-                        });
-                    }, true);
-                });
-            });
+                            hide_loading_overlay()
+                        })
+                    }, true)
+                })
+            })
 
             // ------------------------
             // SETUP COLLAPSIBLE PAGE FILE COLLECTIONS
             // ------------------------
             $('.collapse').on('show.bs.collapse', function (event) {
-                let indicator_id = event.target.id + "-indicator";
-                $("#" + indicator_id).removeClass("fa-caret-right");
-                $("#" + indicator_id).addClass("fa-caret-down");
-            });
+                let indicator_id = event.target.id + "-indicator"
+                $("#" + indicator_id).removeClass("fa-caret-right")
+                $("#" + indicator_id).addClass("fa-caret-down")
+            })
 
             $('.collapse').on('hidden.bs.collapse', function (event) {
-                let indicator_id = event.target.id + "-indicator";
-                $("#" + indicator_id).removeClass("fa-caret-down");
-                $("#" + indicator_id).addClass("fa-caret-right");
-            });
+                let indicator_id = event.target.id + "-indicator"
+                $("#" + indicator_id).removeClass("fa-caret-down")
+                $("#" + indicator_id).addClass("fa-caret-right")
+            })
 
             // ------------------------
             // SETUP PAGE VIEWER CONTROLS
             // ------------------------
             $("#go-prev-page-button").click(function() {
-                ref_no = parseInt($('#go-page-box').val());
-                ref_no -= 1;
-                show_page();
-            });
+                ref_no = parseInt($('#go-page-box').val())
+                ref_no -= 1
+                show_page()
+            })
             $("#go-next-page-button").click(function() {
-                ref_no = parseInt($('#go-page-box').val());
-                ref_no += 1;
-                show_page();
-            });
+                ref_no = parseInt($('#go-page-box').val())
+                ref_no += 1
+                show_page()
+            })
             $("#go-page-box").keypress(function(e){
-                let key = e.which;
+                let key = e.which
                 if (key == 13) {
-                    ref_no = parseInt($("#go-page-box").val());
+                    ref_no = parseInt($("#go-page-box").val())
                     if (isNaN(ref_no)) { ref_no = 1; }
-                    show_page();
+                    show_page()
                 }
-            });
+            })
 
             if (role === 'Editor' || role === 'Admin') {
                 // ------------------------
                 // SETUP IMPORT PAGES MODAL
                 // ------------------------
                 $("#import-pages-button").click(function () {
-                    $("#import-pages-submit-button").attr('disabled', true);
+                    $("#import-pages-submit-button").attr('disabled', true)
 
                     // SETUP PDF SOURCE OPTIONS
-                    $('#import-pages-pdf-source-upload').prop('checked', true);
-                    $('#import-pages-pdf-source-existing').prop('checked', false);
+                    $('#import-pages-pdf-source-upload').prop('checked', true)
+                    $('#import-pages-pdf-source-existing').prop('checked', false)
 
-                    let has_pdf_file = false;
-                    let pdf_source_options = $('.import-pages-pdf-source-options');
-                    let existing_pdf_selector = $('#import-pages-pdf-existing-file');
+                    let has_pdf_file = false
+                    let pdf_source_options = $('.import-pages-pdf-source-options')
+                    let existing_pdf_selector = $('#import-pages-pdf-existing-file')
                     Object.keys(doc.files).forEach(file_key => {
                         if (doc.files[file_key].basename.toLowerCase().endsWith('.pdf')) {
-                            existing_pdf_selector.append(`<option value="${file_key}">${doc.files[file_key].basename}</option>`);
-                            has_pdf_file = true;
+                            existing_pdf_selector.append(`<option value="${file_key}">${doc.files[file_key].basename}</option>`)
+                            has_pdf_file = true
                         }
-                    });
+                    })
                     if (has_pdf_file) {
-                        pdf_source_options.removeClass('d-none');
+                        pdf_source_options.removeClass('d-none')
                     } else {
-                        pdf_source_options.addClass('d-none');
+                        pdf_source_options.addClass('d-none')
                     }
 
-                    $("#import-pages-modal").modal();
-                });
+                    $("#import-pages-modal").modal()
+                })
 
                 $("input[type=radio][name=import-pages-type]").change(function () {
-                    let pdf_options = $(".pdf-option");
-                    let pdf_source_options = $('.import-pages-pdf-source-options');
-                    let has_pdf_file = $('#import-pages-pdf-existing-file').children().length > 0;
-                    let file_pond = $('#import-pages-filepond-div');
-                    let iiif_ids = $('#import-pages-iiif-ids-div');
+                    let pdf_options = $(".pdf-option")
+                    let pdf_source_options = $('.import-pages-pdf-source-options')
+                    let has_pdf_file = $('#import-pages-pdf-existing-file').children().length > 0
+                    let file_pond = $('#import-pages-filepond-div')
+                    let iiif_ids = $('#import-pages-iiif-ids-div')
 
-                    pdf_options.addClass('d-none');
-                    pdf_source_options.addClass('d-none');
-                    iiif_ids.addClass('d-none');
-                    file_pond.addClass('d-none');
+                    pdf_options.addClass('d-none')
+                    pdf_source_options.addClass('d-none')
+                    iiif_ids.addClass('d-none')
+                    file_pond.addClass('d-none')
 
                     if (this.value === 'pdf') {
-                        file_pond.removeClass('d-none');
-                        pdf_options.removeClass("d-none");
+                        file_pond.removeClass('d-none')
+                        pdf_options.removeClass("d-none")
                         if (has_pdf_file) {
-                            pdf_source_options.removeClass('d-none');
+                            pdf_source_options.removeClass('d-none')
                         }
                     } else if (['images', 'zip'].includes(this.value)) {
-                        file_pond.removeClass('d-none');
+                        file_pond.removeClass('d-none')
                     } else if (this.value === 'iiif') {
-                        iiif_ids.removeClass('d-none');
+                        iiif_ids.removeClass('d-none')
                     }
-                });
+                })
 
                 $("input[type=radio][name=import-pages-pdf-source]").change(function () {
-                    let import_pages_submit_button = $("#import-pages-submit-button");
+                    let import_pages_submit_button = $("#import-pages-submit-button")
 
                     if (this.value === 'existing' || import_pages_files.length > 0) {
-                        import_pages_submit_button.attr('disabled', false);
+                        import_pages_submit_button.attr('disabled', false)
                     } else {
-                        import_pages_submit_button.attr('disabled', true);
+                        import_pages_submit_button.attr('disabled', true)
                     }
-                });
+                })
 
                 $("#import-pages-iiif-ids-box").keyup(function() {
                     if ($("#import-pages-iiif-ids-box").val() && $("input[type=radio][name=import-pages-type]:checked").val() === 'iiif') {
-                        $("#import-pages-submit-button").attr('disabled', false);
+                        $("#import-pages-submit-button").attr('disabled', false)
                     }
-                });
+                })
 
                 $("#import-pages-submit-button").click(function () {
-                    $("#import-pages-files").val(JSON.stringify(import_pages_files));
-                    $("#import-pages-form").submit();
-                });
+                    $("#import-pages-files").val(JSON.stringify(import_pages_files))
+                    $("#import-pages-form").submit()
+                })
 
                 FilePond.setOptions({
                     server: {
@@ -1477,79 +1358,79 @@
                         fetch: null,
                         revert: null
                     }
-                });
+                })
             }
-        });
+        })
 
         function get_page(collection, ref_no) {
-            let page = false;
+            let page = false
             if (collection && collection in doc.page_file_collections && ref_no.toString() in doc.page_file_collections[collection].page_files) {
                 page = doc.page_file_collections[collection].page_files[ref_no.toString()]
             }
-            return page;
+            return page
         }
 
         function load_pages() {
-            let page_div = $('#page-viewer-div');
-            let num_pages = Object.keys(doc.pages).length;
+            let page_div = $('#page-viewer-div')
+            let num_pages = Object.keys(doc.pages).length
 
             if (num_pages) {
-                $('#pages-title').html(`${num_pages} Pages`);
+                $('#pages-title').html(`${num_pages} Pages`)
 
                 page_observer = new IntersectionObserver(function(entries) {
-                    let first_page_processed = false;
+                    let first_page_processed = false
                     entries.forEach(entry => {
                         if (entry.isIntersecting) {
-                            let page_card = $(`#${entry.target.id}`);
-                            ref_no = page_card.data('refno');
+                            let page_card = $(`#${entry.target.id}`)
+                            ref_no = page_card.data('refno')
                             if (!first_page_processed) {
-                                $('#go-page-box').val(ref_no);
-                                first_page_processed = true;
+                                $('#go-page-box').val(ref_no)
+                                first_page_processed = true
                             }
 
                             if (!page_card.data('loaded')) {
-                                let page_img = $(`#page-${ref_no}-img`);
-                                let file_key = page_img.data('file_key');
-                                let iiif_id = page_img.data('iiif_id');
-                                let iiif_region = page_img.data('iiif_region');
-                                let iiif_width = page_img.data('iiif_max_width');
+                                let page_img = $(`#page-${ref_no}-img`)
+                                let file_key = page_img.data('file_key')
+                                let iiif_id = page_img.data('iiif_id')
+                                let iiif_region = page_img.data('iiif_region')
+                                let iiif_width = page_img.data('iiif_max_width')
 
                                 if (iiif_id) {
-                                    if (page_img.width() < iiif_width) iiif_width = parseInt(page_img.width());
-                                    page_img.attr('src', corpora.iiif_url(iiif_id, {}, iiif_region, `${iiif_width},`));
+                                    if (page_img.width() < iiif_width) iiif_width = parseInt(page_img.width())
+                                    page_img.attr('src', corpora.iiif_url(iiif_id, {}, iiif_region, `${iiif_width},`))
                                 } else if (file_key) {
-                                    page_img.attr('src', corpora.image_url(`${document_uri}/page/${ref_no}/file/${file_key}`));
+                                    page_img.attr('src', corpora.image_url(`${document_uri}/page/${ref_no}/file/${file_key}`))
                                 }
-                                page_card.data('loaded', 'true');
+                                page_card.data('loaded', 'true')
                             }
                         }
-                    });
-                }, { threshold: [0] });
+                    })
+                }, { threshold: [0] })
 
                 if (!pfc_setting.left) {
                     for(let slug in doc.page_file_collections) {
                         if (slug.includes('primary') && slug.includes('image')) {
-                            pfc_setting.left = slug;
-                            break;
+                            pfc_setting.left = slug
+                            break
                         }
                     }
                 }
 
-                page_div.html('');
-                page_div.addClass('card-deck');
+                page_div.html('')
+                page_div.addClass('card-deck')
                 for (let refno = 1; refno < num_pages + 1; refno++) {
-                    let page = get_page(pfc_setting.left, refno);
-                    let data_attrs = `data-refno="${refno}"`;
+                    let page = get_page(pfc_setting.left, refno)
+                    let data_attrs = `data-refno="${refno}"`
 
                     if (page) {
-                        data_attrs += ` data-file_key="${page['key']}"`;
+                        data_attrs += ` data-file_key="${page['key']}"`
                         if (Object.keys(page.iiif_info).length) {
-                            data_attrs += ` data-iiif_id="${page.path}"`;
-                            data_attrs += ` data-iiif_max_width="${page.width}"`;
+                            data_attrs += ` data-iiif_id="${page.path}"`
+                            data_attrs += ` data-iiif_max_width="${page.width}"`
                             if (page.iiif_info.hasOwnProperty('fixed_region'))
-                                data_attrs += ` data-iiif_region="${page.iiif_info.fixed_region.x},${page.iiif_info.fixed_region.y},${page.iiif_info.fixed_region.w},${page.iiif_info.fixed_region.h}"`;
+                                data_attrs += ` data-iiif_region="${page.iiif_info.fixed_region.x},${page.iiif_info.fixed_region.y},${page.iiif_info.fixed_region.w},${page.iiif_info.fixed_region.h}"`
                             else
-                                data_attrs += ` data-iiif_region="full"`;
+                                data_attrs += ` data-iiif_region="full"`
                         }
                     }
 
@@ -1568,36 +1449,37 @@
                                 <h5 class="page-number float-right">${refno}</h5>
                             </div>
                         </div>
-                    `);
+                    `)
                 }
 
                 $('.page-card').each(function() {
-                    page_observer.observe(this);
-                });
+                  page_observer.observe(this)
+                })
+
 
                 $('.page-image').click(function() {
-                    ref_no = parseInt($(this).data('refno'));
-                    show_page();
-                });
+                    ref_no = parseInt($(this).data('refno'))
+                    show_page()
+                })
 
                 $('.page-files').on('shown.bs.collapse', function(e) {
-                    let page_file_div = $(e.target);
-                    let refno = page_file_div.data('refno');
-                    let indicator = $(`#page-files-${refno}-indicator`);
-                    indicator.removeClass('fa-caret-right');
-                    indicator.addClass('fa-caret-down');
+                    let page_file_div = $(e.target)
+                    let refno = page_file_div.data('refno')
+                    let indicator = $(`#page-files-${refno}-indicator`)
+                    indicator.removeClass('fa-caret-right')
+                    indicator.addClass('fa-caret-down')
 
-                    let file_rows = '';
+                    let file_rows = ''
                     if (refno in doc.pages) {
                         for (let file_key in doc.pages[refno].files) {
-                            let file = doc.pages[refno].files[file_key];
-                            let label = file.collection_label;
-                            let mode = 'target="_blank"';
+                            let file = doc.pages[refno].files[file_key]
+                            let label = file.collection_label
+                            let mode = 'target="_blank"'
                             if (label.includes('Object')) { mode = 'download'; }
 
-                            let link = `<a href="${corpora.file_url(file.uri)}" ${mode}>${file.basename}</a>`;
+                            let link = `<a href="${corpora.file_url(file.uri)}" ${mode}>${file.basename}</a>`
                             if (label.includes('Image')) {
-                                link = `<a href="${corpora.image_url(file.uri)}" ${mode}>${file.basename}</a>`;
+                                link = `<a href="${corpora.image_url(file.uri)}" ${mode}>${file.basename}</a>`
                             }
 
                             file_rows += `
@@ -1609,7 +1491,7 @@
                                         ${file.byte_size}
                                     </td>
                                 </tr>
-                            `;
+                            `
                         }
                     }
 
@@ -1627,20 +1509,20 @@
                                 ${file_rows}
                             </tbody>
                         </table>
-                    `);
-                });
+                    `)
+                })
                 $('.page-files').on('hidden.bs.collapse', function(e) {
-                    let page_file_div = $(e.target);
-                    let refno = page_file_div.data('refno');
-                    let indicator = $(`#page-files-${refno}-indicator`);
-                    indicator.removeClass('fa-caret-down');
-                    indicator.addClass('fa-caret-right');
-                });
+                    let page_file_div = $(e.target)
+                    let refno = page_file_div.data('refno')
+                    let indicator = $(`#page-files-${refno}-indicator`)
+                    indicator.removeClass('fa-caret-down')
+                    indicator.addClass('fa-caret-right')
+                })
             }
         }
 
         function show_page() {
-            let num_pages = Object.keys(doc.pages).length;
+            let num_pages = Object.keys(doc.pages).length
             if(ref_no < 1) { ref_no = 1; }
             if(ref_no > num_pages) { ref_no = num_pages; }
             if(ref_no == 1) { $('#go-prev-page-button').attr('disabled', true); }
@@ -1649,28 +1531,28 @@
             if(ref_no < num_pages) { $('#go-next-page-button').attr('disabled', false); }
 
             $('.page-card.selected').each(function() {
-                $(this).removeClass('selected');
-            });
+                $(this).removeClass('selected')
+            })
 
-            let page_card = $(`#page-${ref_no}-card`);
-            let page_image = $(`#page-${ref_no}-img`);
+            let page_card = $(`#page-${ref_no}-card`)
+            let page_image = $(`#page-${ref_no}-img`)
             if (page_card.length && page_image.length) {
-                page_card.addClass('selected');
-                page_card[0].scrollIntoView();
+                page_card.addClass('selected')
+                page_card[0].scrollIntoView()
                 setTimeout(function() {
-                    let page_card = $(`#page-${ref_no}-card`);
-                    page_card[0].scrollIntoView({behavior: 'smooth'});
-                    $('#pages-card')[0].scrollIntoView();
-                    $('#go-page-box').val(ref_no);
+                    let page_card = $(`#page-${ref_no}-card`)
+                    page_card[0].scrollIntoView({behavior: 'smooth'})
+                    $('#pages-card')[0].scrollIntoView()
+                    $('#go-page-box').val(ref_no)
 
                     if (page_image.data('iiif_id')) {
-                        let iiif_id = page_image.data('iiif_id');
-                        let iiif_region = page_image.data('iiif_region');
-                        let iiif_width = page_image.data('iiif_max_width');
-                        if (page_image.width() < iiif_width) iiif_width = parseInt(page_image.width());
-                        page_image.attr('src', corpora.iiif_url(iiif_id, {}, iiif_region, `${iiif_width},`));
+                        let iiif_id = page_image.data('iiif_id')
+                        let iiif_region = page_image.data('iiif_region')
+                        let iiif_width = page_image.data('iiif_max_width')
+                        if (page_image.width() < iiif_width) iiif_width = parseInt(page_image.width())
+                        page_image.attr('src', corpora.iiif_url(iiif_id, {}, iiif_region, `${iiif_width},`))
                     }
-                }, 300);
+                }, 300)
             }
         }
 
@@ -1681,190 +1563,20 @@
                 `page_viewer_${side}_collection`,
                 collection,
                 function(pref) {
-                    pfc_setting[side] = pref;
+                    pfc_setting[side] = pref
 
-                    $('#page-viewer-control-div').removeClass('d-none');
-                    load_pages();
+                    $('#page-viewer-control-div').removeClass('d-none')
+                    load_pages()
                 }
-            );
-        }
-
-        function load_jobsites(modal, task_filter) {
-            $(`#${modal}-jobsite-selector`).html('');
-            if (jobsites.length > 0) {
-                for (let x = 0; x < jobsites.length; x++) {
-                    $(`#${modal}-jobsite-selector`).append(`
-                        <option value="${jobsites[x]["_id"]["$oid"]}" class="${jobsites[x]["type"]}">
-                            ${jobsites[x]["name"]}
-                        </option>
-                    `);
-                    if (x === 0) {
-                        load_tasks(jobsites[x]["type"], modal, task_filter);
-                    }
-                }
-            }
-        }
-
-        function load_tasks(jobsite_type, modal, task_filter) {
-            $(`#${modal}-task-selector`).html('');
-
-                if (tasks.length > 0) {
-                    let tasks_populated = 0;
-
-                    for (let x = 0; x < tasks.length; x++) {
-                        if (tasks[x]["jobsite_type"] == jobsite_type && (tasks[x]["name"].includes(task_filter) || task_filter === 'job')) {
-                            $(`#${modal}-task-selector`).append(`
-                                <option value="${tasks[x]["_id"]["$oid"]}">
-                                    ${tasks[x]["name"]}
-                                </option>
-                            `);
-                            if (tasks_populated == 0) {
-                                load_task_parameters(tasks[x]["_id"]["$oid"], modal);
-                            }
-                            tasks_populated += 1;
-                        }
-                    }
-
-                    if (tasks_populated > 0) {
-                        $(`#${modal}-task-selector-div`).removeClass("d-none");
-                        $(`#${modal}-submit-button`).attr('disabled', false);
-                    } else {
-                        $(`#${modal}-task-selector-div`).addClass("d-none");
-                        $(`#${modal}-submit-button`).attr('disabled', true);
-                    }
-                }
-        }
-
-        function load_task_parameters(task_id, modal) {
-            $(`#${modal}-task-parameters-div`).html('');
-
-            for (let x = 0; x < tasks.length; x++) {
-                if (tasks[x]["_id"]["$oid"] == task_id) {
-                    let parameters = tasks[x]['configuration']['parameters'];
-                    for (let parameter in parameters) {
-                        if (parameters[parameter].hasOwnProperty('type')) {
-                            let parameter_html = '';
-                            let note_html = '';
-                            if (parameters[parameter].hasOwnProperty('note')) {
-                                note_html = `<span class='text-muted'>${parameters[parameter]['note']}</span>`;
-                            }
-
-                            if (parameters[parameter]['type'] == 'page_file_collection') {
-                                let select_options = '';
-                                for (let slug in doc.page_file_collections) {
-                                    select_options += `<option value="${slug}">${doc.page_file_collections[slug].label}</option>\n`;
-                                }
-
-                                parameter_html = `
-                                    <div class="form-group">
-                                        <label for="${modal}-collection-selector">${parameters[parameter]['label']}</label>
-                                        <select id="${modal}-collection-selector" class="form-control" name="${parameter}">
-                                            ${select_options}
-                                        </select>
-                                        ${note_html}
-                                    </div>
-                                `;
-                            } else if (parameters[parameter]['type'] == 'choice' && parameters[parameter].hasOwnProperty('choices')) {
-                                let select_options = '';
-                                parameters[parameter]['choices'].forEach(choice => {
-                                    select_options += `<option>${choice}</option>\n`;
-                                });
-
-                                parameter_html = `
-                                    <div class="form-group">
-                                        <label for="${modal}-collection-selector">${parameters[parameter]['label']}</label>
-                                        <select id="${modal}-collection-selector" class="form-control" name="${parameter}">
-                                            ${select_options}
-                                        </select>
-                                        ${note_html}
-                                    </div>
-                                `;
-                            } else if (parameters[parameter]['type'] == 'document_pageset') {
-                                let select_options = '';
-                                Object.keys(doc.page_sets).forEach(ps_key => {
-                                    select_options += `<option value="${ps_key}">${doc.page_sets[ps_key].label}</option>`;
-                                });
-
-                                parameter_html = `
-                                    <div class="form-group">
-                                        <label for="${parameter}-ps-selector">${parameters[parameter]['label']}</label>
-                                        <select id="${parameter}-ps-selector" class="form-control" name="${parameter}">
-                                            <option value="none">All Pages</option>
-                                            ${select_options}
-                                        </select>
-                                        ${note_html}
-                                    </div>
-                                `;
-                            } else if (parameters[parameter]['type'] == 'document_file') {
-                                let select_options = '';
-                                Object.keys(doc.files).forEach(file_key => {
-                                    select_options += `<option value="${file_key}">${doc.files[file_key].basename}</option>`;
-                                });
-
-                                parameter_html = `
-                                    <div class="form-group">
-                                        <label for="${parameter}-file-selector">${parameters[parameter]['label']}</label>
-                                        <select id="${parameter}-file-selector" class="form-control" name="${parameter}">
-                                            ${select_options}
-                                        </select>
-                                        ${note_html}
-                                    </div>
-                                `;
-                            } else if (parameters[parameter]['type'] === 'text') {
-                                parameter_html = `
-                                    <div class="form-group">
-                                        <label for="${parameter}-text-box">${parameters[parameter]['label']}</label>
-                                        <input type="text" class="form-control" id="${parameter}-text-box" name="${parameter}" />
-                                        ${note_html}
-                                    </div>
-                                `;
-                            }
-
-                            $(`#${modal}-task-parameters-div`).append(parameter_html);
-                        }
-                    }
-                }
-            }
-        }
-
-        function view_job_report(job_id) {
-            $('#job-report-modal').modal();
-            $('#job-report-modal').on('hidden.bs.modal', function (e) {
-                clearTimeout(job_report_timer);
-            })
-            load_job_report(job_id);
-        }
-
-        function load_job_report(job_id) {
-            let no_cache_string = Math.random().toString(36).substring(7);
-            let report_url = `/corpus/${corpus_id}/get-file/?path=job_reports/${job_id}.txt&no-cache=${no_cache_string}`;
-            let report_div = $('#job-report-div');
-
-            report_div.load(report_url, function() {
-                report_div.scrollTop(report_div[0].scrollHeight);
-
-                if (!report_div.html().includes('CORPORA JOB COMPLETE')) {
-                    job_report_timer = setTimeout(load_job_report.bind(null, job_id), 10000);
-                }
-            });
-        }
-
-        function get_task_name(task_id) {
-            let name = "Unknown Task";
-            tasks.forEach(task => {
-                if (_id(task) == task_id) {
-                    name = task['name'];
-                }
-            });
-            return name;
+            )
         }
 
         // FILE UPLOAD FUNCTIONALITY
         function upload_file(path='', filter='', select='file') {
             corpora.get_content_files(corpus_id, 'Document', document_id, path, filter, function (data) {
-                file_upload_path = path;
+                file_upload_path = path
 
-                let url = `/api/corpus/${corpus_id}/Document/${document_id}/files/`;
+                let url = `/api/corpus/${corpus_id}/Document/${document_id}/files/`
 
                 import_document_file_pond.setOptions({
                     server: {
@@ -1877,19 +1589,19 @@
                         fetch: null,
                         revert: null
                     }
-                });
-                import_document_file_pond.removeFiles();
-                file_uploads = [];
+                })
+                import_document_file_pond.removeFiles()
+                file_uploads = []
 
-                $('#file-upload-modal-table-body').html('');
-                $('#file-upload-modal-table-header').html(path + '/');
+                $('#file-upload-modal-table-body').html('')
+                $('#file-upload-modal-table-header').html(path + '/')
                 if (path) {
-                    let up_directory = '/' + path.split('/').slice(1, -1).join('/');
+                    let up_directory = '/' + path.split('/').slice(1, -1).join('/')
                     if (up_directory === '/') { up_directory = ''; }
                     if (select === 'file') {
-                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`);
+                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`)
                     } else {
-                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}', '', 'dir');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`);
+                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}', '', 'dir');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`)
                     }
                 }
                 for (let x = 0; x < data.length; x++) {
@@ -1897,44 +1609,44 @@
                         if (data[x].type === 'file') {
                             $('#file-upload-modal-table-body').append(`
                                 <tr><td>${data[x].filename}</td></tr>
-                            `);
+                            `)
                         } else {
                             $('#file-upload-modal-table-body').append(`
                                 <tr><td><span class="fas fa-folder-open"></span> ${data[x].filename} <a class="btn btn-sm btn-primary text-white float-right" role="button" href="javascript:upload_file('${data[x].path}');">Browse</a></td></tr>
-                            `);
+                            `)
                         }
                     } else {
                         if (data[x].type === 'dir') {
                             $('#file-upload-modal-table-body').append(`
                                 <tr><td><span class="fas fa-folder-open"></span> <a href="javascript:handle_file_upload('${data[x].path}', '');">${data[x].filename}</a> <a class="btn btn-sm btn-primary text-white float-right" role="button" href="javascript:upload_file(file_upload_input_id, '${data[x].path}', '', 'dir');">Browse</a></td></tr>
-                            `);
+                            `)
                         }
                     }
                 }
 
-                $('#file-upload-modal').modal();
-            });
+                $('#file-upload-modal').modal()
+            })
         }
 
         function handle_folder_creation() {
-            let dirname = pep8_variable_format($('#file-upload-modal-new-folder-box').val());
+            let dirname = pep8_variable_format($('#file-upload-modal-new-folder-box').val())
             corpora.make_content_file_dir(corpus_id, 'Document', document_id, file_upload_path, dirname, function() {
-                $('#file-upload-modal-new-folder-box').val('');
-                upload_file(path=file_upload_path);
-            });
+                $('#file-upload-modal-new-folder-box').val('')
+                upload_file(path=file_upload_path)
+            })
         }
 
         $('#file-upload-reset-button').click(function() {
-            let import_button = $('#file-upload-import-button');
+            let import_button = $('#file-upload-import-button')
 
-            import_files = [];
-            import_button.html('Import');
-            import_button.attr('disabled', true);
-        });
+            import_files = []
+            import_button.html('Import')
+            import_button.attr('disabled', true)
+        })
 
         $('#file-upload-import-button').click(function() {
-            $('#import-document-files').val(JSON.stringify(import_files));
-            $('#import-document-files-form').submit();
-        });
+            $('#import-document-files').val(JSON.stringify(import_files))
+            $('#import-document-files-form').submit()
+        })
     </script>
 {% endblock %}

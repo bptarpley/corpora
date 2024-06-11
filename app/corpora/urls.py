@@ -49,6 +49,8 @@ urlpatterns += [
     path('api/tasks/<str:content_type>/', manager_views.api_tasks),
     path('api/jobs/', manager_views.api_jobs),
     path('api/jobs/corpus/<str:corpus_id>/', manager_views.api_jobs),
+    path('api/jobs/corpus/<str:corpus_id>/submit/', manager_views.api_submit_jobs),
+    path('api/jobs/corpus/<str:corpus_id>/job/<str:job_id>/', manager_views.api_job),
     path('api/jobs/corpus/<str:corpus_id>/<str:content_type>/', manager_views.api_jobs),
     path('api/jobs/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/', manager_views.api_jobs),
 
@@ -58,7 +60,6 @@ urlpatterns += [
 
     path('api/corpus/', manager_views.api_corpora),
     path('api/corpus/<str:corpus_id>/', manager_views.api_corpus),
-    path('api/corpus/<str:corpus_id>/jobs/', manager_views.api_corpus_jobs),
     path('api/corpus/<str:corpus_id>/files/', manager_views.api_content_files),
     path('api/corpus/<str:corpus_id>/content-view/', manager_views.api_content_view),
     path('api/corpus/<str:corpus_id>/content-view/<str:content_view_id>/', manager_views.api_content_view),
@@ -68,7 +69,7 @@ urlpatterns += [
     path('api/corpus/<str:corpus_id>/<str:content_type>/suggest/', manager_views.api_suggest),
     path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/', manager_views.api_content),
     path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/files/', manager_views.api_content_files),
-    path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/jobs/', manager_views.api_content_jobs),
     path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/network-json/', manager_views.api_network_json),
-    path('api/scholar/preference/<str:content_type>/<str:preference>/', manager_views.api_scholar_preference)
+    path('api/scholar/preference/<str:content_type>/<str:preference>/', manager_views.api_scholar_preference),
+    path('api/publish/<str:corpus_id>/<str:message_type>/', manager_views.api_publish),
 ]

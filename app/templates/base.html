@@ -17,6 +17,7 @@
         <link href="{% static 'css/fontawesome.min.css' %}" rel="stylesheet">
         <link href="{% static 'css/regular.min.css' %}" rel="stylesheet">
         <link href="{% static 'css/solid.min.css' %}" rel="stylesheet">
+        <link href="{% static 'css/toastify.min.css' %}" rel="stylesheet">
         <link href="{% static 'css/corpora.css' %}" rel="stylesheet">
         {% block css %}
         {% endblock %}
@@ -95,9 +96,15 @@
         <script src="{% static 'js/jquery-3.3.1.min.js' %}"></script>
         <script src="{% static 'js/popper.min.js' %}"></script>
         <script src="{% static 'js/bootstrap.min.js' %}"></script>
-        <script src="{% static 'js/corpora.js' %}?version=1"></script>
+        <script src="{% static 'js/corpora.js' %}"></script>
+        <script src="{% static 'django_eventstream/eventsource.min.js' %}"></script>
+        <script src="{% static 'django_eventstream/reconnecting-eventsource.js' %}"></script>
+        <script src="{% static 'js/toastify-js.js' %}"></script>
+
         <script type="application/javascript">
-            var corpora = null;
+            var corpora = null
+            var corpora_event_source = null
+            var scholar_id = "{{ response.scholar.id }}"
             var main_container = $('#main-container');
 
             function hide_loading_overlay() {
@@ -131,19 +138,8 @@
                 return properties.reduce((prev, curr) => prev && prev[curr], obj);
             }
 
-            function _id(obj) {
-                if (obj.hasOwnProperty("_id") && obj['_id'].hasOwnProperty("$oid")) {
-                    return obj['_id']['$oid'];
-                }
-                else { return ""; }
-            }
-
-            function parseMongoDate(utcMilliseconds) {
-                return new Date(utcMilliseconds).toLocaleDateString();
-            }
-
             $(document).ready(function() {
-                corpora = new Corpora({'csrf_token': "{{ csrf_token }}"});
+                corpora = new Corpora({'csrf_token': "{{ csrf_token }}"})
 
                 let set_min_height = {% if popup %}false{% else %}true{% endif %};
                 if (window.location !== window.parent.location) set_min_height = false;

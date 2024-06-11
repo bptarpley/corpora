@@ -149,6 +149,14 @@
                     </div>
                 `;
             },
+            timespan: function(field, value) {
+                console.log(value)
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${corpora.timespan_string(value)}
+                    </div>
+                `;
+            },
             file: function(field, value) {
                 return `
                     <div class="col-10 d-flex align-left field-value ${field.type}-value">
@@ -249,6 +257,7 @@
                         // INITIAL EXPLORE VIZ LOAD
                         let explore_container_width = $('#content-nav-tabs').innerWidth();
                         $('#explore-div').css("width", `${explore_container_width}px`);
+                        $('#explore-div').css("height", `80vh`);
                         network = new ContentGraph(
                             corpora,
                             corpus_data,
@@ -258,7 +267,7 @@
                                 'seeds': [content.uri],
                                 'per_type_limit': 5,
                                 'width': explore_container_width,
-                                'height': 800
+                                'height': '90vh'
                             }
                         );
                         $('#explore-tab').removeClass('disabled');

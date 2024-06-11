@@ -83,12 +83,17 @@
                                         <td class="export-path"
                                             data-export-path="{{ export.path }}"
                                             data-export-id="{{ export.id }}"></td>
-                                        <td>{{ export.created }}</td>
+                                        <td class="export-time-string">{{ export.created }}</td>
                                         <td>
                                             {% if export.status == "restoring" %}
                                                 <div class="alert alert-secondary">
                                                     Currently Restoring
                                                 </div>
+                                                <button type="button"
+                                                        class="btn btn-danger cancel-restore-button"
+                                                        data-export-id="{{ export.id }}">
+                                                    Cancel Restore
+                                                </button>
                                             {% else %}
                                                 <button type="button"
                                                         class="btn btn-secondary restore-button"
@@ -171,12 +176,17 @@
         });
 
         $(document).ready(function() {
+            $('.export-time-string').each(function() {
+                let cell = $(this)
+                cell.html(corpora.time_string(cell.html()))
+            })
+
             let corpus_search = {
                 q: '*',
                 page: 1,
                 'page-size': 1000,
                 's_name.raw': 'asc'
-            };
+            }
             corpora.get_corpora(corpus_search, function(corpora_data) {
                 if (corpora_data.hasOwnProperty('records')) {
                     corpora_data.records.forEach(corpus => {
@@ -213,6 +223,20 @@
                                 }
                             );
                         }
+                    });
+
+                    $('.cancel-restore-button').click(function() {
+                        let export_id = $(this).data('export-id');
+                        let export_corpus_id = $(this).data('export-corpus-id');
+
+                        confirm(
+                            'Cancel Corpus Restore?',
+                            'Canceling will not stop the restore process from happening. If, however, the Corpora service was rebooted during a restore, for instance, cancelling it will allow you to start it again once the incomplete corpus is deleted.',
+                            {
+                                'export-action': 'cancel-restore',
+                                'export-id': export_id
+                            }
+                        );
                     });
 
                     $('.delete-button').click(function() {

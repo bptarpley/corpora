@@ -15,12 +15,12 @@ from huey.contrib.djhuey import db_task, db_periodic_task
 from huey import crontab
 from bson.objectid import ObjectId
 from django.conf import settings
-from django.utils.http import urlquote
+from urllib.parse import quote
 from elasticsearch_dsl.connections import get_connection
 from PIL import Image
 from datetime import datetime
 from subprocess import call
-from manager.utilities import _contains, build_search_params_from_dict, order_content_schema, process_content_bundle
+from manager.utilities import _contains, build_search_params_from_dict, order_content_schema, process_content_bundle, publish_message
 from django.utils.text import slugify
 from zipfile import ZipFile
 
@@ -304,7 +304,7 @@ REGISTRY = {
         "functions": ['convert_foreign_key_to_xref']
     },
     "Pull Corpus Repo": {
-        "version": "0.0",
+        "version": "0.1",
         "jobsite_type": "HUEY",
         "track_provenance": False,
         "content_type": "Corpus",
@@ -314,6 +314,18 @@ REGISTRY = {
                     "value": "",
                     "type": "text",
                     "label": "Repo Name",
+                },
+                "repo_user": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Repo User",
+                    "note": "Optional"
+                },
+                "repo_pwd": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Repo Password",
+                    "note": "Optional"
                 },
             },
         },
@@ -692,6 +704,21 @@ def adjust_content_slice(corpus, content_type, start, end, reindex, relabel, res
 
 
 @db_task(priority=5)
+def scrub_all_provenance():
+    corpora = Corpus.objects()
+    for corpus in corpora:
+        corpus.provenance = []
+        corpus.save()
+
+        for content_type in corpus.content_types.keys():
+            contents = corpus.get_content(content_type, {"provenance__exists": True, "provenance__not__size": 0}).no_cache()
+            contents = contents.batch_size(10)
+            for content in contents:
+                content.provenance = []
+                content.save()
+
+
+@db_task(priority=5)
 def delete_content_type(job_id):
     job = Job(job_id)
     job.set_status('running')
@@ -954,9 +981,12 @@ def pull_repo(job_id):
     job = Job(job_id)
     job.set_status('running')
     repo_name = job.get_param_value('repo_name')
+    repo_user = job.get_param_value('repo_user')
+    repo_pwd = job.get_param_value('repo_pwd')
+
     if repo_name in job.corpus.repos:
         try:
-            job.corpus.repos[repo_name].pull(job.corpus)
+            job.corpus.repos[repo_name].pull(job.corpus, repo_user, repo_pwd)
         except:
             job.corpus.repos[repo_name].error = True
             job.corpus.save()
@@ -1018,8 +1048,11 @@ def audit_content_views():
 @db_periodic_task(crontab(minute=1, hour='*'), priority=4)
 def content_deletion_cleanup():
     corpora = {}
+    reindex_cts = []
     deletions = ContentDeletion.objects()
     for deletion in deletions:
+        deletion_handled = True
+
         if deletion.uri:
 
             del_corpus_id = deletion.corpus_id
@@ -1051,15 +1084,41 @@ def content_deletion_cleanup():
                                 new_value = getattr(reffing_content, reffing_field.name)
                                 new_value = [ref for ref in new_value if not str(ref.id) == del_content_id]
                             setattr(reffing_content, reffing_field.name, new_value)
-                            reffing_content.save()
-                            refs_deleted += 1
 
-            print('Removed {0} references to deleted content {1}'.format(refs_deleted, deletion.uri))
+                            try:
+                                reffing_content.save(do_indexing=False, do_linking=False)
+                                refs_deleted += 1
 
-        if deletion.path and os.path.exists(deletion.path):
-            shutil.rmtree(deletion.path)
+                                reindex_ct = f"{del_corpus_id}_{reffing_ct}"
+                                if reindex_ct not in reindex_cts:
+                                    reindex_cts.append(reindex_ct)
+                            except:
+                                caught_error = traceback.format_exc()
+                                if "Tried to save duplicate unique keys" in caught_error:
+                                    reffing_content.delete()
+                                    refs_deleted += 1
+                                else:
+                                    print(caught_error)
+                                    deletion_handled = False
 
-        deletion.delete()
+                print('Removed {0} references to deleted content {1}'.format(refs_deleted, deletion.uri))
+
+        if deletion_handled:
+            if deletion.path and os.path.exists(deletion.path):
+                shutil.rmtree(deletion.path)
+
+            deletion.delete()
+
+    for reindex_ct in reindex_cts:
+        reindex_ct_parts = reindex_ct.split('_')
+        if reindex_ct_parts[0] in corpora:
+            corpora[reindex_ct_parts[0]].queue_local_job(task_name="Adjust Content", parameters={
+                'content_type': reindex_ct_parts[1],
+                'reindex': True,
+                'relabel': True,
+                'resave': False,
+                'related_content_types': ''
+            })
 
 
 @db_task(priority=3)
@@ -1268,6 +1327,10 @@ def restore_corpus(export_id):
                                         # Execute command and check return code
                                         if call(command) == 0:
                                             print("Collection {0} successfully restored :)".format(collection))
+                                            if foreign_import:
+                                                db = corpus._get_db()
+                                                db[collection].update_many({}, {'$set': {'provenance': []}})
+
                                             adjust_content_slice(corpus, ct_name, None, None, True, True, True, True, foreign_import)
                                         else:
                                             print("Error restoring collection {0}! Halting restore.".format(collection))
@@ -1301,7 +1364,7 @@ def make_mongo_uri():
     uri_invalid_chars = ":/?#[]@"
     escaped_pwd = settings.MONGO_PWD
     for invalid_char in uri_invalid_chars:
-        escaped_pwd = escaped_pwd.replace(invalid_char, urlquote(invalid_char))
+        escaped_pwd = escaped_pwd.replace(invalid_char, quote(invalid_char))
 
     return "mongodb://{user}:{pwd}@{host}:27017/{db}?authSource={auth_source}".format(
         user=settings.MONGO_USER,

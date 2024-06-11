@@ -11,6 +11,7 @@ import redis
 import requests
 import git
 import re
+import calendar
 from math import ceil
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -28,7 +29,7 @@ from django.template import Template, Context
 from .language_settings import REGISTRY as lang_settings
 
 
-FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'file', 'repo', 'link', 'iiif-image', 'geo_point', 'cross_reference', 'embedded')
+FIELD_TYPES = ('text', 'large_text', 'keyword', 'html', 'choice', 'number', 'decimal', 'boolean', 'date', 'timespan', 'file', 'repo', 'link', 'iiif-image', 'geo_point', 'cross_reference', 'embedded')
 FIELD_LANGUAGES = {
     'arabic': "Arabic", 'armenian': "Armenian", 'basque': "Basque", 'bengali': "Bengali", 'brazilian': "Brazilian",
     'bulgarian': "Bulgarian", 'catalan': "Catalan", 'cjk': "CJK", 'czech': "Czech", 'danish': "Danish", 'dutch': "Dutch",
@@ -96,7 +97,7 @@ class Field(mongoengine.EmbeddedDocument):
                 return value_dict
             elif self.type == 'repo':
                 return value.to_dict()
-            elif self.type in ['embedded', 'file']:
+            elif self.type in ['embedded', 'file', 'timespan']:
                 return value.to_dict(parent_uri)
             elif self.type == 'geo_point':
                 return value['coordinates']
@@ -127,6 +128,8 @@ class Field(mongoengine.EmbeddedDocument):
             return mongoengine.EmbeddedDocumentField(File)
         elif self.type == 'repo':
             return mongoengine.EmbeddedDocumentField(GitRepo)
+        elif self.type == 'timespan':
+            return mongoengine.EmbeddedDocumentField(Timespan, default=Timespan)
         elif self.type == 'geo_point':
             return mongoengine.PointField()
         elif self.type != 'cross_reference':
@@ -309,189 +312,127 @@ class JobSite(mongoengine.Document):
         )
 
 
+class Process(mongoengine.EmbeddedDocument):
+    id = mongoengine.StringField()
+    status = mongoengine.StringField()
+    created = mongoengine.DateTimeField(default=datetime.now())
+
+
 class Job(object):
-    def __init__(self, id=None):
-        if id:
-            self._load(id)
-        else:
-            self.id = None
-            self.corpus_id = None
-            self.content_type = None
-            self.content_id = None
-            self.task_id = None
-            self.jobsite_id = None
-            self.scholar_id = None
-            self.submitted_time = None
-            self.status = None
-            self.status_time = None
-            self.report_path = None
-            self.stage = 0
-            self.timeout = 0
-            self.tries = 0
-            self.error = ""
-            self.configuration = {}
-            self.percent_complete = 0
+    def __new__(cls, job_id=None):
+        if job_id:
+            return JobTracker.objects(id=job_id)[0]
+        return JobTracker()
 
-    def _load(self, id):
-        results = run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri })
-                return j
-            ''',
-            {
-                'job_uri': "/job/{0}".format(id)
+    @staticmethod
+    def setup_retry_for_completed_task(corpus, scholar, content_type, content_id, completed_task):
+        task_matches = Task.objects.filter(name=completed_task.task_name, version=completed_task.task_version)
+        if task_matches.count() == 1:
+            task = task_matches[0]
+            local_jobsite = JobSite.objects(name='Local')[0]
+
+            j = Job()
+            j.id = completed_task.job_id
+            j.corpus = corpus
+            j.content_type = content_type
+            j.content_id = content_id
+            j.task_id = str(task.id)
+            j.jobsite = local_jobsite
+            j.scholar = scholar
+            j.configuration = deepcopy(completed_task.task_configuration)
+            j.status = 'preparing'
+            j.save()
+            return j
+
+        return None
+
+    @staticmethod
+    def get_jobs(corpus_id=None, content_type=None, content_id=None, count_only=False, limit=None, skip=0):
+        jobs = JobTracker.objects()
+        if corpus_id:
+            jobs = jobs.filter(corpus=corpus_id)
+
+            if content_type:
+                jobs = jobs.filter(content_type=content_type)
+
+                if content_id:
+                    jobs = jobs.filter(content_id=content_id)
+
+        if count_only:
+            counts = {
+                'total': jobs.count(),
+                'by_status': {},
+                'by_task': {},
             }
-        )
-        if len(results) == 1 and 'j' in results[0].keys():
-            self._load_from_result(results[0]['j'])
 
-    def _load_from_result(self, result):
-        self.id = result['uri'].replace('/job/', '')
-        self.corpus_id = result['corpus_id']
-        self.content_type = result['content_type']
-        self.content_id = result['content_id']
-        self.task_id = result['task_id']
-        self.jobsite_id = result['jobsite_id']
-        self.scholar_id = result['scholar_id']
-        self.submitted_time = datetime.fromtimestamp(result['submitted_time'])
-        self.status = result['status']
-        self.status_time = datetime.fromtimestamp(result['status_time'])
-        if 'report_path' in result:
-            self.report_path = result['report_path']
-        else:
-            self.report_path = None
-        self.stage = result['stage']
-        self.timeout = result['timeout']
-        self.tries = result['tries']
-        self.error = result['error']
-        if 'percent_complete' in result:
-            self.percent_complete = result['percent_complete']
-        else:
-            self.percent_complete = 0
-        self.configuration = json.loads(result['configuration'])
-
-        # check process completion
-        results = run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri }) -[rel:hasProcess]-> (p:_Process)
-                return p
-            ''',
-            {'job_uri': "/job/{0}".format(self.id)}
-        )
-        if results:
-            processes_created = len(results)
-            processes_completed = 0
-            for proc in results:
-                if proc['p']['status'] == 'complete':
-                    processes_completed += 1
-            if processes_completed > 0:
-                self.percent_complete = int((processes_completed / processes_created) * 100)
-
-    def save(self):
-        if not self.id:
-            self.id = str(ObjectId())
-        if not self.submitted_time:
-            self.submitted_time = datetime.now()
-        if not self.status_time:
-            self.status_time = self.submitted_time
-        if not self.content_id and self.content_type == 'Corpus':
-            run_neo(
-                '''
-                    MATCH (c:Corpus {{ uri: $corpus_uri }})
-                    MERGE (j:_Job {{ uri: $job_uri }})
-                    SET j.corpus_id = $job_corpus_id
-                    SET j.content_type = $job_content_type
-                    SET j.content_id = $job_content_id
-                    SET j.task_id = $job_task_id
-                    SET j.jobsite_id = $job_jobsite_id
-                    SET j.scholar_id = $job_scholar_id
-                    SET j.submitted_time = $job_submitted_time
-                    SET j.status = $job_status
-                    SET j.status_time = $job_status_time
-                    SET j.report_path = $job_report_path
-                    SET j.stage = $job_stage
-                    SET j.timeout = $job_timeout
-                    SET j.tries = $job_tries
-                    SET j.error = $job_error
-                    SET j.percent_complete = $percent_complete
-                    SET j.configuration = $job_configuration
-                    MERGE (c) -[:hasJob]-> (j)
-                '''.format(self.content_type),
-                {
-                    'corpus_uri': "/corpus/{0}".format(self.corpus_id),
-                    'job_uri': "/job/{0}".format(self.id),
-                    'job_corpus_id': self.corpus_id,
-                    'job_content_type': self.content_type,
-                    'job_content_id': self.content_id,
-                    'job_task_id': self.task_id,
-                    'job_jobsite_id': self.jobsite_id,
-                    'job_scholar_id': self.scholar_id,
-                    'job_submitted_time': int(self.submitted_time.timestamp()),
-                    'job_status': self.status,
-                    'job_status_time': int(self.status_time.timestamp()),
-                    'job_report_path': self.report_path,
-                    'job_stage': self.stage,
-                    'job_timeout': self.timeout,
-                    'job_tries': self.tries,
-                    'job_error': self.error,
-                    'percent_complete': self.percent_complete,
-                    'job_configuration': json.dumps(self.configuration)
+            by_status_pipeline = [{"$group": {
+                "_id": "$status",
+                "count": {"$sum": 1}
+            }},
+            {"$group": {
+                "_id": None,
+                "counts": {
+                    "$push": {"k": "$_id", "v": "$count"}
                 }
-            )
-        else:
-            run_neo(
-                '''
-                    MATCH (c:Corpus {{ uri: $corpus_uri }})
-                    MATCH (d:{0} {{ uri: $content_uri }})
-                    MERGE (j:_Job {{ uri: $job_uri }})
-                    SET j.corpus_id = $job_corpus_id
-                    SET j.content_type = $job_content_type
-                    SET j.content_id = $job_content_id
-                    SET j.task_id = $job_task_id
-                    SET j.jobsite_id = $job_jobsite_id
-                    SET j.scholar_id = $job_scholar_id
-                    SET j.submitted_time = $job_submitted_time
-                    SET j.status = $job_status
-                    SET j.status_time = $job_status_time
-                    SET j.report_path = $job_report_path
-                    SET j.stage = $job_stage
-                    SET j.timeout = $job_timeout
-                    SET j.tries = $job_tries
-                    SET j.error = $job_error
-                    SET j.percent_complete = $percent_complete
-                    SET j.configuration = $job_configuration
-                    MERGE (c) -[:hasJob]-> (j) -[:hasJobTarget]-> (d)
-                '''.format(self.content_type),
-                {
-                    'corpus_uri': "/corpus/{0}".format(self.corpus_id),
-                    'content_uri': "/corpus/{0}/{1}/{2}".format(self.corpus_id, self.content_type, self.content_id),
-                    'job_uri': "/job/{0}".format(self.id),
-                    'job_corpus_id': self.corpus_id,
-                    'job_content_type': self.content_type,
-                    'job_content_id': self.content_id,
-                    'job_task_id': self.task_id,
-                    'job_jobsite_id': self.jobsite_id,
-                    'job_scholar_id': self.scholar_id,
-                    'job_submitted_time': int(self.submitted_time.timestamp()),
-                    'job_status': self.status,
-                    'job_status_time': int(self.status_time.timestamp()),
-                    'job_report_path': self.report_path,
-                    'job_stage': self.stage,
-                    'job_timeout': self.timeout,
-                    'job_tries': self.tries,
-                    'job_error': self.error,
-                    'percent_complete': self.percent_complete,
-                    'job_configuration': json.dumps(self.configuration)
-                }
-            )
+            }},
+            {"$replaceRoot": {
+                "newRoot": {"$arrayToObject": "$counts"}
+            }}]
+            counts['by_status'] = [s for s in jobs.aggregate(by_status_pipeline)]
+
+            by_task_pipeline = [{"$group": {
+                "_id": "$task_id",
+                "count": {"$sum": 1}
+            }},
+                {"$group": {
+                    "_id": None,
+                    "counts": {
+                        "$push": {"k": "$_id", "v": "$count"}
+                    }
+                }},
+                {"$replaceRoot": {
+                    "newRoot": {"$arrayToObject": "$counts"}
+                }}]
+            counts['by_task'] = [s for s in jobs.aggregate(by_task_pipeline)]
+
+            return counts
+        elif skip and limit:
+            jobs = jobs[skip:(skip + limit)]
+        elif limit:
+            jobs = jobs[:limit]
+        elif skip:
+            jobs = jobs[skip:]
+
+        return jobs
+
+
+class JobTracker(mongoengine.Document):
+    corpus = mongoengine.ReferenceField('Corpus')
+    content_type = mongoengine.StringField()
+    content_id = mongoengine.StringField()
+    task_id = mongoengine.StringField()
+    jobsite = mongoengine.ReferenceField(JobSite)
+    scholar = mongoengine.ReferenceField('Scholar')
+    submitted_time = mongoengine.DateTimeField(default=datetime.now)
+    status = mongoengine.StringField()
+    status_time = mongoengine.DateTimeField(default=datetime.now)
+    report_path = mongoengine.StringField()
+    stage = mongoengine.IntField(default=0)
+    timeout = mongoengine.IntField()
+    tries = mongoengine.IntField(default=0)
+    error = mongoengine.StringField()
+    configuration = mongoengine.DictField()
+    processes = mongoengine.EmbeddedDocumentListField(Process)
+    percent_complete = mongoengine.IntField(default=0)
 
     def to_dict(self):
         return {
-            'id': self.id,
+            'id': str(self.id),
             'corpus_id': self.corpus_id,
             'content_type': self.content_type,
             'content_id': self.content_id,
             'task_id': self.task_id,
+            'task_name': self.task.name,
             'jobsite_id': self.jobsite_id,
             'scholar_id': self.scholar_id,
             'submitted_time': int(self.submitted_time.timestamp()),
@@ -517,20 +458,16 @@ class Job(object):
         if percent_complete:
             self.percent_complete = percent_complete
 
-        run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri })
-                SET j.status = $job_status
-                SET j.status_time = $job_status_time
-                SET j.percent_complete = $percent_complete
-            ''',
-            {
-                'job_uri': "/job/{0}".format(self.id),
-                'job_status': self.status,
-                'job_status_time': int(self.status_time.timestamp()),
-                'percent_complete': self.percent_complete
-            }
-        )
+        self.save()
+        self.publish_status()
+
+    def publish_status(self):
+        publish_message(self.corpus_id, 'job', {
+            'job_id': self.id,
+            'task_name': self.task.name,
+            'status': self.status,
+            'percent_complete': self.percent_complete,
+        })
 
     def report(self, message, overwrite=False):
         if self.task.create_report and self.report_path:
@@ -542,53 +479,37 @@ class Job(object):
                 report_out.write(message + '\n')
 
     def add_process(self, process_id):
-        run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri })
-                MERGE (p:_Process { uri: $process_uri })
-                SET p.status = 'running'
-                SET p.created = $process_created
-                MERGE (j) -[rel:hasProcess]-> (p)
-            ''',
-            {
-                'job_uri': "/job/{0}".format(self.id),
-                'process_uri': "/job/{0}/process/{1}".format(self.id, process_id),
-                'process_created': int(datetime.now().timestamp())
-            }
-        )
+        p = Process()
+        p.id = process_id
+        p.status = 'running'
+        p.created = datetime.now()
+        self.processes.append(p)
+        self.save()
 
     def complete_process(self, process_id):
-        run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri }) -[rel:hasProcess]-> (p:_Process { uri: $process_uri })
-                SET p.status = 'complete'
-            ''',
-            {
-                'job_uri': "/job/{0}".format(self.id),
-                'process_uri': "/job/{0}/process/{1}".format(self.id, process_id)
-            }
-        )
+        self.reload('processes')
+
+        completed_count = 0
+        for p_index in range(0, len(self.processes)):
+            if self.processes[p_index].id == process_id:
+                self.processes[p_index].status = 'complete'
+                completed_count += 1
+            elif self.processes[p_index].status == 'complete':
+                completed_count += 1
+
+        self.percent_complete = int((completed_count / len(self.processes)) * 100)
+        self.save()
+
+        self.publish_status()
 
     def clear_processes(self):
-        run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri }) -[rel:hasProcess]-> (p:_Process)
-                DETACH DELETE p
-            ''',
-            {'job_uri': "/job/{0}".format(self.id)}
-        )
+        self.processes = []
+        self.save()
 
     def kill(self):
-        results = run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri }) -[rel:hasProcess]-> (p:_Process)
-                return p
-            ''',
-            {'job_uri': "/job/{0}".format(self.id)}
-        )
-        if results:
-            for proc in results:
-                task_id = proc['p']['uri'].split('/')[-1]
+        if self.processes:
+            for proc in self.processes:
+                task_id = proc.id
                 if task_id:
                     try:
                         settings.HUEY.revoke_by_id(task_id)
@@ -596,49 +517,42 @@ class Job(object):
                         print('Attempt to revoke process {0} in Huey task queue failed:'.format(task_id))
                         print(traceback.format_exc())
 
-        run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri })
-                OPTIONAL MATCH (j) -[rel:hasProcess]-> (p)
-                DETACH DELETE j, p
-            ''',
-            {
-                'job_uri': '/job/{0}'.format(self.id)
-            }
-        )
+        self.delete()
 
     @property
-    def corpus(self):
-        if not hasattr(self, '_corpus'):
-            self._corpus = Corpus.objects(id=self.corpus_id)[0]
-        return self._corpus
+    def corpus_id(self):
+        if self.corpus:
+            return str(self.corpus.id)
+        return None
 
     @property
     def content(self):
+        if self.content_type == 'Corpus':
+            return self.corpus
         if not hasattr(self, '_content'):
-            if self.content_type == 'Corpus':
-                return self.corpus
-            else:
-                self._content = self.corpus.get_content(self.content_type, self.content_id)
+            self._content = self.corpus.get_content(self.content_type, self.content_id)
         return self._content
 
     @property
     def task(self):
         if not hasattr(self, '_task'):
-            self._task = Task.objects(id=self.task_id)[0]
+            try:
+                self._task = Task.objects(id=self.task_id)[0]
+            except:
+                self._task = None
         return self._task
 
     @property
-    def jobsite(self):
-        if not hasattr(self, '_jobsite'):
-            self._jobsite = JobSite.objects(id=self.jobsite_id)[0]
-        return self._jobsite
+    def jobsite_id(self):
+        if self.jobsite:
+            return str(self.jobsite.id)
+        return None
 
     @property
-    def scholar(self):
-        if not hasattr(self, '_scholar'):
-            self._scholar = Scholar.objects(id=self.scholar_id)[0]
-        return self._scholar
+    def scholar_id(self):
+        if self.scholar:
+            return str(self.scholar.id)
+        return None
 
     def complete(self, status=None, error_msg=None):
         if status:
@@ -652,12 +566,11 @@ class Job(object):
 
         if self.task.track_provenance:
             ct = CompletedTask()
-            ct.job_id = self.id
-            ct.task = self.task.id
+            ct.job_id = str(self.id)
+            ct.task_name = self.task.name
             ct.task_version = self.task.version
             ct.task_configuration = deepcopy(self.configuration)
-            ct.jobsite = ObjectId(self.jobsite_id)
-            ct.scholar = ObjectId(self.scholar_id)
+            ct.scholar_name = f"{self.scholar.fname} {self.scholar.lname} ({self.scholar.username})".strip()
             ct.submitted = self.submitted_time
             ct.completed = self.status_time
             ct.report_path = self.report_path
@@ -667,92 +580,8 @@ class Job(object):
             self.content.provenance.append(ct)
             self.content.save()
 
-        run_neo(
-            '''
-                MATCH (j:_Job { uri: $job_uri })
-                OPTIONAL MATCH (j) -[rel:hasProcess]-> (p)
-                DETACH DELETE j, p
-            ''',
-            {
-                'job_uri': '/job/{0}'.format(self.id)
-            }
-        )
-
-    @staticmethod
-    def setup_retry_for_completed_task(corpus_id, content_type, content_id, completed_task):
-        j = Job()
-        j.id = completed_task.job_id
-        j.corpus_id = corpus_id
-        j.content_type = content_type
-        j.content_id = content_id
-        j.task_id = str(completed_task.task.id)
-        j.jobsite_id = str(completed_task.jobsite.id)
-        j.scholar_id = str(completed_task.scholar.id)
-        j.configuration = deepcopy(completed_task.task_configuration)
-        j.status = 'preparing'
-        j.save()
-        return j
-
-    @staticmethod
-    def get_jobs(corpus_id=None, content_type=None, content_id=None, count_only=False, limit=None, skip=0):
-        jobs = []
-        results = None
-
-        return_statement = "RETURN j"
-        if count_only:
-            return_statement = "RETURN count(j) as job_count"
-        elif limit:
-            return_statement += " SKIP {0} LIMIT {1}".format(skip, limit)
-
-        if not corpus_id and not content_type and not content_id:
-            results = run_neo(
-                '''
-                    MATCH (j:_Job)
-                    {0}
-                '''.format(return_statement), {}
-            )
-        elif corpus_id and not content_type:
-            results = run_neo(
-                '''
-                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[rel:hasJob]-> (j:_Job)
-                    {0}
-                '''.format(return_statement),
-                {
-                    'corpus_uri': "/corpus/{0}".format(corpus_id)
-                }
-            )
-        elif corpus_id and content_type and not content_id:
-            results = run_neo(
-                '''
-                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:_Job) -[:hasJobTarget]-> (d:{0})
-                    {1}
-                '''.format(content_type, return_statement),
-                {
-                    'corpus_uri': "/corpus/{0}".format(corpus_id)
-                }
-            )
-        elif corpus_id and content_type and content_id:
-            results = run_neo(
-                '''
-                    MATCH (c:Corpus {{ uri: $corpus_uri }}) -[:hasJob]-> (j:_Job) -[:hasJobTarget]-> (d:{0} {{ uri: $content_uri }})
-                    {1}
-                '''.format(content_type, return_statement),
-                {
-                    'corpus_uri': "/corpus/{0}".format(corpus_id),
-                    'content_uri': "/corpus/{0}/{1}/{2}".format(corpus_id, content_type, content_id)
-                }
-            )
-
-        if results:
-            if count_only:
-                return results[0]['job_count']
-
-            for result in results:
-                j = Job()
-                j._load_from_result(result['j'])
-                jobs.append(j)
-
-        return jobs
+        self.publish_status()
+        self.delete()
 
 
 class Scholar(mongoengine.Document):
@@ -841,6 +670,40 @@ class Scholar(mongoengine.Document):
                 'value': value
             }
         )
+        
+    def to_dict(self):
+        scholar_dict = {
+            'username': self.username,
+            'fname': self.fname,
+            'lname': self.lname,
+            'email': self.email,
+            'is_admin': self.is_admin,
+            'available_corpora': {},
+
+        }
+        if self.is_admin:
+            for corpus in Corpus.objects:
+                scholar_dict['available_corpora'][str(corpus.id)] = {
+                    'name': corpus.name,
+                    'role': 'Admin'
+                }
+
+            scholar_dict['available_jobsites'] = [str(js.id) for js in JobSite.objects]
+            scholar_dict['available_tasks'] = [str(task.id) for task in Task.objects]
+
+        else:
+            if self.available_corpora:
+                corpora = Corpus.objects(id__in=list(self.available_corpora.keys())).only('id', 'name')
+                for corpus in corpora:
+                    scholar_dict['available_corpora'][str(corpus.id)] = {
+                        'name': corpus.name,
+                        'role': self.available_corpora[str(corpus.id)]
+                    }
+
+            scholar_dict['available_jobsites'] = [str(js.id) for js in self.available_jobsites]
+            scholar_dict['available_tasks'] = [str(task.id) for task in self.available_tasks]
+
+        return scholar_dict
 
     @classmethod
     def _post_delete(cls, sender, document, **kwargs):
@@ -861,11 +724,10 @@ class Scholar(mongoengine.Document):
 
 class CompletedTask(mongoengine.EmbeddedDocument):
     job_id = mongoengine.StringField()
-    task = mongoengine.ReferenceField(Task)
+    task_name = mongoengine.StringField()
     task_version = mongoengine.StringField()
     task_configuration = mongoengine.DictField()
-    jobsite = mongoengine.ReferenceField(JobSite)
-    scholar = mongoengine.ReferenceField(Scholar)
+    scholar_name = mongoengine.StringField()
     submitted = mongoengine.DateTimeField()
     completed = mongoengine.DateTimeField()
     status = mongoengine.StringField()
@@ -875,51 +737,30 @@ class CompletedTask(mongoengine.EmbeddedDocument):
     @classmethod
     def from_dict(cls, prov_info):
         prov = CompletedTask()
-        valid = True
-        for attr in ['job_id', 'task_configuration', 'status', 'report_path', 'error']:
+        for attr in [
+            'job_id',
+            'task_name',
+            'task_version',
+            'task_configuration',
+            'scholar_name',
+            'submitted',
+            'completed',
+            'status',
+            'report_path',
+            'error'
+        ]:
             if attr in prov_info:
                 setattr(prov, attr, prov_info[attr])
-            else:
-                valid = False
 
-        if valid:
-            if 'task_id' in prov_info and 'jobsite_id' in prov_info and 'scholar_id' in prov_info and 'submitted' in prov_info and 'completed' in prov_info:
-                try:
-                    task = Task.objects(id=prov_info['task_id'])[0]
-                    prov.task = task
-
-                    if 'task_version' in prov_info:
-                        prov.task_version = prov_info['task_version']
-
-                    jobsite = JobSite.objects(id=prov_info['jobsite_id'])[0]
-                    prov.jobsite = jobsite
-
-                    scholar = Scholar.objects(id=prov_info['scholar_id'])[0]
-                    prov.scholar = scholar
-
-                    prov.submitted = datetime.fromtimestamp(prov_info['submitted'])
-                    prov.completed = datetime.fromtimestamp(prov_info['completed'])
-                except:
-                    print(traceback.format_exc())
-                    valid = False
-            else:
-                valid = False
-
-        if valid:
-            return prov
-
-        return None
+        return prov
 
     def to_dict(self):
         return {
             'job_id': self.job_id,
-            'task_id': str(self.task.id),
-            'task_name': str(self.task.name),
+            'task_name': self.task_name,
             'task_version': self.task_version,
             'task_configuration': deepcopy(self.task_configuration),
-            'jobsite_id': str(self.jobsite.id),
-            'scholar_id': str(self.scholar.id),
-            'scholar_name': "{0} {1}".format(self.scholar.fname, self.scholar.lname),
+            'scholar_name': self.scholar_name,
             'submitted': int(self.submitted.timestamp()),
             'completed': int(self.completed.timestamp()),
             'status': self.status,
@@ -1220,6 +1061,51 @@ class File(mongoengine.EmbeddedDocument):
         }
 
 
+class Timespan(mongoengine.EmbeddedDocument):
+    start = mongoengine.DateTimeField()
+    end = mongoengine.DateTimeField()
+    uncertain = mongoengine.BooleanField(default=False)
+    granularity = mongoengine.StringField(choices=('Year', 'Month', 'Day', 'Time'))
+
+    def normalize(self):
+        if self.start and self.granularity and self.granularity not in ['Time']:
+            start_year = self.start.year
+            start_month = self.start.month
+            start_day = self.start.day
+
+            end_year = self.end.year if self.end else start_year
+            end_month = self.end.month if self.end else start_month
+            end_day = self.end.day if self.end else start_day
+
+            if self.granularity in ['Month', 'Year']:
+                start_day = 1
+
+                if self.granularity == 'Year':
+                    start_month = 1
+                    end_month = 12
+
+                end_day = calendar.monthrange(end_year, end_month)[1]
+
+            self.start = parse_date_string(f"{start_year}-{start_month}-{start_day} 00:00")
+            self.end = parse_date_string(f"{end_year}-{end_month}-{end_day} 23:59")
+
+    def to_dict(self, parent_uri=None):
+        start_dt = None
+        if self.start:
+            start_dt = self.start.isoformat()
+
+        end_dt = None
+        if self.end:
+            end_dt = self.end.isoformat()
+
+        return {
+            'start': start_dt,
+            'end': end_dt,
+            'uncertain': self.uncertain,
+            'granularity': self.granularity
+        }
+
+
 class GitRepo(mongoengine.EmbeddedDocument):
 
     name = mongoengine.StringField()
@@ -1229,7 +1115,7 @@ class GitRepo(mongoengine.EmbeddedDocument):
     last_pull = mongoengine.DateTimeField()
     error = mongoengine.BooleanField(default=False)
 
-    def pull(self, parent):
+    def pull(self, parent, username=None, password=None):
         if self.path and self.remote_url and self.remote_branch:
             repo = None
 
@@ -1237,7 +1123,12 @@ class GitRepo(mongoengine.EmbeddedDocument):
             if not os.path.exists(self.path):
                 os.makedirs(self.path)
                 repo = git.Repo.init(self.path)
-                origin = repo.create_remote('origin', self.remote_url)
+
+                url = self.remote_url
+                if username and password and 'https://' in url:
+                    url = url.replace('https://', f'https://{username}:{password}@')
+
+                origin = repo.create_remote('origin', url)
                 assert origin.exists()
                 assert origin == repo.remotes.origin == repo.remotes['origin']
                 origin.fetch()
@@ -1356,6 +1247,7 @@ class Corpus(mongoengine.Document):
                 content = self.get_content(content_type)
                 content.from_dict(fields)
                 content.save()
+                content._newly_created = True
 
                 if cache_key:
                     self.redis_cache.set(cache_key, str(content.id), ex=settings.REDIS_CACHE_EXPIRY_SECONDS)
@@ -1465,6 +1357,7 @@ class Corpus(mongoengine.Document):
             only=[],
             excludes=[],
             content_view=None,
+            grouped_searches=[],
             operator="and",
             highlight_num_fragments=5,
             highlight_fragment_size=100,
@@ -1472,7 +1365,8 @@ class Corpus(mongoengine.Document):
             aggregations={},
             next_page_token=None,
             es_debug=False,
-            es_debug_query=False
+            es_debug_query=False,
+            generate_query_only=False
     ):
         results = {
             'meta': {
@@ -1488,6 +1382,7 @@ class Corpus(mongoengine.Document):
         }
 
         if content_type in self.content_types:
+
             start_index = (page - 1) * page_size
             end_index = page * page_size
 
@@ -1502,94 +1397,22 @@ class Corpus(mongoengine.Document):
             must_not = []
             filter = []
 
-            # GENERAL QUERY
-            if general_query:
+            if grouped_searches:
+                for grouped_search_params in grouped_searches:
+                    grouped_search_params['generate_query_only'] = True
+                    grouped_search = self.search_content(
+                        content_type=content_type,
+                        **grouped_search_params
+                    )
 
-                # Since we want the general query to search all fields (including nested ones),
-                # we need to break out nested fields from top level ones so we can search them.
-                # We must also separate out date fields since they need to be treated differently.
+                    if grouped_search:
+                        if operator == 'and':
+                            must.append(grouped_search)
+                        elif operator == 'or':
+                            should.append(grouped_search)
 
-                top_fields = []
-                date_fields = []
-                nested_fields = []
-                general_queries = []
-                final_query = None
+            # HELPER FUNCTIONS
 
-                if general_query == '*':
-                    final_query = SimpleQueryString(query=general_query)
-                else:
-                    # determine what kinds of fields this search is eligible for
-                    valid_field_types = ['text', 'large_text', 'keyword', 'html']
-
-                    # try numeric
-                    if general_query.isdecimal():
-                        valid_field_types += ['number', 'decimal']
-                    elif general_query.replace('.', '').isdecimal():
-                        valid_field_types.append('decimal')
-
-                    # try date
-                    date_query_value = parse_date_string(general_query)
-                    date_query_end_value = None
-                    if date_query_value:
-                        date_query_value = date_query_value.isoformat()
-                        # see if we're dealing with just a year so we
-                        # can include the beginning and end of year as a range
-                        if len(general_query) == 4:
-                            date_query_end_value = parse_date_string(f"12/31/{general_query}").isoformat()
-
-                    for f in self.content_types[content_type].fields:
-                        if f.in_lists:
-                            if f.type == 'cross_reference':
-                                nested_fields.append(f.name)
-
-                            elif f.type == 'date':
-                                date_fields.append(f.name)
-
-                            elif f.type in valid_field_types:
-                                top_fields.append(f.name)
-
-                    # top level fields can be handled by a single simple query string search
-                    if top_fields:
-                        general_queries.append(SimpleQueryString(query=general_query, fields=top_fields))
-
-                    # nested fields, however, must each receive their own nested query
-                    for nested_field in nested_fields:
-                        general_queries.append(
-                            Q(
-                                "nested",
-                                path=nested_field,
-                                query=SimpleQueryString(query=general_query, fields=[f"{nested_field}.label"])
-                            )
-                        )
-
-                    # date fields should use the converted value, and possibly a range query
-                    if date_fields and date_query_value:
-                        if date_query_end_value:
-                            for date_field in date_fields:
-                                general_queries.append(Q(
-                                    "range",
-                                    **{date_field: {
-                                        'gte': date_query_value,
-                                        'lte': date_query_end_value
-                                }}))
-                        else:
-                            general_queries.append(SimpleQueryString(query=date_query_value, fields=date_fields))
-
-                    # now that we've built our various queries, let's OR them together if necessary:
-                    if len(general_queries) > 1:
-                        final_query = Q('bool', should=general_queries)
-                    elif general_queries:
-                        final_query = general_queries[0]
-
-                if final_query:
-                    if operator == 'and':
-                        must.append(final_query)
-                    else:
-                        should.append(final_query)
-
-            # OTHER KINDS OF QUERY
-
-            # helper function for determining local operators for queries below
             def determine_local_operator(search_field, operator):
                 if search_field.endswith('+') or search_field.endswith(' '):
                     return search_field[:-1], "and"
@@ -1599,12 +1422,229 @@ class Corpus(mongoengine.Document):
                     return search_field[:-1], "exclude"
                 return search_field, operator
 
+            def generate_default_queries(query, query_ct, field=None, nested_prefix=''):
+                # Since we want the general query to search all fields (including nested ones),
+                # we need to break out nested fields from top level ones so we can search them.
+                # We must also separate out date/timespan fields since they need to be treated differently.
+
+                top_fields = []
+                date_fields = []
+                timespan_fields = []
+                nested_fields = []
+                general_queries = []
+                final_query = None
+
+                # determine what kinds of fields this search is eligible for
+                valid_field_types = ['text', 'large_text', 'keyword', 'html']
+
+                # try numeric
+                if query.isdecimal():
+                    valid_field_types += ['number', 'decimal']
+                elif query.replace('.', '').isdecimal():
+                    valid_field_types.append('decimal')
+
+                # try date
+                date_query_value = parse_date_string(query)
+                date_query_end_value = None
+                if date_query_value:
+                    date_query_value = date_query_value.isoformat()
+                    # see if we're dealing with just a year so we
+                    # can include the beginning and end of year as a range
+                    if len(query) == 4 and query.isdecimal():
+                        date_query_end_value = parse_date_string(f"12/31/{query}").isoformat()
+
+                if field and field in ['label', 'uri', 'id']:
+                    top_fields.append(f"{nested_prefix}{field}")
+                else:
+                    candidate_fields = [f for f in self.content_types[query_ct].fields if (not field) or f.name == field]
+                    for f in candidate_fields:
+                        if f.in_lists:
+                            # we shouldn't include xref fields if nested_prefix exists (this indicates we're already in a nested context)
+                            if f.type == 'cross_reference' and not nested_prefix:
+                                nested_fields.append(f.name)
+
+                            elif f.type == 'date':
+                                date_fields.append(f"{nested_prefix}{f.name}")
+
+                            elif f.type == 'timespan':
+                                timespan_fields.append(f"{nested_prefix}{f.name}")
+
+                            elif f.type in valid_field_types:
+                                top_fields.append(f"{nested_prefix}{f.name}")
+
+                # top level fields can be handled by a single simple query string search
+                if top_fields:
+                    general_queries.append(SimpleQueryString(query=query, fields=top_fields))
+
+                # nested fields, however, must each receive their own nested query.
+                for nested_field in nested_fields:
+                    general_queries.append(
+                        Q(
+                            "nested",
+                            path=nested_field,
+                            query=SimpleQueryString(query=query, fields=[f"{nested_field}.label"])
+                        )
+                    )
+
+                # date fields should use the converted value, and possibly a range query
+                if date_fields and date_query_value:
+                    if date_query_end_value:
+                        for date_field in date_fields:
+                            general_queries.append(Q(
+                                "range",
+                                **{date_field: {
+                                    'gte': date_query_value,
+                                    'lte': date_query_end_value
+                                }}))
+                    else:
+                        general_queries.append(SimpleQueryString(query=date_query_value, fields=date_fields))
+
+                if timespan_fields and date_query_value:
+                    for timespan_field in timespan_fields:
+                        timespan_query = generate_timespan_query(timespan_field, date_query_value,
+                                                                 date_query_end_value)
+                        if timespan_query:
+                            general_queries.append(timespan_query)
+
+                # now that we've built our various queries, let's OR them together if necessary:
+                if len(general_queries) > 1:
+                    final_query = Q('bool', should=general_queries)
+                elif general_queries:
+                    final_query = general_queries[0]
+
+                return final_query
+
+            def generate_timespan_query(timespan_field, date_query_value, date_query_end_value=None, include_all_before_or_after=False):
+                should_queries = []
+
+                # create the various ingredients for creating queries depending on the situation
+                ts_end_exists = Q('exists', field=f'{timespan_field}.end')
+                ts_start_lte_dq_start = Q('range', **{f'{timespan_field}.start': {
+                    'lte': date_query_value
+                }})
+                ts_start_gte_dq_start = Q('range', **{f'{timespan_field}.start': {
+                    'gte': date_query_value
+                }})
+                ts_end_gte_dq_start = Q('range', **{f'{timespan_field}.end': {
+                    'gte': date_query_value
+                }})
+                ts_start_lte_dq_end = Q('range', **{f'{timespan_field}.start': {
+                    'lte': date_query_end_value
+                }})
+                ts_end_gte_dq_end = Q('range', **{f'{timespan_field}.end': {
+                    'gte': date_query_end_value
+                }})
+                ts_end_lte_dq_end = Q('range', **{f'{timespan_field}.end': {
+                    'lte': date_query_end_value
+                }})
+
+                # if we're matching all timespans before or after a date
+                if include_all_before_or_after:
+                    if date_query_value and not date_query_end_value:
+                        ts_with_end = Q('bool', must=[ts_end_exists, ts_end_gte_dq_start])
+                        ts_no_end = Q('bool', must_not=[ts_end_exists], must=[ts_start_gte_dq_start])
+                        should_queries = [ts_with_end, ts_no_end]
+
+                    elif date_query_end_value and not date_query_value:
+                        should_queries.append(Q('bool', must=[ts_end_exists, ts_start_lte_dq_end]))
+
+                # if we're matching all timespans by an exact start date or within a range. start date required
+                elif date_query_value:
+
+                    if date_query_end_value:
+                        ts_with_end = Q(
+                            'bool',
+                            must=[ts_end_exists],
+                            should=[
+                                Q('bool', must=[
+                                    ts_start_lte_dq_end,
+                                    ts_end_gte_dq_end
+                                ]),
+                                Q('bool', must=[
+                                    ts_start_lte_dq_start,
+                                    ts_end_gte_dq_start
+                                ]),
+                                Q('bool', must=[
+                                    ts_start_gte_dq_start,
+                                    ts_start_lte_dq_end
+                                ]),
+                                Q('bool', must=[
+                                    ts_end_gte_dq_start,
+                                    ts_end_lte_dq_end
+                                ])
+                            ]
+                        )
+
+                        ts_no_end = Q(
+                            'bool',
+                            must_not=[ts_end_exists],
+                            must=[Q('range', **{f'{timespan_field}.start': {
+                                'gte': date_query_value,
+                                'lte': date_query_end_value
+                            }})]
+                        )
+
+                        should_queries = [ts_with_end, ts_no_end]
+                    else:
+                        ts_with_end = Q('bool', must=[
+                            ts_end_exists,
+                            ts_start_lte_dq_start,
+                            ts_end_gte_dq_start
+                        ])
+
+                        ts_no_end = Q(
+                            'bool',
+                            must_not=[ts_end_exists],
+                            must=[Q('match', **{f'{timespan_field}.start': {
+                                'query': date_query_value
+                            }})]
+                        )
+
+                        should_queries = [ts_with_end, ts_no_end]
+
+                if should_queries:
+                    return Q('nested', path=timespan_field, query=Q('bool', should=should_queries))
+
+            # GENERAL QUERY
+            if general_query:
+                if general_query == '*':
+                    general_query = SimpleQueryString(query=general_query)
+                else:
+                    general_query = generate_default_queries(general_query, content_type)
+
+                if general_query:
+                    if operator == 'and':
+                        must.append(general_query)
+                    else:
+                        should.append(general_query)
+
             # FIELDS QUERY
             for search_field in fields_query.keys():
                 field_values = [value_part for value_part in fields_query[search_field].split('__') if value_part]
                 search_field, local_operator = determine_local_operator(search_field, operator)
-                field_type = None
 
+                for field_value in field_values:
+                    q = None
+
+                    if '.' in search_field:
+                        [field_name, nested_field_name] = search_field.split('.')
+                        field = self.content_types[content_type].get_field(field_name)
+                        if field:
+                            xref_ct = field.cross_reference_type
+                            q = generate_default_queries(field_value, xref_ct, nested_field_name, f'{field_name}.')
+                            q = Q('nested', path=field_name, query=q)
+                    else:
+                        q = generate_default_queries(field_value, content_type, search_field)
+
+                    if q:
+                        if local_operator == 'and':
+                            must.append(q)
+                        elif local_operator == 'or':
+                            should.append(q)
+                        elif local_operator == 'exclude':
+                            must_not.append(q)
+
+                '''
                 if '.' in search_field:
                     field_parts = search_field.split('.')
                     xref_ct = self.content_types[content_type].get_field(field_parts[0]).cross_reference_type
@@ -1645,39 +1685,39 @@ class Corpus(mongoengine.Document):
                         search_field: {'query': field_value}
                     }
 
-                    if field_type == 'date':
+                    if field_type in ['date', 'timespan']:
                         date_value = parse_date_string(field_value)
+                        end_date_value = None
                         if date_value:
+                            date_value = date_value.isoformat()
                             # if this is an entire year, let's build a range query instead
                             if len(field_value) == 4 and field_value.isdecimal():
-                                end_date_value = parse_date_string(f"12/31/{field_value}")
+                                end_date_value = parse_date_string(f"12/31/{field_value}").isoformat()
+
+                        if field_type == 'date':
+                            if end_date_value:
                                 q_type = 'range'
                                 search_criteria = {
                                     search_field: {
-                                        'gte': date_value.isoformat(),
-                                        'lte': end_date_value.isoformat()
+                                        'gte': date_value,
+                                        'lte': end_date_value
                                     }
                                 }
                             else:
-                                search_criteria[search_field]['query'] = date_value.isoformat()
+                                search_criteria[search_field]['query'] = date_value
 
-                    if '.' in search_field:
-                        field_parts = search_field.split('.')
-                        q = Q(
-                            "nested",
-                            path=field_parts[0],
-                            query=Q(q_type, **search_criteria)
-                        )
-                    else:
-                        q = Q(q_type, **search_criteria)
-
-                    if q:
-                        if local_operator == 'and':
-                            must.append(q)
-                        elif local_operator == 'or':
-                            should.append(q)
-                        elif local_operator == 'exclude':
-                            must_not.append(q)
+                            if '.' in search_field:
+                                field_parts = search_field.split('.')
+                                q = Q(
+                                    "nested",
+                                    path=field_parts[0],
+                                    query=Q(q_type, **search_criteria)
+                                )
+                            else:
+                                q = Q(q_type, **search_criteria)
+                        elif field_type == 'timespan':
+                            q = generate_timespan_query(search_field, date_value, end_date_value)
+                '''
 
             # PHRASE QUERY
             for search_field in fields_phrase.keys():
@@ -1713,28 +1753,29 @@ class Corpus(mongoengine.Document):
                 field_values = [value_part for value_part in fields_term[search_field].split('__') if value_part]
                 search_field, local_operator = determine_local_operator(search_field, operator)
 
-                q = None
+                for field_value in field_values:
+                    q = None
 
-                if '.' in search_field:
-                    field_parts = search_field.split('.')
-                    q = Q(
-                        "nested",
-                        path=field_parts[0],
-                        query=Q(
-                            'terms',
-                            **{search_field: field_values}
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        q = Q(
+                            "nested",
+                            path=field_parts[0],
+                            query=Q(
+                                'term',
+                                **{search_field: field_value}
+                            )
                         )
-                    )
-                else:
-                    q = Q('terms', **{search_field: field_values})
+                    else:
+                        q = Q('term', **{search_field: field_value})
 
-                if q:
-                    if local_operator == 'and':
-                        must.append(q)
-                    elif local_operator == 'or':
-                        should.append(q)
-                    elif local_operator == 'exclude':
-                        must_not.append(q)
+                    if q:
+                        if local_operator == 'and':
+                            must.append(q)
+                        elif local_operator == 'or':
+                            should.append(q)
+                        elif local_operator == 'exclude':
+                            must_not.append(q)
 
             # WILDCARD QUERY
             for search_field in fields_wildcard.keys():
@@ -1858,38 +1899,61 @@ class Corpus(mongoengine.Document):
                             else:
                                 field_type = self.content_types[content_type].get_field(search_field).type
 
-                        if field_type in ['number', 'decimal', 'date']:
+                        if field_type in ['number', 'decimal', 'date', 'timespan']:
                             # default field conversion for number value
                             field_converter = lambda x: int(x)
 
                             if field_type == 'decimal':
                                 field_converter = lambda x: float(x)
-                            elif field_type == 'date':
+                            elif field_type in ['date', 'timespan']:
                                 field_converter = lambda x: parse_date_string(x).isoformat()
 
                             range_parts = [part for part in field_value.split('to') if part]
                             if len(range_parts) == 2:
-                                range_query = Q(
-                                    "range",
-                                    **{search_field: {
-                                        'gte': field_converter(range_parts[0]),
-                                        'lte': field_converter(range_parts[1])
-                                    }}
-                                )
+                                if field_type == 'timespan':
+                                    range_query = generate_timespan_query(
+                                        search_field,
+                                        field_converter(range_parts[0]),
+                                        field_converter(range_parts[1])
+                                    )
+                                else:
+                                    range_query = Q(
+                                        "range",
+                                        **{search_field: {
+                                            'gte': field_converter(range_parts[0]),
+                                            'lte': field_converter(range_parts[1])
+                                        }}
+                                    )
                             elif len(range_parts) == 1 and field_value.endswith('to'):
-                                range_query = Q(
-                                    "range",
-                                    **{search_field: {
-                                        'gte': field_converter(range_parts[0]),
-                                    }}
-                                )
+                                if field_type == 'timespan':
+                                    range_query = generate_timespan_query(
+                                        search_field,
+                                        field_converter(range_parts[0]),
+                                        None,
+                                        True
+                                    )
+                                else:
+                                    range_query = Q(
+                                        "range",
+                                        **{search_field: {
+                                            'gte': field_converter(range_parts[0]),
+                                        }}
+                                    )
                             elif len(range_parts) == 1 and field_value.startswith('to'):
-                                range_query = Q(
-                                    "range",
-                                    **{search_field: {
-                                        'lte': field_converter(range_parts[0]),
-                                    }}
-                                )
+                                if field_type == 'timespan':
+                                    range_query = generate_timespan_query(
+                                        search_field,
+                                        None,
+                                        field_converter(range_parts[0]),
+                                        True
+                                    )
+                                else:
+                                    range_query = Q(
+                                        "range",
+                                        **{search_field: {
+                                            'lte': field_converter(range_parts[0]),
+                                        }}
+                                    )
 
                         elif field_type == 'geo_point' and 'to' in field_value:
                             [top_left, bottom_right] = field_value.split('to')
@@ -1953,6 +2017,9 @@ class Corpus(mongoengine.Document):
 
                 search_query = Q('bool', should=should, must=must, must_not=must_not, filter=filter)
 
+                if generate_query_only:
+                    return search_query
+
                 extra = {'track_total_hits': True}
                 if fields_query and fields_highlight:
                     extra['min_score'] = 0.001
@@ -2006,6 +2073,11 @@ class Corpus(mongoengine.Document):
                             })
                             sorting_by_id = True
                         else:
+                            # check if timespan field so we can add .start to field_name
+                            ct_field = self.content_types[content_type].get_field(field_name)
+                            if ct_field and ct_field.type == 'timespan':
+                                field_name += '.start'
+
                             if '.' in field_name:
                                 field_parts = field_name.split('.')
                                 field_name = field_parts[0]
@@ -2021,7 +2093,7 @@ class Corpus(mongoengine.Document):
                                     adjusted_fields_sort.append({
                                         full_field_name + '.raw' if field_type == 'text' else full_field_name: {
                                             'order': sort_direction['order'],
-                                            'nested_path': field_name
+                                            'nested': { 'path': field_name }
                                         }
                                     })
                                 else:
@@ -2714,7 +2786,7 @@ class Corpus(mongoengine.Document):
                         if delete_index:
                             db[collection_name].drop_index(index_name)
                     print('indexes cleared. now attemtpting to unset fields...')
-                    db[collection_name].update({}, {'$unset': {field_name: 1}}, multi=True)
+                    db[collection_name].update_many({}, {'$unset': {field_name: 1}})
 
     def build_content_type_elastic_index(self, content_type):
         if content_type in self.content_types:
@@ -2728,6 +2800,7 @@ class Corpus(mongoengine.Document):
                 'decimal': 'float',
                 'boolean': 'boolean',
                 'date': 'date',
+                'timespan': 'keyword',
                 'file': 'keyword',
                 'image': 'keyword',
                 'iiif-image': 'keyword',
@@ -2815,6 +2888,14 @@ class Corpus(mongoengine.Document):
                     elif field.type == 'geo_point' and field.multiple:
                         mapping.field(field.name, GeoShape())
 
+                    elif field.type == 'timespan':
+                        mapping.field(field.name, Nested(properties={
+                            'start': 'date',
+                            'end': 'date',
+                            'uncertain': 'boolean',
+                            'granularity': 'keyword'
+                        }))
+
                     else:
                         mapping.field(field.name, field_type)
 
@@ -2828,18 +2909,21 @@ class Corpus(mongoengine.Document):
 
         if task_id:
             task = Task.objects(id=task_id)[0]
+            scholar = None
+            if scholar_id:
+                scholar = Scholar.objects(id=scholar_id)[0]
 
             if not content_type and task.content_type == 'Corpus':
                 content_type = 'Corpus'
 
             if content_type:
                 job = Job()
-                job.corpus_id = str(self.id)
+                job.corpus = self
                 job.task_id = str(task_id)
                 job.content_type = content_type
                 job.content_id = str(content_id) if content_id else None
-                job.scholar_id = str(scholar_id) if scholar_id else None
-                job.jobsite_id = str(local_jobsite.id)
+                job.scholar = scholar
+                job.jobsite = local_jobsite
                 job.status = "queueing"
                 job.configuration = deepcopy(task.configuration)
 
@@ -3084,7 +3168,19 @@ class CorpusExport(mongoengine.Document):
     name = mongoengine.StringField(unique_with='corpus_id')
     path = mongoengine.StringField()
     status = mongoengine.StringField()
-    created = mongoengine.DateTimeField(default=datetime.now())
+    created = mongoengine.DateTimeField(default=datetime.now)
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'corpus_id': self.corpus_id,
+            'corpus_name': self.corpus_name,
+            'corpus_description': self.corpus_description,
+            'name': self.name,
+            'path': self.path,
+            'status': self.status,
+            'created': int(self.created.timestamp())
+        }
 
 
 class Content(mongoengine.Document):
@@ -4018,11 +4114,11 @@ def get_network_json(cypher):
 
 
 def ensure_neo_indexes(node_names):
-    existing_node_indexes = [row['tokenNames'][0] for row in run_neo("CALL db.indexes", {})]
+    existing_node_indexes = [row['labelsOrTypes'][0] for row in run_neo("SHOW INDEXES", {}) if row['labelsOrTypes']]
     for node_name in node_names:
         if node_name not in existing_node_indexes:
-            run_neo("CREATE CONSTRAINT ON(ct:{0}) ASSERT ct.uri IS UNIQUE".format(node_name), {})
-            run_neo("CREATE INDEX ON :{0}(corpus_id)".format(node_name), {})
+            run_neo("CREATE CONSTRAINT IF NOT EXISTS FOR (ct:{0}) REQUIRE ct.uri IS UNIQUE".format(node_name), {})
+            run_neo("CREATE INDEX IF NOT EXISTS FOR (ct:{0}) ON (ct.corpus_id)".format(node_name), {})
 
 
 def parse_date_string(date_string):
@@ -4058,3 +4154,7 @@ def ensure_connection():
             authentication_source=settings.MONGO_AUTH_SOURCE,
             maxpoolsize=settings.MONGO_POOLSIZE
         )
+
+
+def publish_message(corpus_id, message_type, data={}):
+    r = requests.get(f'http://nginx/api/publish/{corpus_id}/{message_type}/', params=data)

@@ -10108,6 +10108,17 @@ h1, h2, h3, h4, h5, h6 {
   white-space: normal;
 }
 
+.modal-body {
+  max-height: 80vh;
+  overflow-x: scroll;
+}
+
+.toast-close {
+  position: absolute;
+  top: 3px;
+  right: 0px;
+}
+
 #patass-canvas {
   padding: 10px;
   background-color: #BFC0C0;
