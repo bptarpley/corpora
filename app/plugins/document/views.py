@@ -275,12 +275,12 @@ def document(request, corpus_id, document_id):
                 task_parameters = [key for key in task.configuration['parameters'].keys()]
                 if _contains(request.POST, task_parameters):
                     job = Job()
-                    job.corpus_id = corpus_id
+                    job.corpus = corpus.id
                     job.content_type = 'Document'
                     job.content_id = document_id
                     job.task_id = str(task.id)
-                    job.scholar_id = str(response['scholar'].id)
-                    job.jobsite_id = str(jobsite.id)
+                    job.scholar = response['scholar'].id
+                    job.jobsite = jobsite.id
                     job.status = "preparing"
                     job.configuration = task.configuration
                     for parameter in task_parameters:
