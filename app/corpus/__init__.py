@@ -142,7 +142,7 @@ class Field(mongoengine.EmbeddedDocument):
         analyzer_filters = ['lowercase', 'classic', 'stop']
         tokenizer = "standard"
         if self.language in lang_settings:
-            analyzer_filters = lang_settings[self.language]['filter']
+            analyzer_filters = deepcopy(lang_settings[self.language]['filter'])
             tokenizer = lang_settings[self.language]['tokenizer']
 
         if self.synonym_file and self.synonym_file in settings.ES_SYNONYM_OPTIONS:
@@ -321,7 +321,13 @@ class Process(mongoengine.EmbeddedDocument):
 class Job(object):
     def __new__(cls, job_id=None):
         if job_id:
-            return JobTracker.objects(id=job_id)[0]
+            job_tracker = None
+            try:
+                job_tracker = JobTracker.objects(id=job_id)[0]
+            except:
+                job_tracker = None
+
+            return job_tracker
         return JobTracker()
 
     @staticmethod
@@ -2800,11 +2806,17 @@ class Corpus(mongoengine.Document):
                 'decimal': 'float',
                 'boolean': 'boolean',
                 'date': 'date',
-                'timespan': 'keyword',
+                'timespan': Nested(properties={
+                    'start': 'date',
+                    'end': 'date',
+                    'uncertain': 'boolean',
+                    'granularity': 'keyword'
+                }),
                 'file': 'keyword',
                 'image': 'keyword',
                 'iiif-image': 'keyword',
                 'geo_point': GeoPoint(),
+                'repo': 'keyword',
                 'link': 'keyword',
                 'cross_reference': None,
                 'document': 'text',
@@ -2887,14 +2899,6 @@ class Corpus(mongoengine.Document):
 
                     elif field.type == 'geo_point' and field.multiple:
                         mapping.field(field.name, GeoShape())
-
-                    elif field.type == 'timespan':
-                        mapping.field(field.name, Nested(properties={
-                            'start': 'date',
-                            'end': 'date',
-                            'uncertain': 'boolean',
-                            'granularity': 'keyword'
-                        }))
 
                     else:
                         mapping.field(field.name, field_type)
@@ -3289,6 +3293,10 @@ class Content(mongoengine.Document):
         es_index = "corpus-{0}-{1}".format(document.corpus_id, document.content_type.lower())
         Search(index=es_index).query("match", _id=str(document.id)).delete()
 
+        # delete any files
+        if document.path and os.path.exists(document.path):
+            shutil.rmtree(document.path)
+
         # mark any relevant content views as needs_refresh
         cvs = ContentView.objects(corpus=document._corpus, status='populated', relevant_cts=document.content_type)
         for cv in cvs:
@@ -3444,6 +3452,9 @@ class Content(mongoengine.Document):
 
                     elif field.type == 'file' and hasattr(field_value, 'path'):
                         index_obj[field.name] = field_value.path
+
+                    elif field.type == 'repo' and hasattr(field_value, 'remote_url'):
+                        index_obj[field.name] = field_value.remote_url
 
                     elif field.type == 'geo_point' and field.multiple:
                         index_obj[field.name] = {

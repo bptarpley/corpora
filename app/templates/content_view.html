@@ -164,6 +164,15 @@
                     </div>
                 `;
             },
+            repo: function(field, value) {
+                return `
+                  <div class="col-10 d-flex align-left field-value ${field.type}-value flex-column">
+                      <b>${value.name}</b><br/>
+                      Branch "${value.remote_branch}"
+                      last pulled ${corpora.time_string(value.last_pull)}
+                  </div>
+                `
+            },
             link: function(field, value) {
                 return `
                     <div class="col-2 d-flex align-right field-value ${field.type}-value">

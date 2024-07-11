@@ -348,6 +348,59 @@
                     </div>
                 `;
             },
+            repo: function(field, value, id_suffix) {
+              let control_state = ''
+              let deletion_div = ''
+
+              if (value) {
+                control_state = 'disabled'
+                deletion_div = `
+                    <div id="${field.name}-value${id_suffix}-deletion-div" class="alert alert-secondary">
+                        Once a repo has been initialized, it cannot be edited. If you need to change repository or branch, you must delete it first:
+                        <button id="${field.name}-value${id_suffix}-delete-button"
+                          type="button"
+                          class="btn btn-sm btn-danger float-right repo-delete-button"
+                          title="Delete"
+                          data-id-prefix="${field.name}-value${id_suffix}"
+                          data-name="${value.name}">
+                            <span class="fas fa-trash-alt"></span>
+                        </button>
+                    </div>
+                `
+              }
+
+              return `
+                  <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div flex-column pl-2" data-field="${field.name}">
+                        <div class="form-group">
+                            <label for="${field.name}-value${id_suffix}-name">Name</label>
+                            <input id="${field.name}-value${id_suffix}-name" type="text" class="form-control ${field.name}-control" ${control_state} ${value && value.name ? `value="${value.name}"` : ''}>
+                        </div>
+                        <div class="form-group">
+                            <label for="${field.name}-value${id_suffix}-url">URL</label>
+                            <input id="${field.name}-value${id_suffix}-url" type="text" class="form-control ${field.name}-control edit-field-input" data-id-prefix="${field.name}-value${id_suffix}"  ${control_state} ${value && value.remote_url ? `value="${value.remote_url}"` : ''}>
+                        </div>
+                        <div class="form-check">
+                            <input id="${field.name}-value${id_suffix}-auth" type="checkbox" class="form-check-input repo-auth-checkbox" data-id-prefix="${field.name}-value${id_suffix}" ${control_state}>
+                            <label for="${field.name}-value${id_suffix}-auth">Authentication Required</label>
+                        </div>
+                        <div id="${field.name}-value${id_suffix}-credentials-div" class="d-none pl-2">
+                            <div class="form-group">
+                                <label for="${field.name}-value${id_suffix}-user">Username</label>
+                                <input id="${field.name}-value${id_suffix}-user" type="text" class="form-control ${field.name}-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="${field.name}-value${id_suffix}-pwd">Password/Token</label>
+                                <input id="${field.name}-value${id_suffix}-pwd" type="password" class="form-control ${field.name}-control">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="${field.name}-value${id_suffix}-branch">Branch</label>
+                            <input id="${field.name}-value${id_suffix}-branch" type="text" class="form-control ${field.name}-control"  ${control_state} ${value && value.remote_branch ? `value="${value.remote_branch}"` : ''}>
+                        </div>
+                        ${deletion_div}
+                  </div>
+              `
+            },
             link: function(field, value, id_suffix) {
                 return `
                     <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
@@ -573,21 +626,22 @@
         }
 
         function inject_content(content_data) {
-            content = content_data;
-            let page_title = $('#page-title');
-            let has_html_field = false;
-            let has_file_field = false;
-            let has_xref_field = false;
+            content = content_data
+            let page_title = $('#page-title')
+            let has_html_field = false
+            let has_file_field = false
+            let has_xref_field = false
+            let has_repo_field = false
             let has_timespan_field = false
-            let has_geo_field = {% if has_geo_field %}true{% else %}false{% endif %};
+            let has_geo_field = {% if has_geo_field %}true{% else %}false{% endif %}
 
             if (bulk_editing) {
-                page_title.html(`Bulk Editing ${content_type}(s)`);
+                page_title.html(`Bulk Editing ${content_type}(s)`)
             } else if (!content) {
-                page_title.html(`New ${content_type}`);
+                page_title.html(`New ${content_type}`)
             } else {
-                page_title.html(content.label);
-                add_breadcrumb(content.label, `/corpus/${corpus_id}/${content_type}/${content_id}/`);
+                page_title.html(content.label)
+                add_breadcrumb(content.label, `/corpus/${corpus_id}/${content_type}/${content_id}/`)
             }
 
             for (let f_index = 0; f_index < corpus.content_types[content_type].fields.length; f_index++) {
@@ -595,6 +649,7 @@
 
                 if (field.type === 'html') { has_html_field = true; }
                 else if (field.type === 'file') { has_file_field = true; }
+                else if (field.type === 'repo') { has_repo_field = true }
                 else if (field.type === 'timespan') { has_timespan_field = true }
                 else if (field.type === 'cross_reference') { has_xref_field = true; }
 
@@ -627,6 +682,46 @@
                 );
 
                 if (bulk_editing) { tinymce.activeEditor.mode.set("readonly"); }
+            }
+
+            if (has_repo_field) {
+                $('body').on('change', '.repo-auth-checkbox', function() {
+                    let auth_box = $(this)
+                    let id_prefix = auth_box.data('id-prefix')
+                    let auth_div = $(`#${id_prefix}-credentials-div`)
+
+                    if (auth_box.is(':checked')) {
+                        auth_div.removeClass('d-none')
+                    }
+                    else {
+                        auth_div.addClass('d-none')
+                        $(`#${id_prefix}-user`).val('')
+                        $(`#${id_prefix}-pwd`).val('')
+                    }
+                })
+
+                $('body').on('click', '.repo-delete-button', function() {
+                    let button = $(this)
+                    let id_prefix = button.data('id-prefix')
+                    let repo_name = button.data('name')
+
+                    corpora.make_request('', 'POST', { 'delete-repo': 'y', 'repo-name': repo_name }, function() {
+                        let deletion_div = $(`#${id_prefix}-deletion-div`)
+                        let name_box = $(`#${id_prefix}-name`)
+                        let url_box = $(`#${id_prefix}-url`)
+                        let auth_box = $(`#${id_prefix}-auth`)
+                        let branch_box = $(`#${id_prefix}-branch`)
+
+                        deletion_div.remove()
+                        name_box.val('')
+                        name_box.prop('disabled', false)
+                        url_box.val('')
+                        url_box.prop('disabled', false)
+                        auth_box.prop('disabled', false)
+                        branch_box.val('')
+                        branch_box.prop('disabled', false)
+                    })
+                })
             }
 
             if (has_xref_field) {
@@ -776,6 +871,26 @@
                         else if (field.type === 'geo_point' && input.val()) {
                             let longlat_strs = input.val().split(',');
                             data['value'] = [parseFloat(longlat_strs[0]), parseFloat(longlat_strs[1])];
+                        } else if (field.type === 'repo') {
+                            let id_prefix = input.data('id-prefix')
+                            let val = {
+                                name: $(`#${id_prefix}-name`).val(),
+                                url: input.val(),
+                                branch: $(`#${id_prefix}-branch`).val()
+                            }
+
+                            if (val.name && val.url && val.branch) {
+                                if ($(`#${id_prefix}-auth`).is(':checked')) {
+                                    val['user'] = $(`#${id_prefix}-user`).val()
+                                    val['password'] = $(`#${id_prefix}-pwd`).val()
+                                }
+
+                                data['value'] = val
+                            } else if (val.name || val.url || val.branch)
+                                errors.push(`Name, URL, and Branch must be specified for field "${field.label}."`)
+                            else
+                                data['value'] = {}
+
                         } else if (field.type === 'timespan' && input.val()) {
                             let timespan = {
                                 start: input.val(),

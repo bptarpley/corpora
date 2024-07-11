@@ -303,7 +303,7 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['convert_foreign_key_to_xref']
     },
-    "Pull Corpus Repo": {
+    "Pull Repo": {
         "version": "0.1",
         "jobsite_type": "HUEY",
         "track_provenance": False,
@@ -314,6 +314,18 @@ REGISTRY = {
                     "value": "",
                     "type": "text",
                     "label": "Repo Name",
+                },
+                "repo_content_type": {
+                    "value": "Corpus"
+                },
+                "repo_content_id": {
+                    "value": None
+                },
+                "repo_field": {
+                    "value": ""
+                },
+                "repo_field_multi_index": {
+                    "value": None
                 },
                 "repo_user": {
                     "value": "",
@@ -981,16 +993,36 @@ def pull_repo(job_id):
     job = Job(job_id)
     job.set_status('running')
     repo_name = job.get_param_value('repo_name')
+    repo_content_type = job.get_param_value('repo_content_type')
+    repo_content_id = job.get_param_value('repo_content_id')
+    repo_field = job.get_param_value('repo_field')
+    repo_field_multi_index = job.get_param_value('repo_field_multi_index')
     repo_user = job.get_param_value('repo_user')
     repo_pwd = job.get_param_value('repo_pwd')
 
-    if repo_name in job.corpus.repos:
-        try:
-            job.corpus.repos[repo_name].pull(job.corpus, repo_user, repo_pwd)
-        except:
-            job.corpus.repos[repo_name].error = True
-            job.corpus.save()
-            print(traceback.format_exc())
+    if repo_content_id is None:
+        if repo_name in job.corpus.repos:
+            try:
+                job.corpus.repos[repo_name].pull(job.corpus, repo_user, repo_pwd)
+            except:
+                job.corpus.repos[repo_name].error = True
+                job.corpus.save()
+                print(traceback.format_exc())
+
+    else:
+        content = job.corpus.get_content(repo_content_type, repo_content_id)
+        if content:
+            if hasattr(content, repo_field):
+                try:
+                    if repo_field_multi_index is None:
+                        getattr(content, repo_field).pull(content, repo_user, repo_pwd)
+                    else:
+                        getattr(content, repo_field)[repo_field_multi_index].pull(content, repo_user, repo_pwd)
+
+                    content.save()
+                except:
+                    print(traceback.format_exc())
+
     job.complete(status='complete')
 
 
