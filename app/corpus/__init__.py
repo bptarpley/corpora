@@ -142,7 +142,7 @@ class Field(mongoengine.EmbeddedDocument):
         analyzer_filters = ['lowercase', 'classic', 'stop']
         tokenizer = "standard"
         if self.language in lang_settings:
-            analyzer_filters = lang_settings[self.language]['filter']
+            analyzer_filters = deepcopy(lang_settings[self.language]['filter'])
             tokenizer = lang_settings[self.language]['tokenizer']
 
         if self.synonym_file and self.synonym_file in settings.ES_SYNONYM_OPTIONS:
