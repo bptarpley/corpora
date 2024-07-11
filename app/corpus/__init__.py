@@ -3292,6 +3292,10 @@ class Content(mongoengine.Document):
         es_index = "corpus-{0}-{1}".format(document.corpus_id, document.content_type.lower())
         Search(index=es_index).query("match", _id=str(document.id)).delete()
 
+        # delete any files
+        if document.path and os.path.exists(document.path):
+            shutil.rmtree(document.path)
+
         # mark any relevant content views as needs_refresh
         cvs = ContentView.objects(corpus=document._corpus, status='populated', relevant_cts=document.content_type)
         for cv in cvs:
