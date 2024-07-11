@@ -321,7 +321,13 @@ class Process(mongoengine.EmbeddedDocument):
 class Job(object):
     def __new__(cls, job_id=None):
         if job_id:
-            return JobTracker.objects(id=job_id)[0]
+            job_tracker = None
+            try:
+                job_tracker = JobTracker.objects(id=job_id)[0]
+            except:
+                job_tracker = None
+
+            return job_tracker
         return JobTracker()
 
     @staticmethod
