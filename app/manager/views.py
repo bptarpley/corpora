@@ -173,7 +173,7 @@ def corpus(request, corpus_id):
                                 clone_job_params['repo_user'] = repo_user
                                 clone_job_params['repo_pwd'] = repo_pwd
 
-                        run_job(corpus.queue_local_job(task_name="Pull Corpus Repo", parameters=clone_job_params))
+                        run_job(corpus.queue_local_job(task_name="Pull Repo", parameters=clone_job_params))
                         response['messages'].append('Repository "{0}" successfully added to this corpus.'.format(repo.name))
                     else:
                         response['errors'].append('A repository with that name already exists in this corpus!')
@@ -552,6 +552,13 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                     corpus_id,
                     content_label
                 ))
+
+            # delete repo
+            elif _contains(request.POST, ['delete-repo', 'repo-name']):
+                repo_path = f"{content.path}/repos/{request.POST.get('repo-name')}"
+                if os.path.exists(repo_path) and os.path.exists(f"{repo_path}/.git"):
+                    shutil.rmtree(repo_path)
+                return HttpResponse(status=204)
 
         for field in corpus.content_types[content_type].fields:
             if field.type == 'geo_point':

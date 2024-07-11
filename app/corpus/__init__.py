@@ -2816,6 +2816,7 @@ class Corpus(mongoengine.Document):
                 'image': 'keyword',
                 'iiif-image': 'keyword',
                 'geo_point': GeoPoint(),
+                'repo': 'keyword',
                 'link': 'keyword',
                 'cross_reference': None,
                 'document': 'text',
@@ -3451,6 +3452,9 @@ class Content(mongoengine.Document):
 
                     elif field.type == 'file' and hasattr(field_value, 'path'):
                         index_obj[field.name] = field_value.path
+
+                    elif field.type == 'repo' and hasattr(field_value, 'remote_url'):
+                        index_obj[field.name] = field_value.remote_url
 
                     elif field.type == 'geo_point' and field.multiple:
                         index_obj[field.name] = {

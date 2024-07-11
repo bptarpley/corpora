@@ -378,6 +378,8 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
     if content_type in corpus.content_types:
         ct_fields = corpus.content_types[content_type].get_field_dict()
         temp_file_fields = []
+        repo_fields = []
+        repo_jobs = []
 
         for field_name, data in content_bundle.items():
             if field_name in ct_fields:
@@ -425,6 +427,32 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                                     if not content.id and field_name not in temp_file_fields:
                                         temp_file_fields.append(field_name)
 
+                            elif field.type == 'repo':
+                                if value.get('name') and value.get('url') and value.get('branch'):
+                                    repo = GitRepo()
+                                    repo.name = value['name']
+                                    repo.remote_url = value['url']
+                                    repo.remote_branch = value['branch']
+
+                                    if content.path:
+                                        repo.path = "{0}/{1}/{2}".format(content.path, 'repos', value['name'])
+                                    elif field_name not in repo_fields:
+                                        repo_fields.append(field_name)
+
+                                    clone_job_params = {
+                                        'repo_name': repo.name,
+                                        'repo_content_type': content_type,
+                                        'repo_field': field.name
+                                    }
+                                    if value.get('user') and value.get('password'):
+                                        clone_job_params['repo_user'] = value['user']
+                                        clone_job_params['repo_pwd'] = value['password']
+
+                                    repo_jobs.append(clone_job_params)
+                                    value = repo
+                                else:
+                                    valid_value = False
+
                             elif field.type == 'timespan':
                                 span = Timespan()
                                 span.start = parse_date_string(value['start'])
@@ -443,6 +471,9 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                         if field.multiple:
                             if valid_value:
                                 getattr(content, field_name).append(value)
+
+                                if field.type == 'repo' and repo_jobs:
+                                    repo_jobs[-1]['repo_field_multi_index'] = len(getattr(content, field_name)) - 1
                         else:
                             setattr(content, field_name, value)
 
@@ -450,6 +481,21 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                             content.set_intensity(field_name, value, datum['intensity'])
 
         content.save(relabel=True)
+
+        if repo_fields:
+            for repo_field in repo_fields:
+                if ct_fields[repo_field].multiple:
+                    for repo_index in range(0, len(getattr(content, repo_field))):
+                        repo_name = getattr(content, repo_field)[repo_index].name
+                        getattr(content, repo_field)[repo_index].path = "{0}/{1}/{2}".format(content.path, 'repos', repo_name)
+                else:
+                    repo_name = getattr(content, repo_field).name
+                    getattr(content, repo_field).path = "{0}/{1}/{2}".format(content.path, 'repos', repo_name)
+            content.save()
+
+        for repo_job in repo_jobs:
+            repo_job['repo_content_id'] = str(content.id)
+            corpus.queue_local_job(task_name="Pull Repo", parameters=repo_job)
 
         if temp_file_fields:
             for temp_file_field in temp_file_fields:
