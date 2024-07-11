@@ -2806,7 +2806,12 @@ class Corpus(mongoengine.Document):
                 'decimal': 'float',
                 'boolean': 'boolean',
                 'date': 'date',
-                'timespan': 'keyword',
+                'timespan': Nested(properties={
+                    'start': 'date',
+                    'end': 'date',
+                    'uncertain': 'boolean',
+                    'granularity': 'keyword'
+                }),
                 'file': 'keyword',
                 'image': 'keyword',
                 'iiif-image': 'keyword',
@@ -2893,14 +2898,6 @@ class Corpus(mongoengine.Document):
 
                     elif field.type == 'geo_point' and field.multiple:
                         mapping.field(field.name, GeoShape())
-
-                    elif field.type == 'timespan':
-                        mapping.field(field.name, Nested(properties={
-                            'start': 'date',
-                            'end': 'date',
-                            'uncertain': 'boolean',
-                            'granularity': 'keyword'
-                        }))
 
                     else:
                         mapping.field(field.name, field_type)
