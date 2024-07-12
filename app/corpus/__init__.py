@@ -96,7 +96,7 @@ class Field(mongoengine.EmbeddedDocument):
                     )
                 return value_dict
             elif self.type == 'repo':
-                return value.to_dict()
+                return value.remote_url
             elif self.type in ['embedded', 'file', 'timespan']:
                 return value.to_dict(parent_uri)
             elif self.type == 'geo_point':
