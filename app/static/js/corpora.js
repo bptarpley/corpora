@@ -2949,7 +2949,10 @@ class JobManager {
 
                             $('.job-parameter-value').each(function() {
                                 let param = $(this)
-                                job_submission['parameters'][param.attr('name')] = param.val()
+                                if (param.attr('type') === 'checkbox')
+                                    job_submission['parameters'][param.attr('name')] = param.is(':checked')
+                                else
+                                    job_submission['parameters'][param.attr('name')] = param.val()
                             })
 
                             sender.corpora.submit_jobs(sender.corpus.id, [job_submission], function() {
