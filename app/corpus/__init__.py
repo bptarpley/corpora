@@ -464,6 +464,12 @@ class JobTracker(mongoengine.Document):
         if percent_complete:
             self.percent_complete = percent_complete
 
+        if status == 'running':
+            if 'parameters' in self.configuration:
+                for param in self.configuration['parameters']:
+                    if 'type' in self.configuration['parameters'][param] and self.configuration['parameters'][param]['type'] == 'password':
+                        self.configuration['parameters'][param]['value'] = '**********'
+
         self.save()
         self.publish_status()
 

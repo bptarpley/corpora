@@ -3118,7 +3118,8 @@ class JobManager {
                         parameter_html = `
                             <div class="form-check">
                                 <input id="${parameter}-boolean-checkbox" type="checkbox" class="form-check-input job-parameter-value" name="${parameter}" ${checked}>
-                                <label for="${parameter}-boolean-checkbox" class="form-check-label">${parameters[parameter]['label']}</label>
+                                <label for="${parameter}-boolean-checkbox" class="form-check-label">${parameters[parameter]['label']}</label><br />
+                                ${note_html}
                             </div>
                         `
                     } else if (parameters[parameter]['type'] === 'choice' && parameters[parameter].hasOwnProperty('choices')) {
@@ -3144,11 +3145,11 @@ class JobManager {
                                 ${note_html}
                             </div>
                         `
-                    } else if (parameters[parameter]['type'] === 'text') {
+                    } else if (['text', 'password'].includes(parameters[parameter]['type'])) {
                         parameter_html = `
                             <div class="form-group">
                                 <label for="${parameter}-text-box">${parameters[parameter]['label']}</label>
-                                <input id="${parameter}-text-box" type="text" class="form-control job-parameter-value" name="${parameter}" />
+                                <input id="${parameter}-text-box" type="${parameters[parameter]['type']}" class="form-control job-parameter-value" name="${parameter}" />
                                 ${note_html}
                             </div>
                         `
