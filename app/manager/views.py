@@ -1280,6 +1280,7 @@ def get_repo_file(request, corpus_id, repo_name):
             corpus = get_corpus(corpus_id)
             if repo_name in corpus.repos:
                 file_path = os.path.join(corpus.repos[repo_name].path, _clean(request.GET, 'path'))
+                file_path = file_path.replace('../', '').replace('.git/', '')
                 if not os.path.exists(file_path):
                     file_path = None
 
