@@ -286,9 +286,9 @@ and explore your data, perform searches, and run tasks, among other things.</p>
 <p>To create a corpus, you must be logged in as a scholar with Admin privileges. Assuming the domain/hostname for your
 instance of Corpora is mycorpora.org, you’d then visit the home/root of that website to see a listing of any existing
 corpora, i.e. <code>https://mycorpora.org/</code></p>
-<p><img alt="Corpora Homepage" src="/assets/img/corpora.png" title="Corpora Homepage" /></p>
+<p><img alt="Corpora Homepage" src="assets/img/corpora.png" title="Corpora Homepage" /></p>
 <p>When you scroll to the bottom of the page, you’ll see a series of buttons–click on the “New Corpus” button.</p>
-<p><img alt="Corpus Creation Dialog" src="/assets/img/create.png" title="Corpus Creation Dialog" /></p>
+<p><img alt="Corpus Creation Dialog" src="assets/img/create.png" title="Corpus Creation Dialog" /></p>
 <p>In the form provided, provide the following information. Name: A title for the corpus, usually an acronym or a short
 phrase. Description: A longer description for the purpose of distinguishing the corpus. Open Access: When this checkbox
 is checked, users will be able to see your content and use the various content API’s to search/query your corpus without
@@ -307,7 +307,7 @@ like <code>[corpora URL]/corpus/[corpus ID]/</code>. Assuming your corpora URL i
 <p>The corpus dashboard has several tabs. If this is an open access corpus or if you have Viewer privileges, you’ll see
 the Content, Views, and Metadata tabs. If you’re also either an Editor for this corpus or an Admin for the Corpora
 instance, you’ll also see the “Admin” tab.</p>
-<p><img alt="Corpus Dashboard Tabs" src="/assets/img/dashboard-tabs.png" title="Corpus Dashboard Tabs" /></p>
+<p><img alt="Corpus Dashboard Tabs" src="assets/img/dashboard-tabs.png" title="Corpus Dashboard Tabs" /></p>
 <p>When on the Content tab (the default, activated tab upon visiting the dashboard page), you’ll see links to all the
 content types listed in the gray box beneath the tab bar. These links are shortcuts to the tabular listing of all the
 content stored for that content type. All newly created corpora will have the following content types created already:
@@ -328,14 +328,14 @@ types, changing their labels, and then creating some content. For more detailed 
 <p>To create a <a href="/#content-type">content type</a>, you must be logged in as a scholar that is either an Editor for the corpus
 in question or is an Admin for the instance of Corpora, and must visit the dashboard for that corpus. Once there, click
 on the “Admin” tab:</p>
-<p><img alt="Corpus Dashboard Admin Tab" src="/assets/img/dashboard-admin.png" title="Corpus Dashboard Admin Tab" /></p>
+<p><img alt="Corpus Dashboard Admin Tab" src="assets/img/dashboard-admin.png" title="Corpus Dashboard Admin Tab" /></p>
 <p>The admin tab grants you access to much of the advanced functionality of Corpora, such as running tasks, launching the
 corpus iPython notebook, and deleting the corpus. Of interest for our purposes now, however, is the Content Type Manager, which
 can be found by scrolling down:</p>
-<p><img alt="Corpus Dashboard Content Type Manager" src="/assets/img/dashboard_ct_manager.png" title="Corpus Dashboard Content Type Manager" /></p>
+<p><img alt="Corpus Dashboard Content Type Manager" src="assets/img/dashboard_ct_manager.png" title="Corpus Dashboard Content Type Manager" /></p>
 <p>To create a new content type, click the orange “New Content Type” button on the bottom left. You’ll then see the
 following form:</p>
-<p><img alt="Create Content Type Form" src="/assets/img/dashboard_create_ct.png" title="Create Content Type Form" /></p>
+<p><img alt="Create Content Type Form" src="assets/img/dashboard_create_ct.png" title="Create Content Type Form" /></p>
 <p>In the Create Content Type form, you’ll need to provide the following information.</p>
 <p><strong>Name</strong>: This is the name of your content type that will be used to refer to it in various contexts, including a suite of URL’s to access the new content creation form or to query for content via the API. For this reason, the name of a content type can’t contain any special characters or spaces. If your content type is best referred to as a phrase rather than a single word (like “Printing Press”), it’s recommended that you type the phrase out normally (with a space) in the Name field and then hit the “tab” key to move down to the Plural Name field. Corpora will automatically reformat the phrase you typed (“Printing Press”) to the camel-cased version of that phrase (“PrintingPress”).</p>
 <p><strong>Plural Name</strong>: This will be used to refer to your content type in various user interface elements, such as the Content tab on the corpus dashboard. This field can contain spaces, so you could use something like “Printing Presses” as the value for this field.</p>
@@ -344,9 +344,9 @@ following form:</p>
 <p>Once you’ve filled the form out, click “Save.” You will then see your content type listed in the content type manager. <strong>Important note</strong>: While your choices have been saved by the user interface, they have not at this point been saved to the database. Closing your browser window or visiting another page at this point will cause you to lose your progress.</p>
 <h3 id="adding-fields-to-your-content-type">Adding Fields to Your Content Type</h3>
 <p>In order for a content type to be useful, you must now add fields to it. To do so, click on the name of your new content type to expand out and gain access to the “fields” table:</p>
-<p><img alt="The Fields Table" src="/assets/img/dashboard_ct_fields.png" title="The Fields Table" /></p>
+<p><img alt="The Fields Table" src="assets/img/dashboard_ct_fields.png" title="The Fields Table" /></p>
 <p>Click the orange “New Field” button, which will bring up the “Create New Field” form:</p>
-<p><img alt="New Field Form" src="/assets/img/dashboard_new_field.png" title="New Field Form" /></p>
+<p><img alt="New Field Form" src="assets/img/dashboard_new_field.png" title="New Field Form" /></p>
 <p>To then create a field, you’ll need to provide the following information:</p>
 <p><strong>Name</strong>: This should be the unique name of the field in a “sluggified” format (all lowercase with no spaces or special characters other than underscores). This name is how the computer will refer to your field, how you can refer to it using the <a href="/python">Python corpus API</a>, and how it will appear in the JSON representation of your data in the various API’s automatically created by Corpora.</p>
 <p><strong>Label</strong>: This is the human readable label for your field, and will be used as the headers for columns in the tabular representation of your content and as the labels for field values in the create/edit/view pages automatically created by Corpora. You may use uppercase letters, spaces, and punctuation marks for field labels.</p>
@@ -357,12 +357,12 @@ following form:</p>
 <p><strong>Multiple</strong>: Checking this box will allow you to save multiple values of the specified type to this same field. All field types support this functionality, and you’re able to specify those values on the automatically generated content creation/edit form. You’re also able to add multiple values to this field using the <a href="/python">python API</a> by treating the field as a list (or array).</p>
 <p>Once you’ve made the appropriate choices to define your field, click the orange “Create” button to tentatively add the field to your content type. The word tentatively is used here to highlight the fact that your <em>content type still isn’t saved/created at this point</em>, allowing you the opportunity to continue adding fields until the content type is fully defined.</p>
 <p>When you are satisfied with how your content types(s) and fields are defined, you must save your content type schema by scrolling down below the list of content types and clicking the orange “Save Changes” button on the bottom right (in the same horizontal space as the “New Content Type” button):</p>
-<p><img alt="Content Type Save Button" src="/assets/img/ct_manager_save.png" title="Content Type Save Button" /></p>
+<p><img alt="Content Type Save Button" src="assets/img/ct_manager_save.png" title="Content Type Save Button" /></p>
 <h3 id="creating-content">Creating Content</h3>
 <p>Once content types have been created you’re given the opportunity to create content according to your content type schema via the corpus dashboard, specifically on the default “Content” tab. Once there, scroll down to the tabular representation of your specific content type and click the orange “Create” button:</p>
-<p><img alt="Content Create Button" src="/assets/img/content_create.png" title="Content Create Button" /></p>
+<p><img alt="Content Create Button" src="assets/img/content_create.png" title="Content Create Button" /></p>
 <p>You’ll then be taken to an automatically generated web form allowing you to assign values to each of the fields defined by your content type. Once you’ve entered in the desired values for your fields, click the orange “Save” button at the bottom left:</p>
-<p><img alt="Content Save Button" src="/assets/img/content_save.png" title="Content Save Button" /></p>
+<p><img alt="Content Save Button" src="assets/img/content_save.png" title="Content Save Button" /></p>
 <h4 id="bulk-creatingimporting-content">Bulk Creating/Importing Content</h4>
 <p>Often, however, entering the data manually using web forms is inefficient, especially if the data is pre-existing in other formats. There are two main ways of importing existing data. The first is to upload a CSV file containing data for a particular content type to your corpus. You can do this by going to the “Metadata” tab of the corpus dashboard, scrolling down to “Corpus Files,” and clicking the “Import” button. You’ll need to ensure, however, that the columns of the first row in your CSV file contain field names that match the field names of your content type. You can then make use of the <a href="/plugins#CSV">CSV plugin</a> which allows you run a task to import the data from that file into your specific content type. The method has limitations, however, in that it does not support importing multi-valued fields or cross referencing between content.</p>
 <p>The second method is to make use of the <a href="/python">Python API for Corpora</a> which allows you to programmatically create content. Often, when going this route, it makes sense to store your source data in an external git repository. You can clone a repository into your corpus by going to the “Metadata” tab on the corpus dashboard, scrolling down to “Corpus Repos,” and clicking the orange “Add” button. You’ll be able to specify a name for your repo, the git URL for cloning, and the specific branch you’d like to clone. Once you click “Save,” that repository will be immediately cloned and the files in that repo will be available in your corpus’ file structure. Using the Corpus Notebook, for instance, you can then write a script in Python allowing you to pull down changes to your repo, read the updated files, and create any content accordingly. If updating content in this way is a task that will be done frequently, it may make sense to then convert that script into a Corpora task that can be launched at any time via the corpus dashboard.</p>
@@ -414,5 +414,5 @@ following form:</p>
 
 <!--
 MkDocs version : 1.5.3
-Build Date UTC : 2024-07-17 15:17:26.322775+00:00
+Build Date UTC : 2024-07-18 19:06:44.986197+00:00
 -->
