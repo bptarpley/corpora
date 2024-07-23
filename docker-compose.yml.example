@@ -35,7 +35,7 @@ services:
       CRP_MONGO_PWD: corpora
       CRP_MONGO_POOLSIZE: 5
       CRP_NEO4J_HOST: neo4j:7687
-      CRP_NEO4J_PWD: corpora
+      CRP_NEO4J_PWD: corporaNEO4Jpwd
       CRP_ELASTIC_HOST: http://elastic:9200
       CRP_ELASTIC_SYNONYM_OPTIONS: early_modern:Early Modern:early_modern_synonyms.txt
       CRP_DJANGO_WORKERS: 3
@@ -88,7 +88,7 @@ services:
     environment:
       NEO4J_server_memory_pagecache_size: 512M
       NEO4J_server_memory_heap_max__size: 512M
-      NEO4J_AUTH: neo4j/corpora
+      NEO4J_AUTH: neo4j/corporaNEO4Jpwd
     volumes:
       - /your/corpora/basedir/link:/data
 
