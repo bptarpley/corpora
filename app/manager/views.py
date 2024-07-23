@@ -27,6 +27,7 @@ from .utilities import(
     clear_cached_session_scholar,
     order_content_schema,
     process_content_bundle,
+    process_corpus_export_file,
     fix_mongo_json,
     send_alert
 )
@@ -903,34 +904,10 @@ def exports(request):
             elif _contains(request.POST, ['export-file-import', 'export-file-name']):
                 export_file = _clean(request.POST, 'export-file-name')
                 if export_file:
-                    export_file = export_file.replace('/', '')
-                    export_file = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', os.path.basename(export_file))
-                    if '_' in export_file and export_file.endswith('.tar.gz'):
-                        export_name = export_file.split('.')[0]
-                        export_name = "_".join(export_name.split('_')[1:])
-                        export_file = '/corpora/exports/' + export_file
-
-                        print(export_file)
-                        print(export_name)
-
-                        if os.path.exists(export_file):
-                            export_corpus = None
-                            with tarfile.open(export_file, 'r:gz') as tar_in:
-                                export_corpus = tar_in.extractfile('corpus.json').read()
-
-                            if export_corpus:
-                                export_corpus = json.loads(export_corpus)
-                                if _contains(export_corpus, ['id', 'name', 'description']):
-                                    export = CorpusExport()
-                                    export.name = export_name
-                                    export.corpus_id = export_corpus['id']
-                                    export.corpus_name = export_corpus['name']
-                                    export.corpus_description = export_corpus['description']
-                                    export.path = export_file
-                                    export.save()
-
-                                    response['messages'].append('Corpus export file successfully imported.')
-                        
+                    if process_corpus_export_file(export_file):
+                        response['messages'].append('Corpus export file successfully imported.')
+                    else:
+                        response['errors'].append('An error occurred while importing this export file!')
 
             # HANDLE EXPORT ACTIONS
             export_action = _clean(request.POST, 'export-action')

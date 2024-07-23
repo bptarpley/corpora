@@ -20,10 +20,13 @@ services:
       - 80:80
 
   corpora:
-    build: ./app
+    # If you prefer to build your own image for the Corpora container, uncomment out the line below that starts with
+    # "build" and comment out the following line that starts with "image."
+    # build: ./app
+    image: bptarpley/corpora
     command: ./start.sh
     environment:
-      CRP_HOSTS: localhost,host.docker.internal
+      CRP_HOSTS: localhost
       # Example for installing plugins
       #CRP_INSTALLED_PLUGINS: tesseract,csv
       CRP_MONGO_HOST: mongo

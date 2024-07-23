@@ -1,5 +1,6 @@
 import redis
 import traceback
+import tarfile
 from corpus import *
 from mongoengine.queryset.visitor import Q
 from django.utils.html import escape
@@ -506,6 +507,35 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                     content._move_temp_file(temp_file_field)
 
             content.save(relabel=True)
+
+
+def process_corpus_export_file(export_file):
+    if export_file:
+        export_file = export_file.replace('/', '')
+        export_file = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', os.path.basename(export_file))
+        if '_' in export_file and export_file.endswith('.tar.gz'):
+            export_name = export_file.split('.')[0]
+            export_name = "_".join(export_name.split('_')[1:])
+            export_file = '/corpora/exports/' + export_file
+
+            if os.path.exists(export_file):
+                export_corpus = None
+                with tarfile.open(export_file, 'r:gz') as tar_in:
+                    export_corpus = tar_in.extractfile('corpus.json').read()
+
+                if export_corpus:
+                    export_corpus = json.loads(export_corpus)
+                    if _contains(export_corpus, ['id', 'name', 'description']):
+                        export = CorpusExport()
+                        export.name = export_name
+                        export.corpus_id = export_corpus['id']
+                        export.corpus_name = export_corpus['name']
+                        export.corpus_description = export_corpus['description']
+                        export.path = export_file
+                        export.save()
+
+                        return True
+    return False
 
 
 def send_alert(corpus_id, alert_type, message):
