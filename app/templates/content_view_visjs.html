@@ -1,0 +1,831 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+    <style type="text/css">
+        .content-type-card .row {
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            outline: none;
+            -webkit-tap-highlight-color: rgba(255, 255, 255, 0); /* mobile webkit */
+        }
+    </style>
+    <link href="{% static 'css/vis-network.min.css' %}" rel="stylesheet">
+
+{% endblock %}
+
+{% block modals %}
+    {% if not popup %}
+        <!-- Explore CT Modal -->
+        <div class="modal fade" id="explore-ct-modal" tabindex="-1" role="dialog" aria-labelledby="explore-ct-modal-label" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h4 class="modal-title" id="explore-ct-modal-label"><span class="modal-proxy-ct"></span> Options</h4>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <h5>Collapse Relationship</h5>
+                        <div id="explore-ct-modal-collapse-div" class="p-2">
+                            <div class="row">
+                                <div class="col mb-2">
+                                    Collapsing a relationship allows you to see the relationships between two different
+                                    Content Types that normally are a step removed from each other. So, let's say a
+                                    Content Type called "Novel" refers to a Content Type
+                                    called "Chapter," and "Chapter" in turn refers to "Character." By
+                                    clicking on "Chapter" in the legend (displaying this window), choosing "Novel" from the dropdown on the left,
+                                    choosing "Character" from the dropdown on the right, and then clicking on the "Collapse"
+                                    button, the visualization will hide all "Chapter" nodes and simply show all indirect
+                                    relationships between "Novel" and "Character."
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col">
+                                    <select class="form-control" id="from_ct_selector"></select>
+                                </div>
+                                <div class="col text-center">
+                                    <i class="fas fa-arrow-left"></i> <span class="modal-proxy-ct"></span> <i class="fas fa-arrow-right"></i>
+                                </div>
+                                <div class="col">
+                                    <select class="form-control" id="to_ct_selector"></select>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col mt-2 text-center">
+                                    <button type="button" class="btn btn-primary" id="collapse-add-button">Collapse</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="explore-ct-modal-already-collapsed-div" class="p-2 d-none">
+                            This Content Type is in a collapsed relationship. To uncollapse, click
+                            "uncollapse" next to Content Type in the visualization legend.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="explore-ct-sprawl-button">Sprawl Every <span class="modal-proxy-ct"></span></button>
+                        <button type="button" class="btn btn-primary" id="explore-ct-hide-button">Hide Every <span class="modal-proxy-ct"></span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}
+
+{% block main %}
+    <div class="row {% if popup %}p-0 m-0{% else %}mt-4{% endif %}">
+        <div class="col-12 {% if popup %}p-0 m-0{% endif %}">
+
+            <!-- CONTENT CARD -->
+            <div class="card h-100 {% if popup %}p-0 m-0{% endif %}">
+                <div class="card-header">
+                    <h4 id="header-label">
+                        <!-- title -->
+                    </h4>
+                </div>
+                <div class="card-body h-100 {% if popup %}p-0 m-0{% endif %}">
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link active" id="metadata-tab" data-toggle="tab" href="#metadata" role="tab" aria-controls="metadata" aria-selected="true">Metadata</a>
+                        </li>
+                        {% if not popup %}
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link disabled" id="explore-tab" data-toggle="tab" href="#explore" role="tab" aria-controls="explore" aria-selected="false">Explore</a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" id="associated-tab" data-toggle="tab" href="#associated" role="tab" aria-controls="associated" aria-selected="false">Associated Content</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                    <div class="tab-content h-100 {% if popup %}p-0 m-0{% else %}p-3{% endif %}">
+                        <div class="tab-pane fade show active" id="metadata" role="tabpanel" aria-labelledby="metadata-tab">
+                            {% if view_widget_url %}
+                                <div class="row">
+                                    <div class="col-sm-12 col-md-6">
+                            {% endif %}
+                            <div class="content-type-card" id="content-div">
+                                <!-- content metadata -->
+                            </div>
+                            {% if view_widget_url %}
+                                    </div>
+                                    <div class="col-sm-12 col-md-6">
+                                        <iframe id="view-widget-iframe" src="" height="100%" width="100%" frameBorder="0"></iframe>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                        {% if not popup %}
+                        <div class="tab-pane fade" id="explore" role="tabpanel" aria-labelledby="explore-tab" style="height: 825px;">
+                            <div id="explore-legend" class="d-inline-flex align-items-start"></div>
+                            <div id="explore-div" style="height: 800px;"></div>
+                        </div>
+                        <div class="tab-pane fade" id="associated" role="tabpanel" aria-labelledby="associated-tab">
+                            <div id="associated-div"></div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="card-footer" id="content-footer">
+                    {% if response.scholar.is_admin or role == 'Editor' %}
+                        <a href="/corpus/{{ corpus_id }}/{{ content_type }}/{{ content_id }}/edit/">
+                            <span class="fas fa-edit"></span>
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'js/filepond.js' %}"></script>
+    <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
+    <script src="{% static 'js/vis-network.min.js' %}"></script>
+    <script type="application/javascript">
+        let corpus_id = '{{ corpus_id }}';
+        let corpus_uri = `/corpus/${corpus_id}`;
+        let content_type_name = '{{ content_type }}';
+        let content_id = '{% if content_id %}{{ content_id }}{% endif %}';
+        let content_uri = `${corpus_uri}/${content_type_name}/${content_id}`;
+        let content_type = null;
+        let popup = {% if popup %}true{% else %}false{% endif %};
+        let canvas, content, network, nodes, edges, stabilization_timer = null;
+        let stabilization_seconds = 20;
+        let panes_displayed = {};
+        let per_group_limit = 20;
+        let groups = {};
+        let group_colors = [
+            '#EF3E36',
+            '#091540',
+            '#17BEBB',
+            '#BFC0C0',
+            '#2191FB',
+            '#297045',
+            '#9448BC',
+            '#FFB627',
+            '#CCC9E7',
+            '#E9E3B4',
+        ];
+        let group_color_cursor = 0;
+        let last_table = null;
+        let collapsed_relationships = [];
+        let hidden_cts = [];
+
+        var field_templates = {
+            text: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value}
+                    </div>
+                `;
+            },
+            large_text: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value}
+                    </div>
+                `;
+            },
+            keyword: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value}
+                    </div>
+                `;
+            },
+            html: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value}
+                    </div>
+                `;
+            },
+            number: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value}
+                    </div>
+                `;
+            },
+            decimal: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value}
+                    </div>
+                `;
+            },
+            boolean: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value ? 'Yes' : 'No'}
+                    </div>
+                `;
+            },
+            date: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${corpora.date_string(value)}
+                    </div>
+                `;
+            },
+            file: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        <a href="${corpora.file_url(value.uri)}" download="${value.basename}">${value.basename}</a>
+                    </div>
+                `;
+            },
+            link: function(field, value) {
+                return `
+                    <div class="col-2 d-flex align-right field-value ${field.type}-value">
+                        <a href="${value}" target="_blank">${field.label}</a>
+                    </div>
+                    <div class="col-10">&nbsp;</div>
+                `;
+            },
+            'iiif-image': function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-center field-value ${field.type}-value">
+                        <img src='${value}/full/,100/0/default.png' />
+                    </div>
+                `;
+            },
+            cross_reference: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        <a href="${value.uri}" target="_blank">${value.label}</a>
+                    </div>
+                `;
+            }
+        };
+
+        $(document).ready(function() {
+            canvas = $('#explore-div');
+
+            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+                if (e.target.id === 'explore-tab') {
+                    network.fit();
+                    nodes.update([{ id: content.uri, label: content.label, title: null, fixed: true }]);
+                }
+            });
+
+            corpora.get_corpus(corpus_id, function(corpus_data) {
+                content_type = corpus_data.content_types[content_type_name];
+                build_content_div();
+                corpora.get_content(corpus_id, content_type_name, content_id, function(content_data) {
+                    content = content_data;
+                    inject_content();
+
+                    {% if view_widget_url %}
+                    $('#view-widget-iframe').attr('src', '{{ view_widget_url }}');
+                    {% endif %}
+
+                    if (!popup) {
+
+                        add_breadcrumb(corpus_data.name, `/corpus/${corpus_id}/`);
+                        add_breadcrumb(content.label, `${content_uri}/`);
+
+                        // LOAD ASSOCIATED CONTENT TABLES
+                        let associated_cts = {};
+                        for (let ct_name in corpus_data.content_types) {
+                            let ct = corpus_data.content_types[ct_name];
+                            ct.fields.map(field => {
+                                if (field.type === 'cross_reference' && field.cross_reference_type === content_type_name) {
+                                    associated_cts[ct_name] = field.name;
+                                }
+                            });
+                        }
+
+                        for (let ct_name in associated_cts) {
+                            let associated_search = {
+                                page: 1,
+                                'page-size': 5,
+                            };
+                            associated_search[`f_${associated_cts[ct_name]}.id`] = content_id;
+                            last_table = new ContentTable({
+                                container_id: 'associated-div',
+                                corpora: corpora,
+                                corpus: corpus_data,
+                                content_type: ct_name,
+                                search: associated_search
+                            });
+                        }
+
+                        // SETUP EXPLORE CT MODAL COLLAPSE SELECTORS AND EVENTS
+                        let from_ct_selector = $('#from_ct_selector');
+                        let to_ct_selector = $('#to_ct_selector');
+                        for (let ct_name in corpus_data.content_types) {
+                            let option = `<option value='${ct_name}'>${ct_name}</option>`;
+                            from_ct_selector.append(option);
+                            to_ct_selector.append(option);
+                        }
+
+                        $('#collapse-add-button').click(function() {
+                            collapsed_relationships.push({
+                                from_ct: $('#from_ct_selector').val(),
+                                proxy_ct: $('.modal-proxy-ct').html(),
+                                to_ct: $('#to_ct_selector').val()
+                            });
+                            build_explore_visualization();
+                            $('#explore-ct-modal').modal('hide');
+                        });
+
+                        $('#explore-ct-hide-button').click(function() {
+                            let hide_ct = $('.modal-proxy-ct').html();
+                            hidden_cts.push(hide_ct);
+                            build_explore_visualization();
+                            $('#explore-ct-modal').modal('hide');
+                        });
+
+                        $('#explore-ct-sprawl-button').click(function() {
+                            let sprawl_ct = $('.modal-proxy-ct').html();
+                            nodes.map(n => {
+                                if (n.id.includes(`/${sprawl_ct}/`)) {
+                                    sprawl_node(n.id);
+                                }
+                            });
+                            $('#explore-ct-modal').modal('hide');
+                        });
+
+                        // INITIAL EXPLORE VIZ LOAD
+                        build_explore_visualization();
+                    }
+                });
+            });
+        });
+
+        function build_explore_visualization() {
+            $('#explore-div').html();
+
+            let net_json_params = {
+                per_type_limit: per_group_limit
+            };
+
+            let collapse_param = collapsed_relationships.map(rel => `${rel.from_ct}-${rel.proxy_ct}-${rel.to_ct}`).join(',');
+            if (collapse_param) { net_json_params['collapses'] = collapse_param; }
+
+            let hidden_param = hidden_cts.join(',');
+            if (hidden_param) { net_json_params['hidden'] = hidden_param; }
+
+            corpora.get_network_json(corpus_id, content_type_name, content_id, net_json_params, function(net_json) {
+                nodes = new vis.DataSet(net_json.nodes);
+                edges = new vis.DataSet(net_json.edges);
+                normalize_collapse_lengths();
+                determine_group_colors();
+
+                // set shape for root node
+                nodes.update([{
+                    id: content_uri,
+                    size: 20,
+                    skip: per_group_limit,
+                }]);
+
+                let explore_div = $('#explore-div')[0];
+                network = new vis.Network(
+                    explore_div,
+                    {
+                        nodes: nodes,
+                        edges: edges
+                    },
+                    {
+                        nodes: {
+                            shape: 'dot',
+                            size: 10,
+                            font: {
+                                background: "white"
+                            }
+                        },
+                        groups: groups,
+                        interaction: {
+                            zoomSpeed: 0.4,
+                            hover: true,
+                            tooltipDelay: 100
+                        },
+                        physics: {
+                            solver: 'repulsion',
+                            forceAtlas2Based: {
+                                springConstant: .04,
+                                gravitationalConstant: -10,
+                                damping: 0.9,
+                                avoidOverlap: 1
+                            },
+                            stabilization: {
+                                enabled: false,
+                                fit: false
+                            },
+                        },
+                    }
+                );
+                extrude_node(corpus_uri);
+                $('#explore-tab').removeClass('disabled');
+
+                network.on("dragStart", function(params){
+                    params.nodes.map(id => {
+                        let n = nodes.get(id);
+                        n.fixed = false;
+                        //affix_node_label(n);
+                        nodes.update(n);
+                    });
+                });
+
+                network.on("dragEnd", function(params){
+                    params.nodes.map(id => {
+                        nodes.update([{ id: id, fixed: true }]);
+                    });
+                });
+
+                network.on("click", function(params) {
+                    remove_unpinned_panes();
+
+                    if (params.nodes.length > 0) {
+                        let clicked_uri = params.nodes[0];
+                        let clicked_node = nodes.get(clicked_uri);
+                        let pane_id = `${clicked_uri.replaceAll('/', '-')}-pane`;
+                        let canvas_offset = canvas.offset();
+                        let pane_x = params.pointer.DOM.x + canvas_offset.left;
+                        let pane_y = params.pointer.DOM.y + canvas_offset.top;
+
+                        //affix_node_label(clicked_node);
+                        nodes.update(clicked_node);
+
+                        if ($(`#${pane_id}`).length > 0) {
+                            console.log('already there!');
+                        } else {
+                            $('#main-container').append(`
+                                <div id="${pane_id}"
+                                    class="content-pane"
+                                    style="background-color: rgba(255, 255, 255, .8);
+                                        width: 200px;
+                                        height: 225px;
+                                        position: absolute;
+                                        top: ${pane_y}px;
+                                        left: ${pane_x}px;">
+
+                                    <div style="height: 25px;">
+                                        <span id="${pane_id}-pin" title="Pin" onClick="pin_node('${clicked_uri}');" class="popup-button fas fa-thumbtack"></span>
+                                        <span title="Sprawl" onClick="sprawl_node('${clicked_uri}');" class="popup-button fas fa-expand-arrows-alt"></span>
+                                        <span title="Remove" onClick="extrude_node('${clicked_uri}', true);" class="popup-button far fa-trash-alt"></span>
+                                    </div>
+                                    <iframe src="${clicked_uri}/?popup=y" frameBorder="0" width="200px" height="200px" />
+                                </div>
+                            `);
+                            panes_displayed[clicked_uri] = {pinned: false};
+                            make_draggable(document.getElementById(pane_id));
+                        }
+                    }
+                });
+
+                network.on("stabilized", function(params) {
+                    clearTimeout(stabilization_timer);
+                });
+            });
+        }
+
+        function affix_node_label(node) {
+            if (node.title) {
+                node.label = node.title;
+                node.font = { background: "white" };
+                node.title = null;
+            }
+        }
+
+        function extrude_node(uri, remove_isolated=false) {
+            edge_ids = network.getConnectedEdges(uri);
+            edge_ids.map(edge_id => edges.remove(edge_id));
+            nodes.remove(uri);
+
+            if (remove_isolated) {
+                let isolated_nodes = new vis.DataView(nodes, {
+                    filter: function (node) {
+                        let connEdges = edges.get({
+                            filter: function (edge) {
+                                return (
+                                    (edge.to == node.id) || (edge.from == node.id));
+                            }
+                        });
+                        return connEdges.length == 0;
+                    }
+                });
+
+                isolated_nodes.map(i => extrude_node(i.id, false));
+            }
+        }
+
+        function pin_node(uri) {
+            if (!panes_displayed[uri].pinned) {
+                panes_displayed[uri].pinned = true;
+                let pin_id = `${uri.replaceAll('/', '-')}-pane-pin`;
+                $(`#${pin_id}`).css('color', '#EF3E36');
+            } else {
+                panes_displayed[uri].pinned = false;
+                remove_unpinned_panes();
+            }
+        }
+
+        function sprawl_node(uri, sprawl_children=false) {
+            let node_ct = uri.split('/').slice(-2)[0];
+            let node_id = uri.split('/').slice(-1)[0];
+            let skip = 0;
+
+            let node = nodes.get(uri);
+            if (node && node.hasOwnProperty('skip')) {
+                skip = node.skip;
+            }
+
+            let net_json_params = {
+                per_type_skip: skip,
+                per_type_limit: per_group_limit
+            };
+
+            let collapse_param = collapsed_relationships.map(rel => `${rel.from_ct}-${rel.proxy_ct}-${rel.to_ct}`).join(',');
+            if (collapse_param) { net_json_params['collapses'] = collapse_param; }
+
+            let hidden_param = hidden_cts.join(',');
+            if (hidden_param) { net_json_params['hidden'] = hidden_param; }
+
+            corpora.get_network_json(corpus_id, node_ct, node_id, net_json_params, function(net_json) {
+                let children = [];
+
+                net_json.nodes.map(n => {
+                    if (n.id !== corpus_uri && !nodes.get(n.id)) {
+                        if (n.id === uri) { n.skip = per_group_limit; }
+                        //affix_node_label(n);
+                        nodes.add(n);
+                        children.push(n.id);
+                    }
+                });
+
+                net_json.edges.map(e => {
+                    if (e.from !== corpus_uri && e.to !== corpus_uri && !edges.get(e.id)) {
+                        edges.add(e);
+                    }
+                });
+                normalize_collapse_lengths();
+                determine_group_colors();
+                network.setOptions({groups: groups});
+
+                if (sprawl_children) {
+                    children.map(child_uri => sprawl_node(child_uri));
+                }
+
+                clearTimeout(stabilization_timer);
+                //stabilization_timer = setTimeout(stop_jitter, stabilization_seconds * 1000);
+            });
+
+            if (node) {
+                node.skip = skip += per_group_limit;
+                nodes.update(node);
+            }
+        }
+
+        function normalize_collapse_lengths() {
+            let min_val = 1;
+            let max_val = 15;
+
+            collapsed_relationships.map(col_rel => {
+                let title_a = `has${col_rel.to_ct}via${col_rel.proxy_ct}`;
+                let title_b = `has${col_rel.from_ct}via${col_rel.proxy_ct}`;
+
+                let redundant_edges = edges.get({
+                    filter: function(edge) {
+                        return edge.title === title_b;
+                    }
+                });
+                redundant_edges.map(r => {
+                    let id_parts = r.id.split('-');
+                    let inverse_id = `${id_parts[1]}-${id_parts[0]}`;
+                    let inverse_edge = edges.get(inverse_id);
+                    if (inverse_edge === null) {
+                        edges.add({
+                            id: inverse_id,
+                            from: id_parts[1],
+                            to: id_parts[0],
+                            title: title_a,
+                            freq: r.freq
+                        });
+                    }
+                    edges.remove(r.id);
+                });
+
+                let col_edges = edges.get({
+                    filter: function(edge) {
+                        return edge.title === title_a;
+                    }
+                });
+
+                let min_freq = 9999999999999999999999;
+                let max_freq = 1;
+                col_edges.map(e => {
+                    if (e.freq < min_freq) { min_freq = e.freq; }
+                    if (e.freq > max_freq) { max_freq = e.freq; }
+                });
+
+                let updated_edges = [];
+                col_edges.map(e => {
+                    let mx = (e.freq - min_freq) / (max_freq - min_freq);
+                    let preshiftNorm = mx * (max_val - min_val);
+                    updated_edges.push({
+                        id: e.id,
+                        value: parseInt(preshiftNorm + min_val)
+                    });
+                });
+                edges.update(updated_edges);
+            });
+        }
+
+        function determine_group_colors() {
+            let group_names = nodes.map(n => n.group);
+            group_names = [...new Set(group_names)];
+            group_names.map(group_name => {
+                if (group_name !== 'Corpus' && !Object.keys(groups).includes(group_name)) {
+                    groups[group_name] = {
+                        color: group_colors[group_color_cursor]
+                    };
+                    group_color_cursor++;
+                    if (group_color_cursor >= group_colors.length) group_color_cursor = 0;
+                }
+            });
+
+            let legend = $('#explore-legend');
+            legend.html('');
+            for (let group_name in groups) {
+                let action_links = "";
+
+                collapsed_relationships.map(col_rel => {
+                    if (group_name === col_rel['proxy_ct']) {
+                        action_links += `<a href="#" class="uncollapse-link mr-2" data-collapse="${col_rel.proxy_ct}">uncollapse</a>`;
+                    }
+                });
+
+                hidden_cts.map(hidden => {
+                    if (group_name === hidden) {
+                        action_links += `<a href="#" class="unhide-link mr-2" data-hidden="${hidden}">unhide</a>`;
+                    }
+                });
+
+                legend.append(`
+                    <span class="badge mr-1 p-1 ct-legend-badge" style="background-color: ${groups[group_name].color}; color: #FFFFFF; cursor: pointer;">${group_name}</span>${action_links}
+                `);
+            }
+            legend.append("<span class='ml-2'><i class='fas fa-arrow-left'></i> click one of these for options</span>");
+
+            $('.ct-legend-badge').click(function() {
+                let explore_ct = $(this).html();
+                $('#explore-ct-modal-label').html(`${explore_ct} Options`);
+                $('.modal-proxy-ct').html(explore_ct);
+
+                let collapsible = true;
+                let hideable = !hidden_cts.includes(explore_ct);
+
+                collapsed_relationships.map(col_rel => {
+                    if (col_rel.proxy_ct === explore_ct) {
+                        collapsible = false;
+                    }
+                });
+
+                if (collapsible) {
+                    $('#explore-ct-modal-already-collapsed-div').addClass('d-none');
+                    $('#explore-ct-modal-collapse-div').removeClass('d-none');
+                } else {
+                    $('#explore-ct-modal-already-collapsed-div').removeClass('d-none');
+                    $('#explore-ct-modal-collapse-div').addClass('d-none');
+                }
+
+                if (hideable) {
+                    $('#explore-ct-hide-button').attr('disabled', false);
+                } else {
+                    $('#explore-ct-hide-button').attr('disabled', true);
+                }
+
+                $('#explore-ct-modal').modal();
+            });
+
+            $('.uncollapse-link').click(function(e) {
+                e.preventDefault();
+                let col_proxy = $(this).data('collapse');
+                for (let cl_index = 0; cl_index < collapsed_relationships.length; cl_index++) {
+                    if (collapsed_relationships[cl_index].proxy_ct === col_proxy) {
+                        collapsed_relationships.splice(cl_index, 1);
+                        break;
+                    }
+                }
+                build_explore_visualization();
+            });
+
+            $('.unhide-link').click(function(e) {
+                e.preventDefault();
+                let hid_index = hidden_cts.indexOf($(this).data('hidden'));
+                hidden_cts.splice(hid_index, 1);
+                build_explore_visualization();
+            });
+        }
+
+        function build_content_div() {
+            let content_div = $("#content-div");
+
+            for (let x = 0; x < content_type.fields.length; x++) {
+                let field = content_type.fields[x];
+
+                if (field.type !== 'embedded') {
+                    content_div.append(`
+                        <div id="${field.name}-content" class="row">
+                            <div class="col-xs-12 col-sm-2 d-flex align-right field-label ${field.type}-label">
+                                <strong>${field.label}</strong>
+                            </div>
+                        </div>
+                    `);
+                }
+            }
+        }
+
+        function inject_content() {
+            $('#header-label').html(content.label);
+
+            for (let f_index = 0; f_index < content_type.fields.length; f_index++) {
+                let field = content_type.fields[f_index];
+
+                if (field.type !== 'embedded') {
+                    let field_div = $(`#${field.name}-content`);
+                    if (field.type === 'link') { field_div.html(''); }
+
+                    if (field.multiple) {
+                        if (content && content[field.name]) {
+                            content[field.name].forEach( function(value, index) {
+                                if (field.type !== 'link' && index !== 0) {
+                                    field_div.append('<div class="col-xs-12 col-sm-2">&nbsp;</div>');
+                                }
+                                field_div.append(field_templates[field.type](field, value));
+                            });
+                        }
+                    } else {
+                        field_div.append(field_templates[field.type](field, (content[field.name] || content[field.name] === 0) ? content[field.name] : "", ""));
+                    }
+                }
+            }
+
+            hide_loading_overlay();
+        }
+
+        function remove_unpinned_panes() {
+            for (let pane_uri in panes_displayed) {
+                if (!panes_displayed[pane_uri].pinned) {
+                    let pane_id = `${pane_uri.replaceAll('/', '-')}-pane`;
+                    $(`#${pane_id}`).remove();
+                    delete panes_displayed[pane_uri];
+                }
+            }
+        }
+
+        function stop_jitter() {
+            nodes.map(n => {n.fixed = true; nodes.update(n);});
+        }
+
+        function make_draggable(elmnt) {
+            var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            if (document.getElementById(elmnt.id + "header")) {
+                // if present, the header is where you move the DIV from:
+                document.getElementById(elmnt.id + "header").onmousedown = dragMouseDown;
+            } else {
+                // otherwise, move the DIV from anywhere inside the DIV:
+                elmnt.onmousedown = dragMouseDown;
+            }
+
+            function dragMouseDown(e) {
+                e = e || window.event;
+                e.preventDefault();
+                // get the mouse cursor position at startup:
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                // call a function whenever the cursor moves:
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e = e || window.event;
+                e.preventDefault();
+                // calculate the new cursor position:
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                // set the element's new position:
+                elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+                elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+            }
+
+            function closeDragElement() {
+                // stop moving when mouse button is released:
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
+    </script>
+{% endblock %}

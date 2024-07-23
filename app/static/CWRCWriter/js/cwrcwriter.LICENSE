@@ -1,0 +1,23 @@
+/**
+ * @preserve
+ * jquery.layout 1.5.12
+ * $Date: 2014-11-29 08:00:00 (Sat, 29 November 2014) $
+ * $Rev: 1.0404 $
+ *
+ * Copyright (c) 2014 Kevin Dalman (http://jquery-dev.com)
+ * Based on work by Fabrizio Balliano (http://www.fabrizioballiano.net)
+ *
+ * Dual licensed under the GPL (http://www.gnu.org/licenses/gpl.html)
+ * and MIT (http://www.opensource.org/licenses/mit-license.php) licenses.
+ *
+ * SEE: http://layout.jquery-dev.com/LICENSE.txt
+ *
+ * Changelog: http://layout.jquery-dev.com/changelog.cfm
+ *
+ * Docs: http://layout.jquery-dev.com/documentation.html
+ * Tips: http://layout.jquery-dev.com/tips.html
+ * Help: http://groups.google.com/group/jquery-ui-layout
+ *
+ * History
+ * 2016/28/10 - Added responsiveness - marc magon
+ */

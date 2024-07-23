@@ -1,0 +1,365 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+    <link href="{% static 'jquery-ui/jquery-ui.min.css' %}" rel="stylesheet">
+    <style>
+        html, body {
+            height: 100%;
+            width: 100%;
+        }
+
+        .svg_select_points_lt {
+            cursor: nw-resize;
+        }
+        .svg_select_points_rt {
+            cursor: ne-resize;
+        }
+        .svg_select_points_rb {
+            cursor: se-resize;
+        }
+        .svg_select_points_lb {
+            cursor: sw-resize;
+        }
+        .svg_select_points_t {
+            cursor: n-resize;
+        }
+        .svg_select_points_r {
+            cursor: e-resize;
+        }
+        .svg_select_points_b {
+            cursor: s-resize;
+        }
+        .svg_select_points_l {
+            cursor: w-resize;
+        }
+
+        .svg_select_points {
+            stroke-width:1;
+            stroke:black;
+            fill: #F9FFED;
+        }
+
+        .svg_select_points_rot {
+            display: none;
+        }
+
+        .svg_select_boundingRect {
+            stroke-width:3;
+            fill:gray;
+            stroke-dasharray: 10;
+            stroke:#F9FFED;
+            stroke-opacity:0.8;
+            fill-opacity:0.1;
+            pointer-events:none; /* This ons is needed if you want to deselect or drag the shape*/
+        }
+
+        .text-region {
+            background-color: white;
+            text-align: justify;
+            text-justify: inter-word;
+        }
+
+        .content-stretcher {
+            width: 100%;
+            display: inline-block;
+        }
+
+        #control-div .btn {
+            width: 70px;
+        }
+    </style>
+{% endblock %}
+
+{% block main %}
+    <div class="container-fluid mt-2 h-100">
+        <div class="row h-100">
+            <div id="control-div" class="col-1 alert-info justify-content-center">
+                <h5 class="mt-3">Regions</h5>
+                <button id="draw-column" type="button" class="btn btn-primary m-1 mt-3">Draw</button>
+                <button id="edit-column" type="button" class="btn btn-primary m-1 d-none">Edit</button>
+                <button id="bolden" type="button" class="btn btn-primary m-1 d-none">Bolden</button>
+                <button id="italicize" type="button" class="btn btn-primary m-1 d-none">Italicize</button>
+                <button id="clear-columns" type="button" class="btn btn-secondary m-1">Clear</button>
+                <button id="reset-columns" type="button" class="btn btn-secondary m-1">Reset</button>
+                <button id="cancel-button" type="button" class="btn btn-secondary m-1">Cancel</button>
+                <button id="save-button" type="button" class="btn btn-primary m-1">Save</button>
+            </div>
+            <div class="col-11 h-100">
+                <div id="delineator" class="h-100 w-100 d-block"></div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="{% static 'js/ace/ace.js' %}"></script>
+    <script src="{% static 'js/svg/svg.js' %}"></script>
+    <script src="{% static 'js/svg.panzoom/svg.panzoom.js' %}"></script>
+    <script src="{% static 'js/svg.draw/svg.draw.js' %}"></script>
+    <script src="{% static 'js/svg.select/svg.select.js' %}"></script>
+    <script src="{% static 'js/svg.resize/svg.resize.js' %}"></script>
+    <script src="{% static 'js/textFit.js' %}"></script>
+    <script type="application/javascript">
+        let delineate;
+        let viewbox;
+        let canvas;
+        let image;
+        let column;
+        let current_line;
+        let currently_selected;
+        let currently_editing = false;
+        let content_editor;
+        let click_timer = null;
+        let region_content = '';
+        let panzoom_options = {
+            panMouse: 2,
+            zoomFactor: 0.01,
+            zoomMin: 0.05,
+            zoomMax: 5
+        };
+        let select_options = {
+            pointSize: 10
+        };
+        let selection;
+        let image_width = {{ image_file.width }};
+        let image_height = {{ image_file.height }};
+        let ocr_lines = {{ page_regions|safe }};
+        let page_regions = {};
+
+        $(document).ready(function() {
+            add_breadcrumb('{{ corpus.name }}', "/corpus/{{ corpus.id }}");
+            add_breadcrumb(' {{ document.label }}', "/corpus/{{ corpus.id }}/Document/{{ document.id }}");
+
+            delineate = SVG('delineator')
+                .size("100%", "100%")
+                .attr('id', 'svg-delineator')
+                .panZoom(panzoom_options);
+            viewbox = delineate.viewbox(0, 0, image_height, image_width);
+            canvas = delineate.group().attr('class', 'delineator-canvas');
+            image = canvas.image(corpora.image_url('{{ image_file.uri }}') + 'full/full/0/default.png').move(0, 0);
+
+            ocr_lines.map((l, l_index) => {
+                page_regions[l_index] = l;
+            });
+
+            populate_columns();
+
+            delineate.on('mousedown', function(e){
+                if (currently_editing) {
+                    click_timer = setTimeout(enable_zoom, 500);
+                }
+                else {
+                    if (column) {
+                        column.draw(e, {});
+                    }
+                    deselect_column();
+                }
+            });
+
+            delineate.on('mouseup', function(e){
+                if (column) {
+                    column = column.draw(e);
+                    page_regions.push({
+                        x: column.x(),
+                        y: column.y(),
+                        width: column.width(),
+                        height: column.height()
+                    });
+                    column = null;
+                    delineate.panZoom(panzoom_options);
+                }
+            });
+
+            $('#draw-column').click(function() {
+                if(currently_selected) {
+                    delete_column();
+                } else {
+                    column = canvas.rect()
+                        .attr({
+                            id: `region-${page_regions.length}`,
+                            class: 'delineator-column',
+                            fill: 'red',
+                            'fill-opacity': 0.3,
+                            stroke: 'red',
+                            'stroke-width': 3
+                        })
+                        .click(function () {
+                            select_column(this);
+                        });
+                    delineate.panZoom(false);
+                }
+            });
+
+            $('#edit-column').click(function() {
+                let region_id = currently_selected.node.id.replace('region-', '');
+                let region_x = currently_selected.x();
+                let region_y = currently_selected.y();
+                let region_width = currently_selected.width();
+                let region_height = currently_selected.height() + 10;
+                let region_words = 0;
+
+                if (region_width > region_height) region_y += region_height;
+                else region_x += region_width;
+
+                current_line = canvas.element('foreignObject');
+                current_line.attr({
+                    x: region_x,
+                    y: region_y,
+                    width: region_width,
+                    height: region_height
+                });
+                $(`#${current_line.node.id}`).append(`<div id="region-text-${region_id}" class="h-100 w-100 text-region"></div>`);
+
+                $.get(
+                    `/api/corpus/{{ corpus.id }}/Document/{{ document.id }}/page/get-region-content/{{ ref_no }}/${parseInt(currently_selected.x())}/${parseInt(currently_selected.y())}/${parseInt(currently_selected.width())}/${parseInt(currently_selected.height())}/?ocrfile={{ ocr_file }}`,
+                    function (content) {
+                        region_content = content;
+                        region_words = region_content.split(' ').length;
+                        currently_editing = true;
+                }).done(function() {
+                    let current_region = $(`#region-text-${region_id}`);
+                    current_region.html(region_content);
+                    textFit(current_region[0], {multiLine: true});
+                    let fitted_text = $('.textFitted');
+                    let font_size = fitted_text.css('font-size');
+                    current_region.html(region_content);
+                    current_region.append(`<span class="content-stretcher"></span>`);
+                    current_region.css('font-size', font_size);
+                    current_region.attr('contentEditable', true);
+
+                    current_region.click(function() {
+                        clearTimeout(click_timer);
+                        currently_editing = true;
+                        delineate.panZoom(false);
+                        current_region.focus();
+                    });
+
+                    current_region.keyup(function(e) {
+                        let font_size = parseInt(current_region.css('font-size'));
+                        let new_words = current_region.text().split(' ').length;
+                        let difference = new_words - region_words;
+                        console.log(difference);
+                        if (difference > 0) {
+                            font_size -= 4;
+                            current_region.css('font-size', font_size);
+                            console.log(font_size);
+                            region_words = new_words;
+                        } else {
+                            region_words = new_words;
+                        }
+                    });
+                });
+            });
+
+            $('#edit-content-cancel-button').click(function() {
+                $('#edit-content-modal').modal('hide');
+            });
+
+            $('#edit-content-modal').on('hidden.bs.modal', function (e) {
+                currently_editing = false;
+            });
+
+            $('#clear-columns').click(function() {
+                clear_columns();
+            });
+
+            $('#reset-columns').click(function() {
+                clear_columns();
+                populate_columns();
+            });
+
+            $(document).keyup(function(e) {
+                if (e.keyCode == 8 && currently_selected && !currently_editing) {
+                    delete_column();
+                    e.preventDefault();
+                }
+            });
+
+            document.addEventListener('selectionchange', function() {
+                selection = window.getSelection().getRangeAt(0);
+
+                /*
+                TO SURROUND SELECTED WITH TAG:
+
+                let r = selection.cloneRange();
+                r.surroundContents(document.createElement('i'));
+                 */
+                $('#bolden').removeClass('d-none');
+                $('#italicize').removeClass('d-none');
+
+            });
+
+            $('#bolden').click(function() {
+                let r = selection.cloneRange();
+                r.surroundContents(document.createElement('b'));
+            });
+
+            $('#italicize').click(function() {
+                let r = selection.cloneRange();
+                r.surroundContents(document.createElement('i'));
+            });
+
+            hide_loading_overlay();
+        });
+
+        function populate_columns() {
+            for (let region_id in page_regions) {
+                page_regions[region_id]['rect'] = canvas.rect(page_regions[region_id].width, page_regions[region_id].height)
+                    .move(page_regions[region_id].x, page_regions[region_id].y)
+                    .attr({
+                        id: `region-${region_id}`,
+                        class: 'delineator-column',
+                        fill: 'red',
+                        'fill-opacity': 0.3,
+                        stroke: 'red',
+                        'stroke-width': 3
+                    })
+                    .click(function() {
+                        select_column(this);
+                    });
+            }
+        }
+
+        function clear_columns() {
+            deselect_column();
+            $('.delineator-column').each(function() {
+                this.remove();
+            });
+        }
+
+        function select_column(col) {
+            deselect_column();
+            col.selectize(select_options).resize();
+            currently_selected = col;
+            $('#draw-column').text('Delete');
+            $('#edit-column').removeClass('d-none');
+
+        }
+
+        function deselect_column() {
+            if (currently_selected) {
+                currently_selected.selectize(false);
+                currently_selected = null;
+                $('#draw-column').text('Draw');
+                $('#edit-column').addClass('d-none');
+            }
+        }
+
+        function delete_column() {
+            if (currently_selected) {
+                let col_to_delete = currently_selected;
+                deselect_column();
+                col_to_delete.remove();
+            }
+        }
+
+        function enable_zoom() {
+            delineate.panZoom(panzoom_options);
+            currently_editing = false;
+        }
+
+    </script>
+{% endblock %}

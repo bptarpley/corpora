@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+
+{% block main %}
+    <div id="running-jobs-div">
+    </div>
+{% endblock %}
+
+
+{% block js %}
+    <script type="application/javascript">
+        let role = '{{ role }}';
+        let corpus_id = '{% if corpus_id %}{{ corpus_id }}{% endif %}';
+        let content_type = '{% if content_type %}{{ content_type }}{% endif %}';
+        let content_id = '{% if content_id %}{{ content_id }}{% endif %}';
+        let jobs_timer = null;
+        let job_params = {
+            'page': 1,
+            'page-size': 50,
+            'detailed': 'y'
+        };
+        let running_jobs = [];
+
+        $(document).ready(function() {
+            $('html').addClass('compact');
+            $('body').addClass('compact');
+            update_jobs();
+            hide_loading_overlay();
+        });
+
+        function update_jobs() {
+            let stale_jobs = [...running_jobs];
+
+            corpora.get_jobs(corpus_id, content_type, content_id, job_params, function(job_data) {
+                if (job_data.meta.total > 0) {
+                    job_data.records.map(job => {
+                        if (!running_jobs.includes(job.id)) { running_jobs.push(job.id); }
+                        if (stale_jobs.includes(job.id)) { stale_jobs = stale_jobs.filter(e => e !== job.id); }
+
+                        let progress_value = job.percent_complete;
+                        if (job.status === 'preparing') {
+                            progress_value = 0;
+                        }
+
+                        let label = `${progress_value}%`;
+                        if (progress_value < 4) {
+                            label = "";
+                        }
+
+                        if ($(`#running-job-${job.id}-div`).length) {
+                            $(`#running-job-${job.id}-progress-bar`).css("width", `${progress_value}%`);
+                            $(`#running-job-${job.id}-progress-bar`).attr("aria-valuenow", progress_value);
+                            $(`#running-job-${job.id}-progress-bar`).html(`${progress_value}%`);
+                        } else {
+                            let kill_job_form = '';
+                            let report_button = '';
+                            if (role === 'Admin' || role === 'Editor') {
+                                kill_job_form = `
+                                    <form method="post">
+                                        <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
+                                        <input type="hidden" name="kill-job-id" value="${job.id}">
+                                        <button type="submit" role="button" class="btn btn-danger">Kill</button>
+                                    </form>
+                                `;
+
+                                if (job.report_path && window.parent.hasOwnProperty('view_job_report')) {
+                                    report_button = `
+                                        <button type="button" onClick="window.parent.view_job_report('${job.id}');" class="btn btn-primary mr-1">View Report</button>
+                                    `;
+                                }
+                            }
+
+                            let params_html = "";
+                            if (job.hasOwnProperty('configuration') && job.configuration.hasOwnProperty('parameters')) {
+                                params_html += '<dl class="job-params">';
+                                for (let param_name in job.configuration.parameters) {
+                                    let param = job.configuration.parameters[param_name];
+                                    if (param.hasOwnProperty('label') && param.hasOwnProperty('value'))
+                                        params_html += `<dt>${param.label}</dt><dd>${param.value}</dd>`;
+                                }
+                                params_html += "</dl>";
+                            }
+
+                            let job_html = `
+                                <div id="running-job-${job.id}-div" class="alert alert-info running-job">
+                                    <div class="row">
+                                        <div class="col-sm-11">
+                                            <details>
+                                                <summary><b>${job.task_name}</b></summary>
+                                                ${params_html}
+                                            </details>
+                                            <br />
+                                            <div class="progress">
+                                                <div id="running-job-${job.id}-progress-bar"
+                                                     class="progress-bar progress-bar-striped bg-success progress-bar-animated"
+                                                     role="progressbar"
+                                                     aria-valuenow="${progress_value}"
+                                                     aria-valuemin="0"
+                                                     aria-valuemax="100"
+                                                     style="width: ${progress_value}%">
+                                                    ${label}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-sm-1 d-flex align-content-center align-items-center">
+                                            ${report_button}
+                                            ${kill_job_form}
+                                        </div>
+                                    </div>
+                                    <div class="row"><div class="col-sm-12">
+
+                                    </div></div>
+                                </div>
+                            `;
+
+                            $('#running-jobs-div').append(job_html);
+                            stale_jobs = stale_jobs.filter(function (value, index, arr) {
+                                return value !== job.id;
+                            });
+                        }
+                    });
+
+                    stale_jobs.map(stale_job_id => {
+                        $(`#running-job-${stale_job_id}-div`).remove();
+                        running_jobs = running_jobs.filter(function (value, index, arr) {
+                            return value !== stale_job_id;
+                        });
+                        if (window.parent.hasOwnProperty('job_finished')) {
+                            window.parent.job_finished();
+                        }
+                    });
+                }
+                else {
+                    running_jobs = [];
+                    $('#running-jobs-div').html(`
+                        <div id="no-running-jobs-div" class="alert alert-info">
+                            There are currently no jobs running.
+                        </div>
+                    `);
+                    if (stale_jobs.length && window.parent.hasOwnProperty('job_finished')) {
+                        window.parent.job_finished();
+                    }
+                }
+
+                if (window.parent.hasOwnProperty('resize_job_widget')) {
+                    window.parent.resize_job_widget();
+                }
+            });
+
+            jobs_timer = setTimeout(update_jobs, 10000);
+        }
+    </script>
+{% endblock %}

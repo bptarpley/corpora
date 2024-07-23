@@ -1,56 +1,75 @@
-"""corpora URL Configuration
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/2.1/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
+import os
+import importlib
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path
+from django.conf import settings
 from manager import views as manager_views
-from rest_framework_mongoengine import routers
 
-
-router = routers.DefaultRouter()
-router.register(r'corpus', manager_views.CorpusViewSet)
-router.register('corpus/(?P<corpus_id>.+)/document', manager_views.DocumentViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', manager_views.corpora),
     path('scholar', manager_views.scholar),
+    path('scholars', manager_views.scholars),
+    path('exports', manager_views.exports),
+    path('exports/download/<str:export_id>/', manager_views.download_export),
     path('corpus/<str:corpus_id>/', manager_views.corpus),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/', manager_views.document),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/edit-xml/', manager_views.edit_xml),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/tei-skeleton', manager_views.tei_skeleton),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/draw-page-regions/<str:ref_no>/', manager_views.draw_page_regions),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/files/<str:file_basename>', manager_views.get_document_file),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/pages/<str:ref_no>/files/<str:file_basename>', manager_views.get_document_page_file),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/pages/<str:ref_no>/images/<str:image_basename>', manager_views.get_document_page_image),
-    path('corpus/<str:corpus_id>/document/<str:document_id>/pages/<str:ref_no>/images/<str:image_basename>/<str:region>/<str:size>/<str:rotation>/<str:quality>.<str:format>', manager_views.get_document_page_image),
-    path('api/corpora/', manager_views.api_corpora),
-    path('api/corpus/<str:corpus_id>/', manager_views.api_corpus),
-    path('api/search/', manager_views.api_search),
-    path('api/corpus/<str:corpus_id>/search/', manager_views.api_search),
-    path('api/corpus/<str:corpus_id>/document/<str:document_id>/search/', manager_views.api_search),
-    path('api/corpus/<str:corpus_id>/documents/', manager_views.api_documents),
-    path('api/corpus/<str:corpus_id>/jobs/', manager_views.api_corpus_jobs),
-    path('api/corpus/<str:corpus_id>/document/<str:document_id>/', manager_views.api_document),
-    path('api/corpus/<str:corpus_id>/document/<str:document_id>/jobs/', manager_views.api_document_jobs),
-    path('api/corpus/<str:corpus_id>/document/<str:document_id>/kvp/<str:key>', manager_views.api_document_kvp),
-    path('api/corpus/<str:corpus_id>/document/<str:document_id>/page-file-collections/', manager_views.api_document_page_file_collections),
-    path('api/corpus/<str:corpus_id>/document/<str:document_id>/page/get-region-content/<str:ref_no>/<int:x>/<int:y>/<int:width>/<int:height>/', manager_views.api_page_region_content),
+    path('corpus/<str:corpus_id>/get-file/', manager_views.get_corpus_file),
+    path('corpus/<str:corpus_id>/<str:content_type>/explore/', manager_views.explore_content),
+    path('corpus/<str:corpus_id>/<str:content_type>/merge/', manager_views.merge_content),
+    path('corpus/<str:corpus_id>/<str:content_type>/bulk-job-manager/', manager_views.bulk_job_manager),
+]
+
+plugins = [app for app in settings.INSTALLED_APPS if app.startswith('plugins.')]
+for plugin in plugins:
+    if os.path.exists("{0}/plugins/{1}/urls.py".format(settings.BASE_DIR, plugin.split('.')[1])):
+        url_module = importlib.import_module(plugin + '.urls')
+        if hasattr(url_module, 'urlpatterns'):
+            urlpatterns += url_module.urlpatterns
+
+urlpatterns += [
+    path('corpus/<str:corpus_id>/<str:content_type>/', manager_views.edit_content),
+    path('corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/', manager_views.view_content),
+    path('corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/edit/', manager_views.edit_content),
+    path('corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/<str:content_field>/iiif-image/', manager_views.iiif_widget),
+
+    path('file/uri/<str:file_uri>/', manager_views.get_file),
+    path('repo-file/<str:corpus_id>/<str:repo_name>/', manager_views.get_repo_file),
+    path('image/uri/<str:image_uri>/', manager_views.get_image),
+    path('image/uri/<str:image_uri>/<str:region>/<str:size>/<str:rotation>/<str:quality>.<str:format>', manager_views.get_image),
+    path('iiif/2/<path:req_path>', manager_views.iiif_passthrough),
+
+    path('jobs/', manager_views.job_widget),
+    path('jobs/corpus/<str:corpus_id>/', manager_views.job_widget),
+    path('jobs/corpus/<str:corpus_id>/<str:content_type>/', manager_views.job_widget),
+    path('jobs/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/', manager_views.job_widget),
+
     path('api/jobsites/', manager_views.api_jobsites),
     path('api/tasks/', manager_views.api_tasks),
-    path('get-image', manager_views.get_image),
-    path('get-file', manager_views.get_file),
-    path('drf/', include(router.urls))
+    path('api/tasks/<str:content_type>/', manager_views.api_tasks),
+    path('api/jobs/', manager_views.api_jobs),
+    path('api/jobs/corpus/<str:corpus_id>/', manager_views.api_jobs),
+    path('api/jobs/corpus/<str:corpus_id>/submit/', manager_views.api_submit_jobs),
+    path('api/jobs/corpus/<str:corpus_id>/job/<str:job_id>/', manager_views.api_job),
+    path('api/jobs/corpus/<str:corpus_id>/<str:content_type>/', manager_views.api_jobs),
+    path('api/jobs/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/', manager_views.api_jobs),
+
+    path('api/scholar/', manager_views.api_scholar),
+    path('api/scholar/<str:scholar_id>/', manager_views.api_scholar),
+    path('api/plugin-schema/', manager_views.api_plugin_schema),
+
+    path('api/corpus/', manager_views.api_corpora),
+    path('api/corpus/<str:corpus_id>/', manager_views.api_corpus),
+    path('api/corpus/<str:corpus_id>/files/', manager_views.api_content_files),
+    path('api/corpus/<str:corpus_id>/content-view/', manager_views.api_content_view),
+    path('api/corpus/<str:corpus_id>/content-view/<str:content_view_id>/', manager_views.api_content_view),
+
+    path('api/corpus/<str:corpus_id>/<str:content_type>/', manager_views.api_content),
+    path('api/corpus/<str:corpus_id>/<str:content_type>/files/', manager_views.api_content_files),
+    path('api/corpus/<str:corpus_id>/<str:content_type>/suggest/', manager_views.api_suggest),
+    path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/', manager_views.api_content),
+    path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/files/', manager_views.api_content_files),
+    path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/network-json/', manager_views.api_network_json),
+    path('api/scholar/preference/<str:content_type>/<str:preference>/', manager_views.api_scholar_preference),
+    path('api/publish/<str:corpus_id>/<str:message_type>/', manager_views.api_publish),
 ]

@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+    <style type="text/css">
+        .content-type-card .row {
+            margin-bottom: 20px;
+        }
+
+        #merge-report-div {
+            max-height: calc(80vh);
+            overflow-y: scroll;
+        }
+    </style>
+
+{% endblock %}
+
+{% block modals %}
+    <!-- Job Report Modal -->
+    <div class="modal fade" id="job-report-modal" tabindex="-1" role="dialog" aria-labelledby="job-report-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Job Report</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <pre id="job-report-div">Loading...</pre>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block main %}
+    <div class="row mt-4">
+        <div class="col-12">
+
+            <!-- CONTENT CARD -->
+            <div class="card h-100">
+                <div class="card-header">
+                    <h4 id="header-label">
+                        {{ content_type_plural }} Jobs
+                    </h4>
+                </div>
+                <div class="card-body h-100">
+                    Viewing progress for {{ num_jobs }} jobs:
+                    <iframe src="/jobs/corpus/{{ corpus_id }}/{{ content_type }}/" width="100%" height="100%" style="min-height: 400px;" frameborder="0"></iframe>
+                </div>
+            </div>
+
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'js/filepond.js' %}"></script>
+    <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
+    <script type="application/javascript">
+        let corpus_id = '{{ corpus_id }}';
+        let corpus_uri = `/corpus/${corpus_id}`;
+        let content_type_name = '{{ content_type }}';
+        let job_report_timer = null;
+
+        $(document).ready(function() {
+            add_breadcrumb('{{ corpus_name }}', '/corpus/{{ corpus_id }}/');
+            add_breadcrumb('{{ content_type_plural }} Jobs', '/corpus/{{ corpus_id }}/{{ content_type }}/bulk-job-manager/');
+            hide_loading_overlay();
+        });
+
+        function view_job_report(job_id) {
+            $('#job-report-modal').modal();
+            $('#job-report-modal').on('hidden.bs.modal', function (e) {
+                clearTimeout(job_report_timer);
+            })
+            load_job_report(job_id);
+        }
+
+        function load_job_report(job_id) {
+            let no_cache_string = Math.random().toString(36).substring(7);
+            let report_url = `/corpus/${corpus_id}/get-file/?path=job_reports/${job_id}.txt&no-cache=${no_cache_string}`;
+            let report_div = $('#job-report-div');
+
+            report_div.load(report_url, function() {
+                report_div.scrollTop(report_div[0].scrollHeight);
+
+                if (!report_div.html().includes('CORPORA JOB COMPLETE')) {
+                    job_report_timer = setTimeout(load_job_report.bind(null, job_id), 10000);
+                }
+            });
+        }
+    </script>
+{% endblock %}

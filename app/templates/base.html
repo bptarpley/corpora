@@ -14,7 +14,10 @@
         <meta name="theme-color" content="#ffffff">
 
         <!-- CSS -->
-        <link href="{% static 'css/open-iconic-bootstrap.css' %}" rel="stylesheet">
+        <link href="{% static 'css/fontawesome.min.css' %}" rel="stylesheet">
+        <link href="{% static 'css/regular.min.css' %}" rel="stylesheet">
+        <link href="{% static 'css/solid.min.css' %}" rel="stylesheet">
+        <link href="{% static 'css/toastify.min.css' %}" rel="stylesheet">
         <link href="{% static 'css/corpora.css' %}" rel="stylesheet">
         {% block css %}
         {% endblock %}
@@ -25,12 +28,18 @@
         {% block modals %}
         {% endblock %}
 
-        <div class="container-fluid">
+        <div id="main-container" class="container-fluid d-flex flex-column {% if popup %}p-0 m-0{% endif %}">
+            {% if not popup %}
             <div class="row">
                 <div class="col-12">
-                    <div class="brand align-items-center">
-                        <a href="/"><img src="{% static 'img/logo.png' %}" class="logo" /></a>
-                        <div class="float-right mt-5">
+                    <div class="brand d-flex align-items-center justify-content-between">
+                        {% if page_title %}
+                            <h1 id="page-title">{{ page_title }}</h1>
+                        {% else %}
+                            <a href="/"><img src="{% static 'img/logo.png' %}" class="logo" /></a>
+                        {% endif %}
+                        {% block top_bar %}{% endblock %}
+                        <span>
                             {% if response.scholar %}
                                 Hello, {{ response.scholar.fname }}!
                                 <a href="/scholar" class="btn btn-primary ml-1 mr-1">My Account</a>
@@ -38,26 +47,28 @@
                             {% else %}
                                 <a href="/scholar" class="btn btn-primary">Login</a>
                             {% endif %}
-                        </div>
+                        </span>
                     </div>
                 </div>
             </div>
-        </div>
+            {% elif page_title %}
+                <div class="row mb-3"><div class="col-12"><h3 id="page-title">{{ page_title }}</h3></div></div>
+            {% endif %}
 
         {% if response.messages or response.errors %}
-            <div class="container-fluid mt-4">
+            <div class="row mt-4">
                 {% if response.messages %}
                     {% for message in response.messages %}
-                        <div class="alert alert-info" role="alert">
-                            {{ message }}
+                        <div class="col alert alert-info" role="alert">
+                            {{ message|safe }}
                         </div>
                     {% endfor %}
                 {% endif %}
 
                 {% if response.errors %}
                     {% for error in response.errors %}
-                        <div class="alert alert-danger" role="alert">
-                            {{ error }}
+                        <div class="col alert alert-danger" role="alert">
+                            {{ error|safe }}
                         </div>
                     {% endfor %}
                 {% endif %}
@@ -67,20 +78,80 @@
         {% block main %}
         {% endblock %}
 
-        <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+            {% if not popup %}
+            <div class="flex-grow-1 footer mt-4">
+                &nbsp;
+            </div>
+            {% endif %}
+
+            <div id="breadcrumb" class="d-none rounded-bottom">
+                <div id="breadcrumb-inner"></div>
+            </div>
+
+            <div id="loading-overlay" class="d-flex align-items-center justify-content-center">
+                <img src="{% static 'img/spinner.png' %}" class="loading-spinner w-25 h-auto" />
+            </div>
+        </div>
+
+        <script src="{% static 'js/jquery-3.3.1.min.js' %}"></script>
+        <script src="{% static 'js/popper.min.js' %}"></script>
+        <script src="{% static 'js/bootstrap.min.js' %}"></script>
         <script src="{% static 'js/corpora.js' %}"></script>
+        <script src="{% static 'django_eventstream/eventsource.min.js' %}"></script>
+        <script src="{% static 'django_eventstream/reconnecting-eventsource.js' %}"></script>
+        <script src="{% static 'js/toastify-js.js' %}"></script>
+
         <script type="application/javascript">
+            var corpora = null
+            var corpora_event_source = null
+            var scholar_id = "{{ response.scholar.id }}"
+            var main_container = $('#main-container');
+
+            function hide_loading_overlay() {
+                let loading_overlay = $('#loading-overlay');
+                loading_overlay.fadeOut();
+                loading_overlay.addClass('d-none');
+                loading_overlay.removeClass('d-flex');
+            }
+
+            function show_loading_overlay() {
+                let loading_overlay = $('#loading-overlay');
+                loading_overlay.addClass('d-flex');
+                loading_overlay.removeClass('d-none');
+            }
+
+            function add_breadcrumb(label=null, url=null) {
+                let breadcrumb_inner_div = $('#breadcrumb-inner');
+                if (breadcrumb_inner_div.html()) {
+                    breadcrumb_inner_div.append(' <i class="fas fa-chevron-right"></i> ');
+                } else {
+                    $('#breadcrumb').removeClass('d-none');
+                    breadcrumb_inner_div.append(`<a href="/"><img src="/static/img/logo.png" class="logo-small"></a>`);
+                    if (label) breadcrumb_inner_div.append(` <i class="fas fa-chevron-right"></i> `);
+                }
+
+                breadcrumb_inner_div.append(`<a href="${url}">${label}</a>`);
+            }
+
             function resolve(path, obj=self, separator='.') {
                 let properties = Array.isArray(path) ? path : path.split(separator);
                 return properties.reduce((prev, curr) => prev && prev[curr], obj);
             }
 
-            function parseMongoDate(utcMilliseconds) {
-                return new Date(utcMilliseconds).toLocaleDateString();
-            }
+            $(document).ready(function() {
+                corpora = new Corpora({'csrf_token': "{{ csrf_token }}"})
+
+                let set_min_height = {% if popup %}false{% else %}true{% endif %};
+                if (window.location !== window.parent.location) set_min_height = false;
+                if (set_min_height) {
+                    main_container.css('min-height', `${window.innerHeight}px`);
+                    $(window).resize(function () {
+                        main_container.css('min-height', `${window.innerHeight}px`);
+                    });
+                }
+            });
         </script>
+
         {% block js %}
         {% endblock %}
     </body>

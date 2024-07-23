@@ -1,35 +1,43 @@
 # Be sure to replace all instances of /your/corpora/basedir with a local directory, such as /Users/username/corpora :)
-# Inside that directory, also be sure to create the following subdirectories: corpora, static, archive, link, and search
+# Inside that directory, also be sure to create the following subdirectories: corpora, conf, static, archive, link,
+# iiif, and search. If you plan on using plugins that interact with Git repositories, also create an ssh directory.
 
 version: '3'
 
 services:
 
   nginx:
-    image: nginx
+    image: nginx:1.19.10
     links:
       - corpora:corpora
       - iiif:iiif
     volumes:
       - ./nginx/corpora.conf:/etc/nginx/conf.d/default.conf
       - /your/corpora/basedir:/data/corpora
+      # Example for mounting proprietary fonts, etc
+      #- /your/proprietary/static/files:/data/corpora/static/proprietary
     ports:
       - 80:80
 
   corpora:
-    build: ./app
+    # If you prefer to build your own image for the Corpora container, uncomment out the line below that starts with
+    # "build" and comment out the following line that starts with "image."
+    # build: ./app
+    image: bptarpley/corpora
     command: ./start.sh
     environment:
-      CRP_HOST: localhost
+      CRP_HOSTS: localhost
+      # Example for installing plugins
+      #CRP_INSTALLED_PLUGINS: tesseract,csv
       CRP_MONGO_HOST: mongo
       CRP_MONGO_DB: corpora
       CRP_MONGO_USER: corpora
       CRP_MONGO_PWD: corpora
       CRP_MONGO_POOLSIZE: 5
       CRP_NEO4J_HOST: neo4j:7687
-      CRP_NEO4J_USER: neo4j
-      CRP_NEO4J_PWD: j4neo
-      CRP_ELASTIC_HOST: elastic
+      CRP_NEO4J_PWD: corpora
+      CRP_ELASTIC_HOST: http://elastic:9200
+      CRP_ELASTIC_SYNONYM_OPTIONS: early_modern:Early Modern:early_modern_synonyms.txt
       CRP_DJANGO_WORKERS: 3
       CRP_HUEY_WORKERS: 10
       CRP_USE_SSL: "no"
@@ -38,6 +46,12 @@ services:
       - ./app/imagemagick.xml:/etc/ImageMagick-6/policy.xml
       - /your/corpora/basedir/static:/static
       - /your/corpora/basedir/corpora:/corpora
+      - /your/corpora/basedir/import:/import
+      - /your/corpora/basedir/conf:/conf
+      # Example for mounting an SSH directory for pulling from Git repos:
+      #- /your/corpora/basedir/ssh:/home/corpora/.ssh
+      # Example for mounting a plugin
+      #- /your/plugin/dir/tesseract:/apps/corpora/plugins/tesseract
     depends_on:
       - mongo
       - neo4j
@@ -50,43 +64,42 @@ services:
       - elastic:elastic
 
   redis:
-    image: redis:5.0.4
+    image: redis:7.0.14
 
   iiif:
-    image: pulibrary/cantaloupe
+    image: bptarpley/iiif
     volumes:
-      - /your/corpora/basedir/corpora:/var/lib/cantaloupe/images/corpora
+      - /your/corpora/basedir/corpora:/var/iiif/imageroot/corpora
+      - /your/corpora/basedir/iiif/cache:/var/iiif/cache
+      - /your/corpora/basedir/iiif/temp:/var/iiif/temp
       - ./iiif/cantaloupe.properties:/etc/cantaloupe.properties
-    # ports:
-    #  - 8182:8182
 
   mongo:
-    image: mongo:3.4-xenial
+    image: mongo:7.0.4
     environment:
       MONGO_INITDB_ROOT_USERNAME: corpora
       MONGO_INITDB_ROOT_PASSWORD: corpora
     volumes:
       - /your/corpora/basedir/archive:/data/db
-    ports:
-      - 27017:27017
 
   neo4j:
-    image: neo4j:latest
+    image: neo4j:5.7.0-community
+    platform: linux/x86_64
     environment:
-      NEO4J_dbms_memory_pagecache_size: 512M
-      NEO4J_dbms_memory_heap_max__size: 512M
-      NEO4J_AUTH: neo4j/j4neo
+      NEO4J_server_memory_pagecache_size: 512M
+      NEO4J_server_memory_heap_max__size: 512M
+      NEO4J_AUTH: neo4j/corpora
     volumes:
       - /your/corpora/basedir/link:/data
-    ports:
-      - 7687:7687
-      - 7474:7474
 
   elastic:
-    image: elasticsearch:7.4.0
+    image: elasticsearch:8.12.2
     environment:
       discovery.type: single-node
+      indices.id_field_data.enabled: "true"
+      xpack.security.enabled: "false"
     volumes:
+      - ./elasticsearch/early_modern_synonyms.txt:/usr/share/elasticsearch/config/early_modern_synonyms.txt
       - /your/corpora/basedir/search:/usr/share/elasticsearch/data
-    ports:
-      - 9200:9200
+
+

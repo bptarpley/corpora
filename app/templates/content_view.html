@@ -1,0 +1,359 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+    <style type="text/css">
+        .content-type-card .row {
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            outline: none;
+            -webkit-tap-highlight-color: rgba(255, 255, 255, 0); /* mobile webkit */
+        }
+
+        .html-value {
+            display: block !important;
+        }
+
+        {% if default_css %}
+        {{ default_css }}
+        {% endif %}
+    </style>
+    {% if has_geo_field %}<link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">{% endif %}
+
+{% endblock %}
+
+{% block main %}
+    <div class="row {% if popup %}p-0 m-0{% endif %}">
+        <div class="col-12 {% if popup %}p-0 m-0{% endif %}">
+            <ul id="content-nav-tabs" class="nav nav-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link active" id="metadata-tab" data-toggle="tab" href="#metadata" role="tab" aria-controls="metadata" aria-selected="true">Metadata</a>
+                </li>
+                {% if not popup %}
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link disabled" id="explore-tab" data-toggle="tab" href="#explore" role="tab" aria-controls="explore" aria-selected="false">Explore</a>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link" id="associated-tab" data-toggle="tab" href="#associated" role="tab" aria-controls="associated" aria-selected="false">Associated Content</a>
+                </li>
+                {% endif %}
+            </ul>
+            <div class="tab-content h-100 {% if popup %}p-0 m-0{% else %}p-3{% endif %}">
+                <div class="tab-pane fade show active" id="metadata" role="tabpanel" aria-labelledby="metadata-tab">
+                    {% if view_widget_url %}
+                        <div class="row h-100">
+                            <div class="col-sm-12 col-md-6">
+                    {% endif %}
+                    <div class="content-type-card" id="content-div">
+                        <!-- content metadata -->
+                    </div>
+                    {% if view_widget_url %}
+                            </div>
+                            <div class="col-sm-12 col-md-6">
+                                <iframe id="view-widget-iframe" src="" height="100%" width="100%" frameBorder="0"></iframe>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+                {% if not popup %}
+                <div class="tab-pane fade" id="explore" role="tabpanel" aria-labelledby="explore-tab" style="height: 825px;">
+                    <div id="explore-legend" class="d-inline-flex align-items-center"></div>
+                    <div id="explore-div" style="height: 800px;"></div>
+                </div>
+                <div class="tab-pane fade" id="associated" role="tabpanel" aria-labelledby="associated-tab">
+                    <div id="associated-div"></div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'js/filepond.js' %}"></script>
+    <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
+    <script src="{% static 'js/vis-network.js' %}"></script>
+    {% if has_geo_field %}<script src="{% static 'js/leaflet.js' %}"></script>{% endif %}
+    <script type="application/javascript">
+        let corpus_id = '{{ corpus_id }}';
+        let corpus_uri = `/corpus/${corpus_id}`;
+        let corpus = null;
+        let content_type_name = '{{ content_type }}';
+        let content_id = '{% if content_id %}{{ content_id }}{% endif %}';
+        let content_uri = `${corpus_uri}/${content_type_name}/${content_id}`;
+        let content_type = null;
+        let content = null;
+        let popup = {% if popup %}true{% else %}false{% endif %};
+        let has_widget = {% if view_widget_url %}true{% else %}false{% endif %};
+        let has_geo_field = {% if has_geo_field %}true{% else %}false{% endif %};
+        let network = null;
+        let last_table = null;
+
+        var field_templates = {
+            text: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value}
+                    </div>
+                `;
+            },
+            large_text: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value}
+                    </div>
+                `;
+            },
+            keyword: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value}
+                    </div>
+                `;
+            },
+            html: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value}
+                    </div>
+                `;
+            },
+            number: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value}
+                    </div>
+                `;
+            },
+            decimal: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value}
+                    </div>
+                `;
+            },
+            boolean: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${value ? 'Yes' : 'No'}
+                    </div>
+                `;
+            },
+            date: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${corpora.date_string(value)}
+                    </div>
+                `;
+            },
+            timespan: function(field, value) {
+                console.log(value)
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        ${corpora.timespan_string(value)}
+                    </div>
+                `;
+            },
+            file: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        <a href="${corpora.file_url(value.uri)}" download="${value.basename}">${value.basename}</a>
+                    </div>
+                `;
+            },
+            repo: function(field, value) {
+                return `
+                  <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                      ${value}
+                  </div>
+                `
+            },
+            link: function(field, value) {
+                return `
+                    <div class="col-2 d-flex align-right field-value ${field.type}-value">
+                        <a href="${value}" target="_blank">${field.label}</a>
+                    </div>
+                    <div class="col-10">&nbsp;</div>
+                `;
+            },
+            'iiif-image': function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-center field-value ${field.type}-value">
+                        <img src='${value}/full/,100/0/default.png' />
+                    </div>
+                `;
+            },
+            geo_point: function(field, value) {
+                return `
+                    <div class="col-10 d-flex align-center field-value ${field.type}-value">
+                        <div id="${field.name}-map-viewer" class="w-100 geo_point-map" data-latitude="${value[1]}" data-longitude="${value[0]}" style="height: 300px;"></div>
+                    </div>
+                `;
+            },
+            cross_reference: function(field, value) {
+                let intensity_indicator = '';
+                if (field.has_intensity && value.hasOwnProperty('intensity')) intensity_indicator = ` (${value.intensity})`;
+                return `
+                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
+                        <a href="${value.uri}" target="_blank">${value.label}</a>${intensity_indicator}
+                    </div>
+                `;
+            }
+        };
+
+        $(document).ready(function() {
+            if (popup) $('#content-nav-tabs').addClass('d-none');
+
+            if (has_widget) {
+                $('#metadata').css('height', `${window.innerHeight}px`);
+            }
+
+            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+                if (e.target.id === 'explore-tab') {
+                    network.network.fit({nodes: [content.uri]});
+                }
+            });
+
+            corpora.get_corpus(corpus_id, function(corpus_data) {
+                corpus = corpus_data;
+                content_type = corpus_data.content_types[content_type_name];
+                build_content_div();
+                corpora.get_content(corpus_id, content_type_name, content_id, function(content_data) {
+                    content = content_data;
+                    console.log(content);
+                    inject_content();
+
+                    {% if view_widget_url %}
+                    $('#view-widget-iframe').attr('src', '{{ view_widget_url }}');
+                    {% endif %}
+
+                    if (!popup) {
+
+                        add_breadcrumb(corpus_data.name, `/corpus/${corpus_id}/`);
+                        add_breadcrumb(content.label, `${content_uri}/`);
+
+                        // LOAD ASSOCIATED CONTENT TABLES
+                        let associated_cts = {};
+                        for (let ct_name in corpus_data.content_types) {
+                            let ct = corpus_data.content_types[ct_name];
+                            ct.fields.map(field => {
+                                if (field.type === 'cross_reference' && field.cross_reference_type === content_type_name) {
+                                    associated_cts[ct_name] = field.name;
+                                }
+                            });
+                        }
+
+                        for (let ct_name in associated_cts) {
+                            let associated_search = {
+                                page: 1,
+                                'page-size': 5,
+                            };
+                            associated_search[`f_${associated_cts[ct_name]}.id`] = content_id;
+                            last_table = new ContentTable({
+                                container_id: 'associated-div',
+                                corpora: corpora,
+                                corpus: corpus_data,
+                                content_type: ct_name,
+                                search: associated_search
+                            });
+                        }
+
+                        // INITIAL EXPLORE VIZ LOAD
+                        let explore_container_width = $('#content-nav-tabs').innerWidth();
+                        $('#explore-div').css("width", `${explore_container_width}px`);
+                        $('#explore-div').css("height", `80vh`);
+                        network = new ContentGraph(
+                            corpora,
+                            corpus_data,
+                            "explore-div",
+                            "explore-legend",
+                            {
+                                'seeds': [content.uri],
+                                'per_type_limit': 5,
+                                'width': explore_container_width,
+                                'height': '90vh'
+                            }
+                        );
+                        $('#explore-tab').removeClass('disabled');
+                    }
+                });
+            }, true);
+        });
+
+        function build_content_div() {
+            let content_div = $("#content-div");
+
+            for (let x = 0; x < content_type.fields.length; x++) {
+                let field = content_type.fields[x];
+
+                if (field.type !== 'embedded') {
+                    content_div.append(`
+                        <div id="${field.name}-content" class="row">
+                            <div class="col-xs-12 col-sm-2 d-flex align-right field-label ${field.type}-label">
+                                <strong>${field.label}</strong>
+                            </div>
+                        </div>
+                    `);
+                }
+            }
+        }
+
+        function inject_content() {
+            let page_title = $('#page-title');
+            page_title.html(content.label);
+            if (['Editor', 'Admin'].includes(corpus.scholar_role)) {
+                page_title.append(`
+                    <a href="/corpus/${corpus_id}/${content_type_name}/${content_id}/edit/">
+                        <span class="fas fa-edit"></span>
+                    </a>
+                `);
+            }
+
+            for (let f_index = 0; f_index < content_type.fields.length; f_index++) {
+                let field = content_type.fields[f_index];
+                let field_div = $(`#${field.name}-content`);
+
+                if (field.type !== 'embedded') {
+                    if (content && (content[field.name] || content[field.name] === 0)) {
+                        if (field.type === 'link') {
+                            field_div.html('');
+                        }
+
+                        if (field.multiple) {
+                            content[field.name].forEach(function (value, index) {
+                                if (field.type !== 'link' && index !== 0) {
+                                    field_div.append('<div class="col-xs-12 col-sm-2">&nbsp;</div>');
+                                }
+                                let multi_field = Object.assign({}, field);
+                                multi_field.name = `${multi_field.name}-${index}`;
+                                field_div.append(field_templates[field.type](multi_field, value));
+                            });
+                        } else {
+                            field_div.append(field_templates[field.type](field, (content[field.name] || content[field.name] === 0) ? content[field.name] : "", ""));
+                        }
+                    } else {
+                        field_div.append(`<div class="col-10 d-flex align-left field-value ${field.type}-value"><span class="badge badge-secondary">Not set</span></div>`);
+                    }
+                }
+            }
+
+            if (has_geo_field) {
+                $('.geo_point-map').each(function() {
+                    let map_div = $(this);
+                    let coords = [parseFloat(map_div.data('latitude')), parseFloat(map_div.data('longitude'))];
+                    let map = L.map(map_div[0].id).setView(coords, 13);
+                    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    }).addTo(map);
+                    L.marker(coords).addTo(map);
+                });
+            }
+
+            hide_loading_overlay();
+        }
+    </script>
+{% endblock %}

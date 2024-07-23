@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+
+{% endblock %}
+
+{% block main %}
+    <!-- BOOKNLP CHARACTER MAPPING -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <div class="d-flex w-100 justify-content-between align-items-center">
+                        <h4>BookNLP Character Mapping</h4>
+                        <span>&nbsp;</span>
+                    </div>
+                </div>
+                <div class="card-body" id="booknlp-chars-div">
+                    {% if submitted %}
+                        <div class="alert alert-success">
+                            BookNLP character mapping successfully saved. A job is now running to associate BookNLP keywords with characters.
+                        </div>
+                    {% elif booknlp_characters %}
+                        <form id="char-reconcile-form" method="post">
+                            {% csrf_token %}
+                            {% for booknlp_id, booknlp_name in booknlp_characters.items %}
+                                <div class="form-group mb-4">
+                                    <label for="booknlp_{{ booknlp_id }}">{{ booknlp_name }}</label>
+                                    <select class="form-control char-mapping" id="booknlp_{{ booknlp_id }}" name="booknlp_{{ booknlp_id }}" data-booknlp-id="{{ booknlp_id }}">
+                                        <option value="ignore">Ignore</option>
+                                        {% for femcon_char in femcon_characters %}
+                                            <option value="{{ femcon_char.id }}">{{ femcon_char.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            {% endfor %}
+                            <button class="btn btn-primary" type="submit">Save Mapping</button>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-info">
+                            There are currently no BookNLP characters identified for this document.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+
+{% block js %}
+    <script type="application/javascript">
+        {% if existing_character_map %}
+        let existing_character_map = {{ existing_character_map|safe }};
+        {% else %}
+        let existing_character_map = {};
+        {% endif %}
+
+        $(document).ready(function() {
+            Object.keys(existing_character_map).map(booknlp_id => {
+                $(`#booknlp_${booknlp_id}`).val(existing_character_map[booknlp_id]);
+            });
+
+            hide_loading_overlay();
+        });
+    </script>
+{% endblock %}

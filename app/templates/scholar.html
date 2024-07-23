@@ -14,7 +14,6 @@
         <meta name="theme-color" content="#ffffff">
 
         <!-- CSS -->
-        <link href="{% static 'css/open-iconic-bootstrap.css' %}" rel="stylesheet">
         <link href="{% static 'css/corpora.css' %}" rel="stylesheet">
         {% block css %}
         {% endblock %}
@@ -124,7 +123,35 @@
                                             </small>
                                             <a href="?gen_token=y" class="btn btn-secondary">Generate New Token</a>
                                         </div>
+                                        <div class="form-group">
+                                            <label for="auth-token-ips-div">API IP Addresses</label>
+                                            <small class="form-text text-muted mb-2">
+                                                API tokens will only work for non-open access Corpora if API requests originate from the following
+                                                IP addresses.
+                                            </small>
+                                            <div id="auth-token-ips-div">
+                                            {% for ip_addr in response.scholar.auth_token_ips %}
+                                                <div id="auth-token-ip-div-{{ forloop.counter }}" class="form-group row row-no-gutters">
+                                                    <label for="auth-token-ip-{{ forloop.counter }}" class="col-sm-3 col-form-label">IP Address {{ forloop.counter }}</label>
+                                                    <div class="col-sm-6">
+                                                        <input id="auth-token-ip-{{ forloop.counter }}" type="text" class="form-control" name="auth-token-ip-{{ forloop.counter }}" value="{{ ip_addr }}">
+                                                    </div>
+                                                    <div class="col-sm-3">
+                                                        <button type="button" id="auth-token-ip-{{ forloop.counter }}-remove-button" class="btn btn-danger auth-token-ip-remove-button">Remove</button>
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                            </div>
+                                            <div class="form-group">
+                                                <button type="button" id="auth-token-ip-add-button" class="btn btn-primary">Add IP Address</button>
+                                            </div>
+                                        </div>
                                     {% endif %}
+                                    <div class="form-group">
+                                      <input type="hidden" name="captcha-check" value="{{ captcha_hash|safe }}">
+                                      <img src="data:image/png;base64,{{ captcha_image|safe }}">
+                                      <input type="text" class="form-control" name="captcha-word" placeholder="Enter captcha">
+                                    </div>
                                 </div>
                                 <div class="card-footer">
                                     <button type="submit" class="btn btn-primary mr-1">{% if register %}Register{% else %}Update{% endif %}</button>
@@ -139,26 +166,40 @@
                 <div class="col-3"></div>
             </div>
         </div>
-        <!-- Optional JavaScript -->
-        <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-        <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+
+        <script src="{% static 'js/jquery-3.3.1.min.js' %}"></script>
+        <script src="{% static 'js/popper.min.js' %}"></script>
+        <script src="{% static 'js/bootstrap.min.js' %}"></script>
+        <script src="{% static 'js/corpora.js' %}"></script>
         <script type="application/javascript">
-            function findGetParameter(parameterName) {
-                var result = null,
-                    tmp = [];
-                location.search
-                    .substr(1)
-                    .split("&")
-                    .forEach(function (item) {
-                      tmp = item.split("=");
-                      if (tmp[0] === parameterName) result = decodeURIComponent(tmp[1]);
-                    });
-                return result;
-            }
+            var auth_token_ip_count = {% if response.scholar.auth_token_ips %}{{ response.scholar.auth_token_ips|length }}{% else %}0{% endif %};
+            
+            $(document).ready(function() {
+                {% if not response.scholar and not register %}
+                    $('#username-box').focus();
+                {% endif %}
+
+                $('#auth-token-ip-add-button').click(function() {
+                    auth_token_ip_count += 1;
+                    $('#auth-token-ips-div').append(`
+                        <div id="auth-token-ip-div-${auth_token_ip_count}" class="form-group row row-no-gutters">
+                            <label for="auth-token-ip-${auth_token_ip_count}" class="col-sm-3 col-form-label">IP Address ${auth_token_ip_count}</label>
+                            <div class="col-sm-6">
+                                <input id="auth-token-ip-${auth_token_ip_count}" type="text" name="auth-token-ip-${auth_token_ip_count}" class="form-control">
+                            </div>
+                            <div class="col-sm-3">
+                                <button type="button" id="auth-token-ip-${auth_token_ip_count}-remove-button" class="btn btn-danger auth-token-ip-remove-button">Remove</button>
+                            </div>
+                        </div>
+                    `);
+                });
+
+                $('.auth-token-ip-remove-button').click(function() {
+                    let ip_identifier = this.id.replace('auth-token-ip-', '').replace('-remove-button', '');
+                    let form_group = $(`#auth-token-ip-div-${ip_identifier}`);
+                    form_group.remove();
+                });
+            });
         </script>
-        {% block js %}
-        {% endblock %}
     </body>
 </html>

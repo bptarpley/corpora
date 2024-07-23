@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 
 import os
+import json
+import traceback
 from mongoengine import connect
 from huey import PriorityRedisHuey
 from neo4j import GraphDatabase
@@ -29,12 +31,32 @@ SECRET_KEY = '=4@4^2y04f^c6^q9b7y*3r2n7+hsf+!3ou^m+bzlgk0#h&w=$1'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [os.environ['CRP_HOST']]
+if 'CRP_HOST' in os.environ:
+    ALLOWED_HOSTS = [os.environ['CRP_HOST']]
+elif 'CRP_HOSTS' in os.environ:
+    ALLOWED_HOSTS = [h for h in os.environ['CRP_HOSTS'].split(',') if h]
+
+if 'nginx' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('nginx')
+
+CSRF_TRUSTED_ORIGINS = []
+for host in ALLOWED_HOSTS:
+    CSRF_TRUSTED_ORIGINS.append(f'http://{host}')
+    CSRF_TRUSTED_ORIGINS.append(f'https://{host}')
+
+if os.path.exists('/conf/corpora_sites.json'):
+    with open('/conf/corpora_sites.json', 'r') as sites_in:
+        CORPORA_SITES = json.load(sites_in)
+else:
+    CORPORA_SITES = {}
+
 DEFAULT_USER_USERNAME = os.environ.get('CRP_DEFAULT_USER_USERNAME', 'corpora')
 DEFAULT_USER_PASSWORD = os.environ.get('CRP_DEFAULT_USER_PASSWORD', 'corpora')
 DEFAULT_USER_FNAME = os.environ.get('CRP_DEFAULT_USER_FNAME', 'Corpora')
 DEFAULT_USER_LNAME = os.environ.get('CRP_DEFAULT_USER_LNAME', 'McCorpus')
-DEFAULT_USER_EMAIL = os.environ.get('CRP_DEFAULT_USER_EMAIL', 'corpora@{0}'.format(os.environ['CRP_HOST']))
+DEFAULT_USER_EMAIL = os.environ.get('CRP_DEFAULT_USER_EMAIL', 'corpora@{0}'.format(ALLOWED_HOSTS[0]))
+REDIS_HOST = os.environ.get('CRP_REDIS_HOST', 'redis')
+REDIS_CACHE_EXPIRY_SECONDS = os.environ.get('CRP_REDIS_CACHE_EXPIRY_SECONDS', 1800)
 
 if '.' not in DEFAULT_USER_EMAIL:
     DEFAULT_USER_EMAIL += '.com'
@@ -42,6 +64,9 @@ if '.' not in DEFAULT_USER_EMAIL:
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
+    'channels',
+    'django_eventstream',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -51,18 +76,37 @@ INSTALLED_APPS = [
     'huey.contrib.djhuey',
     'corsheaders',
     'manager',
-    'plugins.tesseract',
-    'plugins.google_cloud_vision',
-    'plugins.nlp',
-    'rest_framework',
-    'rest_framework.authtoken',
-    'rest_framework_mongoengine'
+    'plugins',
+    'plugins.document',
 ]
 
+installed_plugins = os.environ.get('CRP_INSTALLED_PLUGINS', '')
+if installed_plugins:
+    installed_plugins = [f'plugins.{p.strip()}' for p in installed_plugins.split(',') if p]
+    INSTALLED_APPS += installed_plugins
+
+INSTALLED_APPS += [
+    'rest_framework',
+    'rest_framework.authtoken',
+]
+
+'''
+    'plugins.tesseract',
+    'plugins.csv',
+    'plugins.emop',
+    'plugins.nvs',
+    'plugins.cervantes',
+    'plugins.arc',
+    'plugins.femcon',
+    'plugins.melp',
+'''
+
 MIDDLEWARE = [
+    'manager.middleware.SiteMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'django_grip.GripMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -71,6 +115,20 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'corpora.urls'
+
+# REDIS CACHING
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://{0}:6379/1".format(os.environ.get('CRP_REDIS_HOST', 'redis')),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient"
+        },
+        "KEY_PREFIX": "corpora"
+    }
+}
 
 # CORS CONFIG
 CORS_ORIGIN_ALLOW_ALL = True
@@ -86,12 +144,14 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
             os.path.join(BASE_DIR, 'templates'),
+            '/corpora'
         ],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -106,43 +166,114 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'corpora.wsgi.application'
+ASGI_APPLICATION = 'corpora.asgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/2.1/ref/settings/#databases
+# DATABASE CONFIG
 
 DATABASES = {
     'default': {
-        'ENGINE': 'djongo',
-        'NAME': os.environ['CRP_MONGO_DB'],
-        'USER': os.environ['CRP_MONGO_USER'],
-        'PASSWORD': os.environ['CRP_MONGO_PWD'],
-        'HOST': os.environ['CRP_MONGO_HOST'],
-        'AUTH_SOURCE': 'admin',
-        'AUTH_MECHANISM': 'SCRAM-SHA-1',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': '/conf/corpora_users.sqlite3',
     }
 }
 
+# Register any plugin databases
+for app in INSTALLED_APPS:
+    if app.startswith('plugins.'):
+        app_label = app.replace('plugins.', '')
+        if os.path.exists(BASE_DIR + f'/plugins/{app_label}/models.py'):
+            if app not in DATABASES:
+                DATABASES[app] = {
+                    'ENGINE': 'django.db.backends.sqlite3',
+                    'NAME': f'/conf/{app}.sqlite3',
+                }
+
+DATABASE_ROUTERS = ['plugins.PluginModelRouter']
+
 # Mongoengine connection
+MONGO_DB = os.environ['CRP_MONGO_DB']
+MONGO_USER = os.environ['CRP_MONGO_USER']
+MONGO_PWD = os.environ['CRP_MONGO_PWD']
+MONGO_HOST = os.environ['CRP_MONGO_HOST']
+MONGO_AUTH_SOURCE = os.environ.get('CRP_MONGO_AUTH_SOURCE', 'admin')
+MONGO_POOLSIZE = os.environ['CRP_MONGO_POOLSIZE']
+
 connect(
-    os.environ['CRP_MONGO_DB'],
-    host=os.environ['CRP_MONGO_HOST'],
-    username=os.environ['CRP_MONGO_USER'],
-    password=os.environ['CRP_MONGO_PWD'],
-    authentication_source='admin',
-    maxpoolsize=os.environ['CRP_MONGO_POOLSIZE']
+    MONGO_DB,
+    host=MONGO_HOST,
+    username=MONGO_USER,
+    password=MONGO_PWD,
+    authentication_source=MONGO_AUTH_SOURCE,
+    maxpoolsize=MONGO_POOLSIZE
 )
 
 # NEO4J connection
-NEO4J = GraphDatabase.driver(
-    "bolt://{0}".format(os.environ['CRP_NEO4J_HOST']),
-    auth=(os.environ['CRP_NEO4J_USER'], os.environ['CRP_NEO4J_PWD'])
+NEO4J = None
+try:
+    NEO4J = GraphDatabase.driver(
+        "bolt://{0}".format(os.environ['CRP_NEO4J_HOST']),
+        auth=('neo4j', os.environ['CRP_NEO4J_PWD'])
+    )
+    with NEO4J.session() as test_session:
+        test_session.run("MATCH (n) RETURN count(n) as count")
+except:
+    print(traceback.format_exc())
+    print("Neo4J database uninitialized.")
+    NEO4J = None
+
+# Elasticsearch configuration
+connections.configure(
+    default={
+        'hosts': os.environ['CRP_ELASTIC_HOST'],
+        'timeout': 60,
+    },
 )
 
-# Elasticsearch connection
-connections.configure(
-    default={'hosts': os.environ['CRP_ELASTIC_HOST'], 'timeout': 60}
-)
+ES_SYNONYM_OPTIONS = {}
+if 'CRP_ELASTIC_SYNONYM_OPTIONS' in os.environ:
+    syn_options = os.environ['CRP_ELASTIC_SYNONYM_OPTIONS'].split(',')
+    for syn_option in syn_options:
+        syn_specs = syn_option.split(':')
+        if len(syn_specs) == 3:
+            ES_SYNONYM_OPTIONS[syn_specs[0]] = {
+                'label': syn_specs[1],
+                'file': syn_specs[2]
+            }
+
+# Email Settings
+email_settings = [
+    'CRP_EMAIL_HOST',
+    'CRP_EMAIL_USE_TLS',
+    'CRP_EMAIL_PORT',
+    'CRP_EMAIL_USER',
+    'CRP_EMAIL_PASSWORD'
+]
+email_configured = True
+for email_setting in email_settings:
+    if email_setting not in os.environ:
+        email_configured = False
+if email_configured:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.environ['CRP_EMAIL_HOST']
+    EMAIL_USE_TLS = os.environ['CRP_EMAIL_USE_TLS'] == 'yes'
+    EMAIL_PORT = int(os.environ['CRP_EMAIL_PORT'])
+    EMAIL_HOST_USER = os.environ['CRP_EMAIL_USER']
+    EMAIL_HOST_PASSWORD = os.environ['CRP_EMAIL_PASSWORD']
+
+# Corpora allows users to create arbitrary content types, with the ability to name fields
+# however they want, with certain exceptions listed here:
+INVALID_FIELD_NAMES = [
+    "id",
+    "corpus_id",
+    "content_type",
+    "last_updated",
+    "provenance",
+    "path",
+    "label",
+    "uri",
+    "objects",
+]
 
 # eMOP db info
 EMOP = {
@@ -165,6 +296,15 @@ REST_FRAMEWORK = {
 # Huey config
 HUEY = PriorityRedisHuey('corpora', host='redis')
 NUM_HUEY_WORKERS = os.environ.get('CRP_HUEY_WORKERS')
+NUM_JOBS_PER_MINUTE = int(os.environ.get('CRP_NUM_JOBS_PER_MINUTE', 200))
+JOB_TIMEOUT_SECS = int(os.environ.get('CRP_JOB_TIMEOUT_SECS', 86400))
+
+# iPython Notebook Config
+NOTEBOOK_ARGUMENTS = [
+    '--ip', '0.0.0.0',
+    '--port', '9999',
+    '--no-browser',
+]
 
 # Password validation
 # https://docs.djangoproject.com/en/2.1/ref/settings/#auth-password-validators

@@ -1,105 +1,79 @@
+import redis
+import traceback
+import tarfile
 from corpus import *
 from mongoengine.queryset.visitor import Q
 from django.utils.html import escape
-from bs4 import BeautifulSoup
-from math import ceil
-from bson.objectid import ObjectId
-from google.cloud import vision
-import traceback
-import shutil
-import json
+from django.conf import settings
+from urllib.parse import unquote
+from elasticsearch_dsl import A
+from django_eventstream import send_event
 
 
-def get_scholar_corpora(scholar):
+def get_scholar_corpora(scholar, only=[], page=1, page_size=50):
     corpora = []
+    start_record = (page - 1) * page_size
+    end_record = start_record + page_size
 
     if scholar:
         if scholar.is_admin:
             corpora = Corpus.objects
         else:
-            corpora = Corpus.objects(Q(id__in=[c.id for c in scholar.available_corpora]) | Q(open_access=True))
+            corpora = Corpus.objects(Q(id__in=[c_id for c_id in scholar.available_corpora.keys()]) | Q(open_access=True))
     else:
         corpora = Corpus.objects(open_access=True)
 
-    return corpora
+    if corpora and only:
+        corpora = corpora.only(only)
+
+    return corpora[start_record:end_record]
 
 
-def get_scholar_corpus(corpus_id, scholar):
+def get_scholar_corpus(corpus_id, scholar, only=[]):
     corpus = None
+    role = 'Viewer'
 
-    corpus = get_corpus(corpus_id)
-    if corpus:
-        if not (corpus.open_access or (scholar and scholar.is_admin) or (scholar and corpus in scholar.avialable_corpora)):
-            corpus = None
+    if (scholar and scholar.is_admin) or \
+            (scholar and corpus_id in scholar.available_corpora.keys()) or \
+            corpus_id in get_open_access_corpora():
 
-    return corpus
+        corpus = get_corpus(corpus_id, only)
+        if scholar and scholar.is_admin:
+            role = 'Admin'
+        elif scholar and corpus_id in scholar.available_corpora.keys():
+            role = scholar.available_corpora[corpus_id]
 
-
-def get_documents(corpus_id, request, response):
-    documents = []
-    corpus = None
-    count = 0
-    num_pages = 0
-    order = "+author"
-    query = None
-    query_type = None
-
-    corpus = get_scholar_corpus(corpus_id, response['scholar'])
-    projection = [setting['field'] for setting in corpus.field_settings if setting['display']]
-    projection.append("id")
-
-    if corpus:
-        order = _clean(request.GET, 'order', '+author').strip()
-        query = _clean(request.GET, 'query', None)
-        query_type = _clean(request.GET, 'query-type', None)
-
-        if query and query_type:
-            if query_type == 'default':
-                count = Document.objects(corpus=corpus).search_text('"' + query + '"').count()
-                documents = Document.objects(corpus=corpus).search_text('"' + query + '"').order_by('$text_score').only(*projection)
-            else:
-                for setting in corpus.field_settings:
-                    if query_type.replace('__', '.') == setting['field']:
-                        if setting.get('type') == 'int':
-                            try:
-                                query = int(query.strip())
-                            except:
-                                response['errors'].append('Search query must be a number for this field.')
-
-                filters = {
-                    'corpus': corpus,
-                    query_type: query
-                }
-                count = Document.objects(**filters).count()
-                documents = Document.objects(**filters).order_by(order).only(*projection)
-
-        else:
-            count = Document.objects(corpus=corpus).count()
-            documents = Document.objects(corpus=corpus).order_by(order).only(*projection)
-
-        num_pages = ceil(count / response['per_page'])
-
-    return documents[response['start_index']:response['end_index']], count, num_pages
+    return corpus, role
 
 
-def get_document(scholar, corpus_id, document_id, only=[]):
-    doc = None
-    corpus = get_scholar_corpus(corpus_id, scholar)
+def parse_uri(uri):
+    uri_dict = {}
+    uri_parts = [part for part in uri.split('/') if part]
 
-    if corpus:
-        doc = corpus.get_document(document_id, only)
+    if len(uri_parts) % 2 == 0:
+        key_index = 0
 
-    return doc
+        while key_index < len(uri_parts):
+            uri_dict[uri_parts[key_index]] = uri_parts[key_index + 1]
+            key_index += 2
+
+    return uri_dict
 
 
-def get_tasks(scholar):
+def get_tasks(scholar, content_type=None):
     tasks = []
 
     if scholar:
         if scholar.is_admin:
-            tasks = Task.objects
+            if content_type:
+                tasks = Task.objects(content_type=content_type)
+            else:
+                tasks = Task.objects
         else:
-            tasks = Task.objects(id__in=[t.id for t in scholar.available_tasks])
+            if content_type:
+                tasks = Task.objects(id__in=[t.pk for t in scholar.available_tasks], content_type=content_type)
+            else:
+                tasks = Task.objects(id__in=[t.pk for t in scholar.available_tasks])
 
     return tasks
 
@@ -111,171 +85,461 @@ def get_jobsites(scholar):
         if scholar.is_admin:
             jobsites = JobSite.objects
         else:
-            jobsites = JobSite.objects(id__in=[j.id for j in scholar.available_jobsites])
+            jobsites = JobSite.objects(id__in=[j.pk for j in scholar.available_jobsites])
 
     return jobsites
 
 
-def get_document_page_file_collections(scholar, corpus_id, document_id):
-    page_file_collections = {}
-    corpus = get_scholar_corpus(corpus_id, scholar)
-    if corpus:
-        document = corpus.get_document(document_id)
-        if document:
-            page_file_collections = document.page_file_collections
-    return page_file_collections
-
-
-def get_page_regions(ocr_file, ocr_type):
-    regions = []
-
-    if os.path.exists(ocr_file):
-        if ocr_type == 'GCV':
-            gcv_obj = vision.types.TextAnnotation()
-            with open(ocr_file, 'rb') as gcv_in:
-                gcv_obj.ParseFromString(gcv_in.read())
-
-            page = gcv_obj.pages[0]
-            for block in page.blocks:
-                lowest_x = min([vertice.x for vertice in block.bounding_box.vertices])
-                lowest_y = min([vertice.y for vertice in block.bounding_box.vertices])
-                highest_x = max([vertice.x for vertice in block.bounding_box.vertices])
-                highest_y = max([vertice.y for vertice in block.bounding_box.vertices])
-
-                regions.append({
-                    'x': lowest_x,
-                    'y': lowest_y,
-                    'height': highest_y - lowest_y,
-                    'width': highest_x - lowest_x
-                })
-        elif ocr_type == 'HOCR':
-            with open(ocr_file, 'rb') as hocr_in:
-                hocr_obj = BeautifulSoup(hocr_in.read(), 'html.parser')
-            blocks = hocr_obj.find_all("div", class_="ocr_carea")
-            for block in blocks:
-                bbox_parts = block.attrs['title'].split()
-                regions.append({
-                    'x': int(bbox_parts[1]),
-                    'y': int(bbox_parts[2]),
-                    'width': int(bbox_parts[3]) - int(bbox_parts[1]),
-                    'height': int(bbox_parts[4]) - int(bbox_parts[2])
-                })
-
-    return regions
-
-
-def get_page_region_content(ocr_file, ocr_type, x, y, width, height):
-    content = ""
-
-    if os.path.exists(ocr_file):
-        if ocr_type == 'GCV':
-            gcv_obj = vision.types.TextAnnotation()
-            breaks = vision.enums.TextAnnotation.DetectedBreak.BreakType
-            with open(ocr_file, 'rb') as gcv_in:
-                gcv_obj.ParseFromString(gcv_in.read())
-
-                for page in gcv_obj.pages:
-                    for block in page.blocks:
-                        for paragraph in block.paragraphs:
-                            for word in paragraph.words:
-                                for symbol in word.symbols:
-                                    lowest_x = min([vertice.x for vertice in symbol.bounding_box.vertices])
-                                    lowest_y = min([vertice.y for vertice in symbol.bounding_box.vertices])
-                                    highest_x = max([vertice.x for vertice in symbol.bounding_box.vertices])
-                                    highest_y = max([vertice.y for vertice in symbol.bounding_box.vertices])
-                                    
-                                    if lowest_x >= x and \
-                                        lowest_y >= y and \
-                                        highest_x <= (x + width) and \
-                                        highest_y <= (y + height):
-                                             
-                                        content += symbol.text
-                                        if symbol.property.detected_break.type == breaks.SPACE:
-                                            content += ' '
-                                        elif symbol.property.detected_break.type == breaks.EOL_SURE_SPACE:
-                                            content += '\n'
-                                        elif symbol.property.detected_break.type == breaks.LINE_BREAK:
-                                            content += '\n'
-                                        elif symbol.property.detected_break.type == breaks.HYPHEN:
-                                            content += '-\n'
-        elif ocr_type == 'HOCR':
-            with open(ocr_file, 'rb') as hocr_in:
-                hocr_obj = BeautifulSoup(hocr_in.read(), 'html.parser')
-            words = hocr_obj.find_all("span", class_="ocrx_word")
-            for word in words:
-                bbox_parts = word.attrs['title'].replace(';', '').split()
-                if int(bbox_parts[1]) >= x and \
-                    int(bbox_parts[2]) >= y and \
-                    int(bbox_parts[3]) <= (x + width) and \
-                    int(bbox_parts[4]) <= (y + height):
-
-                    content += word.text + ' '
-    return content.strip()
-
-
-def setup_document_directory(corpus_id, document_id):
-    corpus = get_corpus(corpus_id)
-    if corpus:
-        document = corpus.get_document(document_id)
-        if document:
-            document_path = "/corpora/{0}/{1}".format(corpus_id, document_id)
-            os.makedirs(document.path, exist_ok=True)
-            if not document.path or document.path != document_path:
-                document.path = document_path
-                document.update(set__path="/corpora/{0}/{1}".format(corpus_id, document_id))
-
-
-def reset_page_extraction(corpus_id, document_id):
-    corpus = get_corpus(corpus_id)
-    if corpus:
-        document = corpus.get_document(document_id)
-        if document:
-            print('found objects')
-
-            dirs_to_delete = [
-                "{0}/temporary_uploads".format(document.path),
-                "{0}/files".format(document.path),
-                "{0}/pages".format(document.path),
-            ]
-
-            for dir_to_delete in dirs_to_delete:
-                if os.path.exists(dir_to_delete):
-                    print('found {0}'.format(dir_to_delete))
-                    shutil.rmtree(dir_to_delete)
-
-            document.files = []
-            document.pages = {}
-            document.jobs = []
-            corpus.jobs = []
-
-            document.save(index_pages=True)
-            corpus.save()
-
-
 def _get_context(req):
-    resp = {
+    context = {
         'errors': [],
         'messages': [],
         'scholar': {},
         'url': req.build_absolute_uri(req.get_full_path()),
-        'page': int(_clean(req.GET, 'page', 1)),
-        'per_page': int(_clean(req.GET, 'per-page', 50)),
+        'only': [],
+        'search': build_search_params_from_dict(req.GET)
     }
 
-    resp['start_index'] = (resp['page'] - 1) * resp['per_page']
-    resp['end_index'] = resp['start_index'] + resp['per_page']
-
     if 'msg' in req.GET:
-        resp['messages'].append(req.GET['msg'])
+        context['messages'].append(req.GET['msg'])
+    elif 'only' in req.GET:
+        context['only'] = req.GET['only'].split(',')
+        if context['search']:
+            context['search']['only'] = context['only']
 
     if req.user.is_authenticated:
-        try:
-            resp['scholar'] = Scholar.objects(username=req.user.username)[0]
-        except:
-            print(traceback.format_exc())
-            resp['scholar'] = {}
 
-    return resp
+        scholar_json = req.session.get('scholar_json', None)
+        if scholar_json:
+            context['scholar'] = Scholar.from_json(scholar_json)
+        else:
+            try:
+                context['scholar'] = Scholar.objects(username=req.user.username)[0]
+                req.session['scholar_json'] = context['scholar'].to_json()
+            except:
+                print(traceback.format_exc())
+                context['scholar'] = {}
+
+        if context['scholar'] and 'HTTP_AUTHORIZATION' in req.META:
+            req.session['corpora_api_user_id'] = str(req.user.id)
+            req.session.set_expiry(300)
+            if 'HTTP_X_REAL_IP' in req.META:
+                if req.META['HTTP_X_REAL_IP'] not in context['scholar'].auth_token_ips:
+                    context['scholar'] = {}
+            else:
+                context['scholar'] = {}
+        else:
+            req.session.set_expiry(0)
+
+    return context
+
+
+def build_search_params_from_dict(params):
+    search = {}
+    grouped_params = {}
+    
+    default_search = {
+        'general_query': '',
+        'fields_query': {},
+        'fields_term': {},
+        'fields_phrase': {},
+        'fields_filter': {},
+        'fields_range': {},
+        'fields_wildcard': {},
+        'fields_exist': [],
+        'fields_highlight': [],
+        'fields_sort': [],
+        'aggregations': {},
+        'grouped_searches': [],
+        'content_view': None,
+        'page': 1,
+        'page_size': 50,
+        'only': [],
+        'operator': "and",
+        'highlight_num_fragments': 5,
+        'highlight_fragment_size': 100,
+        'only_highlights': False,
+        'es_debug': False
+    }
+
+    for param in params.keys():
+        value = params[param]
+        search_field_name = param[2:]
+
+        if not search and (param in [
+            'q',
+            'page',
+            'page-size',
+            'only',
+            'operator',
+            'content_view',
+            'highlight_fields',
+            'highlight_num_fragments',
+            'highlight_fragment_size',
+            'only_highlights',
+            'page-token',
+            'es_debug',
+            'es_debug_query'
+        ] or param[:2] in ['q_', 't_', 'p_', 's_', 'f_', 'r_', 'w_', 'e_', 'a_', '1_', '2_', '3_', '4_', '5_', '6_', '7_', '8_', '9_']):
+            search = deepcopy(default_search)
+
+        if param == 'highlight_fields':
+            search['fields_highlight'] = value.split(',')
+        elif param == 'highlight_num_fragments' and value.isdigit():
+            search['highlight_num_fragments'] = int(value)
+        elif param == 'highlight_fragment_size' and value.isdigit():
+            search['highlight_fragment_size'] = int(value)
+        elif param == 'only_highlights':
+            search['only_highlights'] = True
+        elif param == 'content_view':
+            search['content_view'] = value
+        elif param == 'page-token':
+            search['next_page_token'] = value
+        elif param == 'q':
+            search['general_query'] = value
+        elif param.startswith('q_'):
+            search['fields_query'][search_field_name] = value
+        elif param.startswith('t_'):
+            search['fields_term'][search_field_name] = value
+        elif param.startswith('p_'):
+            search['fields_phrase'][search_field_name] = value
+        elif param.startswith('s_'):
+            if value.lower() == 'asc':
+                search['fields_sort'].append({search_field_name: {"order": 'ASC', "missing": "_first"}})
+            else:
+                search['fields_sort'].append({search_field_name: {"order": value}})
+        elif param.startswith('f_'):
+            search['fields_filter'][search_field_name] = value
+        elif param.startswith('r_'):
+            search['fields_range'][search_field_name] = value
+        elif param.startswith('w_'):
+            search['fields_wildcard'][search_field_name] = value
+        elif param.startswith('e_'):
+            search['fields_exist'].append(search_field_name)
+        elif param.startswith('a_'):
+            if param.startswith('a_terms_'):
+                agg_name = param.replace('a_terms_', '')
+                field_val = None
+                script_val = None
+
+                if ',' in value:
+                    agg_fields = value.split(',')
+                    script_agg_fields = ["doc['{0}'].value".format(f) for f in agg_fields if f]
+                    script_val = "return {0}".format(" + '|||' + ".join(script_agg_fields))
+                else:
+                    field_val = value
+
+                if '.' in value:
+                    nested_path = value.split('.')[0]
+                    agg = A('nested', path=nested_path)
+                    if field_val:
+                        agg.bucket('names', 'terms', size=10000, field=field_val)
+                    elif script_val:
+                        agg.bucket('names', 'terms', size=10000, script={'source': script_val})
+                    search['aggregations'][agg_name] = agg
+                elif field_val:
+                    search['aggregations'][agg_name] = A('terms', size=10000, field=field_val)
+                elif script_val:
+                    search['aggregations'][agg_name] = A('terms', size=10000, script={'source': script_val})
+
+            elif param.startswith('a_max_') or param.startswith('a_min_'):
+                metric_parts = param.split('_')
+                if len(metric_parts) == 3:
+                    metric_type = metric_parts[1]
+                    agg_name = metric_parts[2]
+
+                    if '.' in value:
+                        nested_path = value.split('.')[0]
+                        agg = A('nested', path=nested_path)
+                        agg.bucket('names', metric_type, field=value)
+                        search['aggregations'][agg_name] = agg
+                    else:
+                        search['aggregations'][agg_name] = A(metric_type, field=value)
+
+            elif param.startswith('a_histogram_'):
+                metric_parts = param.split('_')
+                if len(metric_parts) == 3:
+                    agg_name = metric_parts[2]
+                    field_parts = value.split('__')
+                    if len(field_parts) == 2:
+                        field = field_parts[0]
+                        interval = field_parts[1]
+
+                        if interval.isdigit() and int(interval) > 0:
+                            if '.' in field:
+                                nested_path = field.split('.')[0]
+                                agg = A('nested', path=nested_path)
+                                A('histogram', field=field, interval=int(interval))
+                                search['aggregations'][agg_name] = agg
+                            else:
+                                search['aggregations'][agg_name] = A('histogram', field=field, interval=int(interval))
+
+        elif param == 'operator':
+            search['operator'] = value
+        elif param == 'page':
+            search['page'] = int(value)
+        elif param == 'page-size':
+            search['page_size'] = int(value)
+        elif param == 'es_debug':
+            search['es_debug'] = True
+        elif param == 'es_debug_query':
+            search['es_debug_query'] = True
+
+        # extract params for grouped searches
+        elif param[:2] in ['1_', '2_', '3_', '4_', '5_', '6_', '7_', '8_', '9_']:
+            group_num = param[0]
+            group_param = param[2:]
+            if group_num not in grouped_params:
+                grouped_params[group_num] = {}
+            grouped_params[group_num][group_param] = value
+
+    # build group searches
+    if grouped_params:
+        for group_num in grouped_params.keys():
+            search['grouped_searches'].append(deepcopy(build_search_params_from_dict(grouped_params[group_num])))
+
+    if search:
+        has_query = False
+        for search_param in [
+            'general_query', 'fields_query', 'fields_filter', 'fields_wildcard', 'fields_range', 'fields_filter',
+            'fields_phrase', 'fields_term', 'grouped_searches'
+        ]:
+            if search[search_param]:
+                has_query = True
+                break
+
+        if not has_query:
+            search['general_query'] = "*"
+
+    return search
+
+
+def clear_cached_session_scholar(user_id):
+    cache = redis.Redis(host='redis', db=1, decode_responses=True)
+    key_prefix = 'corpora:1:django.contrib.sessions.cache'
+    from importlib import import_module
+    SessionStore = import_module(settings.SESSION_ENGINE).SessionStore
+
+    for key in cache.keys():
+        if key.startswith(key_prefix):
+            session_key = key.replace(key_prefix, '')
+            session = SessionStore(session_key=session_key)
+            clear_scholar_json = False
+            if session and 'scholar_json' in session:
+                if '_auth_user_id' in session and session['_auth_user_id'] == str(user_id):
+                    clear_scholar_json = True
+                elif 'corpora_api_user_id' in session and session['corpora_api_user_id'] == str(user_id):
+                    clear_scholar_json = True
+
+            if clear_scholar_json:
+                session.pop('scholar_json')
+                session.save()
+
+
+def get_open_access_corpora(use_cache=True):
+    oa_corpora = []
+
+    cache = redis.Redis(host='redis', decode_responses=True)
+    oa_corpora_list = cache.get('/open_access_corpora')
+    if not oa_corpora_list or not use_cache:
+        corpora = Corpus.objects(open_access=True)
+        oa_corpora_list = ",".join([str(corpus.id) for corpus in corpora])
+        cache.set('/open_access_corpora', oa_corpora_list, ex=3600)
+
+    if oa_corpora_list:
+        oa_corpora = oa_corpora_list.split(',')
+
+    return oa_corpora
+
+
+def order_content_schema(schema):
+    ordered_schema = []
+    ordering = True
+    while ordering:
+        num_ordered_cts = len(ordered_schema)
+        ordered_ct_names = [ct['name'] for ct in ordered_schema]
+
+        for ct_spec in schema:
+            independent = True
+            for field in ct_spec['fields']:
+                if field['type'] == 'cross_reference' and field['cross_reference_type'] != ct_spec['name'] and field['cross_reference_type'] not in ordered_ct_names:
+                    independent = False
+                    break
+            if independent and ct_spec['name'] not in ordered_ct_names:
+                ordered_schema.append(ct_spec)
+                ordered_ct_names.append(ct_spec['name'])
+
+        if num_ordered_cts == len(ordered_schema) or len(schema) == len(ordered_schema):
+            ordering = False
+
+    return ordered_schema
+
+
+def process_content_bundle(corpus, content_type, content, content_bundle, scholar_id, bulk_editing=False):
+    if content_type in corpus.content_types:
+        ct_fields = corpus.content_types[content_type].get_field_dict()
+        temp_file_fields = []
+        repo_fields = []
+        repo_jobs = []
+
+        for field_name, data in content_bundle.items():
+            if field_name in ct_fields:
+                field = ct_fields[field_name]
+
+                if (not bulk_editing) or (field.type not in ['file', 'repo'] and not field.unique):
+
+                    if field.multiple:
+                        setattr(content, field_name, [])
+                    else:
+                        data = [data]
+
+                    for datum in data:
+                        value = datum['value']
+                        valid_value = True
+                        if (not value) and value != 0:
+                            valid_value = False
+                            value = None
+
+                        if valid_value:
+                            if field.type == 'cross_reference':
+                                value = corpus.get_content(field.cross_reference_type, value).to_dbref()
+
+                            elif field.type == 'file':
+                                base_path = "{corpus_path}/{content_type}/temporary_uploads".format(
+                                    corpus_path=corpus.path,
+                                    content_type=content_type
+                                )
+
+                                if content.id:
+                                    base_path = "{content_path}/files".format(content_path=content.path)
+
+                                file_path = "{base_path}{sub_path}".format(
+                                    base_path=base_path,
+                                    sub_path=value
+                                )
+                                if os.path.exists(file_path):
+                                    value = File.process(
+                                        file_path,
+                                        desc="{0} for {1}".format(ct_fields[field_name].label, content_type),
+                                        prov_type="Scholar",
+                                        prov_id=str(scholar_id)
+                                    )
+
+                                    if not content.id and field_name not in temp_file_fields:
+                                        temp_file_fields.append(field_name)
+
+                            elif field.type == 'repo':
+                                if value.get('name') and value.get('url') and value.get('branch'):
+                                    repo = GitRepo()
+                                    repo.name = value['name']
+                                    repo.remote_url = value['url']
+                                    repo.remote_branch = value['branch']
+
+                                    if content.path:
+                                        repo.path = "{0}/{1}/{2}".format(content.path, 'repos', value['name'])
+                                    elif field_name not in repo_fields:
+                                        repo_fields.append(field_name)
+
+                                    clone_job_params = {
+                                        'repo_name': repo.name,
+                                        'repo_content_type': content_type,
+                                        'repo_field': field.name
+                                    }
+                                    if value.get('user') and value.get('password'):
+                                        clone_job_params['repo_user'] = value['user']
+                                        clone_job_params['repo_pwd'] = value['password']
+
+                                    repo_jobs.append(clone_job_params)
+                                    value = repo
+                                else:
+                                    valid_value = False
+
+                            elif field.type == 'timespan':
+                                span = Timespan()
+                                span.start = parse_date_string(value['start'])
+                                span.end = parse_date_string(value['end'])
+                                span.uncertain = value['uncertain']
+                                span.granularity = value['granularity']
+                                span.normalize()
+                                value = span
+
+                            elif field.type == 'date':
+                                value = parse_date_string(value)
+
+                            elif field.type == 'html':
+                                value = unquote(value)
+
+                        if field.multiple:
+                            if valid_value:
+                                getattr(content, field_name).append(value)
+
+                                if field.type == 'repo' and repo_jobs:
+                                    repo_jobs[-1]['repo_field_multi_index'] = len(getattr(content, field_name)) - 1
+                        else:
+                            setattr(content, field_name, value)
+
+                        if field.has_intensity and 'intensity' in datum:
+                            content.set_intensity(field_name, value, datum['intensity'])
+
+        content.save(relabel=True)
+
+        if repo_fields:
+            for repo_field in repo_fields:
+                if ct_fields[repo_field].multiple:
+                    for repo_index in range(0, len(getattr(content, repo_field))):
+                        repo_name = getattr(content, repo_field)[repo_index].name
+                        getattr(content, repo_field)[repo_index].path = "{0}/{1}/{2}".format(content.path, 'repos', repo_name)
+                else:
+                    repo_name = getattr(content, repo_field).name
+                    getattr(content, repo_field).path = "{0}/{1}/{2}".format(content.path, 'repos', repo_name)
+            content.save()
+
+        for repo_job in repo_jobs:
+            repo_job['repo_content_id'] = str(content.id)
+            corpus.queue_local_job(task_name="Pull Repo", parameters=repo_job)
+
+        if temp_file_fields:
+            for temp_file_field in temp_file_fields:
+                if ct_fields[temp_file_field].multiple:
+                    for f_index in range(0, len(getattr(content, temp_file_field))):
+                        content._move_temp_file(temp_file_field, f_index)
+                else:
+                    content._move_temp_file(temp_file_field)
+
+            content.save(relabel=True)
+
+
+def process_corpus_export_file(export_file):
+    if export_file:
+        export_file = export_file.replace('/', '')
+        export_file = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', os.path.basename(export_file))
+        if '_' in export_file and export_file.endswith('.tar.gz'):
+            export_name = export_file.split('.')[0]
+            export_name = "_".join(export_name.split('_')[1:])
+            export_file = '/corpora/exports/' + export_file
+
+            if os.path.exists(export_file):
+                export_corpus = None
+                with tarfile.open(export_file, 'r:gz') as tar_in:
+                    export_corpus = tar_in.extractfile('corpus.json').read()
+
+                if export_corpus:
+                    export_corpus = json.loads(export_corpus)
+                    if _contains(export_corpus, ['id', 'name', 'description']):
+                        export = CorpusExport()
+                        export.name = export_name
+                        export.corpus_id = export_corpus['id']
+                        export.corpus_name = export_corpus['name']
+                        export.corpus_description = export_corpus['description']
+                        export.path = export_file
+                        export.save()
+
+                        return True
+    return False
+
+
+def send_alert(corpus_id, alert_type, message):
+    send_event(corpus_id, 'alert', {'type': alert_type, 'message': message})
 
 
 def _contains(obj, keys):
@@ -285,6 +549,19 @@ def _contains(obj, keys):
     return True
 
 
+def _contains_any(obj, keys):
+    for key in keys:
+        if key in obj:
+            return True
+    return False
+
+
+def _replace_all(target, replacement_pairs):
+    for pair in replacement_pairs:
+        target = target.replace(pair[0], pair[1])
+    return target
+
+
 def _clean(obj, key, default_value=''):
     val = obj.get(key, False)
     if val:
@@ -292,3 +569,11 @@ def _clean(obj, key, default_value=''):
     else:
         return default_value
 
+
+def fix_mongo_json(json_string):
+    oid_pattern = re.compile(r'{"\$oid": "([^"]*)"}')
+    oid_matches = oid_pattern.finditer(json_string)
+    for oid_match in oid_matches:
+        json_string = json_string.replace(oid_match[0], f'"{ oid_match.group(1) }"')
+
+    return json_string.replace('"_id":', '"id":')

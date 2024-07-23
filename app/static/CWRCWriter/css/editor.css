@@ -1,189 +1,135 @@
 /* This CSS gets applied to the tinymce editor */
-
-@import url(https://fonts.googleapis.com/css?family=Lato&subset=latin,latin-ext);
-
-body {
-    font-family: 'Book Antiqua', serif;
-    font-size: 11pt;
-    color: #333;
+/* entity colours */
+.showEntities .entity,
+.ui-dialog-content .entity {
+  border-width: 1px;
+  border-bottom-style: dotted;
 }
-
-.showEntityBrackets .entity {
-    /*display: inline-block;
-    height: 11px;
-    line-height: 11px;
-    width: 2px;*/
-    border-width: 1px;
-    border-bottom-style: dotted;
+.showEntities .entityHighlight > .entity {
+  border-width: 2px;
 }
-
-/*
-.showEntityBrackets .start {
-    border-left: 2px solid;
-    border-bottom-left-radius: 4px;
-    border-top-left-radius: 4px;
-}
-
-.showEntityBrackets .end {
-    border-right: 2px solid;
-    border-bottom-right-radius: 4px;
-    border-top-right-radius: 4px;
-}
-*/
-
-/*
-.entityHighlight {
-    color: #fff;
-    border-radius: 5px;
-}
-*/
-
-/* TODO: need to get this out of here!! */
-.entityHighlight.txtimglnk {
-    background-color: #7F00FF;
-}
-.showEntityBrackets .txtimglnk {
-    border-color: #7F00FF;
-}
-.showEntityBrackets .entityHighlight .entity {
-    border-width: 2px;
-}
-
 .entityHighlight.person {
-    background-color: rgba(255,0,0,0.2);
+  background-color: rgba(255, 0, 0, 0.2);
 }
-
 .entityHighlight.date {
-    background-color: rgba(255,116,0,0.2);
+  background-color: rgba(255, 114, 0, 0.2);
 }
-
 .entityHighlight.place {
-    background-color: rgba(0,153,153,0.2);
+  background-color: rgba(0, 153, 153, 0.2);
 }
-
-.entityHighlight.event {
-    background-color: rgba(0,204,0,0.2);
+.entityHighlight.rs {
+  background-color: rgba(0, 204, 0, 0.2);
 }
-
 .entityHighlight.org {
-    background-color: rgba(57,20,175,0.2);
+  background-color: rgba(109, 56, 214, 0.2);
 }
-
 .entityHighlight.title {
-    background-color: rgba(222,187,0,0.2);
+  background-color: rgba(224, 190, 0, 0.2);
 }
-
 .entityHighlight.correction {
-    background-color: rgba(255,51,0,0.2);
+  background-color: rgba(255, 51, 0, 0.2);
 }
-
 .entityHighlight.link {
-    background-color: rgba(51,102,255,0.2);
+  background-color: rgba(50, 101, 255, 0.2);
 }
-
-
-.showEntityBrackets .person {
-    border-color: #FF0000;
+.showEntities .person,
+.ui-dialog-content .person {
+  border-color: #ec9393;
 }
-
-.showEntityBrackets .date {
-    border-color: #FF7400;
+.showEntities .date,
+.ui-dialog-content .date {
+  border-color: #ff7200;
 }
-
-.showEntityBrackets .place {
-    border-color: #009999;
+.showEntities .place,
+.ui-dialog-content .place {
+  border-color: #009999;
 }
-
-.showEntityBrackets .event {
-    border-color: #00CC00;
+.showEntities .rs,
+.ui-dialog-content .rs {
+  border-color: #00cc00;
 }
-
-.showEntityBrackets .org {
-    border-color: #3914AF; 
+.showEntities .org,
+.ui-dialog-content .org {
+  border-color: #6d38d6;
 }
-
-.showEntityBrackets .title {
-    border-color: #debb00;
+.showEntities .title,
+.ui-dialog-content .title {
+  border-color: #e0be00;
 }
-
-.showEntityBrackets .correction {
-    border-color: #FF3300;
+.showEntities .correction,
+.ui-dialog-content .correction {
+  border-color: #ff3300;
 }
-
-.showEntityBrackets .link {
-    border-color: #3366ff;
+.showEntities .link,
+.ui-dialog-content .link {
+  border-color: #3265ff;
 }
-
-/* special handling for note type entities */
-.citation, .note, .keyword {
-    /*height: 16px !important;
-    width: 16px !important;*/
-    cursor: pointer;
+.entity[_candidate] {
+  border-width: 0px !important;
 }
-
-span:not(.entityHighlight) > .start.note::after, div > .start.note::after {
-    content: url(../img/note_inline_large.png);
+.entity.person[_candidate] {
+  color: #ff0000 !important;
 }
-
-span:not(.entityHighlight) > .start.citation::after, div > .start.citation::after {
-    content: url(../img/citation_inline_large.png);
+.entity.place[_candidate] {
+  color: #009999 !important;
 }
-
-span:not(.entityHighlight) > .start.keyword::after, div > .start.keyword::after {
-    content: url(../img/keyword_inline_large.png);
+.entity.org[_candidate] {
+  color: #6d38d6 !important;
 }
-
-.entityHighlight > .note::after {
-    content: url(../img/note_inline_large_highlight.png);
+.entity.title[_candidate] {
+  color: #e0be00 !important;
 }
-
-.entityHighlight > .citation::after {
-    content: url(../img/citation_inline_large_highlight.png);
+.entity.date[_candidate] {
+  color: #ff7200 !important;
 }
-
-.entityHighlight > .keyword::after {
-    content: url(../img/keyword_inline_large_highlight.png);
+.entity.correction[_candidate] {
+  color: #ff3300 !important;
 }
-
-.showEntityBrackets .citation.start, .showEntityBrackets .note.start, .showEntityBrackets .keyword.start {
-    border: none !important;
+.entity.link[_candidate] {
+  color: #3265ff !important;
 }
-
-
-
+.entity.keyword[_candidate] {
+  color: #008040 !important;
+}
+.entity.rs[_candidate] {
+  color: #00cc00 !important;
+}
+.noteWrapper::before {
+  cursor: pointer;
+}
+.noteWrapper.note::before {
+  content: url(../img/note_inline_large.png);
+}
+.noteWrapper.citation::before {
+  content: url(../img/citation_inline_large.png);
+}
+.noteWrapper.keyword::before {
+  content: url(../img/keyword_inline_large.png);
+}
+.noteWrapper.note.entityHighlight::before {
+  content: url(../img/note_inline_large_highlight.png);
+}
+.noteWrapper.citation.entityHighlight::before {
+  content: url(../img/citation_inline_large_highlight.png);
+}
+.noteWrapper.keyword.entityHighlight::before {
+  content: url(../img/keyword_inline_large_highlight.png);
+}
+.noteWrapper > * {
+  display: inherit;
+}
+.noteWrapper.hide > * {
+  display: none !important;
+}
+.showEntities .citation.start,
+.showEntities .note.start,
+.showEntities .keyword.start {
+  border: none !important;
+}
 span[data-mce-bogus] {
-    height: 0px;
-    width: 0px;
-    line-height: 0px;
-    font-size: 0px;
-    display: none;
-}
-
-.titleTagQuotes:before, .quoteTagShort:before {
-    content: open-quote;
-}
-
-.titleTagQuotes:after, .quoteTagShort:after {
-    content: close-quote;
-}
-
-.titleTagItalics {
-    font-style: italic;
-}
-
-.quoteTagLong {
-    display: block;
-    margin-left: 25px;
-}
-
-.quoteTag {
-}
-
-.headTag {
-    font-size: 120%;
-    font-weight: bold;
-}
-
-.emphTag {
-    font-style: italic;
+  height: 0px;
+  width: 0px;
+  line-height: 0px;
+  font-size: 0px;
+  display: none;
 }

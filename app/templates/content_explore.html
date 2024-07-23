@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+    <style type="text/css">
+        canvas {
+            outline: none;
+            -webkit-tap-highlight-color: rgba(255, 255, 255, 0); /* mobile webkit */
+        }
+
+        #selected_div {
+            position: fixed;
+            top: calc(10vh);
+            left: 0px;
+            width: 200px;
+            max-height: calc(100vh);
+            background-color: rgba(255, 255, 255, .8);
+        }
+
+        .content-pane {
+            cursor: move;
+        }
+
+        .selection-div:hover {
+            color: #EF3E36;
+        }
+
+        .popup-button:hover {
+            cursor: pointer;
+            color: #EF3E36;
+        }
+    </style>
+    <link href="{% static 'css/vis-network.min.css' %}" rel="stylesheet">
+
+{% endblock %}
+
+{% block main %}
+    <div class="row mt-4">
+        <div id="explore" class="col-12">
+            <div id="explore-legend" class="d-inline-flex align-items-start"></div>
+            <div id="explore-div" style="height: 800px;"></div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'js/filepond.js' %}"></script>
+    <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
+    <script src="{% static 'js/vis-network.min.js' %}"></script>
+    <script type="application/javascript">
+        let corpus_id = '{{ corpus_id }}';
+        let corpus_uri = `/corpus/${corpus_id}`;
+        let content_type_name = '{{ content_type }}';
+        let content_ids = {{ content_ids|safe }};
+        let content_uris = {{ content_uris|safe }};
+        let network = null;
+        let content_type = null;
+
+
+        if (!content_uris.length) {
+            content_uris = content_ids.map(c_id => `${corpus_uri}/${content_type_name}/${c_id}`);
+        }
+
+        $(document).ready(function() {
+            /* when finished loading:
+            network.fit();
+            nodes.update([{ id: content.uri, label: content.label, title: null, fixed: true }]);
+            hide_loading_overlay();
+             */
+            canvas = $('#explore-div');
+
+            corpora.get_corpus(corpus_id, function(corpus_data) {
+                // INITIAL EXPLORE VIZ LOAD
+                let explore_container_width = $('#explore').innerWidth();
+                $('#explore-div').css("width", `${explore_container_width}px`);
+                network = new ContentGraph(
+                    corpora,
+                    corpus_data,
+                    "explore-div",
+                    "explore-legend",
+                    {
+                        'seeds': content_uris,
+                        'per_type_limit': 5,
+                        'width': explore_container_width,
+                        'height': 800
+                    }
+                );
+            }, true);
+
+            hide_loading_overlay();
+        });
+    </script>
+{% endblock %}

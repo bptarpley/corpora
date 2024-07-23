@@ -1,0 +1,1679 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+    <style>
+        html, body {
+            height: 100%;
+            width: 100%;
+            background-color: #D2D2D2;
+        }
+
+        #delineator {
+            height: 100vh;
+        }
+
+        /* --------------------------- */
+        /* Control Panel Header        */
+        /* --------------------------- */
+        #page-control-panel {
+            position: absolute;
+            top: 0;
+            min-width: 1070px;
+            height: 57px;
+            background-color: rgb(242, 242, 242);
+            filter: alpha(opacity=50);
+            opacity: 0.5;
+        }
+
+        #page-control-panel:hover, #mode-status-div:hover {
+            filter: alpha(opacity=100);
+            opacity: 1;
+        }
+
+        #mode-status-div {
+            position: absolute;
+            top: 57px;
+            right: 0px;
+            display: inline-flex;
+            background-color: rgb(242, 242, 242);
+            filter: alpha(opacity=50);
+            opacity: 0.5;
+        }
+
+        #mode-status-indicator {
+            color: #EF3E36;
+        }
+
+        /* --------------------------- */
+        /* Rotation Modal              */
+        /* --------------------------- */
+        .modal-backdrop.grid-lines {
+            background-color: transparent;
+            background-size: 40px 40px;
+            background-image:
+                linear-gradient(to right, deeppink 1px, transparent 1px),
+                linear-gradient(to bottom, deeppink 1px, transparent 1px);
+        }
+
+        /* --------------------------- */
+        /* Transcription Modal         */
+        /* --------------------------- */
+        #trans-text-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            max-width: 100%;
+            height: 400px;
+            resize: both;
+            width: 500px;
+            /*height: relative;*/
+            overflow-x: hidden;
+            overflow-y: hidden;
+            background-color: rgb(242, 242, 242);
+            filter: alpha(opacity=80);
+            opacity: 0.8;
+        }
+
+        #trans-text-modal:hover {
+            filter: alpha(opacity=100);
+            opacity: 1;
+        }
+
+        #trans-text-header {
+            height: 30px;
+        }
+
+        #trans-text-identifier {
+            width: 75px;
+        }
+
+        #trans-text-div {
+            max-height: 400px;
+            overflow-y: scroll;
+            background-color: #FFFFFF;
+        }
+
+        .trans-text-unit, .trans-text-unit-completed {
+            font-size: 12px;
+            padding: 5px;
+            margin: 0;
+            color: #091540;
+            cursor: pointer;
+        }
+
+        .trans-text-unit-completed {
+            background-color: #091540;
+            color: #FFFFFF;
+        }
+
+        .trans-text-unit:hover, .trans-text-unit.selected {
+            background-color: #EF3E36;
+            color: #FFFFFF;
+        }
+
+        .draggable-touch {
+            cursor: move;
+        }
+
+        /* --------------------------- */
+        /* Delineator Main Body        */
+        /* --------------------------- */
+        .text-region {
+            background-color: white;
+            font-family: "Times New Roman", serif;
+            text-align: justify;
+            text-justify: inter-word;
+            border: solid 5px #17BEBB;
+        }
+
+        .content-stretcher {
+            width: 100%;
+            display: inline-block;
+        }
+
+        .control-panel {
+            padding: 15px;
+        }
+
+        .region-control {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .svg_select_points_lt {
+            cursor: nw-resize;
+        }
+        .svg_select_points_rt {
+            cursor: ne-resize;
+        }
+        .svg_select_points_rb {
+            cursor: se-resize;
+        }
+        .svg_select_points_lb {
+            cursor: sw-resize;
+        }
+        .svg_select_points_t {
+            cursor: n-resize;
+        }
+        .svg_select_points_r {
+            cursor: e-resize;
+        }
+        .svg_select_points_b {
+            cursor: s-resize;
+        }
+        .svg_select_points_l {
+            cursor: w-resize;
+        }
+
+        .svg_select_points {
+            stroke-width:1;
+            stroke:black;
+            fill: #F9FFED;
+        }
+
+        .svg_select_points_rot {
+            display: none;
+        }
+
+        .svg_select_boundingRect {
+            stroke-width:10;
+            fill:gray;
+            stroke-dasharray: 10;
+            stroke:#F9FFED;
+            stroke-opacity:0.8;
+            fill-opacity:0.1;
+            pointer-events:none; /* This ons is needed if you want to deselect or drag the shape*/
+        }
+    </style>
+{% endblock %}
+
+{% block modals %}
+    <!-- CONFIRMATION MODAL -->
+    <div class="modal fade" id="confirm-modal" tabindex="-1" role="dialog" aria-labelledby="confirm-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirm-modal-label"></h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div id="confirm-content" class="modal-body">
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirm-go-button"></button>
+                </div>
+                <form id="confirm-form" method="post">
+                    {% csrf_token %}
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- IMAGE ROTATE MODAL -->
+    <div class="modal fade" id="rotate-modal" tabindex="-1" role="dialog" aria-labelledby="rotate-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-sm" role="document">
+            <div class="modal-content">
+                <div class="modal-body align-self-center">
+                    <div class="form-inline">
+                        <button id="rotate-left-button" class="btn rounded image-rotate-button" data-direction="left"><span class="fas fa-undo"></span></button>
+                        <div class="input-group">
+                            <input id="rotate-degrees-box" type="number" min="0" max="359" class="form-control" aria-label="Rotation Degree" style="width: 62px;" value="1">
+                            <div class="input-group-append">
+                                <span class="input-group-text">°</span>
+                            </div>
+                        </div>
+                        <button id="rotate-right-button" class="btn rounded image-rotate-button" data-direction="right"><span class="fas fa-undo fa-flip-horizontal"></span></button>
+                    </div>
+                </div>
+                <div class="modal-footer align-self-center">
+                    <button type="button" class="btn btn-secondary" id="rotate-cancel-button">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="rotate-save-button">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block main %}
+    <div id="delineator" class="w-100 d-block"></div>
+    <div id="page-control-panel" class="control-panel d-flex w-100 align-items-center justify-content-between">
+        <span id="page-controls" class="control-group">
+            Page
+            <button id="prev-page-button" type="button" class="btn btn-sm btn-primary rounded"><span class="fas fa-caret-left"></span></button>
+            <span id="page-location-span"></span>
+            <button id="next-page-button" type="button" class="btn btn-sm btn-primary rounded"><span class="fas fa-caret-right"></span></button>
+            of <span id="page-length-span"></span>
+            <button id="reset-regions" type="button" class="btn btn-sm btn-secondary ml-1">Reset Page</button>
+            <button id="rotate-page-button" type="button" class="btn btn-sm btn-secondary ml-1 d-none" data-toggle="modal" data-target="#rotate-modal">Rotate Page</button>
+            <button id="complete-page-button" type="button" class="btn btn-sm btn-secondary ml-1">Mark Page Complete</button>
+        </span>
+        <span id="region-controls" class="control-group">
+            <b>Regions</b>
+            <button id="draw-region" type="button" class="btn btn-sm btn-primary ml-3"><u>D</u>raw</button>
+            <button id="select-region" type="button" class="btn btn-sm btn-primary ml-1">Select</button>
+            <button id="clear-regions" type="button" class="btn btn-sm btn-secondary ml-1">Clear</button>
+            <button id="split-regions" type="button" class="btn btn-sm btn-secondary ml-1">Split</button>
+            <button id="delete-region" type="button" class="btn btn-sm btn-secondary ml-1 d-none">Delete Selected</button>
+        </span>
+        <span id="selection-controls" class="control-group d-none">
+            <button id="selection-more" type="button" class="btn btn-sm btn-primary ml-3">Select More</button>
+            <button id="selection-delete" type="button" class="btn btn-sm btn-primary ml-1">Delete Selected</button>
+            <button id="selection-reorder" type="button" class="btn btn-sm btn-primary ml-1">Reorder Top to Bottom</button>
+            <button id="selection-cancel" type="button" class="btn btn-sm btn-secondary ml-1">Cancel</button>
+        </span>
+        <span id="reorder-controls" class="control-group d-none">
+            Click on the line immediately preceding this one,
+            <button id="make-first-button" type="button" class="btn btn-sm btn-secondary rounded">Designate as First Line</button>, or
+            <button id="cancel-reorder-button" type="button" class="btn btn-sm btn-primary rounded">Cancel</button>.
+        </span>
+        <span id="nav-controls" class="control-group">
+            <button id="save-button" type="button" class="btn btn-sm btn-primary" disabled>Progress Saved</button>
+            <button id="exit-button" type="button" class="btn btn-sm btn-secondary ml-1">Exit</button>
+        </span>
+    </div>
+    <div id="mode-status-div" class="d-none rounded-bottom p-2">
+        <span id="mode-status-indicator" class="mr-1"></span>
+        <button id="mode-status-exit-button" type="button" onclick="reset_mode();" class="close" aria-label="Exit Mode">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    <div id="trans-text-modal" aria-labelledby="Transcription Text Modal" class="d-none rounded">
+        <div id="trans-text-header" class="w-100 p-1 rounded d-flex align-content-center justify-content-between draggable-touch">
+            <h5 class="m-0 d-flex align-items-center">Place {{ project.transcription_level|title }}s</h5>
+            <span class="d-flex align-content-center">
+                <input type="number" id="trans-text-identifier" class="form-control-sm align-self-center btn-secondary mr-2" />
+                <div class="form-check-inline align-content-center">
+                    <input type="checkbox" id="trans-text-auto-box" class="form-check-input" checked>
+                    <label for="trans-text-auto-box" class="p-0 m-0 align-content-center">Auto</label>
+                </div>
+            </span>
+        </div>
+        <div id="trans-text-div">
+            <!-- populated via javascript -->
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'js/svg/svg.js' %}"></script>
+    <script src="{% static 'js/svg.panzoom/svg.panzoom.js' %}"></script>
+    <script src="{% static 'js/svg.draw/svg.draw.js' %}"></script>
+    <script src="{% static 'js/svg.select/svg.select.js' %}"></script>
+    <script src="{% static 'js/svg.resize/svg.resize.js' %}"></script>
+    <script src="{% static 'jquery-ui/jquery-ui.js' %}"></script>
+    <script type="application/javascript">
+        let delineate;
+        let canvas;
+        let image;
+        let region;
+        let selector;
+        let splitter;
+        let mask;
+        let currently_selected;
+        let currently_editing = false;
+        let reordering = false;
+        let drawing = false;
+        let selecting = false;
+        let splitting = false;
+        let click_timer = null;
+        let resize_lock = false;
+        let work_saved = true;
+        let save_timer;
+        let panzoom_options = {
+            panMouse: 2,
+            zoomFactor: 0.01,
+            zoomMin: 0.05,
+            zoomMax: 5
+        };
+        let select_options = {
+            pointSize: 20
+        };
+        let selection;
+        let confirm_modal = $('#confirm-modal');
+        let completion_offered = false;
+
+        let project_url = '{{ document.uri }}/transcribe/{{ project.id }}/';
+        let project_name = '{{ project.name }}';
+
+        let trans_text = {% if project.transcription_text %}{{ project.transcription_text|safe }}{% else %}[]{% endif %};
+        let trans_cursor = {% if project.transcription_cursor %}{{ project.transcription_cursor }}{% else %}0{% endif %};
+        let trans_id_differential = 1;
+        let trans_text_to_import = null;
+
+        let current_page = '{{ ref_no }}';
+        let project_pages = {{ project_pages|safe }};
+        let image_file = JSON.parse(`{{ image_file|escapejs }}`);
+        let viewer_width, viewer_height;
+        let ocr_file = '{% if ocr_file %}{{ ocr_file }}{% endif %}';
+        let ocr_lines = JSON.parse(`{{ page_regions|escapejs }}`);
+        let region_metadata = {{ region_metadata|safe }};
+        let markup = {{ markup|safe }};
+        let page_regions = {};
+        let ordered_region_ids = [];
+        let region_id_cursor = null;
+        let last_region_id = null;
+
+        let min_trans_font = 10;
+        let max_trans_font = 300;
+        let min_control_height = 30;
+        let max_control_height = 100;
+        let min_control_font = 20;
+        let max_control_font = 60;
+
+        $(document).ready(function() {
+            // ---------------------------------------
+            // setup page control panel
+            // ---------------------------------------
+            let page_location = project_pages.indexOf(current_page);
+            if (page_location === 0) $('#prev-page-button').attr('disabled', true);
+            if (page_location + 1 === project_pages.length) $('#next-page-button').attr('disabled', true);
+            $('#page-location-span').html(page_location + 1);
+            $('#page-length-span').html(project_pages.length);
+
+            $('#prev-page-button').click(function() {
+                if (page_location > 0) {
+                    window.location.pathname = `${project_url}${project_pages[page_location - 1]}/`;
+                }
+            });
+
+            $('#next-page-button').click(function() {
+                if (page_location < project_pages.length) {
+                    window.location.pathname = `${project_url}${project_pages[page_location + 1]}/`;
+                }
+            });
+
+            $('#reset-regions').click(function() {
+                $('#confirm-modal-label').html('Reset Page?');
+                $('#confirm-content').html(`
+                    <div class="alert alert-danger">
+                        Resetting the page will remove all manual transcriptions and revert the page back to
+                        its original state (OCR regions and text only), and cannot be undone. Proceed?
+                    </div>
+                `);
+                let go_button = $('#confirm-go-button')
+                go_button.html('Reset Page');
+                go_button.off('click').on('click', function() {
+                    let confirm_form = $('#confirm-form');
+                    confirm_form.append(`<input type="hidden" name="ref-no" value="${current_page}"/>`);
+                    confirm_form.append(`<input type="hidden" name="reset-page" value="y"/>`);
+                    confirm_form.submit();
+                });
+                confirm_modal.modal();
+            });
+
+            $('#complete-page-button').click(function() {
+                let complete = check_completion();
+                let message = '';
+                if (complete && !completion_offered) {
+                    return;
+                } else if (complete && completion_offered) {
+                    message = `
+                        <div class="alert alert-success">
+                            You appear to have transcribed all page regions! Would you like to mark this page
+                            as complete?
+                        </div>
+                    `;
+                } else if (!complete) {
+                    message = `
+                        <div class="alert alert-danger">
+                            There appear to be regions on this page that you have not yet vetted/corrected for
+                            transcription. Are you sure you want to mark this page as complete?
+                        </div>
+                    `;
+                }
+
+                $('#confirm-modal-label').html('Mark Page Complete?');
+                $('#confirm-content').html(message);
+                let go_button = $('#confirm-go-button')
+                go_button.html('Mark Page Complete');
+                go_button.off('click').on('click', function() {
+                    if (!work_saved) save_progress(true);
+                    else complete_page();
+                });
+                confirm_modal.modal();
+            });
+
+
+            // ---------------------------------------
+            // place page image and pan/zoom it to center
+            // ---------------------------------------
+            viewer_width = $('#delineator').width();
+            viewer_height = $('#delineator').height();
+
+            delineate = SVG('delineator')
+                .size(`${viewer_width}px`, `${viewer_height}px`)
+                .attr({id: 'svg-delineator', preserveAspectRatio: 'xMinYMin meet'})
+                .panZoom(panzoom_options);
+
+            // determine if external IIIF image, and if so, enable rotation
+            let image_url = corpora.image_url(image_file.uri) + 'full/full/0/default.png';
+            if (Object.keys(image_file.iiif_info).length) {
+                image_url = corpora.iiif_url(image_file.path, image_file.iiif_info);
+
+                let rotate_modal = $('#rotate-modal');
+                let rotate_page_button = $('#rotate-page-button');
+                let rotate_degrees_box = $('#rotate-degrees-box');
+                let rotate_save_button = $('#rotate-save-button');
+
+                let image_rotation = 0;
+                if (image_file.iiif_info.hasOwnProperty('fixed_rotation'))
+                    image_rotation = image_file.iiif_info.fixed_rotation;
+                let original_rotation = image_rotation;
+
+                let perform_rotation = function() {
+                    image_file.iiif_info['fixed_rotation'] = image_rotation;
+                    image_url = corpora.iiif_url(image_file.path, image_file.iiif_info);
+                    image.remove();
+                    show_loading_overlay();
+                    image = delineate.image(image_url).loaded(function(event) {
+                        hide_loading_overlay();
+                    }).move(0, 0).back();
+                }
+
+                rotate_page_button.removeClass('d-none');
+
+                // setup grid lines when modal appears
+                rotate_modal.on('shown.bs.modal', function (e) {
+                    $('.modal-backdrop').addClass('grid-lines');
+                });
+
+                // rotation button events
+                $('.image-rotate-button').click(function() {
+                    let direction = $(this).data('direction');
+                    let degrees = parseInt(rotate_degrees_box.val());
+
+                    if (direction === 'right') image_rotation += degrees;
+                    else if (direction === 'left') image_rotation -= degrees;
+                    if (image_rotation < 0) image_rotation = 360 + image_rotation;
+                    if (image_rotation > 360) image_rotation = image_rotation - 360;
+
+                    perform_rotation();
+                });
+
+                // rotation save event
+                rotate_save_button.click(function() {
+                    rotate_save_button.attr('disabled', true);
+
+                    let rotation_data = {
+                        'ref-no': current_page,
+                        'rotate-page': image_rotation,
+                        csrfmiddlewaretoken: '{{ csrf_token }}',
+                    }
+                    $.ajax({
+                        type: 'POST',
+                        url: '',
+                        dataType: 'json',
+                        data: rotation_data,
+                        statusCode: {
+                            201: function() {
+                                rotate_save_button.attr('disabled', false);
+                                rotate_modal.modal('hide');
+                            }
+                        }
+                    });
+                });
+
+                // rotation cancellation event
+                $('#rotate-cancel-button').click(function() {
+                    if (image_rotation !== original_rotation) {
+                        image_rotation = original_rotation;
+                        perform_rotation();
+                    }
+                    rotate_modal.modal('hide');
+                });
+            }
+
+            image = delineate.image(image_url).move(0, 0);
+            canvas = delineate.group().attr('class', 'delineator-canvas');
+
+            let vb_specs = calculate_viewbox(0, 0, image_file.width, image_file.height)
+            delineate.viewbox(vb_specs);
+
+
+            // ---------------------------------------
+            // draw regions on top of image and setup region events
+            // ---------------------------------------
+            populate_regions();
+
+            // MAIN MOUSE DOWN EVENT FOR HANDLING THE BEGINNING OF DRAWING/SELECTING/SPLITTING, etc.
+            delineate.on('mousedown', function(e){
+                if (currently_editing) {
+                    click_timer = setTimeout(enable_zoom, 500);
+                } else if (region) {
+                    region.draw(e, {});
+                } else if (selector) {
+                    selector.draw(e, {});
+                } else if (splitter) {
+                    splitter.draw(e, {});
+                }
+                display_mode_status();
+            });
+
+            // MAIN MOUSE UP EVENT FOR COMPLETING DRAWING/SELECTING/SPLITTING, etc.
+            delineate.on('mouseup', function(e){
+
+                // FINISH DRAWING A REGION
+                if (region) {
+                    region = region.draw(e);
+
+                    let new_region_id = '0';
+                    if (last_region_id) new_region_id = (parseInt(last_region_id) + 1).toString();
+
+                    region.attr({id: `region-${new_region_id}`})
+                        .click(function (e) { click_region(this, e); })
+                        .dblclick(function() { zoom_to(new_region_id); });
+
+                    ordered_region_ids.push(new_region_id);
+                    page_regions[new_region_id] = {
+                        x: region.x(),
+                        y: region.y(),
+                        width: region.width(),
+                        height: region.height(),
+                        completed: false,
+                        rect: region
+                    };
+
+                    // PLACE TRANSCRIPTION LINE IN REGION AND MOVE TO NEXT TRANSCRIPTION LINE
+                    if (trans_text_to_import) {
+                        page_regions[new_region_id]['transcription'] = trans_text_to_import;
+                        if (region_metadata.includes('ID')) {
+                            page_regions[new_region_id]['metadata'] = {
+                                ID: trans_cursor + trans_id_differential
+                            };
+                        }
+                        increment_transcription_text_cursor();
+                    }
+
+                    last_region_id = new_region_id;
+
+                    region = null;
+                    drawing = false;
+                    $('#delineator').css('cursor', 'default');
+                    mark_unsaved();
+                    delineate.panZoom(panzoom_options);
+
+                    if (trans_text_to_import && $('#trans-text-auto-box').is(':checked')) {
+                        place_transcription_text(trans_cursor);
+                    }
+                    else {
+                        trans_text_to_import = null;
+                    }
+
+                // SELECT REGION(S)
+                } else if (selector) {
+                    selector = selector.draw(e);
+                    let overlapping = find_overlapping_regions(selector);
+                    overlapping.map(region_id => {
+                        page_regions[region_id].rect.attr({fill: 'blue'});
+                        page_regions[region_id]['selected'] = true;
+                    });
+
+                    $('#region-controls').addClass('d-none');
+                    $('#selection-controls').removeClass('d-none');
+
+                    selector.remove();
+                    selector = null;
+                    $('#delineator').css('cursor', 'default');
+                    delineate.panZoom(panzoom_options);
+
+                // PERFORM SPLITTING
+                } else if (splitter) {
+                    splitter = splitter.draw(e);
+                    let overlapping = find_overlapping_regions(splitter);
+                    split_regions(
+                        splitter.x(),
+                        splitter.y(),
+                        splitter.width(),
+                        splitter.height(),
+                        overlapping
+                    );
+                    splitter.remove();
+                    splitter = null;
+                    splitting = false;
+                    $('#delineator').css('cursor', 'default');
+                    delineate.panZoom(panzoom_options);
+                }
+                display_mode_status();
+            });
+
+            // HANDLE ESCAPE KEY
+            $(document).keyup(function(e) {
+                if (e.which === 27) {
+                    reset_mode();
+                } else if (e.which === 68 && !currently_editing) {
+                    draw_region();
+                }
+            });
+
+            $('#draw-region').click(function() {
+                draw_region();
+            });
+
+            $('#select-region,#selection-more').click(function() {
+                deselect_region();
+                selecting = true;
+                $('#delineator').css('cursor', 'crosshair');
+                selector = canvas.rect()
+                    .attr({
+                        class: 'selection-box',
+                        fill: 'blue',
+                        'fill-opacity': 0.3,
+                        stroke: 'blue',
+                        'stroke-width': 2,
+                        'stroke-dasharray': '10,10'
+                    });
+                delineate.panZoom(false);
+                display_mode_status();
+            });
+
+            $('#clear-regions').click(function() {
+                $('#confirm-modal-label').html('Clear Regions?');
+                $('#confirm-content').html(`
+                    <div class="alert alert-danger">
+                        Clearing regions will remove all regions and transcriptions, and cannot be undone.
+                        To perform transcription on this page, you'll need to draw new regions. Proceed?
+                    </div>
+                `);
+                let go_button = $('#confirm-go-button')
+                go_button.html('Clear Regions');
+                go_button.off('click').on('click', function() {
+                    clear_regions();
+                    confirm_modal.modal('hide');
+                });
+                confirm_modal.modal();
+            });
+
+            $('#split-regions').click(function() {
+                deselect_region();
+                splitting = true;
+                $('#delineator').css('cursor', 'crosshair');
+                splitter = canvas.rect()
+                    .attr({
+                        class: 'splitting-box',
+                        fill: 'green',
+                        'fill-opacity': 0.3,
+                        stroke: 'blue',
+                        'stroke-width': 2,
+                        'stroke-dasharray': '10,10'
+                    });
+                delineate.panZoom(false);
+            });
+
+            $('#delete-region').click(function() {
+                delete_region();
+            });
+
+            $('#save-button').click(function() {
+                save_progress();
+            });
+
+            $('#exit-button').click(function() {
+                window.location.pathname = '{{ document.uri }}/';
+            });
+
+            // setup selection controls
+            $('#selection-delete').click(function() {
+                let selected_regions = [];
+                ordered_region_ids.map(region_id => {
+                    if (page_regions[region_id].hasOwnProperty('selected') && page_regions[region_id].selected) {
+                        selected_regions.push(region_id);
+                    }
+                });
+                selected_regions.map(region_id => {
+                    currently_selected = page_regions[region_id].rect;
+                    delete_region();
+                });
+                selecting = false;
+                $('#region-controls').removeClass('d-none');
+                $('#selection-controls').addClass('d-none');
+            });
+
+            $('#selection-reorder').click(function() {
+                let selected_regions = [];
+                let y_values = [];
+                let top_to_bottom = [];
+                let lowest_index = 0;
+
+                // grab all the overlapping regions and capture y values of each region
+                ordered_region_ids.map(region_id => {
+                    if (page_regions[region_id].hasOwnProperty('selected') && page_regions[region_id].selected) {
+                        selected_regions.push(region_id);
+                        y_values.push(page_regions[region_id].y);
+                    }
+                });
+
+                // sanity check
+                if (selected_regions.length && selected_regions.length === y_values.length) {
+                    // retain index of first selected region for insertion of reordered regions later
+                    lowest_index = ordered_region_ids.indexOf(selected_regions[0]);
+
+                    // sort y_values and iterate over, moving selected_regions to top_to_bottom according to y value
+                    y_values.sort();
+                    y_values.map(y_value => {
+                        let matching_region_id = null;
+                        selected_regions.map(region_id => {
+                            if (page_regions[region_id].y === y_value && matching_region_id === null)
+                                matching_region_id = region_id;
+                        });
+                        if (matching_region_id !== null) {
+                            top_to_bottom.push(matching_region_id);
+                            selected_regions.splice(selected_regions.indexOf(matching_region_id), 1);
+                        }
+                    })
+
+                    // perform sanity check
+                    if (top_to_bottom.length && selected_regions.length === 0) {
+                        // remove top_to_bottom regions from ordered_region_ids
+                        top_to_bottom.map(region_id => {
+                            ordered_region_ids.splice(ordered_region_ids.indexOf(region_id), 1);
+                        });
+
+                        // now add all top-to-bottom ordered region ids to ordered_region_ids at the place where
+                        // first selected region was originally found
+                        ordered_region_ids.splice(lowest_index, 0, ...top_to_bottom);
+                    }
+                    cancel_selection();
+                }
+            });
+
+            $('#selection-cancel').click(function() {
+                cancel_selection();
+            });
+
+            // setup reordering controls
+            $('#make-first-button').click(function() {
+                reorder_region();
+            });
+            $('#cancel-reorder-button').click(function() {
+                reordering = false;
+                $('#region-controls').removeClass('d-none');
+                $('#reorder-controls').addClass('d-none');
+                select_region(currently_selected);
+            });
+
+            document.addEventListener('selectionchange', function() {
+                if (currently_editing) {
+                    let highlight = window.getSelection();
+                    if (highlight && highlight.rangeCount > 0) {
+                        selection = highlight.getRangeAt(0);
+                    }
+                }
+            });
+
+            // ---------------------------------------
+            // find first incomplete region and select it
+            // ---------------------------------------
+            for (let region_id in page_regions) {
+                if (!page_regions[region_id].hasOwnProperty('transcription')) {
+                    zoom_to(region_id, page_regions[region_id].rect, 2);
+                    break;
+                }
+                region_id_cursor = region_id;
+            }
+
+            // ---------------------------------------
+            // setup transcription modal if imported transcriptions exist
+            // ---------------------------------------
+            if (trans_text.length) {
+                let trans_modal = $('#trans-text-modal');
+                let trans_text_identifier = $('#trans-text-identifier');
+                let trans_div = $('#trans-text-div');
+                let trans_modal_height = parseInt(window.innerHeight / 3);
+                let trans_modal_width = parseInt(window.innerWidth / 3);
+
+                // add lines from transcription to modal
+                trans_text.map((text, unit) => {
+                    let unit_class = 'trans-text-unit';
+                    let help_text = "Click to start placing lines from here.";
+                    if (unit < trans_cursor) {
+                        unit_class = 'trans-text-unit-completed';
+                        help_text = "Double-click to reset line cursor and start placing lines from here.";
+                    }
+
+                    trans_div.append(`
+                        <div id="trans-text-${unit}" class="${unit_class}" data-unit="${unit}" title="${help_text}">
+                            ${text}
+                        </div>
+                    `);
+                });
+
+                // modal visibility and position
+                if (trans_modal_height < 60) trans_modal_height = 60;
+                if (trans_modal_width < 100) trans_modal_width = 100;
+                trans_modal.css({
+                    height: trans_modal_height,
+                    width: trans_modal_width,
+                    top: trans_modal_height * 2,
+                    left: trans_modal_width * 2
+                });
+                trans_div.css({'max-height': trans_modal_height - 30});
+                trans_text_identifier.val(trans_cursor + trans_id_differential);
+                trans_modal.removeClass('d-none');
+
+                // determine next line to be placed and scroll it into view
+                let next_unit = $(`#trans-text-${trans_cursor}`);
+                if (next_unit.length) next_unit[0].scrollIntoView();
+
+                // make transcription modal draggable
+                $("#trans-text-modal").draggable({
+                    cursor: "move",
+                    handle: ".draggable-touch",
+                });
+
+                // setup event for resizing transcription modal
+                let modal_resize_timer = null;
+                let modal_resize_observer = new MutationObserver(function(mutations) {
+                    clearTimeout(modal_resize_timer);
+                    modal_resize_timer = setTimeout(function() {
+                        trans_div.css({'max-height': trans_modal.height() - 30});
+                    }, 1000);
+                });
+                modal_resize_observer.observe(trans_modal[0], {attributes: true});
+
+                // setup line click events
+                setup_trans_modal_click_events();
+            }
+
+            // start save timer, initialize tooltips, and hide loading overlay
+            save_progress();
+            hide_loading_overlay();
+        });
+
+        function setup_trans_modal_click_events() {
+            // transcription line click event
+            $('.trans-text-unit').off('click').on('click', function() {
+                place_transcription_text($(this).data('unit'));
+            });
+
+            // completed transcription line double-click event
+            $('.trans-text-unit-completed').off('dlbclick').on('dblclick', function() {
+                let new_cursor = $(this).data('unit');
+                console.log(new_cursor);
+                while (trans_cursor >= new_cursor) {
+                    let unit_el = $(`#trans-text-${trans_cursor}`);
+                    if (unit_el.length) {
+                        unit_el.removeClass('selected');
+                        unit_el.removeClass('trans-text-unit-completed');
+                        unit_el.addClass('trans-text-unit');
+                    }
+                    trans_cursor -= 1;
+                }
+                trans_cursor = new_cursor;
+                $('#trans-text-identifier').val(trans_cursor + trans_id_differential);
+
+                // recreate click transcription line click event now that formerly completed lines are reset
+                $('.trans-text-unit').off('click').on('click', function() {
+                    place_transcription_text($(this).data('unit'));
+                });
+                mark_unsaved();
+                place_transcription_text(trans_cursor);
+            });
+        }
+
+        function place_transcription_text(unit) {
+            let unit_el = $(`#trans-text-${unit}`);
+            if (unit_el.length) {
+                $('.trans-text-unit.selected').removeClass('selected');
+                unit_el.addClass('selected');
+                unit_el[0].scrollIntoView();
+                trans_cursor = unit;
+                trans_text_to_import = unit_el.text().trim();
+                trans_id_differential = $('#trans-text-identifier').val() - trans_cursor;
+                draw_region();
+            }
+        }
+
+        function increment_transcription_text_cursor() {
+            let former_unit_el = $(`#trans-text-${trans_cursor}`);
+            if (former_unit_el.length) {
+                former_unit_el.removeClass('selected')
+                former_unit_el.removeClass('trans-text-unit');
+                former_unit_el.addClass('trans-text-unit-completed');
+                former_unit_el.attr('title', "Double-click to reset line cursor and start placing lines from here.");
+                former_unit_el.off('click');
+            }
+            trans_cursor += 1;
+            $('#trans-text-identifier').val(trans_cursor + trans_id_differential);
+            setup_trans_modal_click_events();
+        }
+
+        function calculate_viewbox(x, y, w, h, margin=200) {
+            let vb_x, vb_y, vb_width, vb_height = null;
+
+            if (h >= w / 2) {
+                vb_y = y - margin;
+                vb_height = h + (margin * 2);
+                let pixel_ratio = vb_height / viewer_height;
+                vb_width = viewer_width * pixel_ratio;
+                vb_x = x - (vb_width / 2) + (w / 2);
+            } else {
+                vb_x = x - margin;
+                vb_width = w + (margin * 2);
+                let pixel_ratio = vb_width / viewer_width;
+                vb_height = viewer_height * pixel_ratio;
+                vb_y = y - (vb_height / 2) + (h / 2);
+            }
+
+            return {
+                x: vb_x,
+                y: vb_y,
+                width: vb_width,
+                height: vb_height
+            }
+        }
+
+        function zoom_to(region_id, select=null, duration=.5) {
+            let r_width = page_regions[region_id].width;
+            let r_height = page_regions[region_id].height;
+
+            if (r_width > r_height) r_height = r_height * 2;
+            else r_width = r_width * 2;
+
+            let vb_specs = calculate_viewbox(
+                page_regions[region_id].x,
+                page_regions[region_id].y,
+                r_width,
+                r_height
+            );
+
+            delineate.animate({duration: duration * 1000}).viewbox(
+                vb_specs
+            ).afterAll(function() {
+                if (select) {
+                    select_region(select);
+                }
+            });
+        }
+
+        function populate_regions() {
+            ocr_lines.map((l, l_index) => {
+                page_regions[l_index] = Object.assign({}, l);
+            });
+
+            for (let region_id in page_regions) {
+                if (!region_id_cursor) region_id_cursor = region_id;
+
+                page_regions[region_id]['rect'] = canvas.rect(page_regions[region_id].width, page_regions[region_id].height)
+                    .move(page_regions[region_id].x, page_regions[region_id].y)
+                    .attr({
+                        id: `region-${region_id}`,
+                        class: 'delineator-region',
+                        'fill-opacity': 0.3,
+                        'stroke-width': 3
+                    })
+                    .click(function(e) { click_region(this, e); })
+                    .dblclick(function() { zoom_to(region_id); });
+
+                color_region(region_id);
+
+                if (!page_regions[region_id].hasOwnProperty('completed')) {
+                    page_regions[region_id]['completed'] = false;
+                }
+
+                ordered_region_ids.push(region_id);
+                last_region_id = region_id;
+            }
+        }
+
+        function clear_regions() {
+            deselect_region();
+            $('.delineator-region').each(function() {
+                this.remove();
+            });
+            page_regions = {};
+            ordered_region_ids = [];
+            region_id_cursor = null;
+            last_region_id = null;
+            mark_unsaved();
+            enable_zoom();
+        }
+
+        function draw_region() {
+            deselect_region();
+            drawing = true;
+            $('#delineator').css('cursor', 'crosshair');
+
+            region = canvas.rect()
+                .attr({
+                    class: 'delineator-region',
+                    fill: 'red',
+                    'fill-opacity': 0.3,
+                    stroke: 'red',
+                    'stroke-width': 3
+                });
+            delineate.panZoom(false);
+            display_mode_status();
+        }
+
+        function color_region(region_id) {
+            if (page_regions.hasOwnProperty(region_id) && page_regions[region_id].hasOwnProperty('rect')) {
+                let color = 'red';
+                if (page_regions[region_id].hasOwnProperty('transcription')) color = '#17BEBB';
+                if (page_regions[region_id].metadata && page_regions[region_id].metadata.needs_attention) color = '#E9FF70';
+
+                page_regions[region_id].rect.attr({fill: color, stroke: color});
+            }
+        }
+
+        function click_region(col, event) {
+            if (!(drawing || selecting || splitting)) {
+                if (reordering) {
+                    let preceding_region_id = col.node.id.replace('region-', '');
+                    reorder_region(preceding_region_id);
+                } else {
+                    select_region(col);
+                }
+            } else if (selecting && event.shiftKey) {
+                let region_id = col.node.id.replace('region-', '');
+                if(page_regions[region_id].hasOwnProperty('selected') && page_regions[region_id].selected) {
+                    color_region(region_id);
+                    delete page_regions[region_id].selected;
+                }
+                else {
+                    page_regions[region_id].rect.attr({fill: 'blue'});
+                    page_regions[region_id].selected = true;
+                }
+            }
+        }
+
+        function select_region(col, give_focus=true) {
+            deselect_region();
+            $('#delete-region').removeClass('d-none');
+
+            // enable resizing of box
+            col.selectize(select_options).resize();
+
+            // event for when resizing is happening
+            col.off('resizing').on('resizing', function() {
+                if (mask) mask.remove();
+            });
+
+            // event for once resizing is done
+            col.off('rezisedone').on('resizedone', function() {
+                if (!resize_lock) {
+                    console.log('resized');
+                    resize_lock = true;
+                    let region_id = col.node.id.replace('region-', '');
+                    if (page_regions[region_id].hasOwnProperty('ocr_content')) {
+                        delete page_regions[region_id].ocr_content;
+                    }
+                    page_regions[region_id].x = col.x();
+                    page_regions[region_id].y = col.y();
+                    page_regions[region_id].width = col.width();
+                    page_regions[region_id].height = col.height();
+                    select_region(col);
+                    setTimeout(function() {resize_lock = false; }, 500);
+                    mark_unsaved();
+                }
+            });
+            currently_selected = col;
+
+            let region_id = currently_selected.node.id.replace('region-', '');
+
+            if (page_regions.hasOwnProperty(region_id)) {
+                currently_selected.attr('stroke', '#17BEBB');
+
+                let region_x = currently_selected.x();
+                let region_y = currently_selected.y();
+                let region_width = currently_selected.width();
+                let region_height = currently_selected.height();
+
+                let trans_rect = delineate.rect(image_file.width * 3, image_file.height * 3).move(0 - image_file.width, 0 - image_file.height).attr({
+                    fill: 'white'
+                });
+                let opaque_rect = delineate.rect(region_width, region_height).move(region_x, region_y).attr({
+                    fill: 'black'
+                });
+
+                mask = delineate.mask().add(trans_rect).add(opaque_rect);
+                canvas.maskWith(mask);
+
+                if (region_width > region_height) region_y += region_height + 10;
+                else region_x += region_width + 10;
+
+                let current_line = canvas.element('foreignObject');
+                current_line.attr({
+                    id: `region-${region_id}-text-obj`,
+                    x: region_x,
+                    y: region_y,
+                    width: region_width,
+                    height: region_height
+                });
+                $(`#${current_line.node.id}`).append(`
+                    <div id="region-${region_id}-text" class="w-100 h-100 text-region" contentEditable></div>
+                `);
+
+                let control_height = region_height / 2;
+                if (control_height < min_control_height) control_height = min_control_height;
+                else if (control_height > max_control_height) control_height = max_control_height;
+
+                let control_panel = canvas.element('foreignObject');
+                control_panel.attr({
+                    id: `region-${region_id}-control-obj`,
+                    x: region_x,
+                    y: region_y + region_height + 10,
+                    width: (control_height * 6) + 30,
+                    height: (control_height + 20) * 2,
+                });
+
+                let metadata_fields = ``;
+                let markup_buttons = ``;
+                region_metadata.map(f => {
+                    let field_value = '';
+                    if (page_regions[region_id].hasOwnProperty('metadata') && page_regions[region_id].metadata.hasOwnProperty(f)) {
+                        field_value = page_regions[region_id].metadata[f];
+                    }
+                    metadata_fields += `
+                        <input type="text" class="form-control mr-1 h-100 region-metadata" data-metadata_field="${f}" placeholder="${f}" value="${field_value}">
+                    `;
+                });
+
+                // currently, only plain text is saved to region data; leaving uninitialized for now
+                /*for (let tag in markup) {
+                    markup_buttons += `
+                        <button type="button" class="btn btn-sm btn-primary rounded region-control mr-1 markup-button" data-tag="${tag}" style="width: ${control_height}px; height: ${control_height}px;"><span class="${markup[tag]}"></span></button>
+                    `;
+                }*/
+
+                $(`#region-${region_id}-control-obj`).append(`
+                    <div id="region-${region_id}-control" class="alert-info control-panel h-100 w-100">
+                        <div class="row"><div class="col-12 d-flex justify-content-between align-items-center">
+                            <button id="prev-region-button" type="button" class="btn btn-sm btn-primary rounded region-control mr-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-caret-up"></span></button>
+                            <button id="next-region-button" type="button" class="btn btn-sm btn-primary rounded region-control mr-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-caret-down"></span></button>
+                            <button id="reset-region-button" type="button" class="btn btn-sm btn-primary rounded region-control mr-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-sync-alt"></span></button>
+                            <button id="reorder-region-button" type="button" class="btn btn-sm btn-primary rounded region-control mr-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-sort-numeric-up"></span></button>
+                            <button id="delete-region-button" type="button" class="btn btn-sm btn-primary rounded region-control mr-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-trash"></span></button>
+                        </div></div>
+                        <div class="row"><div class="col-12 pt-2 d-flex justify-content-between align-items-center">
+                            ${metadata_fields}
+                            ${markup_buttons}
+                        </div></div>
+                    </div>
+                `);
+
+                $('#prev-region-button').click(function() {
+                    traverse_region(region_id_cursor, true);
+                });
+                $('#next-region-button').off('click').on('click', function() {
+                    traverse_region(region_id_cursor);
+                });
+                $('#reset-region-button').click(function() {
+                    $(`#region-${region_id}-text`).html(page_regions[region_id].ocr_content);
+                    select_region(currently_selected);
+                });
+                $('#reorder-region-button').click(function() {
+                    reordering = true;
+                    $(`#region-${region_id_cursor}-control`).addClass('d-none');
+                    $('#region-controls').addClass('d-none');
+                    $('#reorder-controls').removeClass('d-none');
+                });
+                $('#delete-region-button').click(function() {
+                    delete_region();
+                });
+
+                $('.region-metadata').keyup(function() {
+                    let metadata_field = $(this).data('metadata_field');
+                    if (!page_regions[region_id_cursor].hasOwnProperty('metadata')) {
+                        page_regions[region_id_cursor]['metadata'] = {};
+                    }
+                    page_regions[region_id_cursor]['metadata'][metadata_field] = $(this).val();
+                    mark_unsaved();
+                });
+
+                $('.markup-button').click(function() {
+                    let tag = $(this).data('tag');
+                    let r = selection.cloneRange();
+                    r.surroundContents(document.createElement(tag));
+                })
+
+                if (!page_regions[region_id].hasOwnProperty('ocr_content')) {
+                    if (ocr_file) {
+                        let ocr_x = currently_selected.x() < 0 ? 0 : currently_selected.x();
+                        let ocr_y = currently_selected.y() < 0 ? 0 : currently_selected.y();
+
+                        $.get(
+                            `/api/corpus/{{ corpus.id }}/Document/{{ document.id }}/page/get-region-content/{{ ref_no }}/${parseInt(ocr_x)}/${parseInt(ocr_y)}/${parseInt(currently_selected.width())}/${parseInt(currently_selected.height())}/?ocrfile={{ ocr_file }}`,
+                            function (content) {
+                                page_regions[region_id]['ocr_content'] = content;
+                                currently_editing = true;
+                            }
+                        ).done(function () {
+                            if (!page_regions[region_id].hasOwnProperty('ocr_content')) {
+                                page_regions[region_id]['ocr_content'] = '';
+                            }
+                            inject_transcription(region_id, give_focus);
+                        });
+                    } else {
+                        page_regions[region_id]['ocr_content'] = '';
+                        inject_transcription(region_id, give_focus);
+                    }
+                } else {
+                    inject_transcription(region_id, give_focus);
+                }
+
+                let region_id_index = ordered_region_ids.indexOf(region_id);
+                if (region_id_index <= 0) {
+                    $('#prev-region-button').attr('disabled', true);
+                } else {
+                    $('#prev-region-button').attr('disabled', false);
+                }
+                if (region_id_index + 1 >= ordered_region_ids.length) {
+                    $('#next-region-button').attr('disabled', true);
+                } else {
+                    $('#next-region-button').attr('disabled', false);
+                }
+                region_id_cursor = region_id;
+            }
+            display_mode_status();
+        }
+
+        function inject_transcription(region_id, give_focus) {
+            let has_content = true;
+            let current_region = $(`#region-${region_id}-text`);
+
+            let region_content = page_regions[region_id].ocr_content;
+            if (page_regions[region_id].hasOwnProperty('transcription'))
+                region_content = page_regions[region_id].transcription;
+            if (!region_content) {
+                region_content = 'M';
+                has_content = false;
+            }
+
+            current_region.html(region_content);
+
+            let font_size = min_trans_font;
+            let threshold = (page_regions[region_id].height);
+            current_region.css('font-size', `${font_size}px`);
+            font_size = fit_region_text(current_region, threshold, font_size);
+
+            if (!has_content) current_region.html('');
+            current_region.append(`<span class="content-stretcher"></span>`);
+
+            font_size = parseInt(parseInt(font_size) / 3);
+            if (font_size > max_control_font) font_size = max_control_font;
+            if (font_size < min_control_font) font_size = min_control_font;
+
+            $('.region-control').css('font-size', `${font_size}px`);
+            $('.region-metadata').css('font-size', `${font_size}px`);
+
+            page_regions[region_id]['scroll_height'] = current_region[0].scrollHeight;
+
+            current_region.click(function() {
+                clearTimeout(click_timer);
+                currently_editing = true;
+                delineate.panZoom(false);
+                current_region.focus();
+            });
+
+            if (give_focus) {
+                currently_editing = true;
+                delineate.panZoom(false);
+                current_region.focus();
+            }
+
+            current_region.keyup(function(e) {
+                if (![37, 38, 39, 40, 27].includes(e.which)) {
+                    let font_size = parseInt(current_region.css('font-size'));
+                    let resized = false;
+                    $('.content-stretcher').remove();
+
+                    let new_font_size = fit_region_text(current_region, threshold, font_size);
+                    if (font_size !== new_font_size) resized = true;
+
+                    current_region.append(`<span class="content-stretcher"></span>`);
+
+                    if (resized) {
+                        $(`#region-${region_id}-text-obj`).scroll(0, 0);
+                    }
+
+                    page_regions[region_id]['transcription'] = current_region.text();
+                    mark_unsaved();
+                }
+                else if (e.which === 38) traverse_region(region_id, true);
+                else if (e.which === 40) traverse_region(region_id);
+            });
+        }
+
+        function fit_region_text(region, height_threshold, starting_font_size=10) {
+            let font_size = starting_font_size;
+            while (font_size <= max_trans_font && region[0].scrollHeight < height_threshold) {
+                font_size += 10;
+                region.css('font-size', `${font_size}px`);
+            }
+            while (font_size >= min_trans_font && region[0].scrollHeight > height_threshold) {
+                font_size -= 1;
+                region.css('font-size', `${font_size}px`);
+            }
+            return font_size;
+        }
+
+        function deselect_region() {
+            if (currently_selected) {
+                let region_id = currently_selected.node.id.replace('region-', '');
+
+                $(`#region-${region_id}-text-obj`).remove();
+                $(`#region-${region_id}-control-obj`).remove();
+
+                color_region(region_id);
+                currently_selected.selectize(false);
+                currently_selected = null;
+                currently_editing = false;
+                if (mask) mask.remove();
+                $('#delete-region').addClass('d-none');
+                enable_zoom();
+            }
+        }
+
+        function delete_region() {
+            if (currently_selected) {
+                let region_id = currently_selected.node.id.replace('region-', '');
+                let col_to_delete = currently_selected;
+                deselect_region();
+                col_to_delete.remove();
+                let region_index = ordered_region_ids.indexOf(region_id);
+                if (region_index > -1) ordered_region_ids.splice(region_index, 1);
+                delete page_regions[region_id];
+                mark_unsaved();
+            }
+        }
+
+        function reorder_region(preceding_region_id=null) {
+            let region_index = ordered_region_ids.indexOf(region_id_cursor);
+            if (region_index > -1) {
+                ordered_region_ids.splice(region_index, 1);
+                if (preceding_region_id) {
+                    let preceding_region_index = ordered_region_ids.indexOf(preceding_region_id);
+                    ordered_region_ids.splice(preceding_region_index + 1, 0, region_id_cursor);
+                } else {
+                    ordered_region_ids.unshift(region_id_cursor);
+                }
+            }
+            reordering = false;
+            $('#region-controls').removeClass('d-none');
+            $('#reorder-controls').addClass('d-none');
+            select_region(currently_selected);
+            mark_unsaved();
+        }
+
+        function traverse_region(region_id, backward=false) {
+            if (!page_regions[region_id].hasOwnProperty('transcription') &&
+                page_regions[region_id].hasOwnProperty('ocr_content')) {
+                page_regions[region_id]['transcription'] = page_regions[region_id].ocr_content;
+            }
+
+            if (trans_text.length === 0) check_completion();
+
+            let region_id_index = ordered_region_ids.indexOf(region_id);
+            let destination_id = null;
+            if (backward && region_id_index > 0) {
+                destination_id = ordered_region_ids[region_id_index - 1];
+            } else if (!backward && region_id_index < ordered_region_ids.length - 1) {
+                destination_id = ordered_region_ids[region_id_index + 1];
+            }
+
+            if (destination_id) zoom_to(destination_id, page_regions[destination_id].rect);
+        }
+        
+        function find_overlapping_regions(rect) {
+            let overlapping = [];
+            let x1 = rect.x();
+            let x2 = x1 + rect.width();
+            let y1 = rect.y();
+            let y2 = y1 + rect.height();
+
+            ordered_region_ids.map(region_id => {
+                let reg = page_regions[region_id];
+                if (
+                    (x2 > reg.x && x1 < reg.x + reg.width) &&
+                    (y2 > reg.y && y1 < reg.y + reg.height)
+                ) {
+                    overlapping.push(region_id);
+                }
+            });
+
+            return overlapping;
+        }
+
+        function split_regions(x, y, width, height, overlapping) {
+            if (overlapping.length > 0) {
+                let first_region_index = ordered_region_ids.indexOf(overlapping[0]) - 1;
+                if (first_region_index < 0) first_region_index = 0;
+
+                let to_split = [];
+                let col_a = [];
+                let col_b = [];
+
+                overlapping.map(region_id => {
+                    to_split.push(Object.assign({}, page_regions[region_id]));
+                    currently_selected = page_regions[region_id].rect;
+                    delete_region();
+                });
+
+                to_split.map(split_me => {
+                    if (split_me.hasOwnProperty('ocr_content')) delete split_me.ocr_content;
+                    if (split_me.hasOwnProperty('transcription')) delete split_me.transcription;
+
+                    let hangs_left = split_me.x < x;
+                    let hangs_right = split_me.x + split_me.width > x + width;
+
+                    if (hangs_left) {
+                        let reg_a = Object.assign({}, split_me);
+                        reg_a.width = x - split_me.x;
+                        col_a.push(reg_a);
+                    }
+                    if (hangs_right) {
+                        let reg_b = Object.assign({}, split_me);
+                        reg_b.x = x + width;
+                        reg_b.width = split_me.width - ((x + width) - split_me.x);
+                        col_b.push(reg_b);
+                    }
+                });
+
+                let to_add = col_a.concat(col_b);
+                to_add.map(reg => {
+                    let new_region_id = '0';
+                    if (last_region_id) new_region_id = (parseInt(last_region_id) + 1).toString();
+                    ordered_region_ids.splice(first_region_index + 1, 0, new_region_id);
+                    first_region_index += 1;
+
+                    reg.rect = canvas.rect(reg.width, reg.height)
+                        .move(reg.x, reg.y)
+                        .attr({
+                            id: `region-${new_region_id}`,
+                            class: 'delineator-region',
+                            'fill-opacity': 0.3,
+                            'stroke-width': 3
+                        })
+                        .click(function(e) { click_region(this, e); })
+                        .dblclick(function() { zoom_to(new_region_id); });
+
+                    page_regions[new_region_id] = reg;
+                    color_region(new_region_id);
+
+                    last_region_id = new_region_id;
+                });
+            }
+        }
+
+        function cancel_selection() {
+            ordered_region_ids.map(region_id => {
+                if (page_regions[region_id].hasOwnProperty('selected') && page_regions[region_id].selected) {
+                    delete page_regions[region_id].selected;
+                    color_region(region_id);
+                }
+            });
+
+            selecting = false;
+            $('#region-controls').removeClass('d-none');
+            $('#selection-controls').addClass('d-none');
+        }
+
+        function reset_mode() {
+            deselect_region();
+            if (region) {
+                drawing = false;
+                region = null;
+                if (trans_text_to_import) {
+                    $('.trans-text-unit.selected').removeClass('selected');
+                    trans_text_to_import = null;
+                }
+            } else if (selector) {
+                selector = null;
+            } else if (splitter) {
+                splitter = null;
+                splitting = false;
+            }
+
+            $('#delineator').css('cursor', 'default');
+            delineate.panZoom(panzoom_options);
+            display_mode_status();
+        }
+
+        function enable_zoom() {
+            delineate.panZoom(panzoom_options);
+            currently_editing = false;
+        }
+
+        function normalize_bbox(x, y, width, height) {
+            let norm_x = x;
+            let norm_y = y;
+            let norm_width = width;
+            let norm_height = height;
+
+            if (norm_x < 0) norm_x = 0;
+            if (norm_y < 0) norm_y = 0;
+            while (norm_x + norm_width > image_file.width) norm_width -= 1;
+            while (norm_y + norm_height > image_file.height) norm_height -= 1;
+            return {x: norm_x, y: norm_y, width: norm_width, height: norm_height};
+        }
+
+        function check_completion() {
+            let complete = true;
+            for (let region_id in page_regions) {
+                if (!page_regions[region_id].hasOwnProperty('transcription')) {
+                    complete = false;
+                    break;
+                }
+            }
+            if (complete && !completion_offered) {
+                $('#confirm-modal-label').html('Mark Page Complete?');
+                $('#confirm-content').html(`
+                    <div class="alert alert-success">
+                        You appear to have transcribed all page regions! Would you like to mark this page
+                        as complete?
+                    </div>
+                `);
+                let go_button = $('#confirm-go-button')
+                go_button.html('Mark Page Complete');
+                go_button.off('click').on('click', function() {
+                    if (!work_saved) save_progress(true);
+                    else complete_page();
+                });
+                confirm_modal.modal();
+                completion_offered = true;
+            }
+
+            return complete;
+        }
+
+        function complete_page() {
+            let confirm_form = $('#confirm-form');
+            confirm_form.append(`<input type="hidden" name="ref-no" value="${current_page}"/>`);
+            confirm_form.append(`<input type="hidden" name="complete-page" value="y"/>`);
+            confirm_form.submit();
+        }
+
+        function mark_unsaved() {
+            work_saved = false;
+            let save_button = $('#save-button');
+            save_button.attr('disabled', false);
+            save_button.html('Save Progress');
+        }
+
+        function mark_saved() {
+            work_saved = true;
+            let save_button = $('#save-button');
+            save_button.attr('disabled', true);
+            save_button.html('Progress Saved');
+        }
+
+        function display_mode_status() {
+            let status_div = $('#mode-status-div');
+            let status_indicator = $('#mode-status-indicator');
+            let status = "";
+
+            if (currently_selected) {
+                status = "Editing Region";
+            } else if (region) {
+                status = "Drawing Region";
+                if (trans_text_to_import) status = "Placing a Line";
+            } else if (selector) {
+                status = "Selecting Regions";
+            } else if (splitter) {
+                status = "Splitting Regions";
+            } else if (reordering) {
+                status = "Re-ordering Region"
+            }
+
+            if (status) {
+                status_div.removeClass('d-none');
+                status_indicator.html(status);
+            } else status_div.addClass('d-none');
+        }
+
+        function save_progress(mark_page_complete=false) {
+            clearTimeout(save_timer);
+
+            if (mark_page_complete || !work_saved) {
+                let save_data = {};
+                let trans_data = [];
+                ordered_region_ids.map(region_id => {
+                    if (page_regions.hasOwnProperty(region_id)) {
+                        let reg = page_regions[region_id];
+                        let trans = normalize_bbox(reg.x, reg.y, reg.width, reg.height);
+
+                        if (reg.hasOwnProperty('ocr_content') && reg.ocr_content) trans['ocr_content'] = reg.ocr_content;
+                        if (reg.hasOwnProperty('transcription') && reg.transcription) trans['transcription'] = reg.transcription;
+                        if (reg.hasOwnProperty('metadata') && reg.metadata) trans['metadata'] = reg.metadata;
+                        trans_data.push(trans);
+                    }
+                });
+
+                save_data = {
+                    'ref-no': current_page,
+                    data: JSON.stringify(trans_data),
+                    csrfmiddlewaretoken: '{{ csrf_token }}',
+
+                }
+
+                if (trans_text.length) {
+                    save_data['transcription_cursor'] = trans_cursor;
+                }
+
+                $.ajax({
+                    type: 'POST',
+                    url: '',
+                    dataType: 'json',
+                    data: save_data,
+                    statusCode: {
+                        201: function() {
+                            mark_saved();
+                            if (mark_page_complete) {
+                                complete_page();
+                            }
+                        }
+                    }
+                });
+            }
+
+            save_timer = setTimeout(save_progress, 15000);
+        }
+
+    </script>
+{% endblock %}

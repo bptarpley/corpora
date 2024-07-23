@@ -26,7 +26,7 @@ for doc_name in docs:
         path_parts = doc_name.split('_')
         ecco_num = path_parts[1]
         try:
-            doc = Document.objects(corpus="5c1c5b177e32a47d04eb6819", kvp__ecco_no=ecco_num)[0]
+            doc = Document("5c1c5b177e32a47d04eb6819").objects(corpus="5c1c5b177e32a47d04eb6819", kvp__ecco_no=ecco_num)[0]
         except:
             print(traceback.format_exc())
             doc = None
