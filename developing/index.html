@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Developing - Corpora</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../style.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Developing";
+        var mkdocs_page_input_path = "developing.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="..">
+          <img src="../assets/logo.png" class="logo" alt="Logo"/>
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Getting Started</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../deploying/">Deploying</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../managing/">Managing</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="./">Developing</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#content-type-templates">Content Type Templates</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#editing-label-templates">Editing Label Templates</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#creating-new-templates">Creating New Templates</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#viewing-rendered-templates">Viewing Rendered Templates</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Corpora</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Developing</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="developing">Developing</h1>
+<p>Corpora was built with the DH developer in mind just as much as the DH scholar. It was created as a way to flexibly handle a wide variety of DH projects with minimal effort while also empowering the developer to focus on the more innovative aspects of a given project. Below are detailed the affordances of corpora tailored specifically for developers, listed in order of complexity.</p>
+<h2 id="content-type-templates">Content Type Templates</h2>
+<p>From a developer's perspective, a <a href="/#content-type">Content Type</a> in Corpora is a class whose properties and methods are largely defined by the Content Type Manager (essentially a data schema editor) available on the Admin tab of a given corpus. Content Type Templates are the convention Corpora uses to allow developers to control how instances of content get <em>rendered</em>, whether as a textual label, an HTML snippet, a JavaScript component, an XML document, etc. This rendering is done using <a href="https://docs.djangoproject.com/en/5.0/ref/templates/">the Jinja2-style Django template convention</a>, and indeed it's recommended to refer to Django's documentation when editing or creating templates (particularly as a reference for <a href="https://docs.djangoproject.com/en/5.0/ref/templates/builtins/#built-in-tag-reference">Django's built-in template tags</a>).</p>
+<h3 id="editing-label-templates">Editing Label Templates</h3>
+<p>By way of example, let's consider the following Content Type used to keep track of named entities throughout a corpus of XML documents:</p>
+<p><img alt="Entity Content Type" src="../assets/img/content_type_templates_entity_example.png" title="Entity Content Type" /></p>
+<p>There are four fields defined for this Content Type, which means any instance of this content will be an object with at least four properties. If we were to name an instance of this class <code>Entity</code>, then you'd access its four properties like this using pseudocode:</p>
+<pre><code class="language-python">Entity.xml_id
+Entity.entity_type
+Entity.name
+Entity.uris
+</code></pre>
+<p>There are also always three more hidden properties available for any instance of Content:</p>
+<pre><code class="language-python">Entity.id       # a unique, alphanumeric identifier
+Entity.uri      # a unique URI for this content which includes its corpus ID
+Entity.label    # a textual representation of the content
+</code></pre>
+<p>The <code>label</code> property for any given piece of content in Corpora is generated using the template called "Label" which can be edited using the Content Type Manager.</p>
+<p>To edit the Label template, go to the Admin tab of your corpus, scroll to the Content Type Manager, and expand out the tray for a given Content Type. Scroll to the bottom of that tray, and locate in the footer of the table that lists the fields for your Content Type the dropdown prefixed with the label "Edit Template." Click the "Go" button to begin editing the template used by Corpora to generate textual labels for that Content Type:</p>
+<p><img alt="Template Editor" src="../assets/img/content_type_templates_label_example.png" title="Template Editor" /></p>
+<p>In this particular case, the template for our label looks like this:</p>
+<pre><code class="language-django">{{ Entity.name }} ({{ Entity.entity_type }})
+</code></pre>
+<p>When editing a Content Type template in Corpora, the template's "namespace" has available to it an instance of the content <em>named the same as the Content Type</em> (i.e. <code>Entity</code>). Django's templating system has a convention whereby you can dynamically insert the value for an object's property by surrounding it with double curly-braces. So to output the value of your Entity's <code>name</code> property in a template, you'd use:</p>
+<pre><code class="language-django">{{ Entity.name }}
+</code></pre>
+<p>Notice this is how our template example begins. The rest of the example includes a space, open parenthesis, the output of the value for the Entity's <code>entity_type</code> field, and then a closing parenthesis. Given this template, if our instance of the Entity Content Type had the value "Maria Edgeworth" for the field <code>name</code>, and "PERSON" for the field <code>entity_type</code>, the textual label for that piece of content would look like this:</p>
+<pre><code class="language-django">Maria Edgeworth (PERSON)
+</code></pre>
+<p>Django's templating system is powerful, as it also provides affordances for boolean logic in the form of if/else statements. Let's say we want our label template to be a little more sophisticated by having it provide default values for fields that have no value. In this case, we'll leverage Django's built-in <code>{% if ... %}</code> <a href="https://docs.djangoproject.com/en/5.0/ref/templates/builtins/#if">syntax</a>:</p>
+<pre><code class="language-django">{% if Entity.name %}{{ Entity.name }}{% else %}Unknown{% endif %} ({% if Entity.entity_type %}{{ Entity.entity_type }}{% else %}UNKNOWN{% endif %})
+</code></pre>
+<p>Using this new template, if the Entity's <code>name</code> property has no value, the string "Unknown" will be output. Similarly, if <code>entity_type</code> has no value, "UNKNOWN" will be output.</p>
+<p>Note that when you make changes to a template in Corpora's Content Type Manager, you must click the orange "Save" button on the "Edit Template" modal, <em>and must also</em> click the orange "Save Changes" button in the footer of the Content Type Manager for template changes to be "committed" to your data schema. Also note that when the Label template is changed, Corpora automatically fires off a reindexing task for the Content Type in question, as well as for any other Content Types in your corpus that reference the Content Type in question. Depending on how many instances of these Content Types you have in your corpus, this reindexing may take some time.</p>
+<h3 id="creating-new-templates">Creating New Templates</h3>
+<p>Beyond specifying how content labels get created, Corpora's Content Type templating system allows you to create almost any kind of web-based representation of your content by allowing you to build a template and choose the appropriate <a href="https://en.wikipedia.org/wiki/Media_type">MIME type</a> for that representation.</p>
+<p>Building off our <code>Entity</code> example, let's say you wanted to create <a href="https://tei-c.org/">TEI XML</a> representations for entities in your corpus. In the Content Type Manager for your corpus, you'd expand out the tray for your Content Type and, next to the "Go" button for editing an existing template, you'd click the "New Template" button to bring up the template editor:</p>
+<p><img alt="XML Template Example" src="../assets/img/content_type_templates_xml_example.png" title="XML Template Example" /></p>
+<p>Give your template a URL-friendly name (no spaces or special characters), provide the content for your template, and choose an appropriate MIME Type (in this case, text/xml so we can serve up XML for the output of this template). In case the image above is too small or blurry, here's the content for this template:</p>
+<pre><code class="language-xml">&lt;person xml:id=&quot;{{ Entity.xml_id }}&quot;&gt;
+   &lt;persName&gt;{{ Entity.name }}&lt;/persName&gt;
+&lt;/person&gt;
+</code></pre>
+<p>Click the "Save" button on the template editing modal, and then click "Save Changes" at the bottom of the Content Type Manager. Once this happens, your new template is available to be rendered.</p>
+<h3 id="viewing-rendered-templates">Viewing Rendered Templates</h3>
+<p>To view the output of a template for an instance of content, you'll need to construct a URL that follows this convention:</p>
+<pre><code class="language-html">[Your Corpora Instance]/corpus/[Corpus ID]/[Content Type]/[Content ID]/?render_template=[Template Name]
+</code></pre>
+<p>In this example, let's assume your Corpora instance is hosted at <code>https://mycorpora.org</code>, your Corpus ID is <code>62f554a9837071d8c4910dg</code>, the Content Type is <code>Entity</code>, the ID for your instance of Entity is <code>6691462b32399974cfc2cb1a</code>, and the template you want to render is our new <code>TEI-XML-Person</code> template. Given these assumptions, the URL would look like:</p>
+<pre><code class="language-html">https://mycorpora.org/corpus/62f554a9837071d8c4910dg/Entity/6691462b32399974cfc2cb1a/?render_template=TEI-XML-Person
+</code></pre>
+<p>Your browser should then display the rendered output for your content as an XML document (screenshot from Google Chrome):</p>
+<p><img alt="XML Output" src="../assets/img/content_type_templates_xml_output.png" title="XML Output" /></p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../managing/" class="btn btn-neutral float-left" title="Managing"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../managing/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

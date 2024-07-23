@@ -48,7 +48,29 @@
               <ul class="current">
                 <li class="toctree-l1 current"><a class="reference internal current" href="./">Deploying</a>
     <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#installing-and-running-on-your-local-machine-mac-or-windows">Installing and Running on Your Local Machine (Mac or Windows)</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#installing-and-running-on-a-linux-server">Installing and Running on a Linux Server</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#using-a-custom-domain-name">Using a Custom Domain Name</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#running-in-swarm-mode">Running in Swarm Mode</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#using-ssl">Using SSL</a>
+    </li>
+        </ul>
+    </li>
     </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../managing/">Managing</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../developing/">Developing</a>
                 </li>
               </ul>
       </div>
@@ -77,11 +99,87 @@
                 <h1 id="deploying">Deploying</h1>
 <p>Corpora is built from the ground up as a "Dockerized" stack of services. In other words, each service lives in its own Docker container, and these containers are orchestrated to provide Corpora's functionality. The following diagram is an attempt to provide a bird's eye view of how these containers are used:</p>
 <p><img alt="The Corpora Stack" src="../assets/img/corpora_stack.png" title="The Corpora Stack" /></p>
+<p>Despite this complexity, Corpora was designed in order to make installing it on personal computers or servers as easy as possible thanks to the "docker compose" convention of orchestrating containers. Below are instructions for installing Corpora on Mac, Windows, and Linux.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>Regardless of which operating system you're using, you'll need to install Docker. The easiest way to do this on Mac or Windows is by installing <a href="https://www.docker.com/products/docker-desktop/">Docker Desktop</a>. For a Linux server, you'll want to install Docker and Docker Compose packages. Instructions for installing on Ubuntu, for instance, can be found <a href="https://docs.docker.com/engine/install/ubuntu/">here</a>.</p>
+<p>Once Docker has been installed, you'll want to identify two different places to store files on your system. The first is where you want to clone the Corpora codebase, and the second is where you want to store the data and configuration for your instance of Corpora. These directories can exist wherever you'd like, but for the sake of convenience throughout these instructions, we'll assume you've created the directory <code>/corpora</code> and will be making your two directories in there.</p>
+<p>If you have Git installed on your machine, the easiest way to acquire the codebase is to clone <a href="https://github.com/bptarpley/corpora">the Corpora repository</a>:</p>
+<pre><code class="language-bash">cd /corpora
+git clone https://github.com/bptarpley/corpora.git codebase
+</code></pre>
+<p>The commands above will create the directory <code>/corpora/codebase</code> and pull of the code into that directory. If you don't use git, an alternative is to download <a href="https://github.com/bptarpley/corpora/archive/refs/heads/master.zip">the .zip file for Corpora's code</a> and unzip it inside the <code>/corpora</code> directory--for the purpose of these instructions you would then rename the unzipped folder to "codebase."</p>
+<p>Once you have your codebase directory set up, you'll want to create another directory inside of <code>/corpora</code> called "data." Make note of the path to this second directory (i.e. <code>/corpora/data</code>), as you'll be needing it for creating a <code>docker-compose.yml</code> file in later steps.</p>
+<h2 id="installing-and-running-on-your-local-machine-mac-or-windows">Installing and Running on Your Local Machine (Mac or Windows)</h2>
+<p>Once you've installed Docker Desktop and made your two directories according to the instructions above, you'll need to go to the <code>codebase</code> directory and make a copy of the <code>docker-compose.yml.example</code> file, naming it <code>docker-compose.yml</code>. <em>Note:</em> Be sure your copy of the file lives in the same <code>codebase</code> directory as the original. You'll then need to edit that file using any text editor in order to replace any instance of <code>/your/corpora/basedir</code> with the data directory you created, i.e. <code>/corpora/data</code>.</p>
+<p>Having created and edited your <code>docker-compose.yml</code> file, you'll need to open a terminal window (Mac) or DOS prompt (Windows) and change to the <code>codebase</code> directory, i.e.:</p>
+<pre><code class="language-bash">cd /corpora/codebase
+</code></pre>
+<p>You'll then want to execute the following command to prompt Docker to pull down the necessary images and start running the Corpora stack:</p>
+<pre><code class="language-bash">docker-compose up -d
+</code></pre>
+<p><em>Note:</em> Docker will only pull down the required images the first time you run that command, but depending on your internet connection, this may take some time. Once it has pulled the images and created each service, Corpora's startup script is set to wait a full minute before initializing--this is to give the MongoDB, Elasticsearch, and Neo4J containers enough time to spin up. If at any time you want to check the logs for the Corpora container, you can do so by executing this command in your terminal/DOS prompt:</p>
+<pre><code class="language-bash">docker-compose logs -f corpora
+</code></pre>
+<p>Eventually, you'll see the following log message letting you know Corpora was initialized properly:</p>
+<pre><code class="language-bash">---------------------------
+CORPORA INITIALIZED
+---------------------------
+</code></pre>
+<p>Once this happens, it may take another few seconds for the Daphne web server to actually serve the Corpora web application, but you should eventually be able to use the application by going to this URL in your local machine's browser: <code>http://localhost</code>. You should see Corpora's login prompt, and the default admin account's username and password are both simply <code>corpora</code>.</p>
+<p>To stop Corpora gracefully, you'll want to go back to the terminal/DOS prompt. If you're streaming log messages, you'll want to stop doing so by hitting CTRL+c. You'll then want to run this command:</p>
+<pre><code class="language-bash">docker-compose down
+</code></pre>
+<p>To get it running again, open a terminal/DOS prompt, change to the <code>/corpora/codebase</code> directory, and issue <code>docker-compose up -d</code>.</p>
+<h2 id="installing-and-running-on-a-linux-server">Installing and Running on a Linux Server</h2>
+<p>While the above instructions for running Corpora on a local machine will also work on a Linux server, there are some additional considerations when deploying it to a server that will be primarily accessed remotely. In such a scenario, you will likely have a domain name (like <code>mycorpora.org</code>) you'll want to use, you'll want to use SSL to secure network traffic, and will probably want to run the Docker stack in Swarm mode rather than using Docker Compose for performance and stability.</p>
+<h3 id="using-a-custom-domain-name">Using a Custom Domain Name</h3>
+<p>In order for the Corpora web app to respond correctly to web requests at a specific domain, you'll need to add that domain to the comma-delimited list of domain names provided in the <code>CRP_HOSTS</code> environment variable. This can most easily be configured by editing your <code>docker-compose.yml</code> file. You'll want to find the following line under the "environment" section of the "corpora" service:</p>
+<pre><code class="language-yaml">CRP_HOSTS: localhost
+</code></pre>
+<p>Append a comma directly after "localhost" and add your own domain name, i.e.:</p>
+<pre><code class="language-yaml">CRP_HOSTS: localhost,mycorpora.org
+</code></pre>
+<h3 id="running-in-swarm-mode">Running in Swarm Mode</h3>
+<p>Docker Swarm is a technology for orchestrating containers in a highly available, fault-tolerant server environment (it's what Kubernetes uses under the hood). Ideally, a fully-fledged Docker Swarm deployment would run as a cluster of servers with three master nodes and at least a couple of worker nodes, and configuring such a setup is beyond the scope of this documentation. Swarm will run, however, on a single server, and instructions for doing so are provided here for the sake of simplicity.</p>
+<p>First, make sure you've taken care of the prerequisites, made a copy of <code>docker-compose.yml.example</code> named <code>docker-compose.yml</code> and replaced all instances of <code>/your/corpora/basedir</code> with the path to your data directory, i.e. <code>/corpora/data</code>. Next, you'll want to make sure your server's Docker instance is running in Swarm mode by executing this command:</p>
+<pre><code class="language-bash">docker swarm init
+</code></pre>
+<p>Then, you'll want to create a private network to keep the traffic between Corpora's various services contained:</p>
+<pre><code class="language-bash">docker network create -d overlay corpora-private
+</code></pre>
+<p>Next, you'll want to edit the <code>docker-compose.yml</code> file, adding the following section to each of the services (nginx, corpora, redis, iiif, mongo, neo4j, and elastic):</p>
+<pre><code class="language-yaml">networks:
+  - corpora-private
+</code></pre>
+<p>At the bottom of your <code>docker-compose.yml</code> file, you'll then specify a separate "networks" section at the root level of indentation:</p>
+<pre><code class="language-yaml">networks:
+  corpora-private:
+    external: true
+</code></pre>
+<p>Finally, you can actually deploy the corpora stack as a Swarm service by issuing this command inside the codebase directory:</p>
+<pre><code class="language-bash">docker stack deploy corpora -c docker-compose.yml
+</code></pre>
+<p>You can watch the logs for Corpora running as a Swarm service by issuing this command:</p>
+<pre><code class="language-bash">docker service logs -f corpora_corpora
+</code></pre>
+<p><em>Note:</em> Occasionally upon starting, Nginx marks the upstream Corpora service as unavailable because it initialized much faster than the Corpora service. If this is the case, you'll see a "Bad Gateway" error when trying to access Corpora. To fix this, you'll want to just restart the NGINX service by executing this command:</p>
+<pre><code class="language-bash">docker service update --force corpora_nginx
+</code></pre>
+<p>Once everything's up and running properly, you should be able to navigate to your domain and see the Corpora login prompt. Be sure to change the password (corpora) for the default "corpora" user as soon as possible.</p>
+<p>To stop the Corpora services running in swarm mode, issue this command:</p>
+<pre><code class="language-bash">docker stack rm corpora
+</code></pre>
+<h3 id="using-ssl">Using SSL</h3>
+<p>Regardless of where you terminate your SSL traffic, you'll need to configure the Corpora service properly so it can be aware of the need to use the "https" prefix instead of "http" when generating internal links. To do so, you'll need to edit the <code>docker-compose.yml</code> file, find the line that reads</p>
+<pre><code class="language-yaml">CRP_USE_SSL: &quot;no&quot;
+</code></pre>
+<p>and change the "no" value to "yes".</p>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
         <a href=".." class="btn btn-neutral float-left" title="Getting Started"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../managing/" class="btn btn-neutral float-right" title="Managing">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -106,6 +204,8 @@
     
       <span><a href=".." style="color: #fcfcfc">&laquo; Previous</a></span>
     
+    
+      <span><a href="../managing/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
