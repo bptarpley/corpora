@@ -1,0 +1,11 @@
+site_name: Corpora
+nav:
+  - Getting Started: index.md
+  - Deploying: deploying.md
+  - Managing: managing.md
+  - Developing: developing.md
+theme:
+  name: readthedocs
+  logo: assets/logo.png
+extra_css:
+  - style.css
