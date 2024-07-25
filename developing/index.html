@@ -66,6 +66,12 @@
     </li>
         </ul>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#corpus-api-for-python">Corpus API for Python</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#creating-a-corpus">Creating a Corpus</a>
+    </li>
+        </ul>
+    </li>
     </ul>
                 </li>
               </ul>
@@ -146,6 +152,19 @@ Entity.label    # a textual representation of the content
 </code></pre>
 <p>Your browser should then display the rendered output for your content as an XML document (screenshot from Google Chrome):</p>
 <p><img alt="XML Output" src="../assets/img/content_type_templates_xml_output.png" title="XML Output" /></p>
+<h2 id="corpus-api-for-python">Corpus API for Python</h2>
+<p>The corpus API for Python does most of the heavy lifting behind the scenes in terms of the C.R.U.D. (creating, reading, updating, and deleting) operations on corpus data. Understanding how to use it is crucial to using the corpus iPython notebook and writing plugins for Corpora. At its heart, the API leverages <a href="https://docs.mongoengine.org/">MongoEngine</a>--an ORM for MongoDB designed to behave similarly to the <a href="https://docs.djangoproject.com/en/5.0/topics/db/models/">SQL-oriented ORM baked into Django</a>. In fact, each corpus or content object is a <a href="https://docs.mongoengine.org/guide/defining-documents.html">MongoEngine Document</a> under the hood, and when you query for content using the corpus API, you're actually working with <a href="https://docs.mongoengine.org/guide/querying.html">MongoEngine QuerySets</a>. As such, the majority of the documentation for the corpus API is covered by MongoEngine's documentation, so much of the documentation here will be in the form of examples.</p>
+<h3 id="creating-a-corpus">Creating a Corpus</h3>
+<pre><code class="language-python">from corpus import *
+
+my_corpus = Corpus()
+my_corpus.name = &quot;MTC&quot;
+my_corpus.description = &quot;My Test Corpus&quot;
+my_corpus.save()
+</code></pre>
+<p>Upon running the above script, the <code>my_corpus</code> variable will be an instance of <a href="https://docs.mongoengine.org/apireference.html#mongoengine.Document">mongoengine.Document</a>. After saving it, the <code>id</code> property of <code>my_corpus</code> will be a BSON Object ID, which is how MongoDB uniquely identifies each document. The alphanumeric string representation of the Object ID can be acquired like so:</p>
+<pre><code class="language-python">my_corpus_id_as_a_string = str(my_corpus.id)
+</code></pre>
               
             </div>
           </div><footer>

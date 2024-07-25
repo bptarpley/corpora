@@ -232,6 +232,13 @@ different kinds of data and providing different kinds of functionality. The tabl
 <td>Exact on full value, range</td>
 </tr>
 <tr>
+<td>Timespan</td>
+<td>For storing start dates and optional end dates to represent a range of time. Also features an "uncertain" flag that can be set, as well as a granularity value of either <code>Day</code>, <code>Month</code>, or <code>Year</code>.</td>
+<td>Start: January 1st, 700; End: December 31st, 1050; Uncertain: True; Granularity: Year. (An example of an uncertain publication date between the 8th and early 11th century)</td>
+<td>Yes</td>
+<td>Exact on start or end values, range</td>
+</tr>
+<tr>
 <td>File</td>
 <td>A digital file uploaded into the corpus file structure.</td>
 <td>dissertation.docx</td>
@@ -240,15 +247,15 @@ different kinds of data and providing different kinds of functionality. The tabl
 </tr>
 <tr>
 <td>Git Repo</td>
-<td>The branch of a git repository, cloned into the corpus file structure (useful for Python notebook or tasks that ingest data from a repo).</td>
-<td>https://gitlab.dh.tamu.edu/bptarpley/corpora.git</td>
+<td>The branch of a git repository, cloned into the file structure of the content to which it belongs. Each corpus also has a "repos" property which is a dictionary where the name of the repo is the key and the repo object is its value.</td>
+<td>https://github.com/bptarpley/corpora.git</td>
 <td>No</td>
 <td>None</td>
 </tr>
 <tr>
 <td>IIIF Image</td>
 <td>A IIIF image identifier for use with the IIIF <a href="https://iiif.io/api/image/3.0/">image API</a></td>
-<td>http://iiif.dh.tamu.edu/iiif/2/cervantes%2F266%2F2001-Beijing-OctoberArts-01-013-f.jpg</td>
+<td>http://iiif.some.org/iiif/2/cervantes%2F266%2F2001-Beijing-OctoberArts-01-013-f.jpg</td>
 <td>Yes</td>
 <td>Exact on full value</td>
 </tr>
@@ -422,5 +429,5 @@ following form:</p>
 
 <!--
 MkDocs version : 1.5.3
-Build Date UTC : 2024-07-23 19:27:33.424012+00:00
+Build Date UTC : 2024-07-25 19:28:04.338021+00:00
 -->
