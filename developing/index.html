@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="../css/theme.css" />
     <link rel="stylesheet" href="../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
         <link href="../style.css" rel="stylesheet" />
     
       <script>
@@ -69,6 +70,20 @@
     <li class="toctree-l2"><a class="reference internal" href="#corpus-api-for-python">Corpus API for Python</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#creating-a-corpus">Creating a Corpus</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#retrieving-a-corpus">Retrieving a Corpus</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#creating-content">Creating Content</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#retrieving-content">Retrieving Content</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#editing-content">Editing Content</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#deleting-content">Deleting Content</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#working-with-cross-referenced-content">Working with Cross-Referenced Content</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#working-with-files">Working with Files</a>
     </li>
         </ul>
     </li>
@@ -155,16 +170,278 @@ Entity.label    # a textual representation of the content
 <h2 id="corpus-api-for-python">Corpus API for Python</h2>
 <p>The corpus API for Python does most of the heavy lifting behind the scenes in terms of the C.R.U.D. (creating, reading, updating, and deleting) operations on corpus data. Understanding how to use it is crucial to using the corpus iPython notebook and writing plugins for Corpora. At its heart, the API leverages <a href="https://docs.mongoengine.org/">MongoEngine</a>--an ORM for MongoDB designed to behave similarly to the <a href="https://docs.djangoproject.com/en/5.0/topics/db/models/">SQL-oriented ORM baked into Django</a>. In fact, each corpus or content object is a <a href="https://docs.mongoengine.org/guide/defining-documents.html">MongoEngine Document</a> under the hood, and when you query for content using the corpus API, you're actually working with <a href="https://docs.mongoengine.org/guide/querying.html">MongoEngine QuerySets</a>. As such, the majority of the documentation for the corpus API is covered by MongoEngine's documentation, so much of the documentation here will be in the form of examples.</p>
 <h3 id="creating-a-corpus">Creating a Corpus</h3>
-<pre><code class="language-python">from corpus import *
+<pre><code class="language-python">from corpus import Corpus
 
 my_corpus = Corpus()
 my_corpus.name = &quot;MTC&quot;
 my_corpus.description = &quot;My Test Corpus&quot;
 my_corpus.save()
 </code></pre>
-<p>Upon running the above script, the <code>my_corpus</code> variable will be an instance of <a href="https://docs.mongoengine.org/apireference.html#mongoengine.Document">mongoengine.Document</a>. After saving it, the <code>id</code> property of <code>my_corpus</code> will be a BSON Object ID, which is how MongoDB uniquely identifies each document. The alphanumeric string representation of the Object ID can be acquired like so:</p>
+<p>Upon running the above script, the <code>my_corpus</code> variable will be an instance of <a href="https://docs.mongoengine.org/apireference.html#mongoengine.Document">mongoengine.Document</a>. After saving it, the <code>id</code> property of <code>my_corpus</code> will be a BSON ObjectId, which is how MongoDB uniquely identifies each document. The alphanumeric string representation of the ObjectId can be acquired like so:</p>
 <pre><code class="language-python">my_corpus_id_as_a_string = str(my_corpus.id)
 </code></pre>
+<h3 id="retrieving-a-corpus">Retrieving a Corpus</h3>
+<pre><code class="language-python">from corpus import get_corpus
+
+my_corpus = get_corpus('6661e28c4399e45f0bfd2121')
+</code></pre>
+<p>The <code>get_corpus</code> function will accept as its first parameter either a string or a BSON ObjectId and will return an instance of the Corpus object, which is ultimately a MongoEngine Document with the following properties:</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Data Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>name</td>
+<td>string</td>
+<td>To provide a brief project label, typically an acronym.</td>
+</tr>
+<tr>
+<td>description</td>
+<td>string</td>
+<td>To provide a full project descriptor, typically the spelled out version of the project's name.</td>
+</tr>
+<tr>
+<td>uri</td>
+<td>string</td>
+<td>This property is generated when the corpus is first saved, and it provides a unique URI for the corpus as it exists on the instance of Corpora hosting it.</td>
+</tr>
+<tr>
+<td>path</td>
+<td>string</td>
+<td>Generated upon first save. It contains the file path to the corpus' files within the Corpora Docker container, should it have any.</td>
+</tr>
+<tr>
+<td>kvp</td>
+<td>dictionary</td>
+<td>KVP stands for "key/value pairs," and it's intended to house arbitrary metadata (rarely used).</td>
+</tr>
+<tr>
+<td>files</td>
+<td>dictionary</td>
+<td>The keys for the dictionary are unique hashes based on the file's path. These are long alphanumeric strings. The values are <a href="#Files">File objects</a>.</td>
+</tr>
+<tr>
+<td>repos</td>
+<td>dictionary</td>
+<td>The keys are the name given to the repo, and the values are <a href="/#repos">Repo objects</a>.</td>
+</tr>
+<tr>
+<td>open_access</td>
+<td>boolean</td>
+<td>A flag for determining whether a corpus is open access, making its read-only API publicly available.</td>
+</tr>
+<tr>
+<td>content_types</td>
+<td>dictionary</td>
+<td>The keys are the name of a given Content Type, and the values are a dictionary specifying the metadata for a given Content Type and its fields.</td>
+</tr>
+<tr>
+<td>provenance</td>
+<td>list</td>
+<td>A list of completed jobs for this corpus.</td>
+</tr>
+</tbody>
+</table>
+<p>A corpus object also has several methods which will be covered in subsequent sections.</p>
+<h3 id="creating-content">Creating Content</h3>
+<p>With a corpus object in hand, you can create content using the corpus' <code>get_content</code> method. This example assumes you have a Content Type called "Document" in your corpus:</p>
+<pre><code class="language-python">new_document = my_corpus.get_content('Document')
+new_document.title = &quot;On Beauty&quot;
+new_document.author = &quot;Zadie Smith&quot;
+new_document.save()
+</code></pre>
+<p>Calling your corpus' <code>get_content</code> method by only passing in the Content Type name will return an instance of a MongoEngine document with that Content Type's fields as properties to be set. Once you've set those field values, you call the <code>save</code> method to save the content and assign it a unique ID.</p>
+<p><em>Note:</em> When saving content, the data is first saved to MongoDB. Post-save events then fire which also <em>index</em> the content in Elasticsearch and <em>link</em> the data in Neo4J. As such, saving content can be relatively time consuming, especially when saving in bulk. In cases where bulk saving needs to occur, you can turn off indexing and/or linking like so:</p>
+<pre><code class="language-python"># Saves to MongoDB and Neo4J, but not Elasticsearch:
+new_document.save(do_indexing=False)
+
+# Saves to MongoDB and Elasticsearch, but not Neo4J:
+new_document.save(do_linking=False) 
+
+# Saves only to MongoDB:
+new_document.save(do_indexing=False, do_linking=False)
+</code></pre>
+<p>If you later want to fire off a job to index and link all of your content, you can do so like this:</p>
+<pre><code class="language-python">my_corpus.queue_local_job(task_name=&quot;Adjust Content&quot;, parameters={
+    'content_type': 'Document',
+    'reindex': True,
+    'relabel': True
+})
+</code></pre>
+<h3 id="retrieving-content">Retrieving Content</h3>
+<p>Your corpus' <code>get_content</code> method is also useful for retrieving content when you know either the ID or exact field values for your content. When using <code>get_content</code> to retrieve content, you're ultimately querying MongoDB:</p>
+<pre><code class="language-python"># Query for a single piece of content with the ID known:
+content = my_corpus.get_content('Document', '5f623f2a52023c009d73108e')
+print(content.title)
+&quot;On Beauty&quot;
+
+# Query for a single piece of content by field value:
+content = my_corpus.get_content('Document', {'title': &quot;On Beauty&quot;}, single_result=True)
+
+# Query for multiple pieces of content by field value:
+contents = my_corpus.get_content('Document', {'author': &quot;Zadie Smith&quot;})
+for content in contents:
+    print(content.title)
+&quot;White Teeth&quot;
+&quot;On Beauty&quot;
+
+# Query for all content with this Content Type:
+contents = my_corpus.get_content('Document', all=True)
+</code></pre>
+<p>When retrieving a single piece of content, you receive a MongoEngine Document. When retrieving multiple pieces of content, you receive a MongoEngine QuerySet. QuerySets are generators (can be iterated over using a for-loop), but also have their own methods, like <code>count</code>:</p>
+<pre><code class="language-python">contents = my_corpus.get_content('Document', all=True)
+contents.count()
+42
+</code></pre>
+<h3 id="editing-content">Editing Content</h3>
+<p>Once you've retrieved a single piece of content using <code>get_content</code>, you can directly edit its field values and then call <code>save</code> to edit it:</p>
+<pre><code class="language-python">content = my_corpus.get_content('Document', '5f623f2a52023c009d73108e')
+content.published_year = 2005
+content.save()
+</code></pre>
+<h3 id="deleting-content">Deleting Content</h3>
+<p>Deleting content is as simple as calling the MongoEngine Document's <code>delete</code> method:</p>
+<pre><code class="language-python">content = my_corpus.get_content('Document', '5f623f2a52023c009d73108e')
+content.delete()
+</code></pre>
+<p><em>Note:</em> because content can be cross-referenced in arbitrary ways, deleting content saves a stub in the database that tells Corpora to sweep for instances of other content that references the deleted content so as to remove those references. When deleting large quantities of content, this can cause a backlog of deletion stubs. If you know you'll be deleting a large amount of content, and you also feel certain there's no need to track these deletions in order to hunt for stale content references, you can skip the creation of a deletion stub like so:</p>
+<pre><code class="language-python">content.delete(track_deletions=False)
+</code></pre>
+<h3 id="working-with-cross-referenced-content">Working with Cross-Referenced Content</h3>
+<p>Much of the value of Corpora's Neo4J database is in its ability to keep track of the way your content is related, allowing the interface to visualize these connections. Content becomes "related" to other content via fields of type <code>cross-reference</code>.</p>
+<p>By way of example, let's assume you're working with a corpus that has two Content Types: <code>Entity</code> and <code>Letter</code>. And let's say that the <code>Letter</code> has a field called <code>recipient</code> of type <code>cross-reference</code> that specifically references the type <code>Entity</code>. In this way, a <code>Letter</code> can reference a specific <code>Entity</code> via its <code>recipient</code> field. Let's create an Entity and a Letter, and "relate" them appropriately:</p>
+<pre><code class="language-python">entity = my_corpus.get_content('Entity')
+entity.name = &quot;Elizabeth Barrett Browning&quot;
+entity.save()
+
+letter = my_corpus.get_content('Letter')
+letter.contents = &quot;Real warm spring, dear Miss Barrett, and the birds know it, and in Spring I shall see you, really see you...&quot;
+letter.recipient = entity.id
+letter.save()
+</code></pre>
+<p>Note how when specifying the value of the <code>recipient</code> field for our instance of <code>Letter</code>, we used the <code>id</code> property of <code>Entity</code>. If the "multiple" box is checked when creating a field of type <code>cross-reference</code>, the field is actually a list, and so content ID's must be appended to the list:</p>
+<pre><code class="language-python">letter.recipients.append(entity.id)
+letter.save()
+</code></pre>
+<p>You may query for content using cross-referenced fields, and the easiest way to do this is with the ObjectId (or its string representation) of the cross-referenced content. For example:</p>
+<pre><code class="language-python">letters_to_elizabeth = my_corpus.get_content('Letter', {'recipient': '66a166e56cf2fb23103b58b2'})
+</code></pre>
+<p>You may also access the values of nested fields for cross-referenced content like so:</p>
+<pre><code class="language-python">first_letter = letters_to_elizabeth[0]
+print(first_letter.recipient.name)
+&quot;Elizabeth Barrett Browning&quot;
+</code></pre>
+<h3 id="working-with-files">Working with Files</h3>
+<p>In Corpora, files belonging to a corpus or to a piece of content are ultimately registered as <code>File</code> objects, which themselves are a MongoEngine Embedded Document with the following properties:</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Data Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>path</td>
+<td>string</td>
+<td>To keep track of the file path as it exists inside the Corpora container.</td>
+</tr>
+<tr>
+<td>primary_witness</td>
+<td>boolean</td>
+<td>To flag whether the file should be the primary "witness" or digital surrogate for the content in question. Currently only used in the context of the <code>Document</code> plugin.</td>
+</tr>
+<tr>
+<td>basename</td>
+<td>string</td>
+<td>The filename of the file (without the path), i.e. "data.csv"</td>
+</tr>
+<tr>
+<td>extension</td>
+<td>string</td>
+<td>The extension of the file, i.e. "csv"</td>
+</tr>
+<tr>
+<td>byte_size</td>
+<td>integer</td>
+<td>The size of the file in bytes</td>
+</tr>
+<tr>
+<td>description</td>
+<td>string</td>
+<td>Human-readable description of the file</td>
+</tr>
+<tr>
+<td>provenance_type</td>
+<td>string</td>
+<td>To track what kind of thing originated this file, i.e. "Tesseract OCR Job"</td>
+</tr>
+<tr>
+<td>provenance_id</td>
+<td>string</td>
+<td>A unique identifier for the thing that originated this file, i.e. "4213"</td>
+</tr>
+<tr>
+<td>height</td>
+<td>integer</td>
+<td>The height in pixels of the file (if it's an image)</td>
+</tr>
+<tr>
+<td>width</td>
+<td>integer</td>
+<td>The width in pixels of the file (if it's an image)</td>
+</tr>
+<tr>
+<td>iiif_info</td>
+<td>dict</td>
+<td>A dictionary representing the kind of metadata you get when querying for /info.json on a IIIF server</td>
+</tr>
+</tbody>
+</table>
+<p>While those properties can be helpful, the only required property when creating a <code>File</code> object to represent a file is the <code>path</code>. The path of a file is always relative to the Corpora container. When the file is directly associated with a corpus, it lives in the <code>/files</code> directory, itself living in the directory specified by the corpus' <code>path</code> property. A directory is created in the Corpora container any time a corpus is created, and its path always looks like <code>/corpora/[corpus ID]</code>. As such, files directly associated with a corpus should live inside the <code>/corpus/[corpus ID]/files</code> directory.</p>
+<p>The best way to associate a file with a corpus is via the corpus' homepage by going to the "Metadata" tab and clicking the orange "Import" button next to "Corpus Files." When you import files like this, it saves them in a <code>files</code> directory living inside of the directory specified in the <code>path</code> property of the corpus. Imported files are also registered in the <code>files</code> dictionary of your corpus object.</p>
+<p>The keys for the <code>files</code> dictionary of a corpus are hashes based on the file's path--this is to provide a URL-friendly way of accessing them. This makes retrieving them programmatically in Python a little unintuitive, however. Let's say you upload a file called <code>entities.csv</code> to your corpus. To access that file with Python, you'll need to get its path like so:</p>
+<pre><code class="language-python">entities_csv_path = None
+for file_key in my_corpus.files.keys():
+    if 'entities.csv' in my_corpus.files[file_key].path:
+        entities_csv_path = my_corpus.files[file_key].path
+</code></pre>
+<p>Content Types can also specify "File" as a type of field, and in those cases, you may directly access the <code>path</code> property of the file (no intervening dictionary with file key hashes):</p>
+<pre><code class="language-python">photo = my_corpus.get_content('Photo', '66a166e56cf2fb23103b6h7')
+photo.original_file.path
+</code></pre>
+<p>When files belong to an instance of content (rather than directly associated with a corpus), that piece of content gets its own <code>path</code> property and a directory is created for it (directories are normally not created for content--only when they have files associated with them). Content paths always look like this:</p>
+<p><code>/corpora/[corpus ID]/[Content Type]/[breakout directory]/[content ID]</code></p>
+<p>Given that millions of instances of a Content Type could exist for a corpus, Corpora implements a "breakout directory" to prevent any one directory from containing millions of subdirectories!</p>
+<p>Much like with a corpus, files associated with content live inside the <code>/files</code> subdirectory of a content instance's path, i.e.:</p>
+<p><code>/corpora/[corpus ID]/[Content Type]/[breakout directory]/[content ID]/files</code></p>
+<p>When programmatically associating a file to a corpus or piece of content, it's important for that file to live in the correct place, as this allows all the files belonging to a corpus to be exported and restored appropriately.</p>
+<p>To programmatically associate a file directly with a corpus, first upload it to the corpus' appropriate <code>/files</code> subdirectory and make note of its full path. Then:</p>
+<pre><code class="language-python">from corpus import get_corpus, File
+
+# store the path to the file in a variable
+my_file_path = '/corpora/6661e28c4399e45f0bfd2121/files/data.csv'
+
+# retrieve your corpus
+my_corpus = get_corpus('6661e28c4399e45f0bfd2121')
+
+# create an instance of the File object by using its &quot;process&quot; method
+# which takes at minimum the path to the file
+my_file = File.process(my_file_path)
+
+# generate a file key for storing the file in the corpus
+my_file_key = File.generate_key(my_file_path)
+
+my_corpus.files[my_file_key] = my_file
+my_corpus.save()
+</code></pre>
+<p>Note the use of the <code>process</code> class method of File. That method takes a file path, checks to see if the file exists, gathers some minimal metadata about the file (like file size), and returns a <code>File</code> object. Because files directly associated with a corpus are stored using a file key, we generate one with the <code>generate_key</code> method of File.</p>
               
             </div>
           </div><footer>
