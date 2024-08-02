@@ -294,7 +294,7 @@ REGISTRY = [
         "proxy_field": "",
         "templates": {
             "Label": {
-                "template": "TranscriptionProject {{ TranscriptionProject.id }}",
+                "template": "{{ TranscriptionProject.name }}",
                 "mime_type": "text/html"
             }
         },
@@ -400,7 +400,7 @@ REGISTRY = [
         "proxy_field": "",
         "templates": {
             "Label": {
-                "template": "Transcription {{ Transcription.id }}",
+                "template": "{{ Transcription.project.name }}, page {{ Transcription.page_refno }}",
                 "mime_type": "text/html"
             }
         },
