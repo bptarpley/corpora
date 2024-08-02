@@ -1210,6 +1210,50 @@ class Corpus(mongoengine.Document):
         file._do_linking(content_type='Corpus', content_uri=self.uri)
 
     def get_content(self, content_type, content_id_or_query={}, only=[], exclude=[], all=False, single_result=False):
+        """Retrieve one or more instances of content of a specific Content Type.
+
+        Args:
+            content_type (str): A string representing the name of a Content Type in your corpus.
+            content_id_or_query (str | ObjectId | dict): A string representation of a BSON ObjectId, a BSON ObjectId, or a dictionary specifying your content query.
+            only (list): A list of content field names (strings) to exclusively return.
+            exclude (list): A list of content field names (strings) to exclude.
+            all (bool): A flag specifying whether you want all of the content for your content type.
+            single_result (bool): A flag specifying whether you expect a single instance of content.
+
+        Returns:
+            A MongoEngine QuerySet if multiple results, a MongoEngine Document if a single result, or `None` if no matching content found.
+
+        Examples:
+            Create an instance of content:
+
+            >>> content = my_corpus.get_content('Document')
+            >>> content.title = "On Beauty"
+            >>> content.author = "Zadie Smith"
+            >>> content.save()
+
+            Query for a single piece of content with the ID known:
+
+            >>> content = my_corpus.get_content('Document', '5f623f2a52023c009d73108e')
+            >>> print(content.title)
+            "On Beauty"
+
+            Query for a single piece of content by field value:
+
+            >>> content = my_corpus.get_content('Document', {'title': "On Beauty"}, single_result=True)
+
+            Query for multiple pieces of content by field value:
+
+            >>> contents = my_corpus.get_content('Document', {'author': "Zadie Smith"})
+            >>> for content in contents:
+            >>>     print(content.title)
+            "White Teeth"
+            "On Beauty"
+
+            Query for all content with this Content Type:
+
+            >>> contents = my_corpus.get_content('Document', all=True)
+        """
+
         content = None
 
         if content_type in self.content_types:

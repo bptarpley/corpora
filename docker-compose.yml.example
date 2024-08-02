@@ -50,7 +50,7 @@ services:
       - /your/corpora/basedir/conf:/conf
       # Example for mounting an SSH directory for pulling from Git repos:
       #- /your/corpora/basedir/ssh:/home/corpora/.ssh
-      # Example for mounting a plugin
+      # Example for mounting a plugin directory
       #- /your/plugin/dir/tesseract:/apps/corpora/plugins/tesseract
     depends_on:
       - mongo
