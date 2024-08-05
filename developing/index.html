@@ -47,6 +47,10 @@
                 </li>
               </ul>
               <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../rest_api/">REST API</a>
+                </li>
+              </ul>
+              <ul>
                 <li class="toctree-l1"><a class="reference internal" href="../deploying/">Deploying</a>
                 </li>
               </ul>
@@ -55,7 +59,7 @@
                 </li>
               </ul>
               <ul class="current">
-                <li class="toctree-l1 current"><a class="reference internal current" href="./">Developing</a>
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Developing</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#content-type-templates">Content Type Templates</a>
         <ul>
@@ -67,7 +71,7 @@
     </li>
         </ul>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#corpus-api-for-python">Corpus API for Python</a>
+    <li class="toctree-l2"><a class="reference internal" href="#the-corpus-api-for-python">The Corpus API for Python</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#creating-a-corpus">Creating a Corpus</a>
     </li>
@@ -84,6 +88,34 @@
     <li class="toctree-l3"><a class="reference internal" href="#working-with-cross-referenced-content">Working with Cross-Referenced Content</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#working-with-files">Working with Files</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#the-corpus-notebook">The Corpus Notebook</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#launching-the-notebook">Launching the Notebook</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#setting-up-the-corpus-python-api">Setting up the Corpus Python API</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#python-packages">Python Packages</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#installing-at-runtime">Installing at Runtime</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#installing-via-plugin">Installing via Plugin</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#limitations">Limitations</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#corpora-plugins">Corpora Plugins</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#minimum-requirements">Minimum Requirements</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#custom-content-types">Custom Content Types</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#custom-tasks">Custom Tasks</a>
     </li>
         </ul>
     </li>
@@ -167,7 +199,7 @@ Entity.label    # a textual representation of the content
 </code></pre>
 <p>Your browser should then display the rendered output for your content as an XML document (screenshot from Google Chrome):</p>
 <p><img alt="XML Output" src="../assets/img/content_type_templates_xml_output.png" title="XML Output" /></p>
-<h2 id="corpus-api-for-python">Corpus API for Python</h2>
+<h2 id="the-corpus-api-for-python">The Corpus API for Python</h2>
 <p>The corpus API for Python does most of the heavy lifting behind the scenes in terms of the C.R.U.D. (creating, reading, updating, and deleting) operations on corpus data. Understanding how to use it is crucial to using the corpus iPython notebook and writing plugins for Corpora. At its heart, the API leverages <a href="https://docs.mongoengine.org/">MongoEngine</a>--an ORM for MongoDB designed to behave similarly to the <a href="https://docs.djangoproject.com/en/5.0/topics/db/models/">SQL-oriented ORM baked into Django</a>. In fact, each corpus or content object is a <a href="https://docs.mongoengine.org/guide/defining-documents.html">MongoEngine Document</a> under the hood, and when you query for content using the corpus API, you're actually working with <a href="https://docs.mongoengine.org/guide/querying.html">MongoEngine QuerySets</a>. As such, the majority of the documentation for the corpus API is covered by MongoEngine's documentation, so much of the documentation here will be in the form of examples.</p>
 <h3 id="creating-a-corpus">Creating a Corpus</h3>
 <pre><code class="language-python">from corpus import Corpus
@@ -442,6 +474,186 @@ my_corpus.files[my_file_key] = my_file
 my_corpus.save()
 </code></pre>
 <p>Note the use of the <code>process</code> class method of File. That method takes a file path, checks to see if the file exists, gathers some minimal metadata about the file (like file size), and returns a <code>File</code> object. Because files directly associated with a corpus are stored using a file key, we generate one with the <code>generate_key</code> method of File.</p>
+<h2 id="the-corpus-notebook">The Corpus Notebook</h2>
+<p>Corpora makes available to admins and corpus Editors the ability to launch an iPython notebook associated with your corpus. This is especially useful for loading and transforming data, or for developing code that will eventually live as a Task inside of a plugin.</p>
+<h3 id="launching-the-notebook">Launching the Notebook</h3>
+<p>To launch the corpus notebook, navigate to your corpus' homepage and click on the "Admin" tab. Click the orange "Launch Notebook" button to the right of the "Running Jobs" section. This will cause the page to reload, and a message should appear saying <code>Notebook server successfully launched! Access your notebook here.</code> Click on the "here" link to open your notebook in a new browser tab.</p>
+<h3 id="setting-up-the-corpus-python-api">Setting up the Corpus Python API</h3>
+<p>Once you've opened your notebook, you'll see that the first cell has been created for you. In it is code that must be run in order for you to make use of the Corpus Python API. Once you run that cell, you'll have access to the variable <code>my_corpus</code> which is an instance of the <a href="#retrieving-a-corpus">Corpus object</a>.</p>
+<h3 id="python-packages">Python Packages</h3>
+<p>For a list of Python packages installed in your notebook environment, see the <a href="https://github.com/bptarpley/corpora/blob/master/app/requirements.txt">requirements.txt</a> file used by the build process for the Corpora container. This list of packages has been kept relatively minimal in order to keep the size of the Corpora container manageable. That said, additional packages can be installed using the following methods.</p>
+<h4 id="installing-at-runtime">Installing at Runtime</h4>
+<p>To install a given package (like, say, <code>pandas</code>) at runtime, simply prefix a <code>pip install</code> command with an exclamation point in a notebook cell and execute it. For example:</p>
+<pre><code class="language-shell">!pip install pandas
+</code></pre>
+<p>This will prompt pip (the Package Installer for Python) to download and install the package to the "user installation" of Python. Specifically, this is found at <code>/conf/plugin_modules/lib/python3.11/site-packages</code> inside the Corpora container. As instructed in the <a href="/deploying/#prerequisites">deployment documentation</a>, you should have various subdirectories inside a data directory on your host machine mounted inside of Corpora, and one of those subdirectories is <code>conf</code>, corresponding to the <code>/conf</code> path inside the Corpora container. As such, assuming the Corpora data directory you set up on your host machine is at <code>/corpora/data</code>, you'll find packages installed in this manner in <code>/corpora/data/conf/plugin_modules/lib/python3.11/site-packages</code> on your host machine. Because these files are living in a directory mounted from your host computer, <em>any packages you install at runtime will persist</em> until you delete or uninstall them.</p>
+<h4 id="installing-via-plugin">Installing via Plugin</h4>
+<p>Corpora is built with a plugin architecture allowing you to extend its functionality. One way to ensure that certain Python packages are installed when the Corpora container first launches is to specify them in a <code>requirements.txt</code> file in the directory for your plugin. Note that for Corpora to look for that <code>requirements.txt</code> file, <em>your plugin must be enabled</em> as instructed <a href="/managing/#installing-plugins">here</a>, and enabling a plugin (as well as installing packages specified via <code>requirements.txt</code>) requires that you restart the Corpora container. Once Corpora has installed your packages in this way, they are persisted at the same <code>/conf/plugin_modules/lib/python3.11/site-packages</code> location and won't have to be installed during subsequent restarts.</p>
+<h3 id="limitations">Limitations</h3>
+<p>While your notebook is saved as you go and can be returned to over multiple sessions, at this time Corpora only supports a single notebook per corpus. Also, at this time <em>only a single notebook can be running on a given instance of Corpora at any given time</em>. As such, should you be working in your notebook, and should another user attempt to launch their own corpus notebook, your notebook will be shut down and they will have the active notebook session.</p>
+<h2 id="corpora-plugins">Corpora Plugins</h2>
+<p>Corpora's plugin architecture allows you to extend the functionality of Corpora by adding custom Content Types, asynchronous Tasks, and even new REST API endpoints or public facing web pages. In this way, Corpora's codebase can remain relatively generic while the data schema and functionality of a custom project can be contained in a separate and distributable codebase.</p>
+<h3 id="minimum-requirements">Minimum Requirements</h3>
+<p>For Corpora to recognize your plugin, you must choose a name for your plugin that adheres to the <a href="https://peps.python.org/pep-0008/#package-and-module-names">Python convention for package and module names</a>, i.e. short, all lowercase, and usually one word or acronym, though underscores are okay if necessary (no other special characters or spaces). For the purposes of this documentation, we'll assume you're creating a plugin named <code>survey</code>.</p>
+<p>Having chosen your name, create a directory with that name, and inside it place an empty file named <code>__init__.py</code>:</p>
+<pre><code>survey
+│   __init__.py
+</code></pre>
+<p>Technically, placing this directory in the correct place, enabling the plugin, and restarting Corpora according to <a href="/managing/#installing-plugins">these instructions</a> is all that is required for your plugin to work. At this point, however, the <code>survey</code> plugin does nothing useful. See below for the various ways to build functionality for your plugin.</p>
+<h3 id="custom-content-types">Custom Content Types</h3>
+<p>Often, the various tasks and functionality of your plugin require specialized Content Types for storing idiosyncratic data. The <code>tesseract</code> plugin, for instance, requires a Content Type called <code>TesseractLanguageModel</code> in order to store models for specific languages or fonts that can be trained using Corpora's interface.</p>
+<p>As for our <code>survey</code> plugin, let's create some Content Types to keep track of surveys, questions, sessions, and responses. The easiest way to go about this is to <a href="/#creating-a-corpus">create a new corpus</a> and use the Content Type Manager to <a href="/#creating-content-types">craft your Content Types</a>. Here are the various Content Types we'll create:</p>
+<p><strong>Survey</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Label</th>
+<th>Data Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>name</td>
+<td>Name</td>
+<td>Text (English)</td>
+</tr>
+<tr>
+<td>open</td>
+<td>Open?</td>
+<td>Boolean</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Question</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Label</th>
+<th>Data Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>survey</td>
+<td>Survey</td>
+<td>Cross-reference (Survey)</td>
+</tr>
+<tr>
+<td>query</td>
+<td>Query</td>
+<td>Text (English)</td>
+</tr>
+<tr>
+<td>query_choices</td>
+<td>Query Choices</td>
+<td>Text (English), multiple</td>
+</tr>
+<tr>
+<td>order</td>
+<td>Order</td>
+<td>Number</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Session</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Label</th>
+<th>Data Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>survey</td>
+<td>Survey</td>
+<td>Cross-reference (Survey)</td>
+</tr>
+<tr>
+<td>respondent_name</td>
+<td>Respondent Name</td>
+<td>Text (English)</td>
+</tr>
+<tr>
+<td>respondent_email</td>
+<td>Respondent Email</td>
+<td>Keyword</td>
+</tr>
+<tr>
+<td>date_taken</td>
+<td>Date Taken</td>
+<td>Date</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Answer</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Label</th>
+<th>Data Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>session</td>
+<td>Session</td>
+<td>Cross-reference (Session)</td>
+</tr>
+<tr>
+<td>question</td>
+<td>Question</td>
+<td>Cross-reference (Question)</td>
+</tr>
+<tr>
+<td>response</td>
+<td>Response</td>
+<td>Text (English)</td>
+</tr>
+</tbody>
+</table>
+<p>Once these Content Types have been created in your Content Type Manager, the easiest way to package them with your plugin is to download the JSON representation of your schema by clicking the export button in the footer of the Content Type Manager, which looks like this:</p>
+<p><img alt="Schema Export Button" src="../assets/img/schema_export.png" title="Schema Export Button" /></p>
+<p>Clicking the schema export button will kick off a download of the JSON representation of your corpus as a file named <code>schema.json</code>. The next step is to edit that file with any text editor to convert the JSON to valid Python code. This can be done with three simple Find and Replace operations:</p>
+<ul>
+<li>Replace "true" with "True"</li>
+<li>Replace "false" with "False"</li>
+<li>Replace "null" with "None"</li>
+</ul>
+<p>Once you've done this, create a file called <code>content.py</code> and save it in your plugin directory.</p>
+<pre><code>survey
+│   __init__.py
+│   content.py
+</code></pre>
+<p>Edit <code>content.py</code>, and create a single variable named <code>REGISTRY</code>, setting it equal to the Content Type schema you exported and converted to Python code. Here's a snippet of what the first lines of that file would look like now:</p>
+<pre><code class="language-python">REGISTRY = [
+    {
+        &quot;name&quot;: &quot;Survey&quot;,
+        &quot;plural_name&quot;: &quot;Surveys&quot;,
+        &quot;fields&quot;: [
+            {
+                &quot;name&quot;: &quot;name&quot;,
+                &quot;label&quot;: &quot;Name&quot;,
+                &quot;indexed&quot;: False,
+                &quot;unique&quot;: False,
+                &quot;multiple&quot;: False,
+                &quot;in_lists&quot;: True,
+                &quot;type&quot;: &quot;text&quot;,
+                ...
+    ...
+]
+</code></pre>
+<p>Assuming you've enabled this plugin and restarted Corpora, you should now be able to go into the Content Type Manager for any corpus and click on the schema import button, which looks like this:</p>
+<p><img alt="Schema Import Button" src="../assets/img/schema_import.png" title="Schema Import Button" /></p>
+<p>This will open a pop-up modal with a text editor field for copying and pasting JSON. Below that field is a "Import plugin schema..." dropdown that looks like this:</p>
+<p><img alt="Plugin Schema Dropdown" src="../assets/img/import_plugin_schema.png" title="Plugin Schema Dropdown" /></p>
+<p>This dropdown will allow you to select one or all of the Content Types associated with your plugin. Once you've made your choice, click the orange <code>Import</code> button. Your Content Types should now appear in the Content Type Manager. Be sure to click <code>Save Changes</code> to commit that schema to your corpus.</p>
+<h3 id="custom-tasks">Custom Tasks</h3>
+<p>Documentation forthcoming!</p>
               
             </div>
           </div><footer>
