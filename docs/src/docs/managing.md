@@ -72,5 +72,4 @@ To completely stop and restart Corpora while running as a Swarm service, issue t
 docker stack rm corpora
 # wait 20 seconds or so for the containers to stop
 docker stack deploy corpora -c docker-compose.yml
-docker 
 ````

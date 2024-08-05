@@ -360,7 +360,7 @@ def corpus(request, corpus_id):
                         sleep(2)
 
                     notebook_path = "{0}/corpus_notebook.ipynb".format(corpus.path)
-                    jupyter_token = "{0}{1}".format(corpus_id, response['scholar'].id)
+                    jupyter_token = "{0}{1}".format(corpus_id, ObjectId())
                     notebook_url = "/notebook/notebooks/corpus_notebook.ipynb?token={0}".format(jupyter_token)
 
                     if not os.path.exists(notebook_path):

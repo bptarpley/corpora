@@ -1435,6 +1435,20 @@
                     ct_graph.fit({nodes: node_ids});
                 }
             });
+
+            ct_graph.on("dragStart", function(params){
+                params.nodes.map(id => {
+                    let n = nodes.get(id)
+                    n.fixed = false
+                    nodes.update(n)
+                })
+            })
+
+            ct_graph.on("dragEnd", function(params){
+                params.nodes.map(id => {
+                    nodes.update([{ id: id, fixed: true }])
+                })
+            })
         }
 
         function manage_content_type(ct_name) {

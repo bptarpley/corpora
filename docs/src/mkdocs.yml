@@ -1,0 +1,21 @@
+site_name: Corpora
+nav:
+  - Getting Started: index.md
+  - REST API: rest_api.md
+  - Deploying: deploying.md
+  - Managing: managing.md
+  - Developing: developing.md
+theme:
+  name: readthedocs
+  logo: assets/logo.png
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [../../app]
+          options:
+            parameter_headings: true
+extra_css:
+  - style.css

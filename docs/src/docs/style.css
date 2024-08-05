@@ -1,0 +1,82 @@
+body {
+    color: #091540;
+}
+
+.logo {
+    max-height: 50px;
+    width: auto;
+}
+
+.wy-side-nav-search {
+    background-color: #FFFFFF;
+}
+
+.wy-side-nav-search input[type=text] {
+    border-color: #EF3E36;
+}
+
+.wy-nav-side {
+    background: none;
+    background: repeating-linear-gradient(
+      45deg,
+      #FFFFFF,
+      #FFFFFF 10px,
+      rgba(9, 21, 64, .3) 10px,
+      rgba(9, 21, 64, .3) 11px,
+      #FFFFFF 12px,
+      #FFFFFF 13px
+    );
+}
+
+.wy-menu-vertical li.current {
+    background-color: #F5F5F5;
+}
+
+.wy-menu-vertical a {
+    color: #888888;
+}
+
+.wy-menu-vertical a:hover {
+    color: #d6d6d6;
+}
+
+.wy-menu ul {
+    background-color: #F5F5F5;
+}
+
+.wy-nav-content {
+    max-width: 1000px;
+}
+
+h2 {
+    border-bottom: solid 2px #17BEBB;
+}
+
+.wy-table-responsive table td, .wy-table-responsive table th {
+    white-space: unset;
+}
+
+.rst-content img {
+    max-width: 700px;
+    height: auto;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.center {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.mb {
+    margin-bottom: 20px;
+}
+
+pre code.hljs {
+    display: block;
+    overflow-x: auto;
+    padding: 1em;
+    line-height: 1.4;
+}

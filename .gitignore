@@ -6,3 +6,4 @@ proprietary
 docker-compose.yml
 local.docker-compose.yml
 *.pyc
+docs/src/site
