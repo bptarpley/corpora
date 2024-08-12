@@ -55,7 +55,7 @@
                 </li>
               </ul>
               <ul class="current">
-                <li class="toctree-l1 current"><a class="reference internal current" href="#">Managing</a>
+                <li class="toctree-l1 current"><a class="reference internal current" href="./">Managing</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#managing-users">Managing Users</a>
         <ul>
@@ -78,6 +78,8 @@
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#installing-plugins">Installing Plugins</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#scaling-corpora">Scaling Corpora</a>
     </li>
     </ul>
                 </li>
@@ -153,6 +155,8 @@ docker stack rm corpora
 # wait 20 seconds or so for the containers to stop
 docker stack deploy corpora -c docker-compose.yml
 </code></pre>
+<h2 id="scaling-corpora">Scaling Corpora</h2>
+<p>Should your instance of Corpora receive high traffic volume, it is architected in such a way as to support multiple instances of the Corpora container--this is due to the fact that they all rely on the Redis container for session management. Scaling in this way has only been tested with a <a href="/deploying/#running-in-swarm-mode">Docker Swarm deployment</a>, and may be accomplished by setting the <code>scale</code> key in the service configuration for Corpora in <code>docker-compose.yml</code>, or by issuing <a href="https://docs.docker.com/engine/swarm/swarm-tutorial/scale-service/">the appropriate Docker command</a>. Scaling Corpora in this way will also multiply the number of Huey task workers you're able to run concurrently. You could alternatively scale Huey by increasing the number of Huey workers in a given Corpora container by setting the <code>CRP_HUEY_WORKERS</code> environment variable to something higher than the default, which is currently <code>10</code>.</p>
               
             </div>
           </div><footer>
