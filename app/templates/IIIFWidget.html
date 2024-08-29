@@ -44,7 +44,7 @@
                 wrapVertical:       true,
                 sequenceMode:       false,
                 showRotationControl: true,
-                tileSources:   [image_url]
+                tileSources:   [`${image_url}/info.json`]
             });
             dragon_helper = dragon.activateImagingHelper({onImageViewChanged: function(event) {
                 viewport_event = event
