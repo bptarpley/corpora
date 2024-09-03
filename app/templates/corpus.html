@@ -418,6 +418,9 @@
                 <div id="content-types-div">
 
                     <!-- CONTENT TYPES LISTED HERE -->
+                    <div class="alert alert-info no-content-types-message">
+                        There are currently no content types defined for your corpus. Log in as an Editor or Admin, select the "Admin" tab, and scroll to the Content Type Manager to create some.
+                    </div>
 
                     <form id="multiselect-form" method="post" action="/not/set">
                         {% csrf_token %}
@@ -586,7 +589,7 @@
                         <div class="card-body p-0">
                             <div id="content-types-graph" class="d-none" style="height: 300px"></div>
                             <div class="list-group p-3" id="tm-ct-group">
-                                <div class="alert alert-info">No Content Types have been defined.</div>
+                                <div class="alert alert-info no-content-types-message">No Content Types have been defined.</div>
                             </div>
                         </div>
                         <div class="card-footer d-flex justify-content-between">
@@ -1050,6 +1053,7 @@
 
                     // CREATE/EDIT CONTENT TYPE BUTTON CLICK
                     $('#new-ct-create-button').click(function () {
+                        $('.no-content-types-message').remove()
                         let ct_name = $('#new-ct-name-box').val();
                         if (!corpus.content_types.hasOwnProperty(ct_name)) {
                             corpus.content_types[ct_name] = {
@@ -1192,14 +1196,9 @@
                         }
 
                         $('#template-modal').modal('hide');
-                    });
+                    })
 
-                    // BUILD CONTENT TABLES AND SETUP CONTENT TYPE MANAGER
-                    if (corpus.content_types) {
-                        $('#tm-ct-group').html('');
-                    }
-
-                    // HANDLE CORPUS DELETION EVENTS
+                   // HANDLE CORPUS DELETION EVENTS
                     $('#corpus-show-delete-confirmation-button').click(function () {
                         $('#corpus-deletion-name-span').html(corpus.name);
                         if ($(this).html() === "Delete Corpus") {
@@ -1221,10 +1220,14 @@
                     oa_button.click(function() { $('#open-access-toggle-form').submit(); })
                 }
 
+                // BUILD CONTENT TABLES
                 add_breadcrumb(corpus.name, `/corpus/${corpus.id}/`);
 
                 // load first pages of 5 items for each content type; setup content type nav
-                let ct_sticky_nav = $('#content-types-nav');
+                let ct_sticky_nav = $('#content-types-nav')
+
+                if (Object.keys(corpus.content_types).length > 0) $('.no-content-types-message').remove()
+
                 for (let ct_name in corpus.content_types) {
                     ct_tables[ct_name] = new ContentTable({
                         container_id: 'content-types-div',

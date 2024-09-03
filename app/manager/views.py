@@ -43,6 +43,8 @@ def corpora(request):
 
     if response['scholar'].is_admin and request.method == 'POST':
         if 'new-corpus-name' in request.POST:
+            include_document_content_types = 'new-corpus-content-types' in request.POST
+
             c_name = unescape(_clean(request.POST, 'new-corpus-name'))
             c_desc = unescape(_clean(request.POST, 'new-corpus-desc'))
             c_open = unescape(_clean(request.POST, 'new-corpus-open'))
@@ -53,12 +55,15 @@ def corpora(request):
             c.open_access = True if c_open else False
             c.save()
 
-            from plugins.document.content import REGISTRY
-            for schema in REGISTRY:
-                c.save_content_type(schema)
+            if include_document_content_types:
+                from plugins.document.content import REGISTRY
+                for schema in REGISTRY:
+                    c.save_content_type(schema)
 
             sleep(4)
+
             response['messages'].append("{0} corpus successfully created.".format(c.name))
+
         elif 'admin-action' in request.POST:
             action = _clean(request.POST, 'admin-action')
             if action == 'scrub-provenance':
