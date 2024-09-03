@@ -405,7 +405,7 @@ Technically, placing this directory in the correct place, enabling the plugin, a
 
 ### Custom Content Types
 
-Often, the various tasks and functionality of your plugin require specialized Content Types for storing idiosyncratic data. The `tesseract` plugin, for instance, requires a Content Type called `TesseractLanguageModel` in order to store models for specific languages or fonts that can be trained using Corpora's interface.
+Often, the various tasks and functionality of your plugin require specialized Content Types for storing idiosyncratic data. The [tesseract](https://github.com/corpora-plugins/tesseract) plugin, for instance, requires a Content Type called `TesseractLanguageModel` in order to store models for specific languages or fonts that can be trained using Corpora's interface.
 
 As for our `survey` plugin, let's create some Content Types to keep track of surveys, questions, sessions, and responses. The easiest way to go about this is to [create a new corpus](/#creating-a-corpus) and use the Content Type Manager to [craft your Content Types](/#creating-content-types). Here are the various Content Types we'll create:
 
@@ -491,10 +491,205 @@ This will open a pop-up modal with a text editor field for copying and pasting J
 
 This dropdown will allow you to select one or all of the Content Types associated with your plugin. Once you've made your choice, click the orange `Import` button. Your Content Types should now appear in the Content Type Manager. Be sure to click `Save Changes` to commit that schema to your corpus.
 
+If you would like to add custom functionality to your Content Types that can be used in the context of Python, you can inherit the `Content` class and write your own code to override or extend existing properties and methods. To do this, you must set the `inherited_from_module` and `inherited_from_class` keys in the schema for your Content Type (as saved in the `REGISTRY` variable). You must also indicate whether certain fields are inherited from your custom class by setting `inherited` to `True` in your data schema for those fields. To see an example of this, see the schema for `Document` and the custom classes below it in [the code for the Document plugin](https://github.com/bptarpley/corpora/blob/main/app/plugins/document/content.py) that comes built-in to Corpora.
+
 ### Custom Tasks
 
-Documentation forthcoming!
+Corpora's plugin architecture allows you to create asynchronous tasks that can be launched programmatically, as well as from the Admin interface of a given corpus (given certain conditions). The following will expand on our `survey` plugin by adding a task as an example. Developers are also encouraged to view the source code for some existing tasks, such as for the [document](https://github.com/bptarpley/corpora/blob/main/app/plugins/document/tasks.py) and [tesseract](https://github.com/corpora-plugins/tesseract/blob/main/tasks.py) plugins.
+
+Much like with custom Content Types for plugins, when creating custom tasks you'll want to create a file called `tasks.py` and place it at the root level of your plugin directory, i.e.:
+
+```
+survey
+│   __init__.py
+│   content.py
+│   tasks.py
+```
+
+In `tasks.py`, you'll need to create a variable called `REGISTRY` and set it equal to a Python dictionary, where the keys are the unique names for your tasks and the values are nested dictionaries with the specifications for your task. Below is an example for a task that will generate a survey report. The various settings in this example with be expounded upon below.
+
+```python
+REGISTRY = {
+    "Generate Survey Report": {
+        "version": "0",
+        "jobsite_type": "HUEY",
+        "content_type": "Corpus",
+        "track_provenance": True,
+        "create_report": True,
+        "module": "plugins.survey.tasks",
+        "functions": ['generate_survey_report'],
+        "configuration": {
+            "parameters": {
+                "session": {
+                    "value": "",
+                    "label": "Survey Session",
+                    "note": "Select the survey taking session for which to generate a report.",
+                    "type": "xref",
+                    "content_type": "Session"
+                }
+            }
+        },
+    }
+}
+```
+
+#### Task Settings
+
+**version** (`string`): When tasks are first registered by Corpora, the task name, task version, and task parameters are copied to the database for quick retrieval. As you iteratively develop your task, you may need to adjust the available parameters. To get Corpora to re-register your tasks's parameters, you'll want to bump up the version number (i.e. change the value `0` to `1`).
+
+**jobsite_type** (`string`): At present, only the value `HUEY` is supported, as tasks are only run using the [huey task queue](https://huey.readthedocs.io/en/latest/) built into Corpora. In the future, other jobsite types (such as SLURM) may be supported. A jobsite is intended to be something like "the server or environment where Corpora tasks are run." At present, Corpora creates a single jobsite called `Local` when first initialized, and that `Local` jobsite is of type `HUEY`. Jobs run on this local jobsite are run in the same Corpora container that serves the web application, and the number of jobs (or job processes) that can be run concurrently corresponds to the `CRP_HUEY_WORKERS` environment variable for the Corpora container, which by default is `10`.
+
+**content_type** (`string`): All tasks must target (or be associated with) a particular Content Type. While a corpus is technically *composed of* Content Types, `Corpus` is a valid value here. Tasks that have `Corpus` as their Content Type and `track_provenance` set to `True` may be launched from the Admin tab of a corpus.
+
+**track_provenance** (`boolean`): Setting `track_provenance` to `True` causes Corpora to save a record of having run a job with this task on the target. From within the [Corpus Python API](#the-corpus-api-for-python), recorded jobs can be viewed by referencing the `provenance` property of a given instance of content, as well of a corpus itself. Setting `track_provenance` to `False` will prevent Corpora from saving a record of jobs run with this task, and will also prevent users from being able to launch the job from the Admin tab of the corpus. This is useful for tasks that will only be run programmatically.
+
+**create_report** (`boolean`): Setting `create_report` to `True` will cause any jobs running this task to create a plain text file with some generic information about the job at the top. It also allows for the task to write messages to this file about the task as it runs. For jobs that are launched from the Admin tab of a corpus, those reports can be read via the web interface for Corpora both while a job is running and after it has been completed. Examples for writing messages to the report can be viewed in the example code for a task provided further on in this example.
+
+**module** (`string`): This is the path to the module containing the function(s) that will be run for this task, and is almost always `plugins.[plugin name].tasks`.
+
+**functions** (`list of strings`): This is a list of the function names that should be called sequentially as part of the task. Each of these names must correspond to functions that live in the module specified by the `module` setting described above. Normally this will include only a single function, but some situations may require that multiple functions be run one after the other. Corpora's job queue is capable of determining when one function's execution has completed, and will pass the job onto the next function in this list until all have been completed. For an example of this kind of function execution chaining, see the [OCR Document with Tesseract 5](https://github.com/corpora-plugins/tesseract/blob/main/tasks.py#L16) task.
+
+**configuration** (`dictionary`): This is intended to store configuration options that are specific to the jobsite, including the available parameters for the user to provide when launching the job. At present, the only key that Corpora looks for is `parameters`, though in the future more keys may live here, such as settings specific to SLURM.
+
+**configuration -> parameters** (`dictionary`): This dictionary is nested under the `parameters` key which is part of the `configuration` dictionary. It's intended to provide the various parameters a user can configure when launching the job--when launching a job from the Admin tab in Corpora, these parameters are used to construct a web form for the user. The keys for this dictionary are intended to be the names of parameters passed into the job, and should follow the [PEP 8 convention for variable names](https://peps.python.org/pep-0008/#function-and-variable-names). The value for these keys should be a dictionary with settings that specify what `type` of parameter this is, what the default `value` should be, what the `label` for the parameter should be on the constructed web form, and the text for a `note` that is provided on the web form for that parameter. As such, `type`, `value`, `label`, and `note` are keys you can use for this dictionary that Corpora will recognize and act on accordingly. Depending on the value of `type`, certain other keys may also be expected. Below is a table describing the various parameter types.
 
 
+| Type               | Example Value                            | Web Form Equivalent                                                                                                                  | Additional Parameter Keys Expected    |
+|--------------------|------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------|
+| text               | "OCR run 42"                             | Input of type text                                                                                                                   | None                                  |
+| boolean            | True                                     | Checkbox                                                                                                                             | None                                  |
+| password           | "secretphrase"                           | Input of type password (text entered here is obscured by asterisks)                                                                  | None                                  |
+| pep8_text          | "like_a_variable_name"                   | Input of type text, with PEP 8 formatting enforced via JavaScript                                                                    | None                                  |
+| choice             | "Option B"                               | A dropdown menu with the options specified by the additional `choices` key                                                           | `choices`, which is a list of strings |
+| xref               | The string representation of an ObjectId | A UI for selecting a specific piece of content of the Content Type specified by the additional `content_type` key                    | `content_type`, which is a string     |
+| corpus_file        | "/path/to/a/file"                        | A dropdown menu with filenames as options (these must be files directly associated with a corpus via the Metadata tab)               | None                                  |
+| corpus_repo        | "project-tei"                            | A dropdown menu with the names of Git repositories as options (these must be directly associated with a corpus via the Metadata tab) | None                                  |
+| content_type       | "Survey"                                 | A dropdown menu with corpus Content Types as options                                                                                 | None                                  |
+| content_type_field | "Survey->name"                           | A dropdown menu with the fields for corpus Content Types as options                                                                  | None                                  |
 
+When a user launches a job, their selection for a given parameter is stored in the `value` key for a given parameter and passed to the task's function(s) by way of a `job` object (described below). 
 
+#### Task Functions
+
+When tasks are registered by Corpora at startup, Corpora stores the name of the function(s) to call when a job is launched with that task (a job is ultimately a task that is run at a particular place and time and by a particular user). Those functions are normally defined in `tasks.py` below the `REGISTRY` variable specified above. Here's an example of a simple task function for our `survey` plugin with details explained below:
+
+```python
+from huey.contrib.djhuey import db_task
+from corpus import Job
+
+REGISTRY = { ... }
+
+# The db_task decorator is necessary so Huey is aware of it as an available task to run. It also allows you to specify
+# the priority for this task, which only matters if more jobs are queued than there are Huey workers available to run
+# them. In those situations, the higher the integer you assign to priority, the more priority it has to run over tasks
+# with a lower priority.
+@db_task(priority=4)
+def generate_survey_report(job_id): # Task functions always take a single parameter, which is the ID of the job.
+    
+    job = Job(job_id) # You instantiate a Job object by just passing in its ID
+    job.set_status('running') # The set_status method for job allows you to notify Corpora that the job is running
+    
+    # Getting the value of the 'session' parameter which was selected by the user:
+    session_id = job.get_param_value('session')
+    
+    # Session is a custom Content Type specified in content.py for our plugin. We can get an instance of that Content
+    # Type by calling the get_content method of our corpus object, which is always set for an instance of Job:
+    session = job.corpus.get_content('Session', session_id)
+    
+    # Checking to see if we were able to successfully retrieve an instance of Session:
+    if session:
+        
+        # Calling the 'report' method of the job object to log a message to the job report:
+        job.report(f"Survey report for {session.survey.name} taken by {session.respondent_name}:")
+    
+        # The get_content method of the corpus object can take as a second parameter a dictionary specifying our
+        # query, and returns a MongoEngine Queryset with the results. The QuerySet object has an order_by method
+        # that takes as one or more parameters the fields you wish to sort by. In this case we're sorting by the
+        # 'order' field (the + symbol as a prefix specifies that we're sorting in ascending order):
+        questions = job.corpus.get_content('Question', {'survey': session.survey.id}).order_by('+order')
+        
+        # Here we're retrieving the number of questions for the survey so we can report a percentage complete
+        # for our job as we iterate over them. In this example, the questions and answers will be iterated over
+        # nearly instantaneously, but it's included here for reference purposes:
+        total_questions = questions.count()
+        questions_reported = 0
+        
+        # Querysets can be iterated over, yielding MongoEngine documents corresponding to each piece of content: 
+        for question in questions:
+            
+            # Here we're retrieving the survey taker's answer to this question. When passing in True for the optional
+            # 'single_result' keyword parameter, we're specifying that we want a single MongoEngine document as the
+            # result (instead of a Queryset): 
+            answer = job.corpus.get_content('Answer', {'session': session_id, 'question': question.id}, single_result=True)
+            
+            # Here we're simply outputting to the job report the language of the question, and on the line directly
+            # below it outputting the user's response:
+            job.report(f"QUESTION: {question.query} \n ANSWER: {answer.response}\n\n")
+        
+            # Here we're reporting our job progress in terms of percent complete using the set_status method of our job:
+            questions_reported += 1
+            job.set_status('running', percent_complete=int( (questions_reported / total_questions) * 100 ))
+        
+        # Now that we've successfully completed our task, we use the 'complete' method of our job object, passing in the
+        # status as the first parameter:
+        job.complete('complete')
+        
+    # Since no session was found, we error out our job by marking it as complete and also passing in 'error' as the
+    # status for our job. We're also providing an error message to report:
+    else:
+        job.complete('error', error_msg="No session was found for generating this report!")
+```
+
+The example task function above is intended to take a completed survey and generate a simple report by providing the survey questions with the user's response printed beneath them. Here are some key takeaways:
+
+* Task functions should use the `db_task` decorator, and can optionally specify a priority (higher = more priority) for the function as it competes with other tasks on Corpora's job queue.
+* Task functions take a single parameter, which is the ID for the job.
+* Once `Job` objects are instantiated using the job ID, you can access the pertinent corpus for the job using the `corpus` property of the job object.
+* The status of a running job can be set using the `set_status` method, including an optional `percent_complete` parameter to report on the amount of progress a job has made toward completion.
+* Jobs are then completed using the `complete` method of Job, passing in either "complete" or "error" to indicate job completion or erroring out respectively. If a job is errored out, an optional error message can be specified using the `error_msg` keyword parameter.
+
+#### Subprocesses
+
+At times, it might make sense to spawn subprocesses in order to complete a complicated task in parallel. Subprocesses also make use of the Huey job queue to run, and from Huey's perspective, they are just another job. The Job object in Corpora, however, has affordances for considering these jobs as subprocesses of an already running job. Here's an example, assuming a Corpora task that takes as a parameter a path to a document to be OCR'd:
+
+```python
+from huey.contrib.djhuey import db_task
+from corpus import Job
+
+REGISTRY = { ... }
+
+@db_task(priority=4)
+def ocr_document(job_id):
+    job = Job(job_id)
+    document_path = job.get_param_value('document_path')
+    job.set_status('running')
+
+    # Assume code here for building a list of paths for page images extracted from the document, stored in a list called 'page_paths'
+    page_paths = [ ... ]
+
+    for page_path in page_paths:
+        huey_task = ocr_page(job_id, page_path)
+        job.add_process(huey_task.id)
+
+@db_task(priority=3, context=True)
+def ocr_page(job_id, page_path, task=None):
+    job = Job(job_id)
+
+    # Assume the existence of another function that actually performs the OCR given the path to a page
+    actually_do_the_ocr(page_path)
+
+    if task:
+        job.complete_process(task.id)
+```
+
+Here are some key takeaways from the example:
+
+* Functions that are intended to be called and run as subprocesses should also have the db_task decorator, but must set the optional keyword parameter `context` to `True`. This ensures that when Huey runs the job by calling the task function, it passes in contextual information, namely a Task object with Huey's internal task ID.
+* You can simply call functions that have the db_task decorator. When you do this, the function is queued up to be run in Huey's job queue, and a [Huey Task object](https://huey.readthedocs.io/en/latest/api.html#Task) is immediately returned, which has `id` as a property. When you pass that ID into the `add_process` method of the Corpora Job object, Corpora registers that ID as a subprocess for the running job. Corpora will not consider the job complete until all subprocesses are marked as complete.
+* To mark a subprocess as complete, simply call the `complete_process` method of Job, passing in Huey's internal task ID as its identifier.
+
+When using subprocesses like this, it's not necessary to manually mark the Corpora job as complete--Corpora's own job manager will do so once all subprocesses have been marked as completed. For an example of the use of subprocesses, see the [tesseract](https://github.com/corpora-plugins/tesseract/blob/main/tasks.py) plugin, and specifically the interaction between the `ocr_document_with_tesseract` and `ocr_page_with_tesseract`.
+
+### Beyond Content and Tasks
+
+Because Corpora plugins are essentially Django apps, you can also create custom views and templates, include static files, and even create an entire frontend for your plugin. Documentation for this level of custom development is beyond the scope here, as it essentially involves Django development. You can see an example of a fully fledged frontend for a plugin by examining the codebase for the [New Variorum Shakespeare plugin for Corpora](https://gitlab.dh.tamu.edu/corpora-plugins/nvs).
