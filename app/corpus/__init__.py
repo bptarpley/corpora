@@ -1700,81 +1700,6 @@ class Corpus(mongoengine.Document):
                         elif local_operator == 'exclude':
                             must_not.append(q)
 
-                '''
-                if '.' in search_field:
-                    field_parts = search_field.split('.')
-                    xref_ct = self.content_types[content_type].get_field(field_parts[0]).cross_reference_type
-
-                    if field_parts[1] == 'label':
-                        field_type = 'text'
-                    elif field_parts[1] in ['uri', 'id']:
-                        field_type = 'keyword'
-                    else:
-                        field_type = self.content_types[xref_ct].get_field(field_parts[1]).type
-                else:
-                    if search_field == 'label':
-                        field_type = 'text'
-                    elif search_field in ['uri', 'id']:
-                        field_type = 'keyword'
-                    else:
-                        field_type = self.content_types[content_type].get_field(search_field).type
-
-                if not field_values:
-                    if '.' in search_field:
-                        field_parts = search_field.split('.')
-                        must.append(Q(
-                            "nested",
-                            path=field_parts[0],
-                            query=~Q(
-                                'exists',
-                                field=search_field
-                            )
-                        ))
-                    else:
-                        must.append(~Q('exists', field=search_field))
-
-                for field_value in field_values:
-                    q = None
-                    q_type = 'match'
-
-                    search_criteria = {
-                        search_field: {'query': field_value}
-                    }
-
-                    if field_type in ['date', 'timespan']:
-                        date_value = parse_date_string(field_value)
-                        end_date_value = None
-                        if date_value:
-                            date_value = date_value.isoformat()
-                            # if this is an entire year, let's build a range query instead
-                            if len(field_value) == 4 and field_value.isdecimal():
-                                end_date_value = parse_date_string(f"12/31/{field_value}").isoformat()
-
-                        if field_type == 'date':
-                            if end_date_value:
-                                q_type = 'range'
-                                search_criteria = {
-                                    search_field: {
-                                        'gte': date_value,
-                                        'lte': end_date_value
-                                    }
-                                }
-                            else:
-                                search_criteria[search_field]['query'] = date_value
-
-                            if '.' in search_field:
-                                field_parts = search_field.split('.')
-                                q = Q(
-                                    "nested",
-                                    path=field_parts[0],
-                                    query=Q(q_type, **search_criteria)
-                                )
-                            else:
-                                q = Q(q_type, **search_criteria)
-                        elif field_type == 'timespan':
-                            q = generate_timespan_query(search_field, date_value, end_date_value)
-                '''
-
             # PHRASE QUERY
             for search_field in fields_phrase.keys():
                 field_values = [value_part for value_part in fields_phrase[search_field].split('__') if value_part]
@@ -1809,29 +1734,34 @@ class Corpus(mongoengine.Document):
                 field_values = [value_part for value_part in fields_term[search_field].split('__') if value_part]
                 search_field, local_operator = determine_local_operator(search_field, operator)
 
-                for field_value in field_values:
-                    q = None
+                terms_search_type = 'term'
+                terms_search_value = field_values[0]
+                if len(field_values) > 1:
+                    terms_search_type = 'terms'
+                    terms_search_value = field_values
 
-                    if '.' in search_field:
-                        field_parts = search_field.split('.')
-                        q = Q(
-                            "nested",
-                            path=field_parts[0],
-                            query=Q(
-                                'term',
-                                **{search_field: field_value}
-                            )
+                q = None
+
+                if '.' in search_field:
+                    field_parts = search_field.split('.')
+                    q = Q(
+                        "nested",
+                        path=field_parts[0],
+                        query=Q(
+                            terms_search_type,
+                            **{search_field: terms_search_value}
                         )
-                    else:
-                        q = Q('term', **{search_field: field_value})
+                    )
+                else:
+                    q = Q(terms_search_type, **{search_field: terms_search_value})
 
-                    if q:
-                        if local_operator == 'and':
-                            must.append(q)
-                        elif local_operator == 'or':
-                            should.append(q)
-                        elif local_operator == 'exclude':
-                            must_not.append(q)
+                if q:
+                    if local_operator == 'and':
+                        must.append(q)
+                    elif local_operator == 'or':
+                        should.append(q)
+                    elif local_operator == 'exclude':
+                        must_not.append(q)
 
             # WILDCARD QUERY
             for search_field in fields_wildcard.keys():
