@@ -1734,34 +1734,35 @@ class Corpus(mongoengine.Document):
                 field_values = [value_part for value_part in fields_term[search_field].split('__') if value_part]
                 search_field, local_operator = determine_local_operator(search_field, operator)
 
-                terms_search_type = 'term'
-                terms_search_value = field_values[0]
-                if len(field_values) > 1:
-                    terms_search_type = 'terms'
-                    terms_search_value = field_values
+                if field_values:
+                    terms_search_type = 'term'
+                    terms_search_value = field_values[0]
+                    if len(field_values) > 1:
+                        terms_search_type = 'terms'
+                        terms_search_value = field_values
 
-                q = None
+                    q = None
 
-                if '.' in search_field:
-                    field_parts = search_field.split('.')
-                    q = Q(
-                        "nested",
-                        path=field_parts[0],
-                        query=Q(
-                            terms_search_type,
-                            **{search_field: terms_search_value}
+                    if '.' in search_field:
+                        field_parts = search_field.split('.')
+                        q = Q(
+                            "nested",
+                            path=field_parts[0],
+                            query=Q(
+                                terms_search_type,
+                                **{search_field: terms_search_value}
+                            )
                         )
-                    )
-                else:
-                    q = Q(terms_search_type, **{search_field: terms_search_value})
+                    else:
+                        q = Q(terms_search_type, **{search_field: terms_search_value})
 
-                if q:
-                    if local_operator == 'and':
-                        must.append(q)
-                    elif local_operator == 'or':
-                        should.append(q)
-                    elif local_operator == 'exclude':
-                        must_not.append(q)
+                    if q:
+                        if local_operator == 'and':
+                            must.append(q)
+                        elif local_operator == 'or':
+                            should.append(q)
+                        elif local_operator == 'exclude':
+                            must_not.append(q)
 
             # WILDCARD QUERY
             for search_field in fields_wildcard.keys():
