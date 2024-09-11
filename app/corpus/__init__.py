@@ -3505,7 +3505,6 @@ class Content(mongoengine.Document):
                         nodes[cross_ref_type] = []
 
                     if field.multiple:
-                        nodes[cross_ref_type] = []
                         for cross_ref in field_value:
                             node_dict = {
                                 'id': cross_ref.id,
