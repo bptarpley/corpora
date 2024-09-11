@@ -10064,6 +10064,13 @@ table.table {
   border-bottom: solid 4px #17BEBB;
 }
 
+.content-table {
+  display: block;
+  max-width: fit-content;
+  overflow-x: auto;
+  -ms-overflow-style: -ms-autohiding-scrollbar;
+}
+
 .corpora-content-cell {
   max-height: 100px;
   overflow: auto;

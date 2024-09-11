@@ -870,7 +870,7 @@ class ContentTable {
                                         <div class="input-group-append">
                                             <button id="ct-${ct.name}${sender.id_suffix}-search-setting-selection" class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">All Fields</button>
                                             <div id="ct-${ct.name}${sender.id_suffix}-search-settings-menu" class="dropdown-menu">
-                                                <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-setting" id="ct-${ct.name}${sender.id_suffix}-search-setting-default" href="#">All Fields</a>
+                                                <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-setting" data-field_name="default" data-field_type="all" id="ct-${ct.name}${sender.id_suffix}-search-setting-default" href="#">All Fields</a>
                                             </div>
                                             <input type="hidden" id="ct-${ct.name}${sender.id_suffix}-search-setting-value" value="default" />
                                         </div>
@@ -884,7 +884,7 @@ class ContentTable {
                                 <div id="ct-${ct.name}${sender.id_suffix}-current-search-div" class="d-flex w-100 align-items-center p-2 pl-3 badge-secondary" style="padding-top: 12px !important;"></div>
                             </div>
                             <div class="card-body p-0">
-                                <table class="table table-striped mb-0">
+                                <table class="table table-striped mb-0 content-table">
                                     <thead class="thead-dark">
                                         <tr id="ct-${ct.name}${sender.id_suffix}-table-header-row">
                                         </tr>
@@ -930,7 +930,7 @@ class ContentTable {
             `)
 
             // setup view refreshing and deletion
-            if (sender.content_view) {
+            if (sender.mode === 'edit' && (role === 'Editor' || role === 'Admin') && sender.content_view) {
                 $(`#ct-${ct.name}${sender.id_suffix}-refresh-view-button`).click(function() {
                     let submission = {
                         'cv-action': 'refresh',
@@ -1037,7 +1037,13 @@ class ContentTable {
             for (let x = 0; x < ct.fields.length; x++) {
                 if (ct.fields[x].in_lists) {
                     search_settings_menu.append(`
-                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-setting" id="ct-${ct.name}${sender.id_suffix}-search-setting-${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}" href="#">${ct.fields[x].label}</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-setting"
+                            id="ct-${ct.name}${sender.id_suffix}-search-setting-${x}"
+                            data-field_name="${ct.fields[x].type === 'cross_reference' ? ct.fields[x].name + '.label' : ct.fields[x].name}"
+                            data-field_type="${ct.fields[x].type}"
+                            href="#">
+                                ${ct.fields[x].label}
+                        </a>
                     `)
 
                     // add cross reference sub field options
@@ -1047,7 +1053,14 @@ class ContentTable {
                             for (let y = 0; y < cx.fields.length; y++) {
                                 if (cx.fields[y].in_lists && cx.fields[y].type !== 'cross_reference') {
                                     search_settings_menu.append(`
-                                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-setting" id="ct-${ct.name}${sender.id_suffix}-search-setting-${ct.fields[x].name + '.' + cx.fields[y].name}" href="#">${ct.fields[x].label} -> ${cx.fields[y].label}</a>
+                                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-setting"
+                                            data-field-type="${cx.fields[y].type}"
+                                            id="ct-${ct.name}${sender.id_suffix}-search-setting-${x}.${y}"
+                                            data-field_name="${ct.fields[x].name + '.' + cx.fields[y].name}"
+                                            data-field_type="${cx.fields[y].type}"
+                                            href="#">
+                                                ${ct.fields[x].label} -> ${cx.fields[y].label}
+                                        </a>
                                     `)
                                 }
                             }
@@ -1059,22 +1072,26 @@ class ContentTable {
             // event for selecting a specific field to search
             $(`.ct-${ct.name}${sender.id_suffix}-search-setting`).click(function (event) {
                 event.preventDefault()
-                let field = event.target.id.replace(`ct-${ct.name}${sender.id_suffix}-search-setting-`, '')
-                let label = $(this).text()
+                let field = $(this)
+                let field_name = field.data('field_name')
+                let field_type = field.data('field_type')
+                let label = field.text()
                 let search_type_menu = $(`#ct-${ct.name}${sender.id_suffix}-search-type-menu`)
 
-                if (field === 'default') {
+                search_type_menu.empty()
+
+                if (field_name === 'default') {
                     search_type_menu.html(`
                         <span class="p-2">Select a specific field from the dropdown to the right in order to choose a different search type.</span>
                     `)
                 } else {
                     search_type_menu.html(`
-                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-default" href="#">Text Search</a>
-                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-exact" href="#">Exact Search</a>
-                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-term" href="#">Term Search</a>
-                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-phrase" href="#">Phrase Search</a>
-                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-wildcard" href="#">Wildcard Search</a>
-                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-range" href="#">Range Search</a>
+                        <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-default" href="#">Generic Search</a>
+                        ${['text', 'large_text', 'keyword', 'html', 'number', 'decimal', 'boolean', 'date', 'timespan', 'file', 'link', 'iiif-image', 'geo_point', 'cross_reference'].includes(field_type) ? `<a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-exact" href="#">Exact Search</a>` : ''}
+                        ${['text', 'large_text', 'keyword', 'html', 'cross_reference'].includes(field_type) ? `<a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-term" href="#">Term Search</a>` : ''}
+                        ${['text', 'large_text', 'keyword', 'html', 'cross_reference'].includes(field_type) ? `<a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-phrase" href="#">Phrase Search</a>` : ''}
+                        ${['text', 'large_text', 'keyword', 'html', 'cross_reference'].includes(field_type) ? `<a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-wildcard" href="#">Wildcard Search</a>` : ''}
+                        ${['number', 'decimal', 'date', 'timespan', 'geo_point'].includes(field_type) ? `<a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-type" id="ct-${ct.name}${sender.id_suffix}-search-type-range" href="#">Range Search</a>` : ''}
                     `)
                 }
 
@@ -1089,7 +1106,7 @@ class ContentTable {
                 })
 
                 $(`#ct-${ct.name}${sender.id_suffix}-search-setting-selection`).text(label)
-                $(`#ct-${ct.name}${sender.id_suffix}-search-setting-value`).val(field)
+                $(`#ct-${ct.name}${sender.id_suffix}-search-setting-value`).val(field_name)
             })
 
             // setup page selector events
