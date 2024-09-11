@@ -10064,9 +10064,7 @@ table.table {
   border-bottom: solid 4px #17BEBB;
 }
 
-.content-table {
-  display: block;
-  max-width: fit-content;
+.content-table-container {
   overflow-x: auto;
   -ms-overflow-style: -ms-autohiding-scrollbar;
 }

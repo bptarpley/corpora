@@ -883,8 +883,8 @@ class ContentTable {
                                 </div>
                                 <div id="ct-${ct.name}${sender.id_suffix}-current-search-div" class="d-flex w-100 align-items-center p-2 pl-3 badge-secondary" style="padding-top: 12px !important;"></div>
                             </div>
-                            <div class="card-body p-0">
-                                <table class="table table-striped mb-0 content-table">
+                            <div class="card-body p-0 content-table-container">
+                                <table class="table table-striped mb-0">
                                     <thead class="thead-dark">
                                         <tr id="ct-${ct.name}${sender.id_suffix}-table-header-row">
                                         </tr>
@@ -892,8 +892,8 @@ class ContentTable {
                                     <tbody id="ct-${ct.name}${sender.id_suffix}-table-body">
                                     </tbody>
                                 </table>
-                                <div class="row px-4">
-                                    <div class="col-sm-12 d-flex w-100 justify-content-between align-items-center text-nowrap p-2 ml-2">
+                                <div class="row p-0 m-0">
+                                    <div class="col-sm-12 d-flex w-100 justify-content-between align-items-center text-nowrap p-2 m-0">
                                         ${ sender.mode === 'edit' ? `<div class="form-inline">
                                             With selected:
                                             <select class="form-control-sm btn-primary ml-1 mr-1" id="ct-${ct.name}${sender.id_suffix}-selection-action-selector" data-ct="${ct.name}">
