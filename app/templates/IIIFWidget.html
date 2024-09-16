@@ -19,11 +19,15 @@
     <script src="{% static 'js/openseadragonselection.js' %}"></script>
     <script type="application/javascript">
         let image_url = "{{ image_url }}"
+        let info_url = 'info.json'
         let dragon = null
         let dragon_helper = null
         let selection = null
         let viewport_event = null
         let viewport_timer = null
+
+        if (image_url.endsWith('/')) info_url = image_url + info_url
+        else info_url = `${image_url}/${info_url}`
 
         $(document).ready(function() {
             let main_container = $('#main-container')
@@ -44,7 +48,7 @@
                 wrapVertical:       true,
                 sequenceMode:       false,
                 showRotationControl: true,
-                tileSources:   [`${image_url}/info.json`]
+                tileSources:   [info_url]
             });
             dragon_helper = dragon.activateImagingHelper({onImageViewChanged: function(event) {
                 viewport_event = event
