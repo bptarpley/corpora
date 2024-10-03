@@ -1,0 +1,14 @@
+.iiif-image-showcase-button {
+    cursor: pointer;
+    background-color: #091540;
+    color: white;
+}
+
+.iiif-image-showcase-button:has(i.fa-angle-double-left) {
+    background-color: #EF3E36;
+}
+
+.iiif-image-col .iiif-image-viewer, .multi-iiif-image-col .iiif-image-viewer {
+    margin-left: auto;
+    margin-right: auto;
+}

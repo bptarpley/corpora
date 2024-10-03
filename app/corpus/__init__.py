@@ -129,7 +129,7 @@ class Field(mongoengine.EmbeddedDocument):
         elif self.type == 'repo':
             return mongoengine.EmbeddedDocumentField(GitRepo)
         elif self.type == 'timespan':
-            return mongoengine.EmbeddedDocumentField(Timespan, default=Timespan)
+            return mongoengine.EmbeddedDocumentField(Timespan)
         elif self.type == 'geo_point':
             return mongoengine.PointField()
         elif self.type != 'cross_reference':
@@ -172,6 +172,14 @@ class Field(mongoengine.EmbeddedDocument):
 
         return None
 
+    @property
+    def view_html(self):
+        return FieldRenderer(self.type, 'view', 'html')
+
+    @property
+    def edit_html(self):
+        return FieldRenderer(self.type, 'edit', 'html')
+
     def to_dict(self):
         return {
             'name': self.name,
@@ -192,6 +200,31 @@ class Field(mongoengine.EmbeddedDocument):
             'stats': deepcopy(self.stats),
             'inherited': self.inherited
         }
+
+
+class FieldRenderer(object):
+    field_type = None
+    mode = None
+    language = None
+
+    def __init__(self, field_type, mode, language):
+        self.field_type = field_type
+        self.mode = mode
+        self.language = language
+
+    def render(self, context):
+        field_template_path = f"{settings.BASE_DIR}/corpus/field_templates/{self.field_type}/{self.mode}.{self.language}"
+        default_template_path = f"{settings.BASE_DIR}/corpus/field_templates/default_{self.mode}.{self.language}"
+        field_template = ""
+        if os.path.exists(field_template_path):
+            field_template = open(field_template_path, 'r').read()
+        elif os.path.exists(default_template_path):
+            field_template = open(default_template_path, 'r').read()
+
+        if field_template:
+            django_template = Template(field_template)
+            return django_template.render(context)
+        return ""
 
 
 class Task(mongoengine.Document):
@@ -892,6 +925,50 @@ class ContentType(mongoengine.EmbeddedDocument):
                 fd[field.name] = field
         return fd
 
+    def set_field_values_from_content(self, content):
+        for field_index in range(0, len(self.fields)):
+            f = self.fields[field_index]
+            self.fields[field_index].value = getattr(content, f.name, None)
+            self.fields[field_index].parent_uri = content.uri
+
+    def get_field_types(self):
+        field_types = []
+        for field in self.fields:
+            field_types.append(field.type)
+        return list(set(field_types))
+
+    def get_render_requirements(self, mode):
+        # build scripts/stylesheets to include
+        inclusions = {}
+        javascript_functions = ""
+        css_styles = ""
+        req_file = f"{settings.BASE_DIR}/corpus/field_templates/requirements.json"
+
+        if os.path.exists(req_file):
+            with open(req_file, 'r') as reqs_in:
+                all_reqs = json.load(reqs_in)
+                field_types = self.get_field_types()
+                for field_type in field_types:
+                    # gather includes
+                    if field_type in all_reqs:
+                        if mode in all_reqs[field_type]:
+                            for req_lang, req_paths in all_reqs[field_type][mode].items():
+                                for req_path in req_paths:
+                                    if req_lang not in inclusions:
+                                        inclusions[req_lang] = []
+                                    if req_path not in inclusions[req_lang]:
+                                        inclusions[req_lang].append(req_path)
+
+                    # gather javascript functions
+                    js_renderer = FieldRenderer(field_type, mode, 'js')
+                    javascript_functions += '\n' + js_renderer.render(Context({'field': None}))
+
+                    # gather css styles
+                    css_renderer = FieldRenderer(field_type, mode, 'css')
+                    css_styles += '\n' + css_renderer.render(Context({'field': None}))
+
+        return inclusions, javascript_functions, css_styles
+
     def to_dict(self):
         ct_dict = {
             'name': self.name,
@@ -1076,7 +1153,7 @@ class File(mongoengine.EmbeddedDocument):
 class Timespan(mongoengine.EmbeddedDocument):
     start = mongoengine.DateTimeField()
     end = mongoengine.DateTimeField()
-    uncertain = mongoengine.BooleanField(default=False)
+    uncertain = mongoengine.BooleanField()
     granularity = mongoengine.StringField(choices=('Year', 'Month', 'Day', 'Time'))
 
     def normalize(self):
@@ -1106,16 +1183,17 @@ class Timespan(mongoengine.EmbeddedDocument):
         if self.start:
             start_dt = self.start.isoformat()
 
-        end_dt = None
-        if self.end:
-            end_dt = self.end.isoformat()
+            end_dt = None
+            if self.end:
+                end_dt = self.end.isoformat()
 
-        return {
-            'start': start_dt,
-            'end': end_dt,
-            'uncertain': self.uncertain,
-            'granularity': self.granularity
-        }
+            return {
+                'start': start_dt,
+                'end': end_dt,
+                'uncertain': self.uncertain,
+                'granularity': self.granularity
+            }
+        return None
 
 
 class GitRepo(mongoengine.EmbeddedDocument):
@@ -1489,6 +1567,10 @@ class Corpus(mongoengine.Document):
                 nested_fields = []
                 general_queries = []
                 final_query = None
+
+                # make sure labels are searched
+                if not field:
+                    top_fields.append('label')
 
                 # determine what kinds of fields this search is eligible for
                 valid_field_types = ['text', 'large_text', 'keyword', 'html']
@@ -3341,25 +3423,37 @@ class Content(mongoengine.Document):
             return True
         return False
 
-    def _move_temp_file(self, field_name, field_index=None):
+    def _move_temp_file(self, field_name, field_index=None, new_basename=None):
         field = self._ct.get_field(field_name)
-        temp_uploads_dir = "{0}/{1}/temporary_uploads".format(self._corpus.path, self.content_type)
         file = None
+        new_path = f"{self.path}/files/{field_name}"
         new_file = None
 
         if field:
             if field.multiple and field_index is not None:
                 file = getattr(self, field_name)[field_index]
+                new_path += str(field_index)
             else:
                 file = getattr(self, field_name)
 
-            if file and file.path.startswith(temp_uploads_dir):
-                old_path = file.path
+            if file and file.path.startswith(settings.DJANGO_DRF_FILEPOND_UPLOAD_TMP):
+                # Make sure the folder for this new file doesn't already exist. If so,
+                # we need to create a different one
+                unique_path = new_path
+                unique_path_modifier = 1
+                while os.path.exists(unique_path):
+                    unique_path = f"{new_path}-{unique_path_modifier}"
+                    unique_path_modifier += 1
+                new_path = unique_path
 
-                new_path = old_path.replace(
-                    temp_uploads_dir,
-                    self.path + "/files"
-                )
+                # Create the new path
+                os.makedirs(new_path)
+
+                old_path = file.path
+                if new_basename:
+                    new_path = f"{new_path}/{new_basename}"
+                else:
+                    new_path = f"{new_path}/{os.path.basename(old_path)}"
 
                 os.rename(old_path, new_path)
 

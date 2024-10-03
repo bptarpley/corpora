@@ -1,0 +1,29 @@
+<div id="{{ field.name }}{{ suffix }}-editor"
+    class="{{ field.type }}-control"
+    data-csrf="not_set"
+    data-file_link="{{ field.name }}{{ suffix }}-link"
+    data-file_link_div="{{ field.name }}{{ suffix }}-link-div"
+    data-value_control="{{ field.name }}{{ suffix }}-value"
+    data-parent_uri="{{ parent_uri }}"
+    data-key="{% if value %}{{ value.key }}{% endif %}"
+    data-events="load:renderFileField"
+    data-value="{% if value %}{{ value.path }}{% endif %}">
+</div>
+<div id="{{ field.name }}{{ suffix }}-link-div">
+    <button type="button"
+        class="btn btn-sm btn-secondary mr-2"
+        data-editor="{{ field.name }}{{ suffix }}-editor"
+        data-value_control="{{ field.name }}{{ suffix }}-value"
+        data-events="click:resetFileField">
+      Change
+    </button>
+    <a id="{{ field.name }}{{ suffix }}-link" href="" target="_blank">
+      {{ value.basename }}
+    </a>
+</div>
+<input id="{{ field.name }}{{ suffix }}-value" type="hidden"
+    class="field-value"
+    data-field_name="{{ field.name }}"
+    data-field_type="{{ field.type }}"
+    data-value_format="raw"
+    value="{% if value %}{{ value.path }}{% endif %}">

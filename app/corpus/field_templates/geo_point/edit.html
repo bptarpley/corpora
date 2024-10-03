@@ -1,0 +1,29 @@
+<div class="form-row"
+    data-id_prefix="{{ field.name }}{{ suffix }}"
+    data-events="load:renderGeoPointMap">
+    <div class="col-sm-6 form-group">
+        <label for="{{ field.name }}{{ suffix }}-lat">Latitude</label>
+        <input id="{{ field.name }}{{ suffix }}-lat"
+            type="number"
+            class="form-control {{ field.type }}-control"
+            value="{% if value.coordinates %}{{ value.coordinates.1 }}{% endif %}">
+    </div>
+    <div class="col-sm-6 form-group">
+        <label for="{{ field.name }}{{ suffix }}-long">Longitude</label>
+        <input id="{{ field.name }}{{ suffix }}-long"
+            type="number"
+            class="form-control {{ field.type }}-control"
+            value="{% if value.coordinates %}{{ value.coordinates.0 }}{% endif %}">
+    </div>
+</div>
+<div class="row no-gutters">
+    <div class="col-sm-12">
+        <div id="{{ field.name }}{{ suffix }}-map" class="geo-point-map"></div>
+    </div>
+</div>
+<input id="{{ field.name }}{{ suffix }}-value" type="hidden"
+    class="field-value"
+    data-field_name="{{ field.name }}"
+    data-field_type="{{ field.type }}"
+    data-value_format="json"
+    value="{% if value %}{{ value.coordinates|safe }}{% endif %}">

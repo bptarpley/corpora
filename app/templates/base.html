@@ -28,7 +28,7 @@
         {% block modals %}
         {% endblock %}
 
-        <div id="main-container" class="container-fluid d-flex flex-column {% if popup %}p-0 m-0{% endif %}">
+        <div id="main-container" class="container-fluid d-flex flex-column {% if popup %}p-2 m-0{% endif %}">
             {% if not popup %}
             <div class="row">
                 <div class="col-12">
@@ -108,10 +108,11 @@
             var main_container = $('#main-container');
 
             function hide_loading_overlay() {
-                let loading_overlay = $('#loading-overlay');
-                loading_overlay.fadeOut();
-                loading_overlay.addClass('d-none');
-                loading_overlay.removeClass('d-flex');
+                let loading_overlay = $('#loading-overlay')
+                loading_overlay.fadeOut()
+                loading_overlay.addClass('d-none')
+                loading_overlay.removeClass('d-flex')
+                $('[data-toggle=tooltip]').tooltip()
             }
 
             function show_loading_overlay() {

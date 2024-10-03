@@ -1,0 +1,3 @@
+<a href="{{ value.remote_url }}" target="_blank">
+    {{ value.name }}
+</a>{% if value.last_pull %} (last pulled: {{ value.last_pull|date:"F jS, Y" }}){% endif %}

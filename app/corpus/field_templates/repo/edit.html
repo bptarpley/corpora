@@ -1,0 +1,76 @@
+<div class="form-group">
+    <label for="{{ field.name }}{{ suffix }}-name">Name</label>
+    <input id="{{ field.name }}{{ suffix }}-name"
+           type="text"
+           class="form-control {{ field.type }}-control"
+           {% if value %}value="{{ value.name }}" disabled{% endif %}
+           data-id_prefix="{{ field.name }}{{ suffix }}"
+           data-events="load:renderRepoField;input:setRepoValueField">
+</div>
+<div class="form-group">
+    <label for="{{ field.name }}{{ suffix }}-url">URL</label>
+    <input id="{{ field.name }}{{ suffix }}-url"
+           type="text"
+           class="form-control {{ field.type }}-control edit-field-input"
+           data-id_prefix="{{ field.name }}{{ suffix }}"
+           {% if value %}value="{{ value.remote_url }}" disabled{% endif %}
+           data-id-prefix="{{ field.name }}{{ suffix }}"
+           data-events="input:setRepoValueField">
+</div>
+<div class="form-check">
+    <input id="{{ field.name }}{{ suffix }}-auth"
+           type="checkbox"
+           class="form-check-input repo-auth-checkbox"
+           data-id_prefix="{{ field.name }}{{ suffix }}"
+           data-events="change:toggleRepoAuthCheckbox"
+           {% if value %}disabled{% endif %}>
+    <label for="{{ field.name }}{{ suffix }}-auth">Authentication Required</label>
+</div>
+<div id="{{ field.name }}{{ suffix }}-credentials-div" class="d-none pl-2">
+    <div class="form-group">
+        <label for="{{ field.name }}{{ suffix }}-user">Username</label>
+        <input id="{{ field.name }}{{ suffix }}-user"
+               type="text"
+               class="form-control {{ field.type }}-control"
+               data-id_prefix="{{ field.name }}{{ suffix }}"
+               data-events="input:setRepoValueField">
+    </div>
+    <div class="form-group">
+        <label for="{{ field.name }}{{ suffix }}-pwd">Password/Token</label>
+        <input id="{{ field.name }}{{ suffix }}-pwd"
+               type="password"
+               class="form-control {{ field.type }}-control"
+               data-id_prefix="{{ field.name }}{{ suffix }}"
+               data-events="input:setRepoValueField">
+    </div>
+</div>
+<div class="form-group">
+    <label for="{{ field.name }}{{ suffix }}-branch">Branch</label>
+    <input id="{{ field.name }}{{ suffix }}-branch"
+           type="text"
+           class="form-control {{ field.type }}-control"
+           {% if value %}value="{{ value.remote_branch }}" disabled{% endif %}
+           data-id_prefix="{{ field.name }}{{ suffix }}"
+           data-events="input:setRepoValueField">
+</div>
+<div id="{{ field.name }}{{ suffix }}-deletion-div" class="alert alert-secondary {% if not value %}d-none{% endif %}">
+    <p>
+        Once a repo has been initialized, it cannot be edited. If you need to change repository or branch, you must delete this local clone of the repository first.
+    </p>
+    <button id="{{ field.name }}{{ suffix }}-delete-button"
+      type="button"
+      class="btn btn-sm btn-danger repo-delete-button"
+      title="Delete"
+      data-id_prefix="{{ field.name }}{{ suffix }}"
+      data-name="{% if value %}{{ value.name }}{% endif %}"
+      data-field_name="{{ field.name }}"
+      data-events="click:clickDeleteRepoButton">
+        Delete Cloned Repository
+    </button>
+</div>
+<input id="{{ field.name }}{{ suffix }}-value"
+       type="hidden"
+       class="field-value"
+       data-field_name="{{ field.name }}"
+       data-field_type="{{ field.type }}"
+       data-value_format="json" />

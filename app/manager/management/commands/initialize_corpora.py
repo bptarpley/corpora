@@ -2,6 +2,7 @@ import time
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
+from django.conf import settings
 from elasticsearch_dsl import Boolean, normalizer
 from corpus import *
 
@@ -229,6 +230,11 @@ class Command(BaseCommand):
 
                 task.delete()
 
+        # make sure file upload paths exist
+        if not os.path.exists(settings.DJANGO_DRF_FILEPOND_UPLOAD_TMP):
+            os.makedirs(settings.DJANGO_DRF_FILEPOND_UPLOAD_TMP)
+        if not os.path.exists(settings.DJANGO_DRF_FILEPOND_FILE_STORE_PATH):
+            os.makedirs(settings.DJANGO_DRF_FILEPOND_FILE_STORE_PATH)
 
         print("\n---------------------------")
         print(" CORPORA INITIALIZED")

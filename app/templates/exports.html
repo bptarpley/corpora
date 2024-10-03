@@ -134,7 +134,7 @@
                     <form id="import-export-form" method="post">
                         {% csrf_token %}
                         <input type="hidden" name="export-file-import" value="y" />
-                        <input type="hidden" id="import-export-filename" name="export-file-name" value="" />
+                        <input type="hidden" id="import-export-upload-id" name="export-upload-id" value="" />
                     </form>
                 </div>
             </div>
@@ -152,15 +152,16 @@
         const import_export_file_pond = FilePond.create(document.querySelector('#import-export-filepond'), {
             allowMultiple: false,
             allowRevert: false,
+            chunkUploads: true,
+            chunkSize: 500000,
+            credits: false,
             server: {
-                process: {
-                    url: `/exports`,
-                    headers: {
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    }
-                },
-                fetch: null,
-                revert: null
+                url: '/fp',
+                process: '/process/',
+                patch: '/patch/',
+                revert: '/revert/',
+                fetch: '/fetch/?target=',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
             }
         });
         import_export_file_pond.on('error', (error, file) => {
@@ -168,7 +169,7 @@
         });
         import_export_file_pond.on('processfile', (error, file) => {
             if(!error) {
-                $('#import-export-filename').val(file.filename);
+                $('#import-export-upload-id').val(file.serverId);
                 let import_button = $('#import-export-button');
                 import_button.attr('disabled', false);
                 $('#import-export-form').submit();

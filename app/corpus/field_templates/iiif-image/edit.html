@@ -1,0 +1,27 @@
+<div class="input-group">
+    <input id="{{ field.name }}{{ suffix }}-editor"
+        class="form-control {{ field.type }}-control field-value"
+        type="text"
+        data-field_name="{{ field.name }}"
+        data-field_type="{{ field.type }}"
+        data-value_format="raw"
+        data-image_viewer="{{ field.name }}{{ suffix }}-image-viewer"
+        data-showcase_button="{{ field.name }}{{ suffix }}-image-viewer-showcase-button"
+        data-is_showcased="false"
+        data-events="load:renderIIIFImage;input:renderIIIFImage;resize:resizeIIIFViewer"
+        value="{% if value %}{{ value }}{% endif %}" />
+    <div id="{{ field.name }}{{ suffix }}-image-viewer-showcase-button"
+        class="input-group-append d-none"
+        data-toggle="tooltip"
+        data-placement="top"
+        data-editor="{{ field.name }}{{ suffix }}-editor"
+        data-events="click:showcaseIIIFImage"
+        title="Showcase image on right">
+        <label for="{{ field.name }}{{ suffix }}-editor"
+            class="input-group-text iiif-image-showcase-button">
+            <i id="{{ field.name }}{{ suffix }}-image-viewer-showcase-button-icon"
+                class="fas fa-angle-double-right"></i>
+        </label>
+    </div>
+</div>
+<div id="{{ field.name }}{{ suffix }}-image-viewer" class="mt-2 iiif-image-viewer" style="width: 100%;"></div>

@@ -3,92 +3,37 @@
 {% load extras %}
 
 {% block css %}
-    <link href="{% static 'css/filepond.css' %}" rel="stylesheet">
+    <!--<link href="{% static 'css/filepond.css' %}" rel="stylesheet">-->
     {% if has_geo_field %}<link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">{% endif %}
     <style>
+        .bulk-editing-row {
+            display: none;
+        }
+
         label {
           font-weight: bold;
         }
+
+        .multi-value-row:nth-of-type(odd) {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .multi-value-row {
+            margin-bottom: 10px;
+        }
+
+        :nth-last-child(1 of .multi-value-row) {
+            margin-bottom: 0;
+        }
+
+        {% if css_styles %}{{ css_styles|safe }}{% endif %}
     </style>
+    {% for inclusion in inclusions.css %}
+    <link href="{% static inclusion %}" rel="stylesheet">
+    {% endfor %}
 {% endblock %}
 
 {% block modals %}
-    <div class="modal fade" id="file-selection-modal" tabindex="-1" role="dialog" aria-labelledby="file-selection-modal-label" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="file-selection-modal-label">Select File</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="alert alert-light">
-                        <div class="mb-2">
-                            <input type="text" class="form-control" id="file-selection-modal-filter-box" aria-placeholder="Filter" placeholder="Filter">
-                        </div>
-                        <table class="table table-striped">
-                            <thead class="thead-dark">
-                                <th scope="col">Path: <span id="file-selection-modal-table-header">/</span></th>
-                            </thead>
-                            <tbody id="file-selection-modal-table-body">
-                                <tr><td>Loading...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div>
-                        <input type="file" class="filepond">
-                    </div>
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="input-group">
-                                <input type="text" class="form-control" id="file-selection-modal-new-folder-box" aria-placeholder="New Folder" placeholder="New Folder">
-                                <span class="input-group-btn ml-1"><a href="javascript:handle_folder_creation();" role="button" id="file-selection-modal-new-folder-button" class="btn btn-secondary">Go</a></span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="content-selection-modal" tabindex="-1" role="dialog" aria-labelledby="content-selection-modal-label" aria-hidden="true">
-        <div class="modal-dialog modal-lg" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="content-selection-modal-label">Select ContentType</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="alert alert-light">
-                        <div class="mb-2">
-                            <input type="text" class="form-control" id="content-selection-modal-filter-box" aria-placeholder="Search" placeholder="Search">
-                        </div>
-                        <table class="table table-striped">
-                            <thead class="thead-dark">
-                                <th scope="col" id="content-selection-modal-table-header">ContentType</th>
-                            </thead>
-                            <tbody id="content-selection-modal-table-body">
-                                <tr><td>Loading...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" id="content-selection-modal-prev-page-button" class="btn btn-secondary"><span class="fas fa-angle-left"></span></button>
-                    <button type="button" id="content-selection-modal-next-page-button" class="btn btn-secondary"><span class="fas fa-angle-right"></span></button>
-                    <button type="button" id="content-create-new-button" class="btn btn-primary">Create New</button>
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
   <!-- CONTENT DELETION CONFIRMATION MODAL -->
   <div class="modal fade" id="deletion-confirmation-modal" tabindex="-1" role="dialog" aria-labelledby="deletion-confirmation-modal-label" aria-hidden="true">
     <div class="modal-dialog">
@@ -119,817 +64,321 @@
 
 {% block main %}
     <div class="row flex-grow-1">
-        <div class="col-12">
-                    {% if content_ids or content_query %}
-                        <div class="alert alert-info">
-                            To set the value for a given field across your selected content, check the box to the left of that field's label.
-                        </div>
-                    {% endif %}
-                    {% if edit_widget_url %}
-                        <div class="row h-100">
-                            <div class="col-sm-12 col-md-6">
-                    {% endif %}
-                    <form id="content-form" method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="corpora-content-edit" value="y">
-                        {% if content_ids %}
-                            <input type="hidden" id="content-ids-input" name="content-ids" value="{{ content_ids }}">
-                        {% elif content_query %}
-                            <input type="hidden" id="content-query-input" name="content-query" value=''>
-                        {% endif %}
-                    </form>
-                    <div class="alert alert-info">
-                        <button type="button" class="btn btn-primary" id="content-save-button">Save</button>
-                        <button type="button" class="btn btn-primary" id="content-save-and-create-button">Save and Create New</button>
-                        <a role="button" href="/corpus/{{ corpus_id }}/" class="btn btn-secondary">Cancel</a>
-                        <button id="content-delete-button" class="btn btn-sm btn-danger float-right" title="Delete" data-toggle="modal" data-target="#deletion-confirmation-modal"><span class="fas fa-trash-alt"></span></button>
-                    </div>
-                    {% if edit_widget_url %}
-                            </div>
-                            <div class="col-sm-12 col-md-6">
-                                <iframe id="edit-widget-iframe" src="" height="100%" width="100%" frameBorder="0"></iframe>
-                            </div>
-                        </div>
-                    {% endif %}
+        <div id="content-form-col" class="col-12">
+            {% if bulk_editing %}
+                <div class="alert alert-info">
+                    To set the value for a given field across your selected content, check the box to the left of that field's label.
                 </div>
+            {% endif %}
+
+            {% for field in ct.fields %}
+                {% if field.type != 'embedded' %}
+                    <div id="{{ field.name }}-edit-div" class="form-group">
+                        {% if bulk_editing %}
+                            <input type="checkbox"
+                                    class="bulk-editing-checkbox mr-2"
+                                    data-field_name="{{ field.name }}" />
+                        {% endif %}
+                        <label for="{{ field.name }}-editor">{{ field.label }}</label>
+                        {% if bulk_editing %}<div id="{{ field.name }}-bulk-editing-row" class="bulk-editing-row">{% endif %}
+                        {% if field.multiple %}
+                            {% for value in field.value %}
+                                <div id="{{ field.name }}-editor-row-{{ forloop.counter0 }}" class="row no-gutters p-2 multi-value-row">
+                                    <div class="col-sm-11 col-12 multi-{{ field.type }}-col">{% include field.edit_html with value=value suffix=forloop.counter0 parent_uri=field.parent_uri %}</div>
+                                    <div class="col-sm-1 pl-sm-2 mt-sm-0 col-12 mt-2">
+                                        <button role="button"
+                                            class="btn btn-sm btn-danger w-100"
+                                            onclick="console.log('stuff was deleted'); $('#{{ field.name }}-editor-row-{{ forloop.counter0 }}').empty().remove()"
+                                            data-toggle="tooltip"
+                                            data-placement="top"
+                                            title="Delete this value">
+                                            <span class="fas fa-trash-alt"></span>
+                                        </button>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                            <div id="{{ field.name }}-multi-value-add-row" class="row">
+                                <div class="col-sm-12">
+                                    <button type="button"
+                                        class="btn btn-sm btn-secondary multi-value-add-button"
+                                        data-field_type="{{ field.type }}"
+                                        data-field_name="{{ field.name }}"
+                                        data-value_index="{{ field.value|length }}"
+                                        >Add</button>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div id="{{ field.name }}-editor-row" class="row no-gutters">
+                                <div class="col-sm-12 {{ field.type }}-col">{% include field.edit_html with value=field.value %}</div>
+                            </div>
+                        {% endif %}
+                        {% if bulk_editing %}</div>{% endif %}
+                    </div>
+                {% endif %}
+            {% endfor %}
+            <form id="content-form" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="corpora-content-edit" value="y">
+                {% if content_ids %}
+                    <input type="hidden" id="content-ids-input" name="content-ids" value="{{ content_ids }}">
+                {% elif content_query %}
+                    <input type="hidden" id="content-query-input" name="content-query" value=''>
+                {% endif %}
+            </form>
+            <div class="alert alert-info">
+                <button type="button" class="btn btn-primary" id="content-save-button">Save</button>
+                <button type="button" class="btn btn-primary {% if popup %}d-none{% endif %}" id="content-save-and-create-button">Save and Create New</button>
+                <a role="button" href="/corpus/{{ corpus_id }}/" class="btn btn-secondary {% if popup %}d-none{% endif %}">Cancel</a>
+                <button id="content-delete-button" class="btn btn-sm btn-danger float-right {% if popup %}d-none{% endif %}" title="Delete" data-toggle="modal" data-target="#deletion-confirmation-modal"><span class="fas fa-trash-alt"></span></button>
             </div>
 
+        </div>
+        <div id="edit-widget-col" class="col-12 col-md-6 d-none">
+            <iframe id="edit-widget-iframe" class="d-none" src="" height="100%" width="100%" frameBorder="0"></iframe>
         </div>
     </div>
 {% endblock %}
 
 {% block js %}
-    <script src="{% static 'js/filepond.js' %}"></script>
+    <!--<script src="{% static 'js/filepond.js' %}"></script>-->
     <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
+    {% for inclusion in inclusions.js %}
+    <script src="{% static inclusion %}"></script>
+    {% endfor %}
   {% if has_geo_field %}<script src="{% static 'js/leaflet.js' %}"></script>{% endif %}
     <script type="application/javascript">
-        let corpus_id = '{{ corpus_id }}';
-        let content_type = '{{ content_type }}';
-        let content_id = '{% if content_id %}{{ content_id }}{% endif %}';
-        let corpus = null;
-        let content = null;
-        let is_popup = {% if popup %}true{% else %}false{% endif %};
-        let field_indexes = {};
-        let multi_field_counter = 0;
-        let bulk_editing = $('#content-ids-input').length || $('#content-query-input').length ? true : false;
-        let bulk_edit_fields = [];
+        let corpus_id = '{{ corpus_id }}'
+        let content_type = '{{ content_type }}'
+        let content_id = '{% if content_id %}{{ content_id }}{% endif %}'
+        let corpus = null
+        let is_popup = {% if popup %}true{% else %}false{% endif %}
+        let edit_widget_url = '{% if edit_widget_url %}{{ edit_widget_url }}{% endif %}'
+        let bulk_editing = {% if bulk_editing %}true{% else %}false{% endif %}
+        let bulk_edit_fields = []
         {% if content_query %}
         let content_query = {{ content_query|safe }};
         {% endif %}
 
-        let file_selection_input_id = null;
-        let file_selection_path = '';
-        let file_search_timer;
-        let file_uploads = [];
-
-        let content_selection_vars = {
-            q: '*',
-            only: 'label',
-            s_label: 'asc',
-            page_size: 10,
-            page: 1
-        };
-        let content_search_timer;
-        let content_selection_input_id = null;
-        let content_selection_type = null;
-
-        let latlong_timer = null;
-        let map_markers = {};
-
-        let input_templates = {
-            text: function(field, value, id_suffix) {
-                return `
-                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}" data-index="${id_suffix}">
-                        <textarea class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" rows="5" ${bulk_editing ? 'disabled' : ''}>${value}</textarea>
-                        ${multi_remover(field, id_suffix)}
-                    </div>
-                `;
-            },
-            large_text: function(field, value, id_suffix) {
-                return `
-                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <textarea class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" rows="20" ${bulk_editing ? 'disabled' : ''}>${value}</textarea>
-                        ${multi_remover(field, id_suffix)}
-                    </div>
-                `;
-            },
-            keyword: function(field, value, id_suffix) {
-                return `
-                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <input type="text" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" value="${value}"  ${bulk_editing ? 'disabled' : ''}>
-                        ${multi_remover(field, id_suffix)}
-                    </div>
-                `;
-            },
-            html: function(field, value, id_suffix) {
-                return `
-                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <textarea id="${field.name}-value${id_suffix}" class="html-field edit-field-input ${field.name}-control" ${bulk_editing ? 'disabled' : ''}>
-                            ${value}
-                        </textarea>
-                        ${multi_remover(field, id_suffix)}
-                    </div>
-                `;
-            },
-            number: function(field, value, id_suffix) {
-                return `
-                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <input type="number" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" value="${value}" ${bulk_editing ? 'disabled' : ''}>
-                        ${multi_remover(field, id_suffix)}
-                    </div>
-                `;
-            },
-            decimal: function(field, value, id_suffix) {
-                return `
-                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <input type="number" step="0.01" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" value="${value}" ${bulk_editing ? 'disabled' : ''}>
-                        ${multi_remover(field, id_suffix)}
-                    </div>
-                `;
-            },
-            boolean: function(field, value, id_suffix) {
-                let is_true = false;
-                if (['t', 'T', 'true', 'True', 1, true].includes(value)) { is_true = true; }
-                return `
-                    <div id="${field.name}-value${id_suffix}-div" class="form-check mb-2 edit-field-div" data-field="${field.name}">
-                        <input class="form-check-input edit-field-input ${field.name}-control" type="checkbox" id="${field.name}-value${id_suffix}" ${is_true ? 'checked': ''}  ${bulk_editing ? 'disabled' : ''}>
-                        <label class="form-check-label" for="${field.name}-value${id_suffix}">${field.label}</label>
-                    </div>
-                `;
-            },
-            date: function(field, value, id_suffix) {
-                return `
-                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <input type="date" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" value="${value ? corpora.date_string(value) : ''}"  ${bulk_editing ? 'disabled' : ''}>
-                        ${multi_remover(field, id_suffix)}
-                    </div>
-                `;
-            },
-            timespan: function(field, value, id_suffix) {
-                let is_uncertain = false
-                let granularity = 'Day'
-                let start_date = ''
-                let end_date = ''
-                let start_time = ''
-                let end_time = ''
-
-                if (value.hasOwnProperty('uncertain') && ['t', 'T', 'true', 'True', 1, true].includes(value.uncertain)) { is_uncertain = true; }
-                if (value.hasOwnProperty('granularity') && value.granularity) granularity = value.granularity
-                if (value.hasOwnProperty('start') && value.start) {
-                    let start_parts = value.start.split('T')
-                    start_date = start_parts[0]
-                    start_time = start_parts[1]
-                }
-                if (value.hasOwnProperty('end') && value.end) {
-                    let end_parts = value.end.split('T')
-                    end_date = end_parts[0]
-                    end_time = end_parts[1]
-                }
-
-                return `
-                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div pl-3" data-field="${field.name}" style="flex-direction: column;">
-                        <div class="row">
-                          <div class="col-sm-6 form-group">
-                            <label for="${field.name}-value${id_suffix}-start">Start Date</label>
-                            <input type="date" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}-start" value="${start_date}" ${bulk_editing ? 'disabled' : ''}>
-                          </div>
-                          <div class="col-sm-6 form-group">
-                            <label for="${field.name}-value${id_suffix}-end">End Date</label>
-                            <input type="date" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}-end" value="${end_date}" ${bulk_editing ? 'disabled' : ''}>
-                          </div>
-                        </div>
-                        <div id="${field.name}-value${id_suffix}-time-row" class="row${granularity === 'Time' ? '' : ' d-none'}">
-                          <div class="col-sm-6 form-group">
-                            <label for="${field.name}-value${id_suffix}-start-time">Start Time</label>
-                            <input type="time" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}-start-time" value="${start_time}" ${bulk_editing ? 'disabled' : ''}>
-                          </div>
-                          <div class="col-sm-6 form-group">
-                            <label for="${field.name}-value${id_suffix}-end-time">End Time</label>
-                            <input type="time" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}-end-time" value="${end_time}" ${bulk_editing ? 'disabled' : ''}>
-                          </div>
-                        </div>
-                        <div class="row">
-                          <div class="col-sm-6">
-                            <div class="form-check form-check-inline">
-                              <input class="form-check-input ${field.name}-control" type="checkbox" id="${field.name}-value${id_suffix}-uncertain" ${is_uncertain ? 'checked': ''}  ${bulk_editing ? 'disabled' : ''}>
-                              <label class="form-check-label" for="${field.name}-value${id_suffix}-uncertain">Uncertain?</label>
-                            </div>
-                          </div>
-                          <div class="col-sm-6 form-group">
-                                <label for="${field.name}-value${id_suffix}-granularity">Granularity</label>
-                                <select id="${field.name}-value${id_suffix}-granularity" class="form-control ${field.name}-control timespan-granularity-selector" data-id-prefix="${field.name}-value${id_suffix}">
-                                  <option ${granularity === 'Year' ? 'selected': ''}>Year</option>
-                                  <option ${granularity === 'Month' ? 'selected': ''}>Month</option>
-                                  <option ${granularity === 'Day' ? 'selected': ''}>Day</option>
-                                  <option ${granularity === 'Time' ? 'selected': ''}>Time</option>
-                                </select>
-                          </div>
-                        </div>
-                        ${multi_remover(field, id_suffix)}
-                    </div>
-                `;
-            },
-            file: function(field, value, id_suffix) {
-                console.log(value);
-                let sub_path = '';
-                let multi_remove = '';
-
-                if (value) {
-                    sub_path = '/' + value.path.split('/').slice(7).join('/');
-                }
-
-                return `
-                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <div class="input-group-prepend">
-                            <a href="javascript:select_file('${field.name}-value${id_suffix}');" role="button" class="btn btn-secondary" id="${field.name}-select-button">Browse</a>
-                        </div>
-                        <input type="text" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" placeholder="File Path" aria-label="${field.label}" aria-describedby="${field.name}-select-button" value="${sub_path}">
-                        ${multi_remover(field, id_suffix)}
-                    </div>
-                `;
-            },
-            repo: function(field, value, id_suffix) {
-              let control_state = ''
-              let deletion_div = ''
-
-              if (value) {
-                control_state = 'disabled'
-                deletion_div = `
-                    <div id="${field.name}-value${id_suffix}-deletion-div" class="alert alert-secondary">
-                        Once a repo has been initialized, it cannot be edited. If you need to change repository or branch, you must delete it first:
-                        <button id="${field.name}-value${id_suffix}-delete-button"
-                          type="button"
-                          class="btn btn-sm btn-danger float-right repo-delete-button"
-                          title="Delete"
-                          data-id-prefix="${field.name}-value${id_suffix}"
-                          data-name="${value.name}">
-                            <span class="fas fa-trash-alt"></span>
-                        </button>
-                    </div>
-                `
-              }
-
-              return `
-                  <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div flex-column pl-2" data-field="${field.name}">
-                        <div class="form-group">
-                            <label for="${field.name}-value${id_suffix}-name">Name</label>
-                            <input id="${field.name}-value${id_suffix}-name" type="text" class="form-control ${field.name}-control" ${control_state} ${value && value.name ? `value="${value.name}"` : ''}>
-                        </div>
-                        <div class="form-group">
-                            <label for="${field.name}-value${id_suffix}-url">URL</label>
-                            <input id="${field.name}-value${id_suffix}-url" type="text" class="form-control ${field.name}-control edit-field-input" data-id-prefix="${field.name}-value${id_suffix}"  ${control_state} ${value && value.remote_url ? `value="${value.remote_url}"` : ''}>
-                        </div>
-                        <div class="form-check">
-                            <input id="${field.name}-value${id_suffix}-auth" type="checkbox" class="form-check-input repo-auth-checkbox" data-id-prefix="${field.name}-value${id_suffix}" ${control_state}>
-                            <label for="${field.name}-value${id_suffix}-auth">Authentication Required</label>
-                        </div>
-                        <div id="${field.name}-value${id_suffix}-credentials-div" class="d-none pl-2">
-                            <div class="form-group">
-                                <label for="${field.name}-value${id_suffix}-user">Username</label>
-                                <input id="${field.name}-value${id_suffix}-user" type="text" class="form-control ${field.name}-control">
-                            </div>
-                            <div class="form-group">
-                                <label for="${field.name}-value${id_suffix}-pwd">Password/Token</label>
-                                <input id="${field.name}-value${id_suffix}-pwd" type="password" class="form-control ${field.name}-control">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="${field.name}-value${id_suffix}-branch">Branch</label>
-                            <input id="${field.name}-value${id_suffix}-branch" type="text" class="form-control ${field.name}-control"  ${control_state} ${value && value.remote_branch ? `value="${value.remote_branch}"` : ''}>
-                        </div>
-                        ${deletion_div}
-                  </div>
-              `
-            },
-            link: function(field, value, id_suffix) {
-                return `
-                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <input type="text" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" value="${value}" ${bulk_editing ? 'disabled' : ''}>
-                        ${multi_remover(field, id_suffix)}
-                    </div>
-                `;
-            },
-            'iiif-image': function(field, value, id_suffix) {
-                return `
-                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}">
-                        <input type="text" class="form-control edit-field-input ${field.name}-control" id="${field.name}-value${id_suffix}" value="${value}" ${bulk_editing ? 'disabled' : ''}>
-                        ${multi_remover(field, id_suffix)}
-                    </div>
-                `;
-            },
-            geo_point: function(field, value, id_suffix) {
-                return `
-                    <div id="${field.name}-value${id_suffix}-div" class="input-group mb-2 edit-field-div" data-field="${field.name}" style="flex-direction: column;">
-                        <div class="row no-gutters">
-                          <div class="col-sm-6">
-                            <label for="${field.name}-value${id_suffix}-lat">Latitude</label>
-                          </div>
-                          <div class="col-sm-6">
-                            <label for="${field.name}-value${id_suffix}-long">Longitude</label>
-                          </div>
-                        </div>
-                        <div class="row no-gutters">
-                          <div class="col-sm-6">
-                            <input type="number" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}-lat" value="${value && value.length === 2 ? value[1] : ''}" ${bulk_editing ? 'disabled' : ''}>
-                          </div>
-                          <div class="col-sm-6">
-                            <input type="number" class="form-control ${field.name}-control" id="${field.name}-value${id_suffix}-long" value="${value && value.length === 2 ? value[0] : ''}" ${bulk_editing ? 'disabled' : ''}>
-                          </div>
-                        </div>
-                        <div class="row no-gutters">
-                          <div id="${field.name}-value${id_suffix}-map" class="col-sm-12" style="height: 200px;">
-                          </div>
-                        </div>
-                        <input type="hidden" id="${field.name}-value${id_suffix}" class="edit-field-input geo_point-input" value="${value && value.length === 2 ? value[0] + ',' + value[1] : ''}">
-                        ${multi_remover(field, id_suffix)}
-                    </div>
-                `;
-            },
-            cross_reference: function(field, value, id_suffix) {
-                let intensity_controls = ''
-                if (field.has_intensity) {
-                    intensity_controls = `
-                        <div class="input-group ml-2">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text" id="${field.name}-value${id_suffix}-intensity-label">Intensity</span>
-                            </div>
-                            <input type="number"
-                                id="${field.name}-value${id_suffix}-intensity"
-                                class="form-control edit-field-intensity" style="width: 100px;"
-                                aria-label="Intensity for ${field.name} value"
-                                aria-describedby="${field.name}-value${id_suffix}-intensity-label"
-                                value="${value.hasOwnProperty('intensity') ? value.intensity : 1}">
-                        </div>
-                    `;
-                }
-
-                return `
-                    <div id="${field.name}-value${id_suffix}-div" class="btn-toolbar mb-2 edit-field-div" data-field="${field.name}" role="toolbar">
-                        <div class="btn-group" role="group">
-                            <button onclick="return false;" id="${field.name}-value${id_suffix}-select-button" class="xref-select-button btn btn-secondary ${field.name}-control" ${bulk_editing ? 'disabled' : ''}>Select</button>
-                            <button onclick="return false;" id="${field.name}-value${id_suffix}-open-button" class="xref-open-button btn btn-warning" role="button">${value ? value.label : `No ${field.cross_reference_type} selected.`}</button>
-                            <button onclick="return false;" id="${field.name}-value${id_suffix}-clear-button" class="xref-clear-button btn btn-danger ${value ? '' : 'd-none'}" role="button">${field.multiple ? 'Delete' : 'Clear'}</button>
-                        </div>${intensity_controls}
-                        <input type="hidden" id="${field.name}-value${id_suffix}" class="edit-field-input" value="${value ? value.id : ""}">
-                        <input type="hidden" id="${field.name}-value${id_suffix}-xref-type" value="${field.cross_reference_type}">
-                    </div>
-                `;
-            }
-        };
-
-        const pond = FilePond.create(document.querySelector('.filepond'), {
-            allowMultiple: true,
-            allowRevert: false
-        });
-
-        pond.on('addfile', (error, file) => {
-            if(!error) {
-                file_uploads.push(file.filename);
-            }
-        });
-
-        pond.on('processfile', (error, file) => {
-            if(!error) {
-                let index = file_uploads.indexOf(file.filename);
-                if (index !== -1) { file_uploads.splice(index, 1); }
-                if (file_uploads.length == 0) {
-                    select_file(file_selection_input_id, file_selection_path);
-                }
-            }
-        });
-
         $(document).ready(function() {
+            // The JavaScript for our form components sometimes expect for both 'corpora' and 'corpus' to exist first.
+            // For this reason we'll not "mount" the components until we've fetched the data for our corpus.
             corpora.get_corpus(corpus_id, function(corpus_data) {
                 corpus = corpus_data;
-                add_breadcrumb(corpus.name, `/corpus/${corpus_id}/`);
-                build_content_form();
 
-                {% if edit_widget_url %}
-                $('#edit-widget-iframe').attr('src', '{{ edit_widget_url }}');
-                {% endif %}
+                // Here we're actually mounting the components, which calls and rigs up appropriate events.
+                mount_components()
 
-                if (bulk_editing) $('#content-save-and-create-button').addClass('d-none');
+                // Multivalued fields have an "add" button we need to respond to when clicked:
+                $('.multi-value-add-button').click(function() {
+                    let button = $(this)
+                    let field_type = button.data('field_type')
+                    let field_name = button.data('field_name')
+                    let value_index = button.data('value_index')
+                    let multi_value_add_row = $(`#${field_name}-multi-value-add-row`)
+                    let new_value_id = `${field_name}-editor-row-${value_index}`
+                    let new_field_container_id = `${field_name}-container-${value_index}`
 
-                if (is_popup) {
-                    window.onunload = function() {
-                        let opener = window.opener;
-                        opener.refresh_content_selection();
-                    };
-                }
-            });
-
-            // SETUP FILE SEARCH BOX
-            $('#file-selection-modal-filter-box').on('input', function(e){
-                clearTimeout(file_search_timer);
-                file_search_timer = setTimeout(function() {
-                    let filter = $('#file-selection-modal-filter-box').val();
-                    select_file(file_selection_function, file_selection_path, filter);
-                }, 1200);
-            });
-        });
-
-        function multi_remover(field, id_suffix, append=true) {
-            if (field.multiple) {
-                return `
-                    <div class="${append ? 'input-group-append' : ''}">
-                        <a href="javascript:remove_multi_field('${field.name}-value${id_suffix}-div');" role="button" class="btn btn-danger">Delete</a>
-                    </div>
-                `;
-            }
-            else {
-                return '';
-            }
-        }
-
-        function build_content_form() {
-            let content_form = $("#content-form");
-
-            for (let x = 0; x < corpus.content_types[content_type].fields.length; x++) {
-                let field = corpus.content_types[content_type].fields[x];
-                field_indexes[field.name] = x;
-
-                if (field.type !== 'embedded') {
-                    if (field.multiple) {
-                        let label = `<label for="${field.name}-values-div">${field.label}</label>`;
-                        if (field.type === 'boolean') { label = ''; }
-                        content_form.append(`
-                            ${bulk_editing ? `<input type="checkbox" class="bulk-edit-indicator" data-field="${field.name}">` : ''}
-                            ${label}
-                            <div class="ml-2 mb-2">
-                                <div id="${field.name}-values-div" class="edit-field" data-field="${field.name}">
-                                </div>
-                                <button type="button" class="btn btn-sm btn-secondary add_multi_field_button ${field.name}-control" id="${field.name}-add-button" ${bulk_editing ? 'disabled' : ''}>Add</button>
+                    // Here we're just adding the infrastructure for rendering our new field components
+                    multi_value_add_row.before(`
+                        <div id="${new_value_id}" class="row no-gutters p-2 multi-value-row">
+                            <div id="${new_field_container_id}" class="col-sm-11 col-12 multi-${field_type}-col"></div>
+                            <div class="col-sm-1 pl-sm-2 mt-sm-0 col-12 mt-2">
+                                <button role="button"
+                                    class="btn btn-sm btn-danger w-100"
+                                    onclick="$('#${new_value_id}').empty().remove()"
+                                    data-toggle="tooltip"
+                                    data-placement="top"
+                                    title="Delete this value">
+                                    <span class="fas fa-trash-alt"></span>
+                                </button>
                             </div>
-                        `);
-                    } else {
-                        let label = `<label for="${field.name}-value">${field.label}</label>`;
-                        if (field.type === 'boolean') { label = ''; }
-                        content_form.append(`
-                            <div id="${field.name}-value-div" class="form-group edit-field" data-field="${field.name}">
-                                ${bulk_editing ? `<input type="checkbox" class="bulk-edit-indicator" data-field="${field.name}">` : ''} ${label}
-                            </div>
-                        `);
-                    }
-                }
-            }
+                        </div>
+                    `)
 
-            if (content_id) {
-                corpora.get_content(corpus_id, content_type, content_id, inject_content);
-            } else {
-                inject_content(null);
-            }
-
-            $('#content-save-button').click(function() {
-                if (bulk_editing) {
-                    $('.edit-field-div').each(function() {
-                        if (!bulk_edit_fields.includes($(this).data('field'))) {
-                            $(this).remove();
-                        }
-                    });
-                }
-
-                if (bundle_content()) {
-                    let content_form = $('#content-form');
-                    content_form.submit();
-                }
-            });
-
-            $('#content-save-and-create-button').click(function() {
-                let content_form = $('#content-form');
-                content_form.append('<input type="hidden" name="save-and-create" value="y" />');
-                if (bundle_content())
-                    content_form.submit()
-            });
-
-            $('.add_multi_field_button').click(function() {
-                let field_name = this.id.replace('-add-button', '');
-                let field = corpus.content_types[content_type].fields[field_indexes[field_name]];
-
-                $(`#${field.name}-values-div`).append(input_templates[field.type](field, '', `-${multi_field_counter}`));
-                if (bulk_edit_fields.includes(field_name)) {
-                    $(`.${field_name}-control`).attr('disabled', false);
-                }
-
-                if (field.type === 'html') {
-                    tinymce.init(
-                        {
-                            selector: `#${field.name}-value-${multi_field_counter}`,
-                            plugins: 'link code table',
-                            menubar: 'edit insert view format table tools help'
-                        }
-                    );
-                } else if (field.type === 'cross_reference') {
-                    assign_content_selection_events();
-                } else if (field.type === 'geo_point') setup_geo_inputs();
-                multi_field_counter += 1;
-            });
-        }
-
-        function inject_content(content_data) {
-            content = content_data
-            let page_title = $('#page-title')
-            let has_html_field = false
-            let has_file_field = false
-            let has_xref_field = false
-            let has_repo_field = false
-            let has_timespan_field = false
-            let has_geo_field = {% if has_geo_field %}true{% else %}false{% endif %}
-
-            if (bulk_editing) {
-                page_title.html(`Bulk Editing ${content_type}(s)`)
-            } else if (!content) {
-                page_title.html(`New ${content_type}`)
-            } else {
-                page_title.html(content.label)
-                add_breadcrumb(content.label, `/corpus/${corpus_id}/${content_type}/${content_id}/`)
-            }
-
-            for (let f_index = 0; f_index < corpus.content_types[content_type].fields.length; f_index++) {
-                let field = corpus.content_types[content_type].fields[f_index];
-
-                if (field.type === 'html') { has_html_field = true; }
-                else if (field.type === 'file') { has_file_field = true; }
-                else if (field.type === 'repo') { has_repo_field = true }
-                else if (field.type === 'timespan') { has_timespan_field = true }
-                else if (field.type === 'cross_reference') { has_xref_field = true; }
-
-                if (field.type !== 'embedded') {
-                    if (field.multiple) {
-                        if (content && content[field.name]) {
-                            content[field.name].forEach(function (value, index) {
-                                $(`#${field.name}-values-div`).append(input_templates[field.type](field, value, `-${index}`));
-                                multi_field_counter += 1;
-                            });
-                        }
-                    } else if (content) {
-                        $(`#${field.name}-value-div`).append(input_templates[field.type](field, content[field.name] ? content[field.name] : "", ""));
-                    } else {
-                        $(`#${field.name}-value-div`).append(input_templates[field.type](field, "", ""));
-                    }
-                }
-            }
-
-            if (has_html_field) {
-                tinymce.init(
-                    {
-                        selector: '.html-field',
-                        width: '100%',
-                        height: '500px',
-                        plugins: 'link image media code table',
-                        menubar: 'edit insert media view format table tools help',
-                        image_advtab: true
-                    }
-                );
-
-                if (bulk_editing) { tinymce.activeEditor.mode.set("readonly"); }
-            }
-
-            if (has_repo_field) {
-                $('body').on('change', '.repo-auth-checkbox', function() {
-                    let auth_box = $(this)
-                    let id_prefix = auth_box.data('id-prefix')
-                    let auth_div = $(`#${id_prefix}-credentials-div`)
-
-                    if (auth_box.is(':checked')) {
-                        auth_div.removeClass('d-none')
-                    }
-                    else {
-                        auth_div.addClass('d-none')
-                        $(`#${id_prefix}-user`).val('')
-                        $(`#${id_prefix}-pwd`).val('')
-                    }
+                    // Here we're actually fetching the HTML to render for the components:
+                    fetch(`/render/${field_type}/edit/html/${field_name}/${value_index}/`)
+                        .then(template => template.text())
+                        .then(template => {
+                            $(`#${new_field_container_id}`).html(template)
+                            mount_components()
+                            button.data('value_index', parseInt(button.data('value_index')) + 1)
+                        })
                 })
 
-                $('body').on('click', '.repo-delete-button', function() {
-                    let button = $(this)
-                    let id_prefix = button.data('id-prefix')
-                    let repo_name = button.data('name')
+                if (!is_popup) add_breadcrumb(corpus.name, `/corpus/${corpus_id}/`)
 
-                    corpora.make_request('', 'POST', { 'delete-repo': 'y', 'repo-name': repo_name }, function() {
-                        let deletion_div = $(`#${id_prefix}-deletion-div`)
-                        let name_box = $(`#${id_prefix}-name`)
-                        let url_box = $(`#${id_prefix}-url`)
-                        let auth_box = $(`#${id_prefix}-auth`)
-                        let branch_box = $(`#${id_prefix}-branch`)
+                if (!content_id.length) {
+                    $('#content-delete-button').addClass('d-none')
+                }
 
-                        deletion_div.remove()
-                        name_box.val('')
-                        name_box.prop('disabled', false)
-                        url_box.val('')
-                        url_box.prop('disabled', false)
-                        auth_box.prop('disabled', false)
-                        branch_box.val('')
-                        branch_box.prop('disabled', false)
+                if (edit_widget_url.length) {
+                    show_widget_col()
+                    $('#edit-widget-iframe').attr('src', edit_widget_url)
+                }
+
+                if (bulk_editing) {
+                    $('#content-save-and-create-button').addClass('d-none')
+                    $('.bulk-editing-checkbox').change(function() {
+                        let checkbox = $(this)
+                        let field_name = checkbox.data('field_name')
+                        let bulk_edit_row = $(`#${field_name}-bulk-editing-row`)
+
+                        if (checkbox.is(':checked')) {
+                            bulk_edit_fields.push(field_name)
+                            bulk_edit_row.slideDown('slow')
+                        } else {
+                            bulk_edit_fields = bulk_edit_fields.filter(e => e !== field_name)
+                            bulk_edit_row.slideUp('slow')
+                        }
+                    })
+                }
+
+                $('#content-save-button').click(function() {
+                    if (bulk_editing) {
+                        $('.edit-field-div').each(function() {
+                            if (!bulk_edit_fields.includes($(this).data('field'))) {
+                                $(this).remove();
+                            }
+                        });
+                    }
+
+                    if (bundle_content()) {
+                        let content_form = $('#content-form');
+                        content_form.submit();
+                    }
+                });
+
+                $('#content-save-and-create-button').click(function() {
+                    let content_form = $('#content-form');
+                    content_form.append('<input type="hidden" name="save-and-create" value="y" />');
+                    if (bundle_content())
+                        content_form.submit()
+                });
+
+                hide_loading_overlay()
+            })
+        })
+
+        function mount_components() {
+            let hasResizeEvent = false
+
+            $('[data-csrf]').each(function() { $(this).data('csrf', '{{ csrf_token }}') })
+
+            $('[data-events]:not([data-mounted])').each(function() {
+                let events = this.getAttribute('data-events')
+                events = events.split(';')
+                events.forEach(event => {
+                    let [occasion, callback] = event.split(':')
+                    if (occasion === 'load') {
+                        window[callback](this)
+                    } else if (occasion === 'resize') {
+                        hasResizeEvent = true
+                    } else {
+                        $(this).on(occasion, window[callback])
+                    }
+                })
+                this.setAttribute('data-mounted', true)
+            })
+
+            if (hasResizeEvent) {
+                $(window).resize(function() {
+                    $('[data-events]').each(function() {
+                        let events = this.getAttribute('data-events')
+                        events = events.split(';')
+                        events.forEach(event => {
+                            let [occasion, callback] = event.split(':')
+                            if (occasion === 'resize') {
+                                window[callback](this)
+                            }
+                        })
                     })
                 })
             }
+        }
 
-            if (has_xref_field) {
-                assign_content_selection_events();
-            }
+        function show_widget_col(callback) {
+            $('#content-form-col').addClass('col-md-6')
+            $('#edit-widget-col').removeClass('d-none')
+            setTimeout(callback, 1000)
+        }
 
-            if (has_geo_field) {
-                setup_geo_inputs();
-            }
+        function hide_widget_col(callback) {
+            $('#content-form-col').removeClass('col-md-6')
+            $('#edit-widget-col').addClass('d-none')
+            setTimeout(callback, 1000)
+        }
 
-            if (has_timespan_field) {
-                $('body').on('change', '.timespan-granularity-selector', function(){
-                  let selector = $(this)
-                  let id_prefix = selector.data('id-prefix')
-                  let granularity = selector.val()
-                  let time_row = $(`#${id_prefix}-time-row`)
 
-                  if (granularity === 'Time') time_row.removeClass('d-none')
-                  else time_row.addClass('d-none')
-                })
-            }
+        /*
+        if (bulk_editing) {
+            $('.bulk-edit-indicator').change(function() {
+                let field_name = $(this).data('field');
 
-            if (bulk_editing) {
-                $('.bulk-edit-indicator').change(function() {
-                    let field_name = $(this).data('field');
+                if (Object.keys(field_indexes).includes(field_name)) {
+                    let field = corpus.content_types[content_type].fields[field_indexes[field_name]];
 
-                    if (Object.keys(field_indexes).includes(field_name)) {
-                        let field = corpus.content_types[content_type].fields[field_indexes[field_name]];
-
-                        if (this.checked) {
-                            $(`.${field_name}-control`).attr('disabled', false);
-                            if (field.type === 'html') tinymce.activeEditor.mode.set("design");
-                            bulk_edit_fields.push(field_name);
-                        } else {
-                            $(`.${field_name}-control`).attr('disabled', true);
-                            if (field.type === 'html') tinymce.activeEditor.mode.set("readonly");
-                            bulk_edit_fields = bulk_edit_fields.filter(e => e !== field_name);
-                        }
+                    if (this.checked) {
+                        $(`.${field_name}-control`).attr('disabled', false);
+                        if (field.type === 'html') tinymce.activeEditor.mode.set("design");
+                        bulk_edit_fields.push(field_name);
+                    } else {
+                        $(`.${field_name}-control`).attr('disabled', true);
+                        if (field.type === 'html') tinymce.activeEditor.mode.set("readonly");
+                        bulk_edit_fields = bulk_edit_fields.filter(e => e !== field_name);
                     }
-                });
-
-                if (typeof content_query !== 'undefined') {
-                    $('#content-query-input').val(JSON.stringify(content_query));
                 }
-            }
-
-            hide_loading_overlay();
-        }
-
-        function setup_geo_inputs() {
-            let geo_point_inputs = $('.geo_point-input');
-
-            geo_point_inputs.each(function() {
-                let geo_point_input = $(this);
-                let id_prefix = geo_point_input[0].id;
-                let lat_input = $(`#${id_prefix}-lat`);
-                let long_input = $(`#${id_prefix}-long`);
-                let map = L.map(`${id_prefix}-map`);
-
-                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                }).addTo(map);
-
-                const set_marker = (lat_input, long_input, geo_point_input, map) => {
-                    let lat = parseFloat(lat_input.val());
-                    let long = parseFloat(long_input.val());
-                    let reset_view = false;
-
-                    while (lat < -90) {
-                        lat += 180;
-                        reset_view = true;
-                    }
-                    while (lat > 90) {
-                        lat -= 180;
-                        reset_view = true;
-                    }
-                    while (long < -180) {
-                        long += 360;
-                        reset_view = true;
-                    }
-                    while (long > 180) {
-                        long -= 360;
-                        reset_view = true;
-                    }
-
-                    let coords = [lat, long];
-
-                    let last_marker_id = geo_point_input.data('marker');
-                    if (last_marker_id) {
-                        map.removeLayer(map_markers[last_marker_id]);
-                        delete map_markers[last_marker_id];
-                    }
-                    let marker = L.marker(coords);
-                    marker.addTo(map);
-                    map_markers[marker._leaflet_id] = marker;
-                    geo_point_input.data('marker', marker._leaflet_id);
-                    geo_point_input.val(`${long_input.val()},${lat_input.val()}`);
-                    if (reset_view) map.setView(coords, 13);
-                    return coords;
-                };
-
-                if (lat_input.val() && long_input.val()) {
-                    let coords = set_marker(lat_input, long_input, geo_point_input, map);
-                    map.setView(coords, 13);
-                } else
-                    map.locate({setView: true});
-
-                map.on('click', function(e) {
-                    lat_input.val(e.latlng.lat);
-                    long_input.val(e.latlng.lng);
-                    let coords = set_marker(lat_input, long_input, geo_point_input, map);
-                    lat_input.val(coords[0]);
-                    long_input.val(coords[1]);
-                });
-
-                $(`#${id_prefix}-lat, #${id_prefix}-long`).on('change paste keyup', function() {
-                    clearTimeout(latlong_timer);
-                    latlong_timer = setTimeout(function() {
-                        set_marker(lat_input, long_input, geo_point_input, map);
-                    }, 1000);
-                });
-
-                geo_point_input.removeClass('geo_point-input');
             });
+
+            if (typeof content_query !== 'undefined') {
+                $('#content-query-input').val(JSON.stringify(content_query));
+            }
         }
+        */
 
         function bundle_content() {
             let bundle = {}
+            let multi_map = {}
             let errors = []
 
-            $('.edit-field').each(function() {
-                let div = $(this);
-                let field_name = div.data('field');
-                if (Object.keys(field_indexes).includes(field_name)) {
-                    let field = corpus.content_types[content_type].fields[field_indexes[field_name]];
-                    if (field.multiple) bundle[field_name] = [];
-
-                    div.find('.edit-field-input').each(function() {
-                        let input = $(this);
-                        let data = {};
-
-                        if (field.type === 'boolean') data['value'] = input.is(':checked');
-                        else if (field.type === 'html') data['value'] = tinymce.get(input[0].id).getContent();
-                        else if (field.type === 'number') data['value'] = parseInt(input.val());
-                        else if (field.type === 'decimal') data['value'] = parseFloat(input.val());
-                        else if (field.type === 'geo_point' && input.val()) {
-                            let longlat_strs = input.val().split(',');
-                            data['value'] = [parseFloat(longlat_strs[0]), parseFloat(longlat_strs[1])];
-                        } else if (field.type === 'repo') {
-                            let id_prefix = input.data('id-prefix')
-                            let val = {
-                                name: $(`#${id_prefix}-name`).val(),
-                                url: input.val(),
-                                branch: $(`#${id_prefix}-branch`).val()
-                            }
-
-                            if (val.name && val.url && val.branch) {
-                                if ($(`#${id_prefix}-auth`).is(':checked')) {
-                                    val['user'] = $(`#${id_prefix}-user`).val()
-                                    val['password'] = $(`#${id_prefix}-pwd`).val()
-                                }
-
-                                data['value'] = val
-                            } else if (val.name || val.url || val.branch)
-                                errors.push(`Name, URL, and Branch must be specified for field "${field.label}."`)
-                            else
-                                data['value'] = {}
-
-                        } else if (field.type === 'timespan' && input.val()) {
-                            let timespan = {
-                                start: input.val(),
-                                end: null,
-                                uncertain: false,
-                                granularity: 'Day'
-                            }
-                            let id_prefix = input.attr('id').replace('-start', '')
-
-                            let end_input = $(`#${id_prefix}-end`)
-                            let uncertain_input = $(`#${id_prefix}-uncertain`)
-                            let granularity_input = $(`#${id_prefix}-granularity`)
-                            let start_time_input = $(`#${id_prefix}-start-time`)
-                            let end_time_input = $(`#${id_prefix}-end-time`)
-
-                            if (end_input.length && end_input.val()) timespan.end = end_input.val()
-                            if (uncertain_input.length && uncertain_input.is(':checked')) timespan.uncertain = true
-                            if (granularity_input.length && granularity_input.val()) timespan.granularity = granularity_input.val()
-                            if (timespan.granularity === 'Time') {
-                                if (start_time_input.length && start_time_input.val()) timespan.start = `${timespan.start} ${start_time_input.val()}`
-                                if (timespan.end && end_time_input.length && end_time_input.val()) timespan.end = `${timespan.end} ${end_time_input.val()}`
-                            }
-
-                            if (timespan.end && timespan.start < timespan.end)
-                                data['value'] = timespan
-                            else errors.push(`Start date/time must be earlier than end date/time for field "${field.label}."`)
-
-                        } else data['value'] = input.val();
-
-                        if (field.has_intensity) {
-                            let intensity_input = $(`#${input[0].id}-intensity`);
-                            if (intensity_input.length) data['intensity'] = intensity_input.val();
-                        }
-
-                        if (field.multiple) bundle[field_name].push(data);
-                        else bundle[field_name] = data;
-                    });
+            corpus.content_types[content_type].fields.forEach(f => {
+                if (f.type !== 'embedded') {
+                    multi_map[f.name] = f.multiple
+                    if (!bulk_editing || (bulk_editing && bulk_edit_fields.includes(f.name)))
+                        if (f.multiple)
+                            bundle[f.name] = []
                 }
-            });
+            })
+
+            $('.field-value').each(function() {
+                let control = $(this)
+                let field_name = control.data('field_name')
+                let value_format = control.data('value_format')
+                let value = null
+
+                if (!bulk_editing || (bulk_editing && bulk_edit_fields.includes(field_name))) {
+                    if (value_format.startsWith('javascript') && value_format.includes(':')) {
+                        let function_name = value_format.split(':')[1]
+                        value = window[function_name](control[0])
+                        if (value === '') value = null
+                    } else if (value_format === 'json') {
+                        try { value = JSON.parse(control.val()) }
+                        catch (error) { value = null }
+                    } else if (value_format === 'boolean') {
+                        value = control.val() === 'true'
+                    } else if (value_format === 'integer') {
+                        if (control.val() === '') value = null
+                        else value = parseInt(control.val())
+                    } else if (value_format === 'float') {
+                        if (control.val() === '') value = null
+                        else value = parseFloat(control.val())
+                    } else
+                        if (control.val() === '') value = null
+                        else value = control.val()
+
+                    if (multi_map[field_name] && value !== null) bundle[field_name].push({value: value})
+                    else bundle[field_name] = {value: value}
+                }
+            })
 
             console.log(bundle);
 
@@ -945,215 +394,6 @@
             }
         }
 
-        function remove_multi_field(div_id) {
-            $(`#${div_id}`).remove();
-        }
-
-        // FILE SELECTION FUNCTIONALITY
-        function select_file(input_id, path='', filter='', select='file') {
-            corpora.get_content_files(corpus_id, content_type, content_id, path, filter, function (data) {
-                file_selection_input_id = input_id;
-                file_selection_path = path;
-
-                let url = `/api/corpus/${corpus_id}/${content_type}/files/`;
-                if (content_id) {
-                    url = url.replace('/files/', `/${content_id}/files/`)
-                }
-
-                pond.setOptions({
-                    server: {
-                        process: {
-                            url: `${url}?path=${path}`,
-                            headers: {
-                                'X-CSRFToken': '{{ csrf_token }}'
-                            }
-                        },
-                        fetch: null,
-                        revert: null
-                    }
-                });
-                pond.removeFiles();
-                file_uploads = [];
-
-                $('#file-selection-modal-table-body').html('');
-                $('#file-selection-modal-table-header').html(path + '/');
-                if (path) {
-                    let up_directory = '/' + path.split('/').slice(1, -1).join('/');
-                    if (up_directory === '/') { up_directory = ''; }
-                    if (select === 'file') {
-                        $('#file-selection-modal-table-header').append(`<a href="javascript:select_file(file_selection_input_id, '${up_directory}');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`);
-                    } else {
-                        $('#file-selection-modal-table-header').append(`<a href="javascript:select_file(file_selection_input_id, '${up_directory}', '', 'dir');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`);
-                    }
-                }
-                for (let x = 0; x < data.length; x++) {
-                    if(select === 'file') {
-                        if (data[x].type === 'file') {
-                            $('#file-selection-modal-table-body').append(`
-                                <tr><td><a href="javascript:handle_file_selection('${data[x].path}', '${data[x].filename}');">${data[x].filename}</a></td></tr>
-                            `);
-                        } else {
-                            $('#file-selection-modal-table-body').append(`
-                                <tr><td><span class="fas fa-folder-open"></span> ${data[x].filename} <a class="btn btn-sm btn-primary text-white float-right" role="button" href="javascript:select_file(file_selection_input_id, '${data[x].path}');">Browse</a></td></tr>
-                            `);
-                        }
-                    } else {
-                        if (data[x].type === 'dir') {
-                            $('#file-selection-modal-table-body').append(`
-                                <tr><td><span class="fas fa-folder-open"></span> <a href="javascript:handle_file_selection('${data[x].path}', '');">${data[x].filename}</a> <a class="btn btn-sm btn-primary text-white float-right" role="button" href="javascript:select_file(file_selection_input_id, '${data[x].path}', '', 'dir');">Browse</a></td></tr>
-                            `);
-                        }
-                    }
-                }
-
-                $('#file-selection-modal').modal();
-            });
-        }
-
-        function handle_folder_creation() {
-            let dirname = pep8_variable_format($('#file-selection-modal-new-folder-box').val());
-            corpora.make_content_file_dir(corpus_id, content_type, content_id, file_selection_path, dirname, function() {
-                $('#file-selection-modal-new-folder-box').val('');
-                select_file(file_selection_input_id, path=file_selection_path);
-            });
-        }
-
-        function handle_file_selection(path, filename) {
-            $(`#${file_selection_input_id}`).val(`${path}/${filename}`);
-            $('#file-selection-modal').modal('hide');
-        }
-
-        // CONTENT SELECTION FUNCTIONALITY
-        function select_content(ct, input_id) {
-            content_selection_input_id = input_id;
-            content_selection_type = ct;
-
-            corpora.list_content(corpus_id, content_selection_type, content_selection_vars, function(data){
-                $('#content-selection-modal-prev-page-button').prop('disabled', content_selection_vars.page <= 1);
-                $('#content-selection-modal-next-page-button').prop('disabled', !data.meta.has_next_page);
-
-                $('#content-selection-modal-label').html(`Select ${content_selection_type}`);
-                $('#content-selection-modal-table-header').html(content_selection_type);
-                $('#content-selection-modal-table-body').html('');
-                for (let x = 0; x < data.records.length; x++) {
-                    $('#content-selection-modal-table-body').append(`
-                        <tr><td><a id="xref-item-${data.records[x].id}" href="javascript:handle_content_selection('${data.records[x].id}');">${data.records[x].label}</a></td></tr>
-                    `);
-                }
-
-                // SETUP CONTENT CREATE NEW BUTTON
-                let new_button = $('#content-create-new-button');
-                new_button.off('click'); // <- removes previously associated click events
-                new_button.click(function() {
-                    let left = (screen.width / 2);
-                    let top = (screen.height / 2);
-                    let options = `top=${top},left=${left},popup=true`;
-                    let creation_url = `/corpus/${corpus_id}/${content_selection_type}/?popup=y`;
-                    return window.open(creation_url, '_blank', options);
-                })
-
-                $('#content-selection-modal').modal()
-            });
-        }
-
-        function assign_content_selection_events() {
-            // select content button click event
-            $('.xref-select-button').click(function() {
-                let button_id = this.id;
-                let input_id = button_id.replace('-select-button', '');
-                let xref_type = $(`#${input_id}-xref-type`).val();
-
-                content_selection_vars = {
-                    q: '*',
-                    only: 'label',
-                    s_label: 'asc',
-                    page_size: 10,
-                    page: 1
-                };
-                $('#content-selection-modal-filter-box').val('');
-                select_content(xref_type, input_id);
-            });
-
-            // content navigation button click event
-            $('.xref-open-button').click(function() {
-                let button_id = this.id;
-                let input_id = button_id.replace('-open-button', '');
-                let xref_type = $(`#${input_id}-xref-type`).val();
-                let xref_id = $(`#${input_id}`).val();
-
-                if (xref_id) {
-                    window.open(`/corpus/${corpus_id}/${xref_type}/${xref_id}/`, '_blank');
-                }
-            });
-
-            // content clear button click event
-            $('.xref-clear-button').click(function() {
-                let button_id = this.id;
-                let input_id = button_id.replace('-clear-button', '');
-                let xref_type = $(`#${input_id}-xref-type`).val();
-
-                // single value
-                if(input_id.split('-').length === 2) {
-                    $(`#${input_id}`).val('');
-                    $(`#${input_id}-clear-button`).addClass('d-none');
-                    $(`#${input_id}-open-button`).html(`No ${xref_type} selected.`);
-                } else {
-                    $(`#${input_id}-div`).remove();
-                }
-            });
-
-            // content selection filter box
-            let filter_box = $('#content-selection-modal-filter-box')
-            filter_box.keyup(function (e) {
-                let key = e.which
-                if (key === 13) {
-                    refresh_content_selection()
-                } else {
-                  clearTimeout(content_search_timer)
-                  content_search_timer = setTimeout(refresh_content_selection, 500)
-                }
-            })
-
-            // modal show event
-            let content_modal = $('#content-selection-modal')
-            content_modal.on('shown.bs.modal', function(e) {
-              filter_box.val('')
-              filter_box.focus()
-            })
-        }
-
-        function refresh_content_selection() {
-            clearTimeout(content_search_timer)
-            let query = $('#content-selection-modal-filter-box').val()
-            query = query.replaceAll("'", ' ')
-            content_selection_vars.q = query + '*'
-            content_selection_vars['t_label'] = `${query}`
-            content_selection_vars['operator'] = 'or'
-            content_selection_vars.page = 1
-            delete content_selection_vars['s_label']
-            select_content(content_selection_type, content_selection_input_id)
-        }
-
-        // previous select content page click event
-        $('#content-selection-modal-prev-page-button').click(function() {
-            content_selection_vars.page -= 1;
-            select_content(content_selection_type, content_selection_input_id);
-        });
-
-        // next select content page click event
-        $('#content-selection-modal-next-page-button').click(function() {
-            content_selection_vars.page += 1;
-            select_content(content_selection_type, content_selection_input_id);
-        });
-
-        function handle_content_selection(id) {
-            let label = $(`#xref-item-${id}`).html();
-
-            $(`#${content_selection_input_id}`).val(id);
-            $(`#${content_selection_input_id}-open-button`).html(label);
-            $(`#${content_selection_input_id}-clear-button`).removeClass('d-none');
-            $('#content-selection-modal').modal('hide');
-        }
-
+        {% if javascript_functions %}{{ javascript_functions|safe }}{% endif %}
     </script>
 {% endblock %}

@@ -123,27 +123,37 @@ class Corpora {
             "GET",
             params,
             function(corpus) {
-                corpus.events = new ReconnectingEventSource(`/events/${id}/`)
-                corpus.events.addEventListener('alert', function (e) {
-                    let alert = JSON.parse(e.data)
-                    let alert_div = $(`
-                        <div class="alert alert-${alert.type === "success" ? 'success' : 'danger'}"
-                            style="width: 95%; float: left; margin: 0px;">
-                          ${alert.message}
-                        </div>
-                    `)
-                    Toastify({
-                        node: alert_div[0],
-                        duration: 10000,
-                        close: true,
-                        gravity: 'bottom',
-                        position: 'right',
-                        style: {
-                            background: 'unset',
-                            padding: '8px'
-                        }
-                    }).showToast()
-                }, false)
+                corpus.events = new SharedWorker(`/corpus/${id}/event-dispatcher/`)
+                corpus.event_callbacks = {
+                    alert: function (alert) {
+                        let alert_div = $(`
+                            <div class="alert alert-${alert.type === "success" ? 'success' : 'danger'}"
+                                style="width: 95%; float: left; margin: 0px;">
+                              ${alert.message}
+                            </div>
+                        `)
+                        Toastify({
+                            node: alert_div[0],
+                            duration: 10000,
+                            close: true,
+                            gravity: 'bottom',
+                            position: 'right',
+                            style: {
+                                background: 'unset',
+                                padding: '8px'
+                            }
+                        }).showToast()
+                    }
+                }
+
+                corpus.events.port.start()
+                corpus.events.port.onmessage = (event) => {
+                    let payload = JSON.parse(event.data)
+                    if (payload.event_type && Object.keys(corpus.event_callbacks).includes(payload.event_type)) {
+                        corpus.event_callbacks[payload.event_type](payload)
+                    }
+                }
+
                 callback(corpus)
             }
         )
@@ -750,6 +760,10 @@ class Corpora {
 
         return `${uncertain_prefix}${start_string}${range_combinator}${end_string}`
     }
+
+    generate_unique_id() {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2)
+    }
 }
 
 
@@ -760,6 +774,7 @@ class ContentTable {
         this.corpus = 'corpus' in config ? config.corpus : null
         this.content_type = 'content_type' in config ? config.content_type : null
         this.mode = 'mode' in config ? config.mode : 'edit'
+        this.selection_callback = 'selection_callback' in config ? config.selection_callback : null
         this.search = 'search' in config ? config.search : {
             'page': 1,
             'page-size': 5,
@@ -1414,13 +1429,24 @@ class ContentTable {
                     selected = "checked"
                 }
 
+                let action_controls = `
+                    <input type="checkbox" id="ct_${ct.name}${sender.id_suffix}_${item.id}_selection-box" class="ct-${ct.name}${sender.id_suffix}-selection-box" data-ct="${ct.name}" data-id="${item.id}" ${selected}>
+                    <a href="${item.uri}" target="_blank">
+                        <span class="badge">Open <span class="fas fa-external-link-square-alt"></span></span>
+                    </a>
+                `
+                if (sender.mode === 'select') {
+                    action_controls = `
+                        <a href="#" class="${ct.name}${sender.id_suffix}-content-selection-link" data-id="${item.id}" data-uri="${item.uri}" data-label="${item.label}">
+                            Select
+                        </a>
+                    `
+                }
+
                 let row_html = `
                     <tr>
                         <td class="ct-selection-cell">
-                            ${ sender.mode === 'edit' ? `<input type="checkbox" id="ct_${ct.name}${sender.id_suffix}_${item.id}_selection-box" class="ct-${ct.name}${sender.id_suffix}-selection-box" data-ct="${ct.name}" data-id="${item.id}" ${selected}>` : '' }
-                            <a href="${item.uri}" target="_blank">
-                                <span class="badge">Open <span class="fas fa-external-link-square-alt"></span></span>
-                            </a>
+                            ${action_controls}
                         </td>
                 `
 
@@ -1507,6 +1533,21 @@ class ContentTable {
             if (selected_content.ids.length > 0) { go_button.removeAttr('disabled'); }
             else { go_button.attr('disabled', true); }
         })
+
+        // handle content selection in select mode
+        if (sender.mode === 'select') {
+            $(`.${ct.name}${sender.id_suffix}-content-selection-link`).click(function(e) {
+                e.preventDefault()
+                let link = $(this)
+                if (sender.selection_callback != null) {
+                    sender.selection_callback({
+                        id: link.data('id'),
+                        uri: link.data('uri'),
+                        label: link.data('label')
+                    })
+                }
+            })
+        }
 
         // callback if set by config
         if (typeof sender.on_load === 'function') sender.on_load(content.meta)
@@ -1750,6 +1791,9 @@ class ContentGraph {
                 edges: {
                     smooth: {
                         type: "continuous"
+                    },
+                    scaling: {
+                        max: 30
                     }
                 },
                 groups: this.groups,
@@ -2822,9 +2866,9 @@ class JobManager {
                     })
 
                     // start listening to job events
-                    sender.corpus.events.addEventListener('job', function (e) {
-                        sender.update_job(JSON.parse(e.data))
-                    }, false)
+                    sender.corpus.event_callbacks['job'] = function (job) {
+                        sender.update_job(job)
+                    }
 
                     // load provenance if provided
                     if (sender.provenance_container) {

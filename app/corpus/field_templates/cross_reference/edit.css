@@ -1,0 +1,14 @@
+.xref-action-div {
+    transition: opacity 0.5s, display 0.5s allow-discrete;
+}
+
+@starting-style {
+  .xref-action-div {
+    opacity: 0;
+    padding: 0;
+  }
+}
+
+.content-creation-iframe {
+    border: solid 1px #091540;
+}

@@ -1,0 +1,8 @@
+<div class="large_text-grow-wrap">
+<textarea id="{{ field.name }}{{ suffix }}-editor"
+    class="form-control {{ field.type }}-control field-value"
+    data-events="load:renderLargeTextField;input:renderLargeTextField"
+    data-field_name="{{ field.name }}"
+    data-field_type="{{ field.type }}"
+    data-value_format="raw">{% if value %}{{ value }}{% endif %}</textarea>
+</div>

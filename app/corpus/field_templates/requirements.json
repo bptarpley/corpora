@@ -1,0 +1,31 @@
+{
+    "geo_point": {
+        "view": {
+            "js": ["js/leaflet.js"],
+            "css": ["css/leaflet/leaflet.css"]
+        },
+        "edit": {
+            "js": ["js/leaflet.js"],
+            "css": ["css/leaflet/leaflet.css"]
+        }
+    },
+    "iiif-image": {
+        "view": {
+            "js": ["js/openseadragon.min.js", "js/openseadragonselection.js"]
+        },
+        "edit": {
+            "js": ["js/openseadragon.min.js", "js/openseadragonselection.js"]
+        }
+    },
+    "html": {
+        "edit": {
+            "js": ["js/tinymce/tinymce.min.js"]
+        }
+    },
+    "file": {
+        "edit": {
+            "js": ["js/filepond.js"],
+            "css": ["css/filepond.css"]
+        }
+    }
+}

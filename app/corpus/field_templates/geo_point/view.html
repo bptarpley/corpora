@@ -1,0 +1,6 @@
+<div id="{{ field.name }}{{ suffix }}-map-viewer"
+     class="geo-point-map"
+     data-latitude="{% if value %}{{ value.coordinates.1 }}{% endif %}"
+     data-longitude="{% if value %}{{ value.coordinates.0 }}{% endif %}"
+     data-events="load:renderGeoPoint">
+</div>
