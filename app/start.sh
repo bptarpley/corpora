@@ -25,6 +25,7 @@ if [ "$CRP_DEVELOPMENT" = "yes" ]; then
 else
     # PRODUCTION
     echo Starting Daphne
+    export DJANGO_SETTINGS_MODULE=corpora.settings
     exec daphne corpora.asgi:application -b 0.0.0.0 -p 8000 -v 0 -t 300 &
 fi
 
