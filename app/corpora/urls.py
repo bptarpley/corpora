@@ -1,7 +1,8 @@
 import os
 import importlib
+import django_eventstream
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, re_path, include
 from django.conf import settings
 from manager import views as manager_views
 
@@ -15,6 +16,7 @@ urlpatterns = [
     path('exports/download/<str:export_id>/', manager_views.download_export),
     path('corpus/<str:corpus_id>/', manager_views.corpus),
     path('corpus/<str:corpus_id>/get-file/', manager_views.get_corpus_file),
+    path('corpus/<str:corpus_id>/event-dispatcher/', manager_views.get_corpus_event_dispatcher),
     path('corpus/<str:corpus_id>/<str:content_type>/explore/', manager_views.explore_content),
     path('corpus/<str:corpus_id>/<str:content_type>/merge/', manager_views.merge_content),
     path('corpus/<str:corpus_id>/<str:content_type>/bulk-job-manager/', manager_views.bulk_job_manager),
@@ -72,5 +74,7 @@ urlpatterns += [
     path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/files/', manager_views.api_content_files),
     path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/network-json/', manager_views.api_network_json),
     path('api/scholar/preference/<str:content_type>/<str:preference>/', manager_views.api_scholar_preference),
-    path('api/publish/<str:corpus_id>/<str:message_type>/', manager_views.api_publish),
+    path('api/publish/<str:corpus_id>/<str:event_type>/', manager_views.api_publish),
+
+    path('events/<channel>/', include(django_eventstream.urls), {}),
 ]

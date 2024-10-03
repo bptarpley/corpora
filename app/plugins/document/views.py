@@ -595,8 +595,6 @@ def draw_page_regions(request, corpus_id, document_id, ref_no):
             ref_no
         ))
 
-        print(json.dumps(image_dict, indent=4))
-
         return render(
             request,
             'draw_regions.html',

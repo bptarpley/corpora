@@ -4,20 +4,14 @@ import traceback
 from mongoengine import connect
 from huey import PriorityRedisHuey
 from neo4j import GraphDatabase
+from rest_framework.parsers import FileUploadParser
 from elasticsearch_dsl import connections
 
-# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
+
+# Basic Django config
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = '=4@4^2y04f^c6^q9b7y*3r2n7+hsf+!3ou^m+bzlgk0#h&w=$1'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('CRP_DEVELOPMENT', 'no') == 'yes'
 
 if 'CRP_HOST' in os.environ:
     ALLOWED_HOSTS = [os.environ['CRP_HOST']]
@@ -32,6 +26,7 @@ for host in ALLOWED_HOSTS:
     CSRF_TRUSTED_ORIGINS.append(f'http://{host}')
     CSRF_TRUSTED_ORIGINS.append(f'https://{host}')
 
+# Corpora sites config (for using Corpora as frontend)
 if os.path.exists('/conf/corpora_sites.json'):
     with open('/conf/corpora_sites.json', 'r') as sites_in:
         CORPORA_SITES = json.load(sites_in)
@@ -49,11 +44,10 @@ REDIS_CACHE_EXPIRY_SECONDS = os.environ.get('CRP_REDIS_CACHE_EXPIRY_SECONDS', 18
 if '.' not in DEFAULT_USER_EMAIL:
     DEFAULT_USER_EMAIL += '.com'
 
-# Application definition
 
+# Django app config
 INSTALLED_APPS = [
     'daphne',
-    'channels',
     'django_eventstream',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -74,27 +68,17 @@ if installed_plugins:
     INSTALLED_APPS += installed_plugins
 
 INSTALLED_APPS += [
+    'django_drf_filepond',
     'rest_framework',
     'rest_framework.authtoken',
 ]
 
-'''
-    'plugins.tesseract',
-    'plugins.csv',
-    'plugins.emop',
-    'plugins.nvs',
-    'plugins.cervantes',
-    'plugins.arc',
-    'plugins.femcon',
-    'plugins.melp',
-'''
-
 MIDDLEWARE = [
+    'manager.middleware.ChunkedTransferMiddleware',
     'manager.middleware.SiteMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
-    'django_grip.GripMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -103,36 +87,6 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'corpora.urls'
-
-# REDIS CACHING
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-SESSION_CACHE_ALIAS = "default"
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://{0}:6379/1".format(os.environ.get('CRP_REDIS_HOST', 'redis')),
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient"
-        },
-        "KEY_PREFIX": "corpora"
-    }
-}
-
-# CORS CONFIG
-CORS_ORIGIN_ALLOW_ALL = True
-CORS_URLS_REGEX = r'^/api/.*$'
-CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
-]
-X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 TEMPLATES = [
     {
@@ -157,8 +111,22 @@ WSGI_APPLICATION = 'corpora.wsgi.application'
 ASGI_APPLICATION = 'corpora.asgi.application'
 
 
-# DATABASE CONFIG
+# Redis config
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://{0}:6379/1".format(os.environ.get('CRP_REDIS_HOST', 'redis')),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient"
+        },
+        "KEY_PREFIX": "corpora"
+    }
+}
 
+
+# Database config
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -179,7 +147,8 @@ for app in INSTALLED_APPS:
 
 DATABASE_ROUTERS = ['plugins.PluginModelRouter']
 
-# Mongoengine connection
+
+# Mongoengine config
 MONGO_DB = os.environ['CRP_MONGO_DB']
 MONGO_USER = os.environ['CRP_MONGO_USER']
 MONGO_PWD = os.environ['CRP_MONGO_PWD']
@@ -196,7 +165,8 @@ connect(
     maxpoolsize=MONGO_POOLSIZE
 )
 
-# NEO4J connection
+
+# Neo4j config
 NEO4J = None
 try:
     NEO4J = GraphDatabase.driver(
@@ -210,7 +180,8 @@ except:
     print("Neo4J database uninitialized.")
     NEO4J = None
 
-# Elasticsearch configuration
+
+# Elasticsearch config
 connections.configure(
     default={
         'hosts': os.environ['CRP_ELASTIC_HOST'],
@@ -229,7 +200,8 @@ if 'CRP_ELASTIC_SYNONYM_OPTIONS' in os.environ:
                 'file': syn_specs[2]
             }
 
-# Email Settings
+
+# Email config
 email_settings = [
     'CRP_EMAIL_HOST',
     'CRP_EMAIL_USE_TLS',
@@ -249,8 +221,8 @@ if email_configured:
     EMAIL_HOST_USER = os.environ['CRP_EMAIL_USER']
     EMAIL_HOST_PASSWORD = os.environ['CRP_EMAIL_PASSWORD']
 
-# Corpora allows users to create arbitrary content types, with the ability to name fields
-# however they want, with certain exceptions listed here:
+
+# Corpora content config
 INVALID_FIELD_NAMES = [
     "id",
     "corpus_id",
@@ -263,23 +235,42 @@ INVALID_FIELD_NAMES = [
     "objects",
 ]
 
-# eMOP db info
-EMOP = {
-    'host': os.environ.get('CRP_EMOP_HOST', 'localhost'),
-    'db': os.environ.get('CRP_EMOP_DB', 'emop'),
-    'user': os.environ.get('CRP_EMOP_USER', 'user'),
-    'password': os.environ.get('CRP_EMOP_PWD', 'password')
-}
+VALID_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
 
-# REST Framework info
+
+# REST Framework config
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
     ],
+    'DEFAULT_PARSER_CLASSES': (
+        FileUploadParser
+    ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50
 }
+
+
+# CORS config
+CORS_ORIGIN_ALLOW_ALL = True
+CORS_URLS_REGEX = r'^/api/.*$'
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'upload-length',
+    'upload-offset',
+    'upload-name',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
 
 # Huey config
 HUEY = PriorityRedisHuey('corpora', host='redis')
@@ -287,16 +278,16 @@ NUM_HUEY_WORKERS = os.environ.get('CRP_HUEY_WORKERS')
 NUM_JOBS_PER_MINUTE = int(os.environ.get('CRP_NUM_JOBS_PER_MINUTE', 200))
 JOB_TIMEOUT_SECS = int(os.environ.get('CRP_JOB_TIMEOUT_SECS', 86400))
 
-# iPython Notebook Config
+
+# iPython Notebook config
 NOTEBOOK_ARGUMENTS = [
     '--ip', '0.0.0.0',
     '--port', '9999',
     '--no-browser',
 ]
 
-# Password validation
-# https://docs.djangoproject.com/en/2.1/ref/settings/#auth-password-validators
 
+# Login/auth config
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -316,10 +307,8 @@ LOGIN_URL = '/scholar'
 USE_SSL = os.environ['CRP_USE_SSL'] == 'yes'
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTOCOL', 'https')
 
-VALID_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'tiff', 'tif']
 
-# Internationalization
-# https://docs.djangoproject.com/en/2.1/topics/i18n/
+# Internationalization config
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
@@ -327,11 +316,16 @@ USE_L10N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/2.1/howto/static-files/
+# Static files config
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
 ]
 
 STATIC_URL = '/static/'
 STATIC_ROOT = '/static'
+
+
+# file upload config
+DJANGO_DRF_FILEPOND_UPLOAD_TMP = '/corpora/uploads/temp'
+DJANGO_DRF_FILEPOND_FILE_STORE_PATH = '/corpora/uploads/files'
+DJANGO_DRF_FILEPOND_ALLOW_EXTERNAL_UPLOAD_DIR = True
