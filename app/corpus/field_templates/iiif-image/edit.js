@@ -29,6 +29,13 @@ async function renderIIIFImage(target) {
                     iiif.image_height = image_info.height
                     let ratio = iiif.image_width / iiif.image_height
                     let height = parseInt(width / ratio)
+                    let max_height = Math.round($(window).height() - 50)
+
+                    if (height > max_height) {
+                        height = max_height
+                        ratio = iiif.image_height / iiif.image_width
+                        width = parseInt(height / ratio)
+                    }
 
                     // clear image viewer, add showcase button, and set height
                     iiif.dragon_div.empty()
@@ -135,6 +142,13 @@ function resizeIIIFViewer(target) {
             let width = (3 * iiif.editor.parent().width()) / 4
             let ratio = iiif.image_width / iiif.image_height
             let height = parseInt(width / ratio)
+            let max_height = Math.round($(window).height() - 50)
+
+            if (height > max_height) {
+                height = max_height
+                ratio = iiif.image_height / iiif.image_width
+                width = parseInt(height / ratio)
+            }
             iiif.dragon_div.css('height', `${height}px`)
             iiif.dragon_div.css('width', `${width}px`)
         }

@@ -11,8 +11,15 @@ function renderIIIFImage(target) {
             let image_height = image_info.height
             let ratio = image_width / image_height
             let height = parseInt(width / ratio)
+            let max_height = Math.round($(window).height() - 50)
 
-            target.setAttribute('style', `width: 100%; height: ${height}px;`)
+            if (height > max_height) {
+                height = max_height
+                ratio = image_height / image_width
+                width = parseInt(height / ratio)
+            }
+
+            target.setAttribute('style', `width: ${width}px; height: ${height}px;`)
             dragon = OpenSeadragon({
                 id:                 target.id,
                 prefixUrl:          "/static/img/openseadragon/",
