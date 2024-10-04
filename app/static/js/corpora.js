@@ -648,7 +648,7 @@ class Corpora {
             page: search_param_input.data('page')
         }
 
-        corpora.list_content(corpus_id, content_type, content_selection_params, function(data){
+        sender.corpora.list_content(corpus_id, content_type, content_selection_params, function(data){
             $('#content-selection-modal-prev-page-button').prop('disabled', content_selection_params.page <= 1)
             $('#content-selection-modal-next-page-button').prop('disabled', !data.meta.has_next_page)
 
@@ -951,7 +951,7 @@ class ContentTable {
                         'cv-action': 'refresh',
                     }
 
-                    corpora.make_request(
+                    sender.corpora.make_request(
                         `/api/corpus/${corpus.id}/content-view/${sender.content_view_id}/`,
                         'POST',
                         submission,
@@ -961,10 +961,10 @@ class ContentTable {
                             if (data.status === 'populating') {
                                 refresh_button.html('Refreshing...')
                                 refresh_button.attr('disabled', true)
-                                corpora.await_content_view_population(corpus.id, data.id, function(data) {
+                                sender.corpora.await_content_view_population(corpus.id, data.id, function(data) {
                                     refresh_button.html('Refresh')
                                     refresh_button.attr('disabled', false)
-                                    corpora.list_content(sender.corpus.id, sender.content_type, sender.search, function(content){ sender.load_content(content); })
+                                    sender.corpora.list_content(sender.corpus.id, sender.content_type, sender.search, function(content){ sender.load_content(content); })
                                 })
                             } else {
                                 refresh_button.html('Error with Refresh!')
@@ -1167,6 +1167,7 @@ class ContentTable {
 
                     $(`#ct-${ct.name}${sender.id_suffix}-search-clear-button`).removeClass('d-none')
                     corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content); })
+                    sender.corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content); })
                 }
             })
 
