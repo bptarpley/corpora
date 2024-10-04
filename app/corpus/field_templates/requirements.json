@@ -27,5 +27,10 @@
             "js": ["js/filepond.js"],
             "css": ["css/filepond.css"]
         }
+    },
+    "cross_reference": {
+        "edit": {
+            "js": ["js/interact.min.js"]
+        }
     }
 }

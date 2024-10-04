@@ -412,9 +412,14 @@
         <div class="tab-content h-100 p-3">
             <div class="tab-pane fade show active" id="content-tab-contents" role="tabpanel" aria-labelledby="content-tab">
                 <!-- CONTENT TAB CONTENTS -->
-                <div id="content-types-nav" class="alert alert-info sticky-nav">
-                    <a href="#breadcrumb"><i class="fas fa-sort-up"></i> Top</a>
+
+                <!-- sticky nav -->
+                <div class="sticky-nav py-2">
+                    <div id="content-types-nav" class="alert alert-info m-0">
+                        <a href="#breadcrumb"><i class="fas fa-sort-up"></i> Top</a>
+                    </div>
                 </div>
+
                 <div id="content-types-div">
 
                     <!-- CONTENT TYPES LISTED HERE -->
@@ -652,6 +657,7 @@
     <script src={% static 'js/beautify/beautify-html.js' %}></script>
     <script src="{% static 'js/vis-network.js' %}"></script>
     <script src="{% static 'js/sortable.js' %}"></script>
+    <script src="{% static 'js/interact.min.js' %}"></script>
     <script type="application/javascript">
         let corpus_id = "{{ corpus_id }}";
         let role = "{{ role }}";
