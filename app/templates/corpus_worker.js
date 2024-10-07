@@ -1,3 +1,6 @@
+{% load static %}
+importScripts('{% static 'js/ReconnectingEventSource.min.js' %}')
+
 let clients = []
 
 onconnect = (event) => {
@@ -21,7 +24,7 @@ onconnect = (event) => {
 }
 
 // Initialize the EventSource
-const eventSource = new EventSource('/events/{{ corpus_id }}/')
+const eventSource = new ReconnectingEventSource('/events/{{ corpus_id }}/')
 
 // Dispatch events to each client
 eventSource.addEventListener('event', (event) => {
