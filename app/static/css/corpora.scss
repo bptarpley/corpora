@@ -178,7 +178,6 @@ table.table {
 }
 
 .content-table-resize-bar {
-
   height: 10px;
   width: auto;
   display: block;
@@ -193,6 +192,27 @@ table.table {
 .content-table-container th {
   position: sticky;
   top: 0;
+}
+
+.table .thead-dark th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+}
+
+.table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+
+.corpora-content-table tbody tr:nth-of-type(odd) td {
+	background-color: rgb(229, 229, 229);
+}
+
+.corpora-content-table tbody tr td {
+	background-color: rgb(242, 242, 242);
+  
 }
 
 .corpora-content-cell {
