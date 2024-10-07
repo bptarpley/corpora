@@ -1212,6 +1212,7 @@ class GitRepo(mongoengine.EmbeddedDocument):
             # need to clone
             if not os.path.exists(self.path):
                 os.makedirs(self.path)
+                os.system(f"git config --global --add safe.directory {self.path}")
                 repo = git.Repo.init(self.path)
 
                 url = self.remote_url
