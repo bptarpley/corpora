@@ -3,6 +3,7 @@ import subprocess
 import mimetypes
 import tarfile
 import urllib.parse
+import asyncio
 from ipaddress import ip_address
 from django.shortcuts import render, redirect, HttpResponse
 from django.http import Http404, JsonResponse, StreamingHttpResponse
@@ -942,6 +943,10 @@ def bulk_job_manager(request, corpus_id, content_type):
     raise Http404("You are not authorized to view this page.")
 
 
+# This view is special in that it streams the download of potentially very large files. As such, when proxying this
+# view via nginx, there are certain nginx directives that must be enabled for the /export URI. And since we're serving
+# Corpora via Daphne as an ASGI web app, to make this stream we must make use of async code; see here for explanation:
+# https://docs.djangoproject.com/en/5.0/ref/request-response/#django.http.StreamingHttpResponse
 @login_required
 def export(request, corpus_id, content_type):
     context = _get_context(request)
@@ -1000,27 +1005,37 @@ def export(request, corpus_id, content_type):
             print(f'exporting ids: {export_ids}')
 
         if contents:
-            def stream_exports(contents):
-                contents = contents.no_cache().batch_size(10)
-                chunk_size = 1000
-                chunks = math.ceil(contents.count() / chunk_size)
-                for chunk in range(0, chunks):
-                    start = chunk * chunk_size
-                    end = start + chunk_size
-                    content_slice = contents[start:end]
-                    content_dict = [content.to_dict() for content in content_slice]
-                    content_json = json.dumps(content_dict)
-                    if chunks > 1:
-                        if chunk == 0:
-                            content_json = content_json[:-1] + ','
-                        elif chunk == chunks - 1:
-                            content_json = content_json[1:]
-                        else:
-                            content_json = content_json[1:-1] + ','
-                    yield content_json
+            async def async_range(count):
+                for i in range(count):
+                    yield (i)
+                    await asyncio.sleep(0.0)
+
+            async def stream_exports(contents):
+                try:
+                    contents = contents.no_cache().batch_size(10)
+                    chunk_size = 1000
+                    chunks = math.ceil(contents.count() / chunk_size)
+                    async for chunk in async_range(chunks):
+                        start = chunk * chunk_size
+                        end = start + chunk_size
+                        content_slice = contents[start:end]
+                        content_dict = [content.to_dict() for content in content_slice]
+                        content_json = json.dumps(content_dict)
+                        if chunks > 1:
+                            if chunk == 0:
+                                content_json = content_json[:-1] + ','
+                            elif chunk == chunks - 1:
+                                content_json = content_json[1:]
+                            else:
+                                content_json = content_json[1:-1] + ','
+                        yield content_json
+                except asyncio.CancelledError:
+                    raise
 
             response = StreamingHttpResponse(stream_exports(contents))
             response['Content-Type'] = 'application/octet-stream'
+            response['X-Accel-Buffering'] = 'no'
+            response['Cache-Control'] = 'no-cache'
             response['Content-Disposition'] = f'attachment; filename="{content_type}.json"'
             return response
 
