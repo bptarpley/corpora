@@ -5,6 +5,7 @@ import tarfile
 import urllib.parse
 import asyncio
 from ipaddress import ip_address
+from asgiref.sync import sync_to_async
 from django.shortcuts import render, redirect, HttpResponse
 from django.http import Http404, JsonResponse, StreamingHttpResponse
 from django.contrib.auth import authenticate, login, logout
@@ -948,9 +949,9 @@ def bulk_job_manager(request, corpus_id, content_type):
 # Corpora via Daphne as an ASGI web app, to make this stream we must make use of async code; see here for explanation:
 # https://docs.djangoproject.com/en/5.0/ref/request-response/#django.http.StreamingHttpResponse
 @login_required
-def export(request, corpus_id, content_type):
-    context = _get_context(request)
-    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+async def export(request, corpus_id, content_type):
+    context = await sync_to_async(_get_context)(request)
+    corpus, role = await sync_to_async(get_scholar_corpus)(corpus_id, context['scholar'])
     export_all = False
     export_ids = []
     contents = None
@@ -979,7 +980,7 @@ def export(request, corpus_id, content_type):
                 context['search']['only'] = ['id']
                 collect_results = True
                 while collect_results:
-                    results = corpus.search_content(content_type, **context['search'])
+                    results = await sync_to_async(corpus.search_content)(content_type, **context['search'])
                     if _contains(results, ['records', 'meta']):
                         export_ids += [r['id'] for r in results['records']]
                         if results['meta']['has_next_page']:
@@ -998,10 +999,10 @@ def export(request, corpus_id, content_type):
             export_ids = [export_id for export_id in export_ids.split(',') if export_id]
 
         if export_all:
-            contents = corpus.get_content(content_type, all=True)
+            contents = await sync_to_async(corpus.get_content)(content_type, all=True)
             print('exporting all')
         elif export_ids:
-            contents = corpus.get_content(content_type, {'id__in': export_ids})
+            contents = await sync_to_async(corpus.get_content)(content_type, {'id__in': export_ids})
             print(f'exporting ids: {export_ids}')
 
         if contents:
@@ -1018,6 +1019,7 @@ def export(request, corpus_id, content_type):
                     async for chunk in async_range(chunks):
                         start = chunk * chunk_size
                         end = start + chunk_size
+                        print(f'grabbing {start}:{end}')
                         content_slice = contents[start:end]
                         content_dict = [content.to_dict() for content in content_slice]
                         content_json = json.dumps(content_dict)
@@ -1028,6 +1030,7 @@ def export(request, corpus_id, content_type):
                                 content_json = content_json[1:]
                             else:
                                 content_json = content_json[1:-1] + ','
+                        asyncio.sleep(0)
                         yield content_json
                 except asyncio.CancelledError:
                     raise
