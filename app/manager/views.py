@@ -5,7 +5,7 @@ import tarfile
 import urllib.parse
 from ipaddress import ip_address
 from django.shortcuts import render, redirect, HttpResponse
-from django.http import Http404, JsonResponse
+from django.http import Http404, JsonResponse, StreamingHttpResponse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -18,6 +18,7 @@ from .utilities import(
     _clean,
     _contains,
     build_search_params_from_dict,
+    get_scholar_corpora,
     get_scholar_corpus,
     get_open_access_corpora,
     parse_uri,
@@ -39,9 +40,9 @@ from types import SimpleNamespace
 
 @login_required
 def corpora(request):
-    response = _get_context(request)
+    context = _get_context(request)
 
-    if response['scholar'].is_admin and request.method == 'POST':
+    if context['scholar'].is_admin and request.method == 'POST':
         if 'new-corpus-name' in request.POST:
             include_document_content_types = 'new-corpus-content-types' in request.POST
 
@@ -62,19 +63,24 @@ def corpora(request):
 
             sleep(4)
 
-            response['messages'].append("{0} corpus successfully created.".format(c.name))
+            context['messages'].append("{0} corpus successfully created.".format(c.name))
 
         elif 'admin-action' in request.POST:
             action = _clean(request.POST, 'admin-action')
             if action == 'scrub-provenance':
                 scrub_all_provenance()
-                response['messages'].append("Provenance scrubbing job launched!")
+                context['messages'].append("Provenance scrubbing job launched!")
+
+    scholar_corpora = get_scholar_corpora(context['scholar'], page_size=1000)
+    if scholar_corpora:
+        scholar_corpora = scholar_corpora.order_by('name')
 
     return render(
         request,
         'index.html',
         {
-            'response': response
+            'response': context,
+            'corpora': scholar_corpora
         }
     )
 
@@ -937,7 +943,92 @@ def bulk_job_manager(request, corpus_id, content_type):
 
 
 @login_required
-def exports(request):
+def export(request, corpus_id, content_type):
+    context = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+    export_all = False
+    export_ids = []
+    contents = None
+
+    if corpus:
+        if context['search']:
+            has_filtering_query = False
+            filtering_parameters = [
+                'fields_query',
+                'fields_phrase',
+                'fields_wildcard',
+                'fields_filter',
+                'fields_range',
+                'fields_exist'
+            ]
+            if 'general_query' in context['search']:
+                if context['search']['general_query'] != '*':
+                    has_filtering_query = True
+            for filtering_param in filtering_parameters:
+                if filtering_param in context['search'] and context['search'][filtering_param]:
+                    has_filtering_query = True
+
+            if has_filtering_query:
+                context['search']['page_size'] = 1000
+                context['search']['page'] = 1
+                context['search']['only'] = ['id']
+                collect_results = True
+                while collect_results:
+                    results = corpus.search_content(content_type, **context['search'])
+                    if _contains(results, ['records', 'meta']):
+                        export_ids += [r['id'] for r in results['records']]
+                        if results['meta']['has_next_page']:
+                            context['search']['page'] += 1
+                            if results['meta']['next_page_token']:
+                                context['search']['next_page_token'] = results['meta']['next_page_token']
+                        else:
+                            collect_results = False
+                    else:
+                        collect_results = False
+            else:
+                export_all = True
+
+        elif 'content-ids' in request.GET:
+            export_ids = request.GET['content-ids']
+            export_ids = [export_id for export_id in export_ids.split(',') if export_id]
+
+        if export_all:
+            contents = corpus.get_content(content_type, all=True)
+            print('exporting all')
+        elif export_ids:
+            contents = corpus.get_content(content_type, {'id__in': export_ids})
+            print(f'exporting ids: {export_ids}')
+
+        if contents:
+            def stream_exports(contents):
+                contents = contents.no_cache().batch_size(10)
+                chunk_size = 1000
+                chunks = math.ceil(contents.count() / chunk_size)
+                for chunk in range(0, chunks):
+                    start = chunk * chunk_size
+                    end = start + chunk_size
+                    content_slice = contents[start:end]
+                    content_dict = [content.to_dict() for content in content_slice]
+                    content_json = json.dumps(content_dict)
+                    if chunks > 1:
+                        if chunk == 0:
+                            content_json = content_json[:-1] + ','
+                        elif chunk == chunks - 1:
+                            content_json = content_json[1:]
+                        else:
+                            content_json = content_json[1:-1] + ','
+                    yield content_json
+
+            response = StreamingHttpResponse(stream_exports(contents))
+            response['Content-Type'] = 'application/octet-stream'
+            response['Content-Disposition'] = f'attachment; filename="{content_type}.json"'
+            return response
+
+    raise Http404("You are not authorized to view this page.")
+
+
+@login_required
+def backups(request):
     response = _get_context(request)
 
     if response['scholar'].is_admin:
@@ -1010,7 +1101,7 @@ def exports(request):
 
         return render(
             request,
-            'exports.html',
+            'backups.html',
             {
                 'response': response,
                 'exports': exports
@@ -1021,7 +1112,7 @@ def exports(request):
 
 
 @login_required
-def download_export(request, export_id):
+def download_backup(request, export_id):
     response = _get_context(request)
 
     if response['scholar'].is_admin:
@@ -1033,6 +1124,7 @@ def download_export(request, export_id):
                 response['Content-Disposition'] = 'attachment; filename="{0}"'.format(os.path.basename(export.path))
                 response['X-Accel-Redirect'] = "/files/{0}".format(export.path.replace('/corpora/', ''))
                 return response
+        print(f'{export_id} not found')
 
     raise Http404("You are not authorized to view this page.")
 

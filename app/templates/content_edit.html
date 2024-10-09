@@ -3,8 +3,6 @@
 {% load extras %}
 
 {% block css %}
-    <!--<link href="{% static 'css/filepond.css' %}" rel="stylesheet">-->
-    {% if has_geo_field %}<link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">{% endif %}
     <style>
         .bulk-editing-row {
             display: none;
@@ -22,9 +20,11 @@
             margin-bottom: 10px;
         }
 
+        /*
         :nth-last-child(1 of .multi-value-row) {
             margin-bottom: 0;
         }
+         */
 
         {% if css_styles %}{{ css_styles|safe }}{% endif %}
     </style>
@@ -100,7 +100,7 @@
                             <div id="{{ field.name }}-multi-value-add-row" class="row">
                                 <div class="col-sm-12">
                                     <button type="button"
-                                        class="btn btn-sm btn-secondary multi-value-add-button"
+                                        class="btn btn-sm btn-warning multi-value-add-button"
                                         data-field_type="{{ field.type }}"
                                         data-field_name="{{ field.name }}"
                                         data-value_index="{{ field.value|length }}"
@@ -213,7 +213,9 @@
 
                 if (edit_widget_url.length) {
                     show_widget_col()
-                    $('#edit-widget-iframe').attr('src', edit_widget_url)
+                    let widget_iframe = $('#edit-widget-iframe')
+                    widget_iframe.removeClass('d-none')
+                    widget_iframe.attr('src', edit_widget_url)
                 }
 
                 if (bulk_editing) {

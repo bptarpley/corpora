@@ -910,6 +910,7 @@ class ContentTable {
                                     With selected:
                                     <select class="form-control-sm btn-primary ml-1 mr-1" id="ct-${ct.name}${sender.id_suffix}-selection-action-selector" data-ct="${ct.name}">
                                         <option value="explore" selected>Explore</option>
+                                        <option value="export">Export</option>
                                         ${['Editor', 'Admin'].includes(role) ? '<option value="bulk-edit">Bulk Edit</option>' : ''}
                                         ${['Editor', 'Admin'].includes(role) ? '<option value="merge">Merge</option>' : ''}
                                         ${['Editor', 'Admin'].includes(role) ? '<option value="create_view">Create View</option>' : ''}
@@ -1063,6 +1064,27 @@ class ContentTable {
                             $('#multiselect-content-query').val(JSON.stringify(search))
                         }
                         multi_form.submit()
+                    } else if (action === 'export') {
+                        let export_url = `/export/${corpus_id}/${ct_name}/`
+                        let delimiter = '?'
+                        if (selected_content.all) {
+                            Object.keys(search).forEach(param => {
+                                export_url += `${delimiter}${param}=${search[param]}`
+                                delimiter = '&'
+                            })
+                        } else {
+                            export_url += `${delimiter}content-ids=${selected_content.ids.join(',')}`
+                        }
+                        console.log(export_url)
+
+                        let export_link = document.createElement('a')
+                        export_link.href = export_url
+                        export_link.setAttribute('dowload', `${ct_name}.json`)
+                        document.body.appendChild(export_link)
+                        export_link.click()
+                        document.body.removeChild(export_link)
+
+
                     } else if (action === 'merge') {
                         multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/merge/`)
                         multi_form.submit()

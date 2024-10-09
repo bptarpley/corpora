@@ -39,7 +39,7 @@
             <div class="card">
                 <div class="card-header">
                     <h4 id="header-label">
-                        Create New Export
+                        Create New Backup
                     </h4>
                 </div>
                 <div class="card-body h-100">
@@ -48,7 +48,7 @@
                         <select id="new-export-corpus-id" class="form-control"></select>
                     </div>
                     <div class="form-group">
-                        <label for="new-export-name">Export Name</label>
+                        <label for="new-export-name">Backup Name</label>
                         <input type="text" id="new-export-name" class="form-control" value="">
                     </div>
                 </div>
@@ -59,7 +59,7 @@
 
             <div class="card mt-4">
                 <div class="card-header">
-                    <h4>Existing Exports</h4>
+                    <h4>Existing Backups</h4>
                 </div>
                 <div class="card-body h-100">
                     <table class="table">
@@ -68,7 +68,7 @@
                             <th scope="col"><h5>Corpus ID</h5></th>
                             <th scope="col"><h5>Corpus Name</h5></th>
                             <th scope="col"><h5>Corpus Description</h5></th>
-                            <th scope="col"><h5>Export File</h5></th>
+                            <th scope="col"><h5>Backup File</h5></th>
                             <th scope="col"><h5>Created</h5></th>
                             <th scope="col"><h5>Action</h5></th>
                         </thead>
@@ -115,7 +115,7 @@
                                 <tr>
                                     <td colspan="7">
                                         <div class="alert alert-info">
-                                            No exports have been created yet.
+                                            No backups have been created yet.
                                         </div>
                                     </td>
                                 </tr>
@@ -124,11 +124,11 @@
                     </table>
                 </div>
                 <div class="card-footer">
-                    <h5 class="mb-2">Import an Export File</h5>
+                    <h5 class="mb-2">Import a Backup File</h5>
                     <div id="file-already-exists-msg" class="alert alert-danger d-none">
-                        <strong>An error occurred</strong> upon uploading your export file. This is likely due to
-                        there already being an export file with that name registered with Corpora. Please delete
-                        any existing exports with the same corpus and export name before re-attempting.
+                        <strong>An error occurred</strong> upon uploading your backup file. This is likely due to
+                        there already being a backup file with that name registered with Corpora. Please delete
+                        any existing backups with the same corpus and backup name before re-attempting.
                     </div>
                     <input type="file" class="filepond" id="import-export-filepond">
                     <form id="import-export-form" method="post">
@@ -263,7 +263,7 @@
                 let export_id = path_col.data('export-id');
 
                 path_col.html(`
-                    <a href="/exports/download/${export_id}/" download>${basename(path)}</a>
+                    <a href="/backups/download/${export_id}/" download>${basename(path)}</a>
                 `);
             });
 

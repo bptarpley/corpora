@@ -115,6 +115,10 @@ h5 {
     background-color: white;
 }
 
+.card {
+  border: none !important;
+}
+
 .card-header {
   padding: 8px !important;
   border-bottom: solid 4px #091540;
@@ -212,7 +216,7 @@ table.table {
 
 .corpora-content-table tbody tr td {
 	background-color: rgb(242, 242, 242);
-  
+
 }
 
 .corpora-content-cell {
