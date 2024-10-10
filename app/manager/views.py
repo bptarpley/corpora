@@ -1013,16 +1013,17 @@ async def export(request, corpus_id, content_type):
 
             async def stream_exports(contents):
                 try:
-                    contents = contents.no_cache().batch_size(10)
+                    contents = await sync_to_async(contents.no_cache)()
+                    contents = await sync_to_async(contents.batch_size)(10)
                     chunk_size = 1000
-                    chunks = math.ceil(contents.count() / chunk_size)
+                    chunks = math.ceil(await sync_to_async(contents.count)() / chunk_size)
                     async for chunk in async_range(chunks):
                         start = chunk * chunk_size
                         end = start + chunk_size
                         print(f'grabbing {start}:{end}')
                         content_slice = contents[start:end]
-                        content_dict = [content.to_dict() for content in content_slice]
-                        content_json = json.dumps(content_dict)
+                        content_dict = [await sync_to_async(content.to_dict)() for content in content_slice]
+                        content_json = await sync_to_async(json.dumps)(content_dict)
                         if chunks > 1:
                             if chunk == 0:
                                 content_json = content_json[:-1] + ','
