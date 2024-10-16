@@ -123,14 +123,9 @@
         .text-region {
             background-color: white;
             font-family: "Times New Roman", serif;
-            text-align: justify;
+            text-align-last: justify;
             text-justify: inter-word;
-            border: solid 5px #17BEBB;
-        }
-
-        .content-stretcher {
-            width: 100%;
-            display: inline-block;
+            border: solid 1px #17BEBB;
         }
 
         .control-panel {
@@ -454,7 +449,10 @@
             // determine if external IIIF image, and if so, enable rotation
             let image_url = corpora.image_url(image_file.uri) + 'full/full/0/default.png';
             if (Object.keys(image_file.iiif_info).length) {
-                image_url = corpora.iiif_url(image_file.path, image_file.iiif_info);
+                let image_width = 'max'
+                if (image_file.iiif_info.width && image_file.iiif_info.width > 1000 && ocr_file.endsWith('.json')) image_width = 1000
+
+                image_url = corpora.iiif_url(image_file.path, image_file.iiif_info, 'full', `${image_width},`)
 
                 let rotate_modal = $('#rotate-modal');
                 let rotate_page_button = $('#rotate-page-button');
@@ -1293,7 +1291,6 @@
             font_size = fit_region_text(current_region, threshold, font_size);
 
             if (!has_content) current_region.html('');
-            current_region.append(`<span class="content-stretcher"></span>`);
 
             font_size = parseInt(parseInt(font_size) / 3);
             if (font_size > max_control_font) font_size = max_control_font;
@@ -1321,12 +1318,9 @@
                 if (![37, 38, 39, 40, 27].includes(e.which)) {
                     let font_size = parseInt(current_region.css('font-size'));
                     let resized = false;
-                    $('.content-stretcher').remove();
 
                     let new_font_size = fit_region_text(current_region, threshold, font_size);
                     if (font_size !== new_font_size) resized = true;
-
-                    current_region.append(`<span class="content-stretcher"></span>`);
 
                     if (resized) {
                         $(`#region-${region_id}-text-obj`).scroll(0, 0);
@@ -1342,11 +1336,13 @@
 
         function fit_region_text(region, height_threshold, starting_font_size=10) {
             let font_size = starting_font_size;
-            while (font_size <= max_trans_font && region[0].scrollHeight < height_threshold) {
+            let threshold_buffer = 10
+            
+            while (font_size <= max_trans_font && region[0].scrollHeight < (height_threshold + threshold_buffer)) {
                 font_size += 10;
                 region.css('font-size', `${font_size}px`);
             }
-            while (font_size >= min_trans_font && region[0].scrollHeight > height_threshold) {
+            while (font_size >= min_trans_font && region[0].scrollHeight > (height_threshold + threshold_buffer)) {
                 font_size -= 1;
                 region.css('font-size', `${font_size}px`);
             }
