@@ -1857,14 +1857,6 @@ class ContentGraph {
                         avoidOverlap: 1,
                         springLength: 200
                     },
-                    /*
-                    solver: 'repulsion',
-                    repulsion: {
-                        springConstant: .01,
-                        centralGravity: .1,
-                        nodeDistance: 200
-                    },
-                     */
                     stabilization: {
                         enabled: true,
                         fit: true
