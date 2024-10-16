@@ -591,9 +591,9 @@
                         <div class="card-header">
                             <h4>Content Type Manager</h4>
                         </div>
-                        <div class="card-body p-0">
-                            <div id="content-types-graph" class="d-none" style="height: 300px"></div>
-                            <div class="list-group p-3" id="tm-ct-group">
+                        <div class="card-body">
+                            <div id="content-types-graph" class="d-none rounded" style="height: 300px"></div>
+                            <div class="list-group pt-3" id="tm-ct-group">
                                 <div class="alert alert-info no-content-types-message">No Content Types have been defined.</div>
                             </div>
                         </div>
@@ -740,7 +740,8 @@
                 // user metadata
                 let corpus_metadata_div = $('#corpus-metadata-div')
                 for (let key in corpus.kvp) {
-                    if (!key.startsWith("_") && (typeof(corpus.kvp[key]) == "string" || typeof(corpus.kvp[key]) == "boolean")) {
+                    let kvp_value_type = typeof(corpus.kvp[key])
+                    if (!key.startsWith("_") && ["string", "boolean", "number"].includes(kvp_value_type)) {
                         corpus_metadata_div.append(`
                             <div class="list-group-item">
                                 <h5>${key}</h5>
@@ -1417,7 +1418,7 @@
                         }
                     },
                     interaction: {
-                        zoomView: false
+                        zoomSpeed: 0.4
                     },
                     physics: {
                         solver: 'barnesHut',
