@@ -450,9 +450,9 @@
             let image_url = corpora.image_url(image_file.uri) + 'full/full/0/default.png';
             if (Object.keys(image_file.iiif_info).length) {
                 let image_width = 'max'
-                if (image_file.iiif_info.width && image_file.iiif_info.width > 1000 && ocr_file.endsWith('.json')) image_width = 1000
+                if (image_file.iiif_info.width && image_file.iiif_info.width > 1000 && ocr_file.endsWith('.json')) image_width = `1000,`
 
-                image_url = corpora.iiif_url(image_file.path, image_file.iiif_info, 'full', `${image_width},`)
+                image_url = corpora.iiif_url(image_file.path, image_file.iiif_info, 'full', `${image_width}`)
 
                 let rotate_modal = $('#rotate-modal');
                 let rotate_page_button = $('#rotate-page-button');
