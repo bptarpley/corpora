@@ -610,7 +610,7 @@ def api_page_region_content(request, corpus_id, document_id, ref_no, x, y, width
             page = document.pages[ref_no]
             if page:
                 if ocr_file and os.path.exists(ocr_file):
-                    if ocr_file.lower().endswith('.object'):
+                    if ocr_file.lower().endswith('.json'):
                         content = get_page_region_content(ocr_file, 'GCV', x, y, width, height)
                     elif ocr_file.lower().endswith('.hocr'):
                         content = get_page_region_content(ocr_file, 'HOCR', x, y, width, height)
