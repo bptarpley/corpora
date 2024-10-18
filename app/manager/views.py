@@ -2114,10 +2114,12 @@ def api_job(request, corpus_id=None, job_id=None):
         context = _get_context(request)
         corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
         if corpus:
-            return HttpResponse(
-                json.dumps(Job(job_id).to_dict()),
-                content_type='application/json'
-            )
+            job = Job(job_id)
+            if job:
+                return HttpResponse(
+                    json.dumps(job.to_dict()),
+                    content_type='application/json'
+                )
     return Http404("Job not found.")
 
 @api_view(['GET'])
