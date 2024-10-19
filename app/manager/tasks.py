@@ -559,7 +559,7 @@ def check_jobs():
         for job in jobs:
             if job.jobsite.name == 'Local':
                 if job.status == 'running':
-                    if job.percent_complete == 100:
+                    if job.percent_complete == 100 or (job.total_subprocesses_launched and (job.total_subprocesses_launched == job.total_subprocesses_completed)):
                         if len(job.jobsite.task_registry[job.task.name]['functions']) > (job.stage + 1):
                             job.clear_processes()
                             job.stage += 1

@@ -462,6 +462,8 @@ class JobTracker(mongoengine.Document):
     error = mongoengine.StringField()
     configuration = mongoengine.DictField()
     processes = mongoengine.EmbeddedDocumentListField(Process)
+    subprocesses_launched = mongoengine.MapField(mongoengine.BooleanField())
+    subprocesses_completed = mongoengine.MapField(mongoengine.BooleanField())
     percent_complete = mongoengine.IntField(default=0)
 
     def to_dict(self):
@@ -507,6 +509,8 @@ class JobTracker(mongoengine.Document):
         self.publish_status()
 
     def publish_status(self):
+        if self.percent_complete > 100:
+            self.percent_complete = 100
         publish_message(self.corpus_id, 'job', {
             'job_id': self.id,
             'task_name': self.task.name,
@@ -524,31 +528,20 @@ class JobTracker(mongoengine.Document):
                 report_out.write(message + '\n')
 
     def add_process(self, process_id):
-        p = Process()
-        p.id = process_id
-        p.status = 'running'
-        p.created = datetime.now()
-        self.processes.append(p)
-        self.save()
+        self.modify(**{f'set__subprocesses_launched__{process_id}': True})
 
     def complete_process(self, process_id):
-        self.reload('processes')
+        self.modify(**{f'set__subprocesses_completed__{process_id}': True})
+        self.reload('subprocesses_launched', 'subprocesses_completed')
 
-        completed_count = 0
-        for p_index in range(0, len(self.processes)):
-            if self.processes[p_index].id == process_id:
-                self.processes[p_index].status = 'complete'
-                completed_count += 1
-            elif self.processes[p_index].status == 'complete':
-                completed_count += 1
-
-        self.percent_complete = int((completed_count / len(self.processes)) * 100)
-        self.save()
-
-        self.publish_status()
+        if self.total_subprocesses_launched > 0:
+            self.percent_complete = int((self.total_subprocesses_completed / self.total_subprocesses_launched) * 100)
+            self.publish_status()
 
     def clear_processes(self):
         self.processes = []
+        self.subprocesses_launched = {}
+        self.subprocesses_completed = {}
         self.save()
 
     def kill(self):
@@ -598,6 +591,14 @@ class JobTracker(mongoengine.Document):
         if self.scholar:
             return str(self.scholar.id)
         return None
+
+    @property
+    def total_subprocesses_launched(self):
+        return len(self.subprocesses_launched.keys())
+
+    @property
+    def total_subprocesses_completed(self):
+        return len(self.subprocesses_completed.keys())
 
     def complete(self, status=None, error_msg=None):
         if status:
