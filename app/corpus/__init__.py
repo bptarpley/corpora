@@ -129,7 +129,7 @@ class Field(mongoengine.EmbeddedDocument):
         elif self.type == 'repo':
             return mongoengine.EmbeddedDocumentField(GitRepo)
         elif self.type == 'timespan':
-            return mongoengine.EmbeddedDocumentField(Timespan, default=Timespan)
+            return mongoengine.EmbeddedDocumentField(Timespan)
         elif self.type == 'geo_point':
             return mongoengine.PointField()
         elif self.type != 'cross_reference':
@@ -172,6 +172,14 @@ class Field(mongoengine.EmbeddedDocument):
 
         return None
 
+    @property
+    def view_html(self):
+        return FieldRenderer(self.type, 'view', 'html')
+
+    @property
+    def edit_html(self):
+        return FieldRenderer(self.type, 'edit', 'html')
+
     def to_dict(self):
         return {
             'name': self.name,
@@ -192,6 +200,31 @@ class Field(mongoengine.EmbeddedDocument):
             'stats': deepcopy(self.stats),
             'inherited': self.inherited
         }
+
+
+class FieldRenderer(object):
+    field_type = None
+    mode = None
+    language = None
+
+    def __init__(self, field_type, mode, language):
+        self.field_type = field_type
+        self.mode = mode
+        self.language = language
+
+    def render(self, context):
+        field_template_path = f"{settings.BASE_DIR}/corpus/field_templates/{self.field_type}/{self.mode}.{self.language}"
+        default_template_path = f"{settings.BASE_DIR}/corpus/field_templates/default_{self.mode}.{self.language}"
+        field_template = ""
+        if os.path.exists(field_template_path):
+            field_template = open(field_template_path, 'r').read()
+        elif os.path.exists(default_template_path):
+            field_template = open(default_template_path, 'r').read()
+
+        if field_template:
+            django_template = Template(field_template)
+            return django_template.render(context)
+        return ""
 
 
 class Task(mongoengine.Document):
@@ -429,6 +462,8 @@ class JobTracker(mongoengine.Document):
     error = mongoengine.StringField()
     configuration = mongoengine.DictField()
     processes = mongoengine.EmbeddedDocumentListField(Process)
+    subprocesses_launched = mongoengine.MapField(mongoengine.BooleanField())
+    subprocesses_completed = mongoengine.MapField(mongoengine.BooleanField())
     percent_complete = mongoengine.IntField(default=0)
 
     def to_dict(self):
@@ -474,6 +509,8 @@ class JobTracker(mongoengine.Document):
         self.publish_status()
 
     def publish_status(self):
+        if self.percent_complete > 100:
+            self.percent_complete = 100
         publish_message(self.corpus_id, 'job', {
             'job_id': self.id,
             'task_name': self.task.name,
@@ -491,31 +528,20 @@ class JobTracker(mongoengine.Document):
                 report_out.write(message + '\n')
 
     def add_process(self, process_id):
-        p = Process()
-        p.id = process_id
-        p.status = 'running'
-        p.created = datetime.now()
-        self.processes.append(p)
-        self.save()
+        self.modify(**{f'set__subprocesses_launched__{process_id}': True})
 
     def complete_process(self, process_id):
-        self.reload('processes')
+        self.modify(**{f'set__subprocesses_completed__{process_id}': True})
+        self.reload('subprocesses_launched', 'subprocesses_completed')
 
-        completed_count = 0
-        for p_index in range(0, len(self.processes)):
-            if self.processes[p_index].id == process_id:
-                self.processes[p_index].status = 'complete'
-                completed_count += 1
-            elif self.processes[p_index].status == 'complete':
-                completed_count += 1
-
-        self.percent_complete = int((completed_count / len(self.processes)) * 100)
-        self.save()
-
-        self.publish_status()
+        if self.total_subprocesses_launched > 0:
+            self.percent_complete = int((self.total_subprocesses_completed / self.total_subprocesses_launched) * 100)
+            self.publish_status()
 
     def clear_processes(self):
         self.processes = []
+        self.subprocesses_launched = {}
+        self.subprocesses_completed = {}
         self.save()
 
     def kill(self):
@@ -565,6 +591,14 @@ class JobTracker(mongoengine.Document):
         if self.scholar:
             return str(self.scholar.id)
         return None
+
+    @property
+    def total_subprocesses_launched(self):
+        return len(self.subprocesses_launched.keys())
+
+    @property
+    def total_subprocesses_completed(self):
+        return len(self.subprocesses_completed.keys())
 
     def complete(self, status=None, error_msg=None):
         if status:
@@ -892,6 +926,50 @@ class ContentType(mongoengine.EmbeddedDocument):
                 fd[field.name] = field
         return fd
 
+    def set_field_values_from_content(self, content):
+        for field_index in range(0, len(self.fields)):
+            f = self.fields[field_index]
+            self.fields[field_index].value = getattr(content, f.name, None)
+            self.fields[field_index].parent_uri = content.uri
+
+    def get_field_types(self):
+        field_types = []
+        for field in self.fields:
+            field_types.append(field.type)
+        return list(set(field_types))
+
+    def get_render_requirements(self, mode):
+        # build scripts/stylesheets to include
+        inclusions = {}
+        javascript_functions = ""
+        css_styles = ""
+        req_file = f"{settings.BASE_DIR}/corpus/field_templates/requirements.json"
+
+        if os.path.exists(req_file):
+            with open(req_file, 'r') as reqs_in:
+                all_reqs = json.load(reqs_in)
+                field_types = self.get_field_types()
+                for field_type in field_types:
+                    # gather includes
+                    if field_type in all_reqs:
+                        if mode in all_reqs[field_type]:
+                            for req_lang, req_paths in all_reqs[field_type][mode].items():
+                                for req_path in req_paths:
+                                    if req_lang not in inclusions:
+                                        inclusions[req_lang] = []
+                                    if req_path not in inclusions[req_lang]:
+                                        inclusions[req_lang].append(req_path)
+
+                    # gather javascript functions
+                    js_renderer = FieldRenderer(field_type, mode, 'js')
+                    javascript_functions += '\n' + js_renderer.render(Context({'field': None}))
+
+                    # gather css styles
+                    css_renderer = FieldRenderer(field_type, mode, 'css')
+                    css_styles += '\n' + css_renderer.render(Context({'field': None}))
+
+        return inclusions, javascript_functions, css_styles
+
     def to_dict(self):
         ct_dict = {
             'name': self.name,
@@ -1076,7 +1154,7 @@ class File(mongoengine.EmbeddedDocument):
 class Timespan(mongoengine.EmbeddedDocument):
     start = mongoengine.DateTimeField()
     end = mongoengine.DateTimeField()
-    uncertain = mongoengine.BooleanField(default=False)
+    uncertain = mongoengine.BooleanField()
     granularity = mongoengine.StringField(choices=('Year', 'Month', 'Day', 'Time'))
 
     def normalize(self):
@@ -1106,16 +1184,17 @@ class Timespan(mongoengine.EmbeddedDocument):
         if self.start:
             start_dt = self.start.isoformat()
 
-        end_dt = None
-        if self.end:
-            end_dt = self.end.isoformat()
+            end_dt = None
+            if self.end:
+                end_dt = self.end.isoformat()
 
-        return {
-            'start': start_dt,
-            'end': end_dt,
-            'uncertain': self.uncertain,
-            'granularity': self.granularity
-        }
+            return {
+                'start': start_dt,
+                'end': end_dt,
+                'uncertain': self.uncertain,
+                'granularity': self.granularity
+            }
+        return None
 
 
 class GitRepo(mongoengine.EmbeddedDocument):
@@ -1134,6 +1213,7 @@ class GitRepo(mongoengine.EmbeddedDocument):
             # need to clone
             if not os.path.exists(self.path):
                 os.makedirs(self.path)
+                os.system(f"git config --global --add safe.directory {self.path}")
                 repo = git.Repo.init(self.path)
 
                 url = self.remote_url
@@ -1490,6 +1570,10 @@ class Corpus(mongoengine.Document):
                 general_queries = []
                 final_query = None
 
+                # make sure labels are searched
+                if not field:
+                    top_fields.append('label')
+
                 # determine what kinds of fields this search is eligible for
                 valid_field_types = ['text', 'large_text', 'keyword', 'html']
 
@@ -1700,81 +1784,6 @@ class Corpus(mongoengine.Document):
                         elif local_operator == 'exclude':
                             must_not.append(q)
 
-                '''
-                if '.' in search_field:
-                    field_parts = search_field.split('.')
-                    xref_ct = self.content_types[content_type].get_field(field_parts[0]).cross_reference_type
-
-                    if field_parts[1] == 'label':
-                        field_type = 'text'
-                    elif field_parts[1] in ['uri', 'id']:
-                        field_type = 'keyword'
-                    else:
-                        field_type = self.content_types[xref_ct].get_field(field_parts[1]).type
-                else:
-                    if search_field == 'label':
-                        field_type = 'text'
-                    elif search_field in ['uri', 'id']:
-                        field_type = 'keyword'
-                    else:
-                        field_type = self.content_types[content_type].get_field(search_field).type
-
-                if not field_values:
-                    if '.' in search_field:
-                        field_parts = search_field.split('.')
-                        must.append(Q(
-                            "nested",
-                            path=field_parts[0],
-                            query=~Q(
-                                'exists',
-                                field=search_field
-                            )
-                        ))
-                    else:
-                        must.append(~Q('exists', field=search_field))
-
-                for field_value in field_values:
-                    q = None
-                    q_type = 'match'
-
-                    search_criteria = {
-                        search_field: {'query': field_value}
-                    }
-
-                    if field_type in ['date', 'timespan']:
-                        date_value = parse_date_string(field_value)
-                        end_date_value = None
-                        if date_value:
-                            date_value = date_value.isoformat()
-                            # if this is an entire year, let's build a range query instead
-                            if len(field_value) == 4 and field_value.isdecimal():
-                                end_date_value = parse_date_string(f"12/31/{field_value}").isoformat()
-
-                        if field_type == 'date':
-                            if end_date_value:
-                                q_type = 'range'
-                                search_criteria = {
-                                    search_field: {
-                                        'gte': date_value,
-                                        'lte': end_date_value
-                                    }
-                                }
-                            else:
-                                search_criteria[search_field]['query'] = date_value
-
-                            if '.' in search_field:
-                                field_parts = search_field.split('.')
-                                q = Q(
-                                    "nested",
-                                    path=field_parts[0],
-                                    query=Q(q_type, **search_criteria)
-                                )
-                            else:
-                                q = Q(q_type, **search_criteria)
-                        elif field_type == 'timespan':
-                            q = generate_timespan_query(search_field, date_value, end_date_value)
-                '''
-
             # PHRASE QUERY
             for search_field in fields_phrase.keys():
                 field_values = [value_part for value_part in fields_phrase[search_field].split('__') if value_part]
@@ -1809,7 +1818,13 @@ class Corpus(mongoengine.Document):
                 field_values = [value_part for value_part in fields_term[search_field].split('__') if value_part]
                 search_field, local_operator = determine_local_operator(search_field, operator)
 
-                for field_value in field_values:
+                if field_values:
+                    terms_search_type = 'term'
+                    terms_search_value = field_values[0]
+                    if len(field_values) > 1:
+                        terms_search_type = 'terms'
+                        terms_search_value = field_values
+
                     q = None
 
                     if '.' in search_field:
@@ -1818,12 +1833,12 @@ class Corpus(mongoengine.Document):
                             "nested",
                             path=field_parts[0],
                             query=Q(
-                                'term',
-                                **{search_field: field_value}
+                                terms_search_type,
+                                **{search_field: terms_search_value}
                             )
                         )
                     else:
-                        q = Q('term', **{search_field: field_value})
+                        q = Q(terms_search_type, **{search_field: terms_search_value})
 
                     if q:
                         if local_operator == 'and':
@@ -3410,25 +3425,37 @@ class Content(mongoengine.Document):
             return True
         return False
 
-    def _move_temp_file(self, field_name, field_index=None):
+    def _move_temp_file(self, field_name, field_index=None, new_basename=None):
         field = self._ct.get_field(field_name)
-        temp_uploads_dir = "{0}/{1}/temporary_uploads".format(self._corpus.path, self.content_type)
         file = None
+        new_path = f"{self.path}/files/{field_name}"
         new_file = None
 
         if field:
             if field.multiple and field_index is not None:
                 file = getattr(self, field_name)[field_index]
+                new_path += str(field_index)
             else:
                 file = getattr(self, field_name)
 
-            if file and file.path.startswith(temp_uploads_dir):
-                old_path = file.path
+            if file and file.path.startswith(settings.DJANGO_DRF_FILEPOND_UPLOAD_TMP):
+                # Make sure the folder for this new file doesn't already exist. If so,
+                # we need to create a different one
+                unique_path = new_path
+                unique_path_modifier = 1
+                while os.path.exists(unique_path):
+                    unique_path = f"{new_path}-{unique_path_modifier}"
+                    unique_path_modifier += 1
+                new_path = unique_path
 
-                new_path = old_path.replace(
-                    temp_uploads_dir,
-                    self.path + "/files"
-                )
+                # Create the new path
+                os.makedirs(new_path)
+
+                old_path = file.path
+                if new_basename:
+                    new_path = f"{new_path}/{new_basename}"
+                else:
+                    new_path = f"{new_path}/{os.path.basename(old_path)}"
 
                 os.rename(old_path, new_path)
 
@@ -3574,7 +3601,6 @@ class Content(mongoengine.Document):
                         nodes[cross_ref_type] = []
 
                     if field.multiple:
-                        nodes[cross_ref_type] = []
                         for cross_ref in field_value:
                             node_dict = {
                                 'id': cross_ref.id,

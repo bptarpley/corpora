@@ -28,6 +28,10 @@ html:not(.compact), body:not(.compact) {
   width: 100%;
 }
 
+html {
+  scroll-padding-top: 50px;
+}
+
 h4 {
   font-size: 1rem;
 }
@@ -108,6 +112,11 @@ h5 {
     z-index: 500;
     margin-left: -10px;
     margin-right: -10px;
+    background-color: white;
+}
+
+.card {
+  border: none !important;
 }
 
 .card-header {
@@ -124,6 +133,23 @@ h5 {
 
 .control-div {
   background-color: #091540;
+}
+
+.corpora-content-table .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: normal !important;
+  font-size: 12px;
+  height: 30px;
+}
+
+.fa-times-circle {
+  cursor: pointer;
+}
+
+.table thead th {
+  vertical-align: middle;
 }
 
 .table .thead-dark th {
@@ -143,6 +169,54 @@ h5 {
 
 table.table {
   border-bottom: solid 4px #17BEBB;
+}
+
+.content-table-container {
+  overflow-x: auto;
+  overflow-y: scroll;
+  -ms-overflow-style: -ms-autohiding-scrollbar;
+}
+
+.content-table-container:hover {
+  border-bottom: dotted 2px #091540;
+}
+
+.content-table-resize-bar {
+  height: 10px;
+  width: auto;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  position: relative;
+  top: -10px;
+  pointer-events: none;
+  cursor: pointer;
+}
+
+.content-table-container th {
+  position: sticky;
+  top: 0;
+}
+
+.table .thead-dark th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+}
+
+.table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+
+.corpora-content-table tbody tr:nth-of-type(odd) td {
+	background-color: rgb(229, 229, 229);
+}
+
+.corpora-content-table tbody tr td {
+	background-color: rgb(242, 242, 242);
+
 }
 
 .corpora-content-cell {

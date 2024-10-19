@@ -676,8 +676,6 @@ def reset_page_extraction(corpus_id, document_id):
     if corpus:
         document = corpus.get_content('Document', document_id)
         if document:
-            print('found objects')
-
             dirs_to_delete = [
                 "{0}/temporary_uploads".format(document.path),
                 "{0}/files".format(document.path),
@@ -686,7 +684,6 @@ def reset_page_extraction(corpus_id, document_id):
 
             for dir_to_delete in dirs_to_delete:
                 if os.path.exists(dir_to_delete):
-                    print('found {0}'.format(dir_to_delete))
                     shutil.rmtree(dir_to_delete)
 
             document.files = []

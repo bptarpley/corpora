@@ -1,7 +1,8 @@
 import os
 import importlib
+import django_eventstream
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, re_path, include
 from django.conf import settings
 from manager import views as manager_views
 
@@ -11,10 +12,12 @@ urlpatterns = [
     path('', manager_views.corpora),
     path('scholar', manager_views.scholar),
     path('scholars', manager_views.scholars),
-    path('exports', manager_views.exports),
-    path('exports/download/<str:export_id>/', manager_views.download_export),
+    path('backups', manager_views.backups),
+    path('backups/download/<str:export_id>/', manager_views.download_backup),
+    path('export/<str:corpus_id>/<str:content_type>/', manager_views.export),
     path('corpus/<str:corpus_id>/', manager_views.corpus),
     path('corpus/<str:corpus_id>/get-file/', manager_views.get_corpus_file),
+    path('corpus/<str:corpus_id>/event-dispatcher/', manager_views.get_corpus_event_dispatcher),
     path('corpus/<str:corpus_id>/<str:content_type>/explore/', manager_views.explore_content),
     path('corpus/<str:corpus_id>/<str:content_type>/merge/', manager_views.merge_content),
     path('corpus/<str:corpus_id>/<str:content_type>/bulk-job-manager/', manager_views.bulk_job_manager),
@@ -33,11 +36,14 @@ urlpatterns += [
     path('corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/edit/', manager_views.edit_content),
     path('corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/<str:content_field>/iiif-image/', manager_views.iiif_widget),
 
+    re_path(r'^fp/', include('django_drf_filepond.urls')),
     path('file/uri/<str:file_uri>/', manager_views.get_file),
     path('repo-file/<str:corpus_id>/<str:repo_name>/', manager_views.get_repo_file),
     path('image/uri/<str:image_uri>/', manager_views.get_image),
+    path('image/uri/<str:image_uri>/info.json', manager_views.get_image),
     path('image/uri/<str:image_uri>/<str:region>/<str:size>/<str:rotation>/<str:quality>.<str:format>', manager_views.get_image),
     path('iiif/2/<path:req_path>', manager_views.iiif_passthrough),
+    path('render/<str:field_type>/<str:mode>/<str:language>/<str:field_name>/<int:suffix>/', manager_views.render_field_component),
 
     path('jobs/', manager_views.job_widget),
     path('jobs/corpus/<str:corpus_id>/', manager_views.job_widget),
@@ -71,5 +77,7 @@ urlpatterns += [
     path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/files/', manager_views.api_content_files),
     path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/network-json/', manager_views.api_network_json),
     path('api/scholar/preference/<str:content_type>/<str:preference>/', manager_views.api_scholar_preference),
-    path('api/publish/<str:corpus_id>/<str:message_type>/', manager_views.api_publish),
+    path('api/publish/<str:corpus_id>/<str:event_type>/', manager_views.api_publish),
+
+    path('events/<channel>/', include(django_eventstream.urls), {}),
 ]

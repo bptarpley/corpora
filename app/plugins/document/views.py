@@ -12,6 +12,7 @@ from natsort import natsorted
 from rest_framework.decorators import api_view
 from google.cloud import vision
 from bs4 import BeautifulSoup
+from django_drf_filepond.models import TemporaryUpload
 
 
 @login_required
@@ -26,28 +27,8 @@ def document(request, corpus_id, document_id):
         if (response['scholar'].is_admin or role == 'Editor') and request.method == 'POST':
             document = corpus.get_content('Document', document_id)
 
-            # HANDLE FILE UPLOADS
-            if 'filepond' in request.FILES:
-                filename = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', request.FILES['filepond'].name)
-
-                if not document.path:
-                    document._make_path(force=True)
-                    document.save()
-
-                upload_path = "{0}/temporary_uploads".format(document.path)
-                file_path = "{0}/{1}".format(upload_path, filename)
-
-                if not os.path.exists(upload_path):
-                    os.makedirs(upload_path)
-
-                with open(file_path, 'wb+') as destination:
-                    for chunk in request.FILES['filepond'].chunks():
-                        destination.write(chunk)
-
-                return HttpResponse(ObjectId(), content_type='text/plain')
-
             # HANDLE IMPORT PAGES FORM SUBMISSION
-            elif _contains(request.POST, ['import-pages-type', 'import-pages-files']):
+            if _contains(request.POST, ['import-pages-type', 'import-pages-files']):
                 files_to_process = []
                 import_type = _clean(request.POST, 'import-pages-type')
                 import_source = _clean(request.POST, 'import-pages-pdf-source')
@@ -79,34 +60,15 @@ def document(request, corpus_id, document_id):
                     response['messages'].append('Pages imported via IIIF')
 
                 elif import_source == 'upload':
-                    upload_path = "{0}/temporary_uploads".format(document.path)
-                    for import_file in import_files:
-                        import_file_path = "{0}/{1}".format(upload_path, import_file)
-                        if os.path.exists(import_file_path):
-                            files_to_process.append(import_file_path)
-
-                    if files_to_process:
+                    if import_files:
 
                         if import_type == 'pdf':
                             image_dpi = _clean(request.POST, 'import-pages-image-dpi')
                             extract_text = _clean(request.POST, 'import-pages-extract-text')
 
-                            if '.pdf' in files_to_process[0].lower():
-                                pdf_file_path = files_to_process[0]
-                                pdf_file_basename = os.path.basename(pdf_file_path)
+                            pdf_file_path = process_document_file_upload(document, import_files[0], response['scholar']['username'])
 
-                                doc_files_path = "{0}/files".format(document.path)
-                                new_pdf_path = "{0}/{1}".format(doc_files_path, pdf_file_basename)
-
-                                os.rename(pdf_file_path, new_pdf_path)
-                                pdf_file_path = new_pdf_path
-                                document.save_file(File.process(
-                                    pdf_file_path,
-                                    "PDF File",
-                                    "User Import",
-                                    response['scholar']['username'],
-                                    False
-                                ))
+                            if pdf_file_path and '.pdf' in pdf_file_path.lower():
 
                                 # Get Local JobSite, PDF Import Task, and setup Job
                                 job_id = corpus.queue_local_job(
@@ -127,7 +89,7 @@ def document(request, corpus_id, document_id):
                         elif import_type in ['images', 'zip']:
                             # build job params
                             job_params = {
-                                'import_files_json': json.dumps(files_to_process),
+                                'import_files_json': request.POST['import-pages-files'],
                                 'split_images': image_split,
                                 'primary_witness': primary_witness,
                                 'images_type': 'file'
@@ -147,7 +109,7 @@ def document(request, corpus_id, document_id):
                     else:
                         response['errors'].append("Error locating files to import.")
 
-                elif import_source == 'existing':
+                elif import_source == 'existing' and existing_file_key:
                     image_dpi = _clean(request.POST, 'import-pages-image-dpi')
                     extract_text = _clean(request.POST, 'import-pages-extract-text')
 
@@ -171,26 +133,9 @@ def document(request, corpus_id, document_id):
             elif 'import-document-files' in request.POST:
                 import_files = json.loads(request.POST['import-document-files'])
 
-                if not document.path:
-                    document._ct.has_file_field = True
-                    document._make_path()
-                    document.save()
-
-                upload_path = document.path + '/files'
                 for import_file in import_files:
-                    # adjust filename to match how it was stored when uploading
-                    import_file = '/' + re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', import_file[1:])
-                    import_file_path = "{0}{1}".format(upload_path, import_file)
-
-                    if os.path.exists(import_file_path):
-                        extension = import_file.split('.')[-1]
-                        document.save_file(File.process(
-                            import_file_path,
-                            extension.upper() + " File",
-                            "User Import",
-                            response['scholar']['username'],
-                            False
-                        ))
+                    if not process_document_file_upload(document, import_file, response['scholar']['username']):
+                        response['errors'].append("A file with this name already exists for this document.")
 
             # HANDLE JOB RETRIES
             elif _contains(request.POST, ['retry-job-id']):
@@ -332,6 +277,33 @@ def document(request, corpus_id, document_id):
             'response': response,
         }
     )
+
+
+def process_document_file_upload(document, upload_id, username):
+    if not document.path:
+        document._ct.has_file_field = True
+        document._make_path()
+        document.save()
+
+    temp_upload = TemporaryUpload.objects.get(upload_id=upload_id)
+    temp_upload_path = temp_upload.file.path
+    import_file_path = f"{document.path}/files/{temp_upload.upload_name}"
+
+    if not os.path.exists(import_file_path):
+        os.rename(temp_upload_path, import_file_path)
+
+        extension = import_file_path.split('.')[-1]
+        document.save_file(File.process(
+            import_file_path,
+            extension.upper() + " File",
+            "User Import",
+            username,
+            False
+        ))
+
+        temp_upload.delete()
+        return import_file_path
+    return False
 
 
 @login_required
@@ -525,7 +497,7 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
                 elif new_transcription:
                     if ocr_file and os.path.exists(ocr_file):
                         ocr_type = 'HOCR'
-                        if ocr_file.lower().endswith('.object'):
+                        if ocr_file.lower().endswith('.json'):
                             ocr_type = 'GCV'
 
                         page_regions = get_page_regions(image_file, ocr_file, ocr_type, project.transcription_level)
@@ -574,7 +546,7 @@ def draw_page_regions(request, corpus_id, document_id, ref_no):
             page = document.pages[ref_no]
             if page:
                 if ocr_file and os.path.exists(ocr_file):
-                    if ocr_file.lower().endswith('.object'):
+                    if ocr_file.lower().endswith('.json'):
                         page_regions = get_page_regions(ocr_file, 'GCV')
                     elif ocr_file.lower().endswith('.hocr'):
                         page_regions = get_page_regions(ocr_file, 'HOCR')
@@ -594,8 +566,6 @@ def draw_page_regions(request, corpus_id, document_id, ref_no):
             document_id,
             ref_no
         ))
-
-        print(json.dumps(image_dict, indent=4))
 
         return render(
             request,
@@ -640,7 +610,7 @@ def api_page_region_content(request, corpus_id, document_id, ref_no, x, y, width
             page = document.pages[ref_no]
             if page:
                 if ocr_file and os.path.exists(ocr_file):
-                    if ocr_file.lower().endswith('.object'):
+                    if ocr_file.lower().endswith('.json'):
                         content = get_page_region_content(ocr_file, 'GCV', x, y, width, height)
                     elif ocr_file.lower().endswith('.hocr'):
                         content = get_page_region_content(ocr_file, 'HOCR', x, y, width, height)
@@ -715,23 +685,45 @@ def get_page_regions(image_file, ocr_file, ocr_type, granularity='line'):
 
     if os.path.exists(ocr_file):
         if ocr_type == 'GCV':
-            gcv_obj = vision.types.TextAnnotation()
-            with open(ocr_file, 'rb') as gcv_in:
-                gcv_obj.ParseFromString(gcv_in.read())
+            gcv = None
+            with open(ocr_file, 'r', encoding='utf-8') as gcv_in:
+                gcv = json.load(gcv_in)
 
-            page = gcv_obj.pages[0]
-            for block in page.blocks:
-                lowest_x = min([vertice.x for vertice in block.bounding_box.vertices])
-                lowest_y = min([vertice.y for vertice in block.bounding_box.vertices])
-                highest_x = max([vertice.x for vertice in block.bounding_box.vertices])
-                highest_y = max([vertice.y for vertice in block.bounding_box.vertices])
+            if gcv:
+                for page in gcv['pages']:
+                    for block in page['blocks']:
+                        for paragraph in block['paragraphs']:
+                            x_vertices = []
+                            y_vertices = []
+                            content = ''
 
-                regions.append({
-                    'x': lowest_x,
-                    'y': lowest_y,
-                    'height': highest_y - lowest_y,
-                    'width': highest_x - lowest_x
-                })
+                            for word in paragraph['words']:
+                                for symbol in word['symbols']:
+                                    x_vertices += [vertice['x'] for vertice in symbol['boundingBox']['vertices']]
+                                    y_vertices += [vertice['y'] for vertice in symbol['boundingBox']['vertices']]
+
+                                    content += symbol['text']
+
+                                    if 'property' in symbol and 'detectedBreak' in symbol['property'] and 'type' in symbol['property']['detectedBreak']:
+                                        detected_break = symbol['property']['detectedBreak']['type']
+
+                                        if detected_break == 'SPACE':
+                                            content += ' '
+                                        elif detected_break in ['HYPHEN', 'EOL_SURE_SPACE', 'LINE_BREAK']:
+                                            if detected_break == 'HYPHEN':
+                                                content += '-'
+
+                                            if granularity == 'line':
+                                                regions.append(make_gcv_region(x_vertices, y_vertices, content))
+                                                x_vertices = []
+                                                y_vertices = []
+                                                content = ''
+                                            else:
+                                                content += '\n'
+
+                                    if granularity != 'line':
+                                        regions.append(make_gcv_region(x_vertices, y_vertices, content))
+
         elif ocr_type == 'HOCR':
             with open(ocr_file, 'rb') as hocr_in:
                 hocr_obj = BeautifulSoup(hocr_in.read(), 'html.parser')
@@ -787,35 +779,37 @@ def get_page_region_content(ocr_file, ocr_type, x, y, width, height):
 
     if os.path.exists(ocr_file):
         if ocr_type == 'GCV':
-            gcv_obj = vision.types.TextAnnotation()
-            breaks = vision.enums.TextAnnotation.DetectedBreak.BreakType
-            with open(ocr_file, 'rb') as gcv_in:
-                gcv_obj.ParseFromString(gcv_in.read())
+            gcv = None
+            with open(ocr_file, 'r', encoding='utf-8') as gcv_in:
+                gcv = json.load(gcv_in)
 
-                for page in gcv_obj.pages:
-                    for block in page.blocks:
-                        for paragraph in block.paragraphs:
-                            for word in paragraph.words:
-                                for symbol in word.symbols:
-                                    lowest_x = min([vertice.x for vertice in symbol.bounding_box.vertices])
-                                    lowest_y = min([vertice.y for vertice in symbol.bounding_box.vertices])
-                                    highest_x = max([vertice.x for vertice in symbol.bounding_box.vertices])
-                                    highest_y = max([vertice.y for vertice in symbol.bounding_box.vertices])
+            if gcv:
+                for page in gcv['pages']:
+                    for block in page['blocks']:
+                        for paragraph in block['paragraphs']:
+                            for word in paragraph['words']:
+                                for symbol in word['symbols']:
+                                    lowest_x = min([vertice['x'] for vertice in symbol['boundingBox']['vertices']])
+                                    lowest_y = min([vertice['y'] for vertice in symbol['boundingBox']['vertices']])
+                                    highest_x = max([vertice['x'] for vertice in symbol['boundingBox']['vertices']])
+                                    highest_y = max([vertice['y'] for vertice in symbol['boundingBox']['vertices']])
 
                                     if lowest_x >= x and \
                                             lowest_y >= y and \
                                             highest_x <= (x + width) and \
                                             highest_y <= (y + height):
 
-                                        content += symbol.text
-                                        if symbol.property.detected_break.type == breaks.SPACE:
-                                            content += ' '
-                                        elif symbol.property.detected_break.type == breaks.EOL_SURE_SPACE:
-                                            content += '\n'
-                                        elif symbol.property.detected_break.type == breaks.LINE_BREAK:
-                                            content += '\n'
-                                        elif symbol.property.detected_break.type == breaks.HYPHEN:
-                                            content += '-\n'
+                                        content += symbol['text']
+
+                                        if 'property' in symbol and 'detectedBreak' in symbol['property'] and 'type' in symbol['property']['detectedBreak']:
+                                            detected_break = symbol['property']['detectedBreak']['type']
+
+                                            if detected_break == 'SPACE':
+                                                content += ' '
+                                            elif detected_break in ['EOL_SURE_SPACE', 'LINE_BREAK']:
+                                                content += '\n'
+                                            elif detected_break == 'HYPHEN':
+                                                content += '-\n'
         elif ocr_type == 'HOCR':
             with open(ocr_file, 'rb') as hocr_in:
                 hocr_obj = BeautifulSoup(hocr_in.read(), 'html.parser')
@@ -828,3 +822,18 @@ def get_page_region_content(ocr_file, ocr_type, x, y, width, height):
                         int(bbox_parts[4]) <= (y + height + pixel_margin):
                     content += word.text + ' '
     return content.strip()
+
+
+def make_gcv_region(x_vertices, y_vertices, content):
+    lowest_x = min(x_vertices)
+    lowest_y = min(y_vertices)
+    highest_x = max(x_vertices)
+    highest_y = max(y_vertices)
+
+    return {
+        'x': lowest_x,
+        'y': lowest_y,
+        'height': highest_y - lowest_y,
+        'width': highest_x - lowest_x,
+        'ocr_content': content.strip()
+    }

@@ -27,7 +27,7 @@ RUN rm -f /usr/bin/python3
 
 # Install needed debian packages
 RUN apt-get update
-RUN apt-get install -y python3.11
+RUN apt-get install -y python3.11 python3.11-dev
 RUN apt-get install -y ca-certificates python3-pip git jupyter-notebook ghostscript mongodb-database-tools
 RUN apt-get install -y libgs-dev imagemagick tesseract-ocr tesseract-ocr-eng
 
@@ -49,14 +49,16 @@ COPY . corpora/
 # Install python dependencies
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 10
 RUN python3 -m pip install --upgrade pip
+RUN python3 -m pip install --upgrade setuptools==70.0.0
+RUN python3 -m pip install --upgrade packaging==24.1
 RUN python3 -m pip install --upgrade numpy
-RUN pip3 install --no-cache-dir -r /apps/corpora/requirements.txt
-RUN pip3 uninstall -y pyzmq
-RUN pip3 install pyzmq
+RUN python3 -m pip install --no-cache-dir -r /apps/corpora/requirements.txt
+RUN python3 -m pip uninstall -y pyzmq
+RUN python3 -m pip install pyzmq
 RUN python3 -m spacy download en_core_web_sm
 
 WORKDIR /apps/corpora
-RUN python3 setup.py install
+RUN python3 -m pip install .
 
 RUN python3 -m ipykernel install --name='Corpora' --display-name='Corpora'
 

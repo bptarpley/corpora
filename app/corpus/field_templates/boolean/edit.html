@@ -1,0 +1,15 @@
+<div class="form-check">
+    <input id="{{ field.name }}{{ suffix }}-editor"
+        class="{{ field.type }}-control"
+        type="checkbox"
+        data-events="change:toggleBooleanField"
+        data-value-field="{{ field.name }}{{ suffix }}-value"
+        {% if value %}checked{% endif %}>
+</div>
+<input id="{{ field.name }}{{ suffix }}-value"
+    type="hidden"
+    class="field-value"
+    data-field_name="{{ field.name }}"
+    data-field_type="{{ field.type }}"
+    data-value_format="boolean"
+    value="{% if value %}true{% else %}false{% endif %}" />

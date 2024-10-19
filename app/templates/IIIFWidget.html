@@ -15,17 +15,23 @@
 {% block js %}
     <script src="{% static 'js/openseadragon.min.js' %}"></script>
     <script src="{% static 'js/openseadragon-imaginghelper.min.js' %}"></script>
+    <!-- The below OpenSeaDragon plugin comes from here: https://github.com/picturae/openseadragonselection -->
+    <script src="{% static 'js/openseadragonselection.js' %}"></script>
     <script type="application/javascript">
-        let dragon = null;
-        let dragon_helper = null;
-        let viewport_event = null;
-        let viewport_timer = null;
+        let image_url = "{{ image_url }}"
+        let dragon = null
+        let dragon_helper = null
+        let selection = null
+        let viewport_event = null
+        let viewport_timer = null
+
+        if (image_url.endsWith('/')) image_url = image_url.slice(0, -1)
 
         $(document).ready(function() {
-            let main_container = $('#main-container');
-            main_container.addClass('h-100');
-            let height = main_container.height();
-            $('#iiif-div').css('height', `${height}px`);
+            let main_container = $('#main-container')
+            main_container.addClass('h-100')
+            let height = main_container.height()
+            $('#iiif-div').css('height', `${height}px`)
 
             dragon = OpenSeadragon({
                 id:                 "iiif-div",
@@ -40,7 +46,7 @@
                 wrapVertical:       true,
                 sequenceMode:       false,
                 showRotationControl: true,
-                tileSources:   ["{{ image_url }}"]
+                tileSources:   [`${image_url}/info.json`]
             });
             dragon_helper = dragon.activateImagingHelper({onImageViewChanged: function(event) {
                 viewport_event = event
@@ -62,9 +68,20 @@
                     `)
                 }, 1000)
 
-            }});
+            }})
 
-            hide_loading_overlay();
-        });
+            selection = dragon.selection({
+                prefixUrl: "/static/img/openseadragonselection/",
+                allowRotation: false,
+                restrictToImage: true,
+                onSelection: function(rect) {
+                    let image_region = `${image_url}/${rect.x},${rect.y},${rect.width},${rect.height}/${rect.width},/0/default.jpg`
+                    window.open(image_region, '_blank').focus()
+                    console.log(rect)
+                }
+            })
+
+            hide_loading_overlay()
+        })
     </script>
 {% endblock %}

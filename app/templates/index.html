@@ -1,5 +1,29 @@
 {% extends 'base.html' %}
 
+{% block css %}
+    <style>
+        .corpus-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .corpus-div {
+            min-width: 250px;
+            margin: 0!important;
+        }
+
+        .open-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: normal !important;
+            font-size: 12px;
+            height: 30px;
+        }
+    </style>
+{% endblock %}
+
 {% block modals %}
     <!-- New Corpus Modal -->
     <div class="modal fade" id="new-corpus-modal" tabindex="-1" role="dialog" aria-labelledby="new-corpus-modal-label" aria-hidden="true">
@@ -27,6 +51,12 @@
                             <input class="form-check-input" type="checkbox" id="new-corpus-open-checkbox" name="new-corpus-open" checked>
                             <label class="form-check-label" for="new-corpus-open-checkbox">
                                 Open access?
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="new-corpus-content-types-checkbox" name="new-corpus-content-types" checked>
+                            <label class="form-check-label" for="new-corpus-content-types-checkbox">
+                                Include default content types from Document plugin?
                             </label>
                         </div>
                     </div>
@@ -66,179 +96,56 @@
 {% endblock %}
 
 {% block main %}
-        <div class="row">
-            <div class="col-12">
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <div class="d-flex w-100 justify-content-between text-nowrap align-items-center">
-                            <h4>Available Corpora</h4>
-                            <div class="form-inline">
-                                    <input type="text" class="form-control" id="search-box" placeholder="Search" />
-                                    <select id="page-selector" class="form-control btn-primary ml-2"></select>
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body p-4 mb-2">
+                    <div class="corpus-grid">
+                        {% for corpus in corpora %}
+                            <div class="corpus-div alert alert-info d-flex flex-row">
+                                <div style="width: 50px;" class="mr-2">
+                                    <a href="/corpus/{{ corpus.id }}/"><span class="badge badge-warning open-badge">Open</span></a>
+                                </div>
+                                <div style="width: 200px;">
+                                    <h4>{{ corpus.name }}</h4>
+                                    {{ corpus.description }}
+                                    {% if corpus.open_access %}<div><span class="badge badge-secondary">Open Access</span></div>{% endif %}
+                                </div>
                             </div>
-                        </div>
+                        {% endfor %}
                     </div>
-                    <div class="card-body p-0">
-                        <div class="row">
-                            <div class="col-sm-12">
-                                <table class="table">
-                                    <thead class="thead-dark">
-                                        <th scope="col"><a href="#" id="corpus-sort-link"><h5>Corpus</h5></a></th>
-                                        <th scope="col"><h5>Description</h5></th>
-                                        <th scope="col"><h5>Open Access?</h5></th>
-                                    </thead>
-                                    <tbody id="corpus-table">
-                                        <tr>
-                                            <td colspan="2">
-                                                <div class="alert alert-info">
-                                                    Loading corpora...
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        {% if response.scholar.is_admin %}
-                        <div class="row px-4">
-                            <div class="col-sm-12">
-                                <iframe id="job-iframe" src="/jobs/" width="100%" frameBorder="0"></iframe>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% if response.scholar.is_admin %}
-                    <div class="card-footer d-flex w-100 justify-content-between align-items-center text-nowrap p-2">
-                        <span>
-                          <button type="button" class="btn btn-sm btn-primary" id="corpus-new-button">New Corpus</button>
-                          <a class="btn btn-sm btn-secondary" href="/scholars">Manage Scholars</a>
-                          <a class="btn btn-sm btn-secondary" href="/exports">Export/Import Corpus</a>
-                        </span>
-                        <span>
-                          <select class="form-control-sm btn-primary ml-1 mr-1" id="admin-action-selector">
-                              <option value="" selected>Admin Actions...</option>
-                              <option value="scrub-provenance">Scrub all provenance</option>
-                          </select>
-                          <button type="button" class="btn btn-sm btn-secondary" id="admin-action-go-button" disabled>Go</button>
-                        </span>
-                    </div>
-                    {% endif %}
                 </div>
+                {% if response.scholar.is_admin %}
+                <div class="card-footer d-flex w-100 justify-content-between align-items-center text-nowrap p-2" style="border-top: none;">
+                    <span>
+                      <button type="button" class="btn btn-sm btn-primary" id="corpus-new-button">New Corpus</button>
+                      <a class="btn btn-sm btn-secondary" href="/scholars">Manage Scholars</a>
+                      <a class="btn btn-sm btn-secondary" href="/backups">Corpus Backups</a>
+                    </span>
+                    <span>
+                      <select class="form-control-sm btn-primary ml-1 mr-1" id="admin-action-selector">
+                          <option value="" selected>Admin Actions...</option>
+                          <option value="scrub-provenance">Scrub all provenance</option>
+                      </select>
+                      <button type="button" class="btn btn-sm btn-secondary" id="admin-action-go-button" disabled>Go</button>
+                    </span>
+                </div>
+                {% endif %}
             </div>
         </div>
+    </div>
 {% endblock %}
 
 {% block js %}
 
     <script type="application/javascript">
-        let corpus_search = {
-            q: '*',
-            page: 1,
-            'page-size': 50,
-            's_name.raw': 'asc'
-        }
-
         $(document).ready(function() {
-            load_corpora()
+            hide_loading_overlay();
 
             $('#corpus-new-button').click(function() {
                 $('#new-corpus-modal').modal()
             })
-
-            $("#search-box").keypress(function(e){
-                let key = e.which
-                if (key === 13) {
-                    let query = $("#search-box").val()
-                    if (query) {
-                        corpus_search.q = query + '*'
-                    } else {
-                        corpus_search.q = '*'
-                    }
-                    corpus_search.page = 1
-                    load_corpora()
-                }
-            })
-
-            $('#corpus-sort-link').click(function() {
-                if (corpus_search['s_name.raw'] === 'asc') corpus_search['s_name.raw'] = 'desc'
-                else corpus_search['s_name.raw'] = 'asc'
-                corpus_search.page = 1
-
-                load_corpora()
-            })
-
-            $('#page-selector').change(function() {
-                corpus_search.page = parseInt($('#page-selector').val())
-                load_corpora()
-            })
-
-            let admin_action_selector = $('#admin-action-selector')
-            let admin_action_button = $('#admin-action-go-button')
-            admin_action_selector.change(function() {
-                if (admin_action_selector.val()) admin_action_button.attr('disabled', false)
-                else admin_action_button.attr('disabled', true)
-            })
-            admin_action_button.click(function() {
-                $('#admin-action-input').val(admin_action_selector.val())
-                if (admin_action_selector.val() === 'scrub-provenance') {
-                    $('#confirmation-modal-message').html(`
-                        Scrubbing all provenance will remove all record of jobs that have completed for all corpora and
-                        content. Would you like to proceed?
-                    `)
-                }
-                $('#confirmation-modal').modal()
-            })
         })
-
-        function load_corpora() {
-            corpora.get_corpora(corpus_search, build_corpora)
-        }
-
-        function build_corpora(corpora_data) {
-            let corpus_table = $("#corpus-table");
-            if (corpora_data.meta.total > 0) {
-                let page_selector = $('#page-selector');
-                page_selector.html('');
-                for (let p = 0; p < corpora_data.meta.num_pages; p++) {
-                    page_selector.append(`<option value="${p + 1}" ${p + 1 === corpus_search.page ? 'selected': ''}>Page ${p + 1}</option>`);
-                }
-
-                corpus_table.html('');
-                corpora_data.records.forEach(corpus => {
-                    corpus_table.append(`
-                        <tr>
-                            <td>
-                                <a href="/corpus/${corpus.id}/">${corpus.name}</a>
-                            </td>
-                            <td>
-                                ${corpus.description}
-                            </td>
-                            <td>
-                                ${corpus.open_access ? 'Yes' : 'No'}
-                            </td>
-                        </tr>
-                    `);
-                });
-            } else {
-                corpus_table.html(`
-                    <tr>
-                        <td colspan="3">
-                            <div class="alert alert-info">
-                                There are no open access corpora available to view at this time. If you are authorized to access certain corpora, please <a href="/scholar">log in</a>.
-                            </div>
-                        </td>
-                    </tr>
-                `);
-            }
-
-            hide_loading_overlay();
-        }
-
-        // THIS GETS CALLED BY JOB WIDGET IN IFRAME
-        function resize_job_widget() {
-            let job_widget = document.getElementById("job-iframe");
-            job_widget.style.height = job_widget.contentWindow.document.body.scrollHeight + 'px';
-        }
     </script>
 
 {% endblock %}

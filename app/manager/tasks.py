@@ -18,11 +18,12 @@ from django.conf import settings
 from urllib.parse import quote
 from elasticsearch_dsl.connections import get_connection
 from PIL import Image
-from datetime import datetime
+from datetime import datetime, timedelta
 from subprocess import call
 from manager.utilities import _contains, build_search_params_from_dict, order_content_schema, process_content_bundle, publish_message
 from django.utils.text import slugify
 from zipfile import ZipFile
+from django_drf_filepond.models import TemporaryUpload
 
 
 REGISTRY = {
@@ -558,7 +559,7 @@ def check_jobs():
         for job in jobs:
             if job.jobsite.name == 'Local':
                 if job.status == 'running':
-                    if job.percent_complete == 100:
+                    if job.percent_complete == 100 or (job.total_subprocesses_launched and (job.total_subprocesses_launched == job.total_subprocesses_completed)):
                         if len(job.jobsite.task_registry[job.task.name]['functions']) > (job.stage + 1):
                             job.clear_processes()
                             job.stage += 1
@@ -818,7 +819,6 @@ def merge_content(job_id):
                                         if relationship.startswith('has'):
                                             field_name = relationship[3:]
                                             for related_dict in merge_content._exploration[relationship]:
-                                                print(related_dict)
                                                 related_ct = related_dict['content_type']
                                                 related_id = related_dict['id']
                                                 related_field = corpus.content_types[related_ct].get_field(field_name)
@@ -934,9 +934,7 @@ def convert_foreign_key_to_xref(job_id):
     delete_old_field = job.get_param_value('delete_old_field')
 
     if source_ct_field and target_ct_field and new_field_name:
-        print(source_ct_field)
         source_parts = source_ct_field.split('->')
-        print(source_parts)
         source_ct = source_parts[0]
         source_field = source_parts[1]
 
@@ -1152,6 +1150,10 @@ def content_deletion_cleanup():
                 'related_content_types': ''
             })
 
+    # sweep for "expired" temporary uploads
+    expired_uploads = TemporaryUpload.objects.filter(uploaded__lte=datetime.now()-timedelta(days=1))
+    for upload in expired_uploads:
+        upload.delete()
 
 @db_task(priority=3)
 def export_corpus(job_id):

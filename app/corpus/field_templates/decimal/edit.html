@@ -1,0 +1,8 @@
+<input id="{{ field.name }}{{ suffix }}-editor"
+    class="form-control {{ field.type }}-control field-value"
+    type="number"
+    step="0.01"
+    data-field_name="{{ field.name }}"
+    data-field_type="{{ field.type }}"
+    data-value_format="float"
+    value="{% if value %}{{ value }}{% endif %}" />

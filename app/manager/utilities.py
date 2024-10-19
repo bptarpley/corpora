@@ -8,6 +8,7 @@ from django.conf import settings
 from urllib.parse import unquote
 from elasticsearch_dsl import A
 from django_eventstream import send_event
+from django_drf_filepond.models import TemporaryUpload
 
 
 def get_scholar_corpora(scholar, only=[], page=1, page_size=50):
@@ -378,9 +379,24 @@ def order_content_schema(schema):
 def process_content_bundle(corpus, content_type, content, content_bundle, scholar_id, bulk_editing=False):
     if content_type in corpus.content_types:
         ct_fields = corpus.content_types[content_type].get_field_dict()
-        temp_file_fields = []
+        post_save_file_moves = []
+        files_to_delete = []
         repo_fields = []
         repo_jobs = []
+
+        # If this content isn't new, we need to detect when file fields have been changed
+        # or emptied so we can appropriately delete stale files, so lets build a list of
+        # all file paths saved to this content
+        if content.id:
+            for field in corpus.content_types[content_type].fields:
+                if field.type == 'file':
+                    file_field_value = getattr(content, field.name)
+                    if file_field_value:
+                        if field.multiple:
+                            for file_value in file_field_value:
+                                files_to_delete.append(file_value.path)
+                        else:
+                            files_to_delete.append(file_field_value.path)
 
         for field_name, data in content_bundle.items():
             if field_name in ct_fields:
@@ -393,7 +409,7 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                     else:
                         data = [data]
 
-                    for datum in data:
+                    for value_index, datum in enumerate(data):
                         value = datum['value']
                         valid_value = True
                         if (not value) and value != 0:
@@ -405,28 +421,43 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                                 value = corpus.get_content(field.cross_reference_type, value).to_dbref()
 
                             elif field.type == 'file':
-                                base_path = "{corpus_path}/{content_type}/temporary_uploads".format(
-                                    corpus_path=corpus.path,
-                                    content_type=content_type
-                                )
+                                # If content has an id and there are forward slashes in the value, we're dealing with
+                                # an already processed/saved file, so we'll just make sure the file still exists and
+                                # re-gather the metadata
+                                if content.id and '/' in value:
+                                    base_path = f"{content.path}/files"
+                                    file_path = f"{base_path}{value}"
 
-                                if content.id:
-                                    base_path = "{content_path}/files".format(content_path=content.path)
+                                # Here we're assuming the file has been freshly uploaded, which should've been handled
+                                # by the django-drf-filepond app. A record of the uploaded file should be retrievable
+                                # in the form of a TemporaryUpload (a model used by django-drf-filepond). In order to
+                                # move it from temporary upload storage, we need to save the content first and move it
+                                # to a more appropriate place later. This is because, in order for content to have a
+                                # directory to store files, it must first have an id which it receives during the save
+                                # process (the id is part of the content's "files" path).
+                                else:
+                                    temp_upload = TemporaryUpload.objects.get(upload_id=value)
+                                    file_path = temp_upload.file.path
 
-                                file_path = "{base_path}{sub_path}".format(
-                                    base_path=base_path,
-                                    sub_path=value
-                                )
+                                    post_save_file_moves.append({
+                                        'field': field_name,
+                                        'multiple': field.multiple,
+                                        'index': value_index,
+                                        'upload': temp_upload
+                                    })
+
                                 if os.path.exists(file_path):
+                                    # let's be sure and remove this from files_to_delete since it's still supposed to
+                                    # be there
+                                    if file_path in files_to_delete:
+                                        files_to_delete.remove(file_path)
+
                                     value = File.process(
                                         file_path,
                                         desc="{0} for {1}".format(ct_fields[field_name].label, content_type),
                                         prov_type="Scholar",
                                         prov_id=str(scholar_id)
                                     )
-
-                                    if not content.id and field_name not in temp_file_fields:
-                                        temp_file_fields.append(field_name)
 
                             elif field.type == 'repo':
                                 if value.get('name') and value.get('url') and value.get('branch'):
@@ -469,77 +500,96 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                             elif field.type == 'html':
                                 value = unquote(value)
 
-                        if field.multiple:
                             if valid_value:
-                                getattr(content, field_name).append(value)
+                                if field.multiple:
+                                    getattr(content, field_name).append(value)
 
-                                if field.type == 'repo' and repo_jobs:
-                                    repo_jobs[-1]['repo_field_multi_index'] = len(getattr(content, field_name)) - 1
-                        else:
-                            setattr(content, field_name, value)
+                                    if field.type == 'repo' and repo_jobs:
+                                        repo_jobs[-1]['repo_field_multi_index'] = len(getattr(content, field_name)) - 1
+                                else:
+                                    setattr(content, field_name, value)
 
                         if field.has_intensity and 'intensity' in datum:
                             content.set_intensity(field_name, value, datum['intensity'])
 
         content.save(relabel=True)
 
-        if repo_fields:
-            for repo_field in repo_fields:
-                if ct_fields[repo_field].multiple:
-                    for repo_index in range(0, len(getattr(content, repo_field))):
-                        repo_name = getattr(content, repo_field)[repo_index].name
-                        getattr(content, repo_field)[repo_index].path = "{0}/{1}/{2}".format(content.path, 'repos', repo_name)
-                else:
-                    repo_name = getattr(content, repo_field).name
-                    getattr(content, repo_field).path = "{0}/{1}/{2}".format(content.path, 'repos', repo_name)
-            content.save()
+        if not bulk_editing:
+            if repo_fields:
+                for repo_field in repo_fields:
+                    if ct_fields[repo_field].multiple:
+                        for repo_index in range(0, len(getattr(content, repo_field))):
+                            repo_name = getattr(content, repo_field)[repo_index].name
+                            getattr(content, repo_field)[repo_index].path = "{0}/{1}/{2}".format(content.path, 'repos', repo_name)
+                    else:
+                        repo_name = getattr(content, repo_field).name
+                        getattr(content, repo_field).path = "{0}/{1}/{2}".format(content.path, 'repos', repo_name)
+                content.save()
 
-        for repo_job in repo_jobs:
-            repo_job['repo_content_id'] = str(content.id)
-            corpus.queue_local_job(task_name="Pull Repo", parameters=repo_job)
+            for repo_job in repo_jobs:
+                repo_job['repo_content_id'] = str(content.id)
+                corpus.queue_local_job(task_name="Pull Repo", parameters=repo_job)
 
-        if temp_file_fields:
-            for temp_file_field in temp_file_fields:
-                if ct_fields[temp_file_field].multiple:
-                    for f_index in range(0, len(getattr(content, temp_file_field))):
-                        content._move_temp_file(temp_file_field, f_index)
-                else:
-                    content._move_temp_file(temp_file_field)
+            # Let's cleanup stale files before moving any temp uploads to their permanent spot.
+            # This will improve the chances of files living in folders that correspond to their field names
+            if files_to_delete:
+                for file_to_delete in files_to_delete:
+                    if os.path.exists(file_to_delete):
+                        os.remove(file_to_delete)
+                        stale_folder = os.path.dirname(file_to_delete)
+                        is_empty = len(os.listdir(stale_folder)) == 0
+                        if stale_folder not in [content.path, f"{content.path}/files"] and is_empty:
+                            os.rmdir(stale_folder)
 
-            content.save(relabel=True)
+            if post_save_file_moves:
+                for post_save_file_move in post_save_file_moves:
+                    if post_save_file_move['multiple']:
+                        content._move_temp_file(
+                            post_save_file_move['field'],
+                            post_save_file_move['index'],
+                            new_basename=post_save_file_move['upload'].upload_name
+                        )
+                    else:
+                        content._move_temp_file(
+                            post_save_file_move['field'],
+                            new_basename=post_save_file_move['upload'].upload_name
+                        )
+
+                    post_save_file_move['upload'].delete()
+
+                content.save(relabel=True)
+
+    return content
 
 
 def process_corpus_export_file(export_file):
-    if export_file:
-        export_file = export_file.replace('/', '')
-        export_file = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', os.path.basename(export_file))
-        if '_' in export_file and export_file.endswith('.tar.gz'):
-            export_name = export_file.split('.')[0]
+    if export_file and os.path.exists(export_file):
+        basename = os.path.basename(export_file)
+        if '_' in basename and basename.endswith('.tar.gz'):
+            export_name = basename.split('.')[0]
             export_name = "_".join(export_name.split('_')[1:])
-            export_file = '/corpora/exports/' + export_file
+            export_corpus = None
 
-            if os.path.exists(export_file):
-                export_corpus = None
-                with tarfile.open(export_file, 'r:gz') as tar_in:
-                    export_corpus = tar_in.extractfile('corpus.json').read()
+            with tarfile.open(export_file, 'r:gz') as tar_in:
+                export_corpus = tar_in.extractfile('corpus.json').read()
 
-                if export_corpus:
-                    export_corpus = json.loads(export_corpus)
-                    if _contains(export_corpus, ['id', 'name', 'description']):
-                        export = CorpusExport()
-                        export.name = export_name
-                        export.corpus_id = export_corpus['id']
-                        export.corpus_name = export_corpus['name']
-                        export.corpus_description = export_corpus['description']
-                        export.path = export_file
-                        export.save()
+            if export_corpus:
+                export_corpus = json.loads(export_corpus)
+                if _contains(export_corpus, ['id', 'name', 'description']):
+                    export = CorpusExport()
+                    export.name = export_name
+                    export.corpus_id = export_corpus['id']
+                    export.corpus_name = export_corpus['name']
+                    export.corpus_description = export_corpus['description']
+                    export.path = export_file
+                    export.save()
 
-                        return True
+                    return True
     return False
 
 
 def send_alert(corpus_id, alert_type, message):
-    send_event(corpus_id, 'alert', {'type': alert_type, 'message': message})
+    send_event(corpus_id, 'event', {'event_type': 'alert', 'type': alert_type, 'message': message})
 
 
 def _contains(obj, keys):

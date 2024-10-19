@@ -10,7 +10,6 @@ setup(
     license='BSD',
     install_requires=[
         'django',
-        'gunicorn',
         'mongoengine',
         'blinker',
         'redis',

@@ -14,6 +14,7 @@ from django.utils.text import slugify
 from django.conf import settings
 from manager.utilities import _contains
 from zipfile import ZipFile
+from django_drf_filepond.models import TemporaryUpload
 from corpus import get_corpus, Job, File, run_neo
 from .content import Page
 
@@ -367,10 +368,24 @@ def import_page_images(job_id):
     job = Job(job_id)
     job.set_status('running')
 
-    import_files = json.loads(job.get_param_value('import_files_json'))
     images_type = job.get_param_value('images_type')
     split_images = job.get_param_value('split_images') == 'Yes'
     primary_witness = job.get_param_value('primary_witness') == 'Yes'
+
+    import_files = []
+    if images_type in ['file', 'zip']:
+        temp_upload_ids = json.loads(job.get_param_value('import_files_json'))
+        temp_upload_dir = f"{job.content.path}/temporary_uploads"
+        os.makedirs(temp_upload_dir, exist_ok=True)
+        for temp_upload_id in temp_upload_ids:
+            temp_upload = TemporaryUpload.objects.get(upload_id=temp_upload_id)
+            old_upload_path = temp_upload.file.path
+            new_upload_path = f"{temp_upload_dir}/{temp_upload.upload_name}"
+            os.rename(old_upload_path, new_upload_path)
+            temp_upload.delete()
+            import_files.append(new_upload_path)
+    elif images_type == 'iiif':
+        import_files = json.loads(job.get_param_value('import_files_json'))
 
     unzip_path = None
     if images_type == 'zip' and len(import_files) == 1 and import_files[0].lower().endswith('.zip') and os.path.exists(import_files[0]):

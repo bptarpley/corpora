@@ -412,12 +412,20 @@
         <div class="tab-content h-100 p-3">
             <div class="tab-pane fade show active" id="content-tab-contents" role="tabpanel" aria-labelledby="content-tab">
                 <!-- CONTENT TAB CONTENTS -->
-                <div id="content-types-nav" class="alert alert-info sticky-nav">
-                    <a href="#breadcrumb"><i class="fas fa-sort-up"></i> Top</a>
+
+                <!-- sticky nav -->
+                <div class="sticky-nav py-2">
+                    <div id="content-types-nav" class="alert alert-info m-0">
+                        <a href="#breadcrumb"><i class="fas fa-sort-up"></i> Top</a>
+                    </div>
                 </div>
+
                 <div id="content-types-div">
 
                     <!-- CONTENT TYPES LISTED HERE -->
+                    <div class="alert alert-info no-content-types-message">
+                        There are currently no content types defined for your corpus. Log in as an Editor or Admin, select the "Admin" tab, and scroll to the Content Type Manager to create some.
+                    </div>
 
                     <form id="multiselect-form" method="post" action="/not/set">
                         {% csrf_token %}
@@ -583,10 +591,10 @@
                         <div class="card-header">
                             <h4>Content Type Manager</h4>
                         </div>
-                        <div class="card-body p-0">
-                            <div id="content-types-graph" class="d-none" style="height: 300px"></div>
-                            <div class="list-group p-3" id="tm-ct-group">
-                                <div class="alert alert-info">No Content Types have been defined.</div>
+                        <div class="card-body">
+                            <div id="content-types-graph" class="d-none rounded" style="height: 300px"></div>
+                            <div class="list-group pt-3" id="tm-ct-group">
+                                <div class="alert alert-info no-content-types-message">No Content Types have been defined.</div>
                             </div>
                         </div>
                         <div class="card-footer d-flex justify-content-between">
@@ -649,6 +657,7 @@
     <script src={% static 'js/beautify/beautify-html.js' %}></script>
     <script src="{% static 'js/vis-network.js' %}"></script>
     <script src="{% static 'js/sortable.js' %}"></script>
+    <script src="{% static 'js/interact.min.js' %}"></script>
     <script type="application/javascript">
         let corpus_id = "{{ corpus_id }}";
         let role = "{{ role }}";
@@ -656,9 +665,6 @@
         let available_tasks = {{ available_tasks|safe }};
         let corpus = null;
         let template_formats = null;
-        //let jobsites = [];
-        //let local_jobsite_id = null;
-        //let tasks = [];
         let job_manager = null
         let plugin_schema = [];
         let ct_tables = {};
@@ -734,7 +740,8 @@
                 // user metadata
                 let corpus_metadata_div = $('#corpus-metadata-div')
                 for (let key in corpus.kvp) {
-                    if (!key.startsWith("_") && (typeof(corpus.kvp[key]) == "string" || typeof(corpus.kvp[key]) == "boolean")) {
+                    let kvp_value_type = typeof(corpus.kvp[key])
+                    if (!key.startsWith("_") && ["string", "boolean", "number"].includes(kvp_value_type)) {
                         corpus_metadata_div.append(`
                             <div class="list-group-item">
                                 <h5>${key}</h5>
@@ -1050,6 +1057,7 @@
 
                     // CREATE/EDIT CONTENT TYPE BUTTON CLICK
                     $('#new-ct-create-button').click(function () {
+                        $('.no-content-types-message').remove()
                         let ct_name = $('#new-ct-name-box').val();
                         if (!corpus.content_types.hasOwnProperty(ct_name)) {
                             corpus.content_types[ct_name] = {
@@ -1192,14 +1200,9 @@
                         }
 
                         $('#template-modal').modal('hide');
-                    });
+                    })
 
-                    // BUILD CONTENT TABLES AND SETUP CONTENT TYPE MANAGER
-                    if (corpus.content_types) {
-                        $('#tm-ct-group').html('');
-                    }
-
-                    // HANDLE CORPUS DELETION EVENTS
+                   // HANDLE CORPUS DELETION EVENTS
                     $('#corpus-show-delete-confirmation-button').click(function () {
                         $('#corpus-deletion-name-span').html(corpus.name);
                         if ($(this).html() === "Delete Corpus") {
@@ -1221,10 +1224,14 @@
                     oa_button.click(function() { $('#open-access-toggle-form').submit(); })
                 }
 
+                // BUILD CONTENT TABLES
                 add_breadcrumb(corpus.name, `/corpus/${corpus.id}/`);
 
                 // load first pages of 5 items for each content type; setup content type nav
-                let ct_sticky_nav = $('#content-types-nav');
+                let ct_sticky_nav = $('#content-types-nav')
+
+                if (Object.keys(corpus.content_types).length > 0) $('.no-content-types-message').remove()
+
                 for (let ct_name in corpus.content_types) {
                     ct_tables[ct_name] = new ContentTable({
                         container_id: 'content-types-div',
@@ -1411,7 +1418,7 @@
                         }
                     },
                     interaction: {
-                        zoomView: false
+                        zoomSpeed: 0.4
                     },
                     physics: {
                         solver: 'barnesHut',

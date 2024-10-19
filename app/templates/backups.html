@@ -1,0 +1,304 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load extras %}
+
+{% block css %}
+    <link href="{% static 'css/filepond.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block modals %}
+    <!-- Export Modal -->
+    <div class="modal fade" id="export-modal" tabindex="-1" role="dialog" aria-labelledby="export-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="export-form" method="post">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="export-modal-label"></h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body" id="export-msg">
+                        <!-- Export Msg Here /-->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Confirm</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block main %}
+    <div class="row mt-4">
+        <div class="col-12">
+
+            <div class="card">
+                <div class="card-header">
+                    <h4 id="header-label">
+                        Create New Backup
+                    </h4>
+                </div>
+                <div class="card-body h-100">
+                    <div class="form-group">
+                        <label for="new-export-corpus-id">Corpus</label>
+                        <select id="new-export-corpus-id" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-export-name">Backup Name</label>
+                        <input type="text" id="new-export-name" class="form-control" value="">
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="button" class="btn btn-primary" id="export_create_button">Create</button>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h4>Existing Backups</h4>
+                </div>
+                <div class="card-body h-100">
+                    <table class="table">
+                        <thead class="thead-dark">
+                            <th scope="col"><h5>Name</h5></th>
+                            <th scope="col"><h5>Corpus ID</h5></th>
+                            <th scope="col"><h5>Corpus Name</h5></th>
+                            <th scope="col"><h5>Corpus Description</h5></th>
+                            <th scope="col"><h5>Backup File</h5></th>
+                            <th scope="col"><h5>Created</h5></th>
+                            <th scope="col"><h5>Action</h5></th>
+                        </thead>
+                        <tbody>
+                            {% if exports %}
+                                {% for export in exports %}
+                                    <tr>
+                                        <td>{{ export.name }}</td>
+                                        <td>{{ export.corpus_id }}</td>
+                                        <td>{{ export.corpus_name }}</td>
+                                        <td>{{ export.corpus_description }}</td>
+                                        <td class="export-path"
+                                            data-export-path="{{ export.path }}"
+                                            data-export-id="{{ export.id }}"></td>
+                                        <td class="export-time-string">{{ export.created }}</td>
+                                        <td>
+                                            {% if export.status == "restoring" %}
+                                                <div class="alert alert-secondary">
+                                                    Currently Restoring
+                                                </div>
+                                                <button type="button"
+                                                        class="btn btn-danger cancel-restore-button"
+                                                        data-export-id="{{ export.id }}">
+                                                    Cancel Restore
+                                                </button>
+                                            {% else %}
+                                                <button type="button"
+                                                        class="btn btn-secondary restore-button"
+                                                        data-export-id="{{ export.id }}"
+                                                        data-export-corpus-id="{{ export.corpus_id }}">
+                                                    Restore
+                                                </button>
+
+                                                <button type="button"
+                                                        class="btn btn-danger delete-button"
+                                                        data-export-id="{{ export.id }}">
+                                                    <span class="fas fa-trash-alt"></span>
+                                                </button>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="7">
+                                        <div class="alert alert-info">
+                                            No backups have been created yet.
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer">
+                    <h5 class="mb-2">Import a Backup File</h5>
+                    <div id="file-already-exists-msg" class="alert alert-danger d-none">
+                        <strong>An error occurred</strong> upon uploading your backup file. This is likely due to
+                        there already being a backup file with that name registered with Corpora. Please delete
+                        any existing backups with the same corpus and backup name before re-attempting.
+                    </div>
+                    <input type="file" class="filepond" id="import-export-filepond">
+                    <form id="import-export-form" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="export-file-import" value="y" />
+                        <input type="hidden" id="import-export-upload-id" name="export-upload-id" value="" />
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+    <script src="{% static 'js/filepond.js' %}"></script>
+    <script type="application/javascript">
+        let new_export_name = $('#new-export-name');
+        let new_export_corpus_selector = $('#new-export-corpus-id');
+        let corpus_ids = [];
+        const import_export_file_pond = FilePond.create(document.querySelector('#import-export-filepond'), {
+            allowMultiple: false,
+            allowRevert: false,
+            chunkUploads: true,
+            chunkSize: 500000,
+            credits: false,
+            server: {
+                url: '/fp',
+                process: '/process/',
+                patch: '/patch/',
+                revert: '/revert/',
+                fetch: '/fetch/?target=',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'}
+            }
+        });
+        import_export_file_pond.on('error', (error, file) => {
+            $('#file-already-exists-msg').removeClass('d-none');
+        });
+        import_export_file_pond.on('processfile', (error, file) => {
+            if(!error) {
+                $('#import-export-upload-id').val(file.serverId);
+                let import_button = $('#import-export-button');
+                import_button.attr('disabled', false);
+                $('#import-export-form').submit();
+            }
+        });
+
+        $(document).ready(function() {
+            $('.export-time-string').each(function() {
+                let cell = $(this)
+                cell.html(corpora.time_string(cell.html()))
+            })
+
+            let corpus_search = {
+                q: '*',
+                page: 1,
+                'page-size': 1000,
+                's_name.raw': 'asc'
+            }
+            corpora.get_corpora(corpus_search, function(corpora_data) {
+                if (corpora_data.hasOwnProperty('records')) {
+                    corpora_data.records.forEach(corpus => {
+                        new_export_corpus_selector.append(`
+                            <option value="${corpus.id}">${corpus.name} (${corpus.id})</option>
+                        `);
+                        corpus_ids.push(corpus.id);
+                    });
+
+                    $('#export_create_button').click(function() {
+                        confirm(
+                            'Create Corpus Export?',
+                            'A corpus export contains all the files and data belonging to this corpus so that it can be restored or imported by Corpora.',
+                            {
+                                'export-action': 'create',
+                                'export-corpus-id': $('#new-export-corpus-id').val(),
+                                'export-name': $('#new-export-name').val()
+                            }
+                        );
+                    });
+
+                    $('.restore-button').click(function() {
+                        let export_id = $(this).data('export-id');
+                        let export_corpus_id = $(this).data('export-corpus-id');
+                        if (corpus_ids.includes(export_corpus_id)) {
+                            alert("A corpus with this ID already exists, and must be deleted before attempting this restore.")
+                        } else {
+                            confirm(
+                                'Restore Corpus Export?',
+                                'In order to restore this export, please ensure that no corpus with this ID already exists in Corpora. If so, it must be deleted first! Also, if this is an export from a different instance of Corpora, no job provenance data will be included in the restore.',
+                                {
+                                    'export-action': 'restore',
+                                    'export-id': export_id
+                                }
+                            );
+                        }
+                    });
+
+                    $('.cancel-restore-button').click(function() {
+                        let export_id = $(this).data('export-id');
+                        let export_corpus_id = $(this).data('export-corpus-id');
+
+                        confirm(
+                            'Cancel Corpus Restore?',
+                            'Canceling will not stop the restore process from happening. If, however, the Corpora service was rebooted during a restore, for instance, cancelling it will allow you to start it again once the incomplete corpus is deleted.',
+                            {
+                                'export-action': 'cancel-restore',
+                                'export-id': export_id
+                            }
+                        );
+                    });
+
+                    $('.delete-button').click(function() {
+                        let export_id = $(this).data('export-id');
+                        confirm(
+                            'Delete Corpus Export?',
+                            'Are you sure you want to delete this export?',
+                            {
+                                'export-action': 'delete',
+                                'export-id': export_id
+                            },
+                            'danger'
+                        );
+                    });
+                }
+            });
+
+            let today = new Date();
+            new_export_name.val(today.getFullYear() + '_' + pad(today.getMonth()+1, 2) + '_'+ pad(today.getDate(), 2));
+            $('.export-path').each(function() {
+                let path_col = $(this);
+                let path = path_col.data('export-path');
+                let export_id = path_col.data('export-id');
+
+                path_col.html(`
+                    <a href="/backups/download/${export_id}/" download>${basename(path)}</a>
+                `);
+            });
+
+            hide_loading_overlay();
+        });
+
+        function pad(num, size) {
+            num = num.toString();
+            while (num.length < size) num = "0" + num;
+            return num;
+        }
+
+        function basename(path) {
+            return path.split('/').reverse()[0];
+        }
+
+        function confirm(label, msg, fields, alert_level='warning') {
+            let export_form = $('#export-form');
+            $('#export-modal-label').html(label);
+
+            // Setup hidden inputs
+            $('.field-value').remove();
+            for (const [field_name, field_value] of Object.entries(fields)) {
+                export_form.append(`
+                    <input type="hidden" class="field-value" name="${field_name}" value="${field_value}" \>
+                `);
+            }
+
+            $('#export-msg').html(`
+                <div class="alert alert-${alert_level}">
+                    ${msg}
+                </div>
+            `);
+
+            $('#export-modal').modal('show');
+        }
+    </script>
+{% endblock %}

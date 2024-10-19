@@ -3,13 +3,14 @@ import subprocess
 import mimetypes
 import tarfile
 import urllib.parse
+import asyncio
 from ipaddress import ip_address
+from asgiref.sync import sync_to_async
 from django.shortcuts import render, redirect, HttpResponse
-from django.http import Http404, JsonResponse
+from django.http import Http404, JsonResponse, StreamingHttpResponse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.core.management import call_command
 from html import unescape
 from time import sleep
 from corpus import *
@@ -19,6 +20,7 @@ from .utilities import(
     _clean,
     _contains,
     build_search_params_from_dict,
+    get_scholar_corpora,
     get_scholar_corpus,
     get_open_access_corpora,
     parse_uri,
@@ -35,14 +37,17 @@ from .captcha import generate_captcha, validate_captcha
 from rest_framework.decorators import api_view 
 from rest_framework.authtoken.models import Token
 from django_eventstream import send_event
+from types import SimpleNamespace
 
 
 @login_required
 def corpora(request):
-    response = _get_context(request)
+    context = _get_context(request)
 
-    if response['scholar'].is_admin and request.method == 'POST':
+    if context['scholar'].is_admin and request.method == 'POST':
         if 'new-corpus-name' in request.POST:
+            include_document_content_types = 'new-corpus-content-types' in request.POST
+
             c_name = unescape(_clean(request.POST, 'new-corpus-name'))
             c_desc = unescape(_clean(request.POST, 'new-corpus-desc'))
             c_open = unescape(_clean(request.POST, 'new-corpus-open'))
@@ -53,23 +58,31 @@ def corpora(request):
             c.open_access = True if c_open else False
             c.save()
 
-            from plugins.document.content import REGISTRY
-            for schema in REGISTRY:
-                c.save_content_type(schema)
+            if include_document_content_types:
+                from plugins.document.content import REGISTRY
+                for schema in REGISTRY:
+                    c.save_content_type(schema)
 
             sleep(4)
-            response['messages'].append("{0} corpus successfully created.".format(c.name))
+
+            context['messages'].append("{0} corpus successfully created.".format(c.name))
+
         elif 'admin-action' in request.POST:
             action = _clean(request.POST, 'admin-action')
             if action == 'scrub-provenance':
                 scrub_all_provenance()
-                response['messages'].append("Provenance scrubbing job launched!")
+                context['messages'].append("Provenance scrubbing job launched!")
+
+    scholar_corpora = get_scholar_corpora(context['scholar'], page_size=1000)
+    if scholar_corpora:
+        scholar_corpora = scholar_corpora.order_by('name')
 
     return render(
         request,
         'index.html',
         {
-            'response': response
+            'response': context,
+            'corpora': scholar_corpora
         }
     )
 
@@ -489,16 +502,28 @@ def edit_content(request, corpus_id, content_type, content_id=None):
     edit_widget_url = None
     content_ids = request.POST.get('content-ids', None)
     content_query = request.POST.get('content-query', None)
-    has_geo_field = False
+    created_message_token = request.GET.get('created_message_token', None)
+    popup = 'popup' in request.GET
+    inclusions = None
+    javascript_functions = None
+    css_styles = None
 
     if (context['scholar'].is_admin or role == 'Editor') and corpus and content_type in corpus.content_types:
-        if corpus.content_types[content_type].edit_widget_url and content_id:
+        inclusions, javascript_functions, css_styles = corpus.content_types[content_type].get_render_requirements('edit')
 
-            edit_widget_url = corpus.content_types[content_type].edit_widget_url.format(
-                corpus_id=corpus_id,
-                content_type=content_type,
-                content_id=content_id
-            )
+        if content_id:
+            content = corpus.get_content(content_type, content_id)
+
+            if content:
+                corpus.content_types[content_type].set_field_values_from_content(content)
+
+            if corpus.content_types[content_type].edit_widget_url:
+
+                edit_widget_url = corpus.content_types[content_type].edit_widget_url.format(
+                    corpus_id=corpus_id,
+                    content_type=content_type,
+                    content_id=content_id
+                )
 
         if request.method == 'POST':
             content = corpus.get_content(content_type, content_id)
@@ -525,7 +550,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                         return redirect("/corpus/{0}/?msg=Bulk edit content job submitted.".format(corpus_id))
 
                     else:
-                        process_content_bundle(
+                        content = process_content_bundle(
                             corpus,
                             content_type,
                             content,
@@ -538,6 +563,14 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                                 corpus_id,
                                 content_type
                             ))
+                        elif created_message_token:
+                            send_event(corpus_id, 'event', {
+                                'event_type': created_message_token,
+                                'id': str(content.id),
+                                'uri': content.uri,
+                                'label': content.label
+                            })
+                            return HttpResponse(status=204)
                         else:
                             return redirect("/corpus/{0}/{1}/{2}".format(
                                 corpus_id,
@@ -555,16 +588,30 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                 ))
 
             # delete repo
-            elif _contains(request.POST, ['delete-repo', 'repo-name']):
-                repo_path = f"{content.path}/repos/{request.POST.get('repo-name')}"
-                if os.path.exists(repo_path) and os.path.exists(f"{repo_path}/.git"):
-                    shutil.rmtree(repo_path)
-                return HttpResponse(status=204)
+            elif _contains(request.POST, ['delete-repo', 'repo-name', 'field-name']):
+                repo_name = _clean(request.POST, 'repo-name')
+                field_name = _clean(request.POST, 'field-name')
+                deletion_performed = False
 
-        for field in corpus.content_types[content_type].fields:
-            if field.type == 'geo_point':
-                has_geo_field = True
-                break
+                if getattr(content, field_name):
+                    field = corpus.content_types[content_type].get_field(field_name)
+                    if field.multiple:
+                        for val_index, val in enumerate(getattr(content, field_name)):
+                            if val and hasattr(val, 'name') and val.name == repo_name:
+                                del getattr(content, field_name)[val_index]
+                                deletion_performed = True
+                    else:
+                        setattr(content, field_name, None)
+                        deletion_performed = True
+
+                if deletion_performed:
+                    content.save()
+
+                    repo_path = f"{content.path}/repos/{request.POST.get('repo-name')}"
+                    if os.path.exists(repo_path) and os.path.exists(f"{repo_path}/.git"):
+                        shutil.rmtree(repo_path)
+
+                return HttpResponse(status=204)
 
         return render(
             request,
@@ -574,15 +621,35 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                 'corpus_id': corpus_id,
                 'response': context,
                 'content_type': content_type,
+                'ct': corpus.content_types[content_type],
+                'inclusions': inclusions,
+                'javascript_functions': javascript_functions,
+                'css_styles': css_styles,
                 'edit_widget_url': edit_widget_url,
-                'has_geo_field': has_geo_field,
+                'popup': popup,
                 'content_id': content_id,
+                'bulk_editing': content_ids or content_query,
                 'content_ids': content_ids,
                 'content_query': content_query
             }
         )
     else:
         raise Http404("You are not authorized to view this page.")
+
+
+@login_required
+def render_field_component(request, field_type, mode, language, field_name, suffix):
+    language_mime_map = {
+        'html': 'text/html',
+        'css': 'text/css',
+        'js': 'text/javascript',
+    }
+    renderer = FieldRenderer(field_type, mode, language)
+    context = Context({'field': SimpleNamespace(type=field_type, name=field_name), 'suffix': suffix})
+    return HttpResponse(
+        renderer.render(context),
+        content_type=language_mime_map[language]
+    )
 
 
 def view_content(request, corpus_id, content_type, content_id):
@@ -592,7 +659,6 @@ def view_content(request, corpus_id, content_type, content_id):
     popup = 'popup' in request.GET
     view_widget_url = None
     default_css = None
-    has_geo_field = False
 
     if not corpus or content_type not in corpus.content_types:
         raise Http404("Corpus does not exist, or you are not authorized to view it.")
@@ -607,37 +673,40 @@ def view_content(request, corpus_id, content_type, content_id):
     if 'DefaultCSS' in corpus.content_types[content_type].templates:
         default_css = corpus.content_types[content_type].templates['DefaultCSS'].template
 
-    if render_template and render_template in corpus.content_types[content_type].templates:
-        content = corpus.get_content(content_type, content_id)
-        if content.id:
+    content = corpus.get_content(content_type, content_id)
+
+    if content:
+        corpus.content_types[content_type].set_field_values_from_content(content)
+        inclusions, javascript_functions, css_styles = corpus.content_types[content_type].get_render_requirements('view')
+
+        if render_template and render_template in corpus.content_types[content_type].templates:
             django_template = Template(corpus.content_types[content_type].templates[render_template].template)
             context = Context({content_type: content})
             return HttpResponse(
                 django_template.render(context),
                 content_type=corpus.content_types[content_type].templates[render_template].mime_type
             )
-        else:
-            raise Http404("Content does not exist, or you are not authorized to view it.")
-
-    for field in corpus.content_types[content_type].fields:
-        if field.type == 'geo_point':
-            has_geo_field = True
-            break
+    else:
+        raise Http404("Content does not exist, or you are not authorized to view it.")
 
     return render(
         request,
         'content_view.html',
         {
-            'page_title': content_type,
-            'response': context,
+            'page_title': content.label,
             'corpus_id': corpus_id,
             'role': role,
             'popup': popup,
-            'content_type': content_type,
+            'content_type': corpus.content_types[content_type],
             'content_id': content_id,
+            'content_label': content.label,
+            'content_uri': content.uri,
+            'inclusions': inclusions,
+            'javascript_functions': javascript_functions,
+            'css_styles': css_styles,
+            'response': context,
             'view_widget_url': view_widget_url,
             'default_css': default_css,
-            'has_geo_field': has_geo_field
         }
     )
 
@@ -875,39 +944,134 @@ def bulk_job_manager(request, corpus_id, content_type):
     raise Http404("You are not authorized to view this page.")
 
 
+# This view is special in that it streams the download of potentially very large files. As such, when proxying this
+# view via nginx, there are certain nginx directives that must be enabled for the /export URI. And since we're serving
+# Corpora via Daphne as an ASGI web app, to make this stream we must make use of async code; see here for explanation:
+# https://docs.djangoproject.com/en/5.0/ref/request-response/#django.http.StreamingHttpResponse
 @login_required
-def exports(request):
+async def export(request, corpus_id, content_type):
+    context = await sync_to_async(_get_context)(request)
+    corpus, role = await sync_to_async(get_scholar_corpus)(corpus_id, context['scholar'])
+    export_all = False
+    export_ids = []
+    contents = None
+
+    if corpus:
+        if context['search']:
+            has_filtering_query = False
+            filtering_parameters = [
+                'fields_query',
+                'fields_phrase',
+                'fields_wildcard',
+                'fields_filter',
+                'fields_range',
+                'fields_exist'
+            ]
+            if 'general_query' in context['search']:
+                if context['search']['general_query'] != '*':
+                    has_filtering_query = True
+            for filtering_param in filtering_parameters:
+                if filtering_param in context['search'] and context['search'][filtering_param]:
+                    has_filtering_query = True
+
+            if has_filtering_query:
+                context['search']['page_size'] = 1000
+                context['search']['page'] = 1
+                context['search']['only'] = ['id']
+                collect_results = True
+                while collect_results:
+                    results = await sync_to_async(corpus.search_content)(content_type, **context['search'])
+                    if _contains(results, ['records', 'meta']):
+                        export_ids += [r['id'] for r in results['records']]
+                        if results['meta']['has_next_page']:
+                            context['search']['page'] += 1
+                            if results['meta']['next_page_token']:
+                                context['search']['next_page_token'] = results['meta']['next_page_token']
+                        else:
+                            collect_results = False
+                    else:
+                        collect_results = False
+            else:
+                export_all = True
+
+        elif 'content-ids' in request.GET:
+            export_ids = request.GET['content-ids']
+            export_ids = [export_id for export_id in export_ids.split(',') if export_id]
+
+        if export_all:
+            contents = await sync_to_async(corpus.get_content)(content_type, all=True)
+            print('exporting all')
+        elif export_ids:
+            contents = await sync_to_async(corpus.get_content)(content_type, {'id__in': export_ids})
+            print(f'exporting ids: {export_ids}')
+
+        if contents:
+            async def async_range(count):
+                for i in range(count):
+                    yield (i)
+                    await asyncio.sleep(0.0)
+
+            async def stream_exports(contents):
+                try:
+                    contents = await sync_to_async(contents.no_cache)()
+                    contents = await sync_to_async(contents.batch_size)(10)
+                    chunk_size = 1000
+                    chunks = math.ceil(await sync_to_async(contents.count)() / chunk_size)
+                    async for chunk in async_range(chunks):
+                        start = chunk * chunk_size
+                        end = start + chunk_size
+                        print(f'grabbing {start}:{end}')
+                        content_slice = contents[start:end]
+                        content_dict = [await sync_to_async(content.to_dict)() for content in content_slice]
+                        content_json = await sync_to_async(json.dumps)(content_dict)
+                        if chunks > 1:
+                            if chunk == 0:
+                                content_json = content_json[:-1] + ','
+                            elif chunk == chunks - 1:
+                                content_json = content_json[1:]
+                            else:
+                                content_json = content_json[1:-1] + ','
+                        asyncio.sleep(0)
+                        yield content_json
+                except asyncio.CancelledError:
+                    raise
+
+            response = StreamingHttpResponse(stream_exports(contents))
+            response['Content-Type'] = 'application/octet-stream'
+            response['X-Accel-Buffering'] = 'no'
+            response['Cache-Control'] = 'no-cache'
+            response['Content-Disposition'] = f'attachment; filename="{content_type}.json"'
+            return response
+
+    raise Http404("You are not authorized to view this page.")
+
+
+@login_required
+def backups(request):
     response = _get_context(request)
 
     if response['scholar'].is_admin:
 
         if request.method == 'POST':
-            # HANDLE EXPORT FILE UPLOAD
-            if 'filepond' in request.FILES:
-                filename = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', request.FILES['filepond'].name)
-                upload_path = "/corpora/exports"
-                file_path = "{0}/{1}".format(upload_path, filename)
+            if _contains(request.POST, ['export-file-import', 'export-upload-id']):
+                upload_id = _clean(request.POST, 'export-upload-id')
+                temp_upload = TemporaryUpload.objects.get(upload_id=upload_id)
+                temp_path = temp_upload.file.path
+                new_path = f"/corpora/exports/{temp_upload.upload_name}"
 
-                # Make sure export file doesn't already exist
-                if os.path.exists(file_path):
-                    raise Http404("An export with this name already exists!")
+                if os.path.exists(temp_path):
+                    os.rename(temp_path, new_path)
 
-                if not os.path.exists(upload_path):
-                    os.makedirs(upload_path)
+                if os.path.exists(new_path):
+                    export_file = new_path
+                    if export_file:
+                        if process_corpus_export_file(export_file):
+                            response['messages'].append('Corpus export file successfully imported.')
+                        else:
+                            response['errors'].append('An error occurred while importing this export file!')
+                            os.remove(new_path)
 
-                with open(file_path, 'wb+') as destination:
-                    for chunk in request.FILES['filepond'].chunks():
-                        destination.write(chunk)
-
-                return HttpResponse(ObjectId(), content_type='text/plain')
-
-            elif _contains(request.POST, ['export-file-import', 'export-file-name']):
-                export_file = _clean(request.POST, 'export-file-name')
-                if export_file:
-                    if process_corpus_export_file(export_file):
-                        response['messages'].append('Corpus export file successfully imported.')
-                    else:
-                        response['errors'].append('An error occurred while importing this export file!')
+                temp_upload.delete()
 
             # HANDLE EXPORT ACTIONS
             export_action = _clean(request.POST, 'export-action')
@@ -926,7 +1090,6 @@ def exports(request):
                         scholar_id=response['scholar'].id,
                         parameters={'export_name': export_name}
                     )
-                    print("Job ID: {0}".format(job_id))
                     run_job(job_id)
                     response['messages'].append('Export {0} successfully initiated!'.format(export_name))
 
@@ -957,7 +1120,7 @@ def exports(request):
 
         return render(
             request,
-            'exports.html',
+            'backups.html',
             {
                 'response': response,
                 'exports': exports
@@ -968,7 +1131,7 @@ def exports(request):
 
 
 @login_required
-def download_export(request, export_id):
+def download_backup(request, export_id):
     response = _get_context(request)
 
     if response['scholar'].is_admin:
@@ -980,6 +1143,7 @@ def download_export(request, export_id):
                 response['Content-Disposition'] = 'attachment; filename="{0}"'.format(os.path.basename(export.path))
                 response['X-Accel-Redirect'] = "/files/{0}".format(export.path.replace('/corpora/', ''))
                 return response
+        print(f'{export_id} not found')
 
     raise Http404("You are not authorized to view this page.")
 
@@ -1305,6 +1469,17 @@ def get_corpus_file(request, corpus_id):
     raise Http404("File not found.")
 
 
+def get_corpus_event_dispatcher(request, corpus_id):
+    return render(
+        request,
+        'corpus_worker.js',
+        {
+            'corpus_id': corpus_id
+        },
+        content_type='application/javascript'
+    )
+
+
 @login_required
 def get_image(
     request,
@@ -1350,7 +1525,7 @@ def get_image(
                 format=format
             ))
 
-        elif req_type == '*/*':
+        elif req_type == '*/*' or request.build_absolute_uri().endswith('/info.json'):
             response = HttpResponse(content_type='application/json')
             response['X-Accel-Redirect'] = "/media/{identifier}/info.json".format(
                 identifier=file_path[1:].replace('/', '$!$'),
@@ -1939,10 +2114,12 @@ def api_job(request, corpus_id=None, job_id=None):
         context = _get_context(request)
         corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
         if corpus:
-            return HttpResponse(
-                json.dumps(Job(job_id).to_dict()),
-                content_type='application/json'
-            )
+            job = Job(job_id)
+            if job:
+                return HttpResponse(
+                    json.dumps(job.to_dict()),
+                    content_type='application/json'
+                )
     return Http404("Job not found.")
 
 @api_view(['GET'])
@@ -2104,12 +2281,14 @@ def api_scholar_preference(request, content_type, preference):
 
 
 @api_view(['GET'])
-def api_publish(request, corpus_id, message_type):
-    data = {}
+def api_publish(request, corpus_id, event_type):
+    data = {
+        'event_type': event_type
+    }
     for param in request.GET.keys():
         data[param] = request.GET[param]
 
     if data:
-        send_event(corpus_id, message_type, data)
+        send_event(corpus_id, 'event', data)
 
     return HttpResponse(status=204)

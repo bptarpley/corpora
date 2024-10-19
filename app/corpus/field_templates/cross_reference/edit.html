@@ -1,0 +1,49 @@
+<div id="{{ field.name }}{{ suffix }}-display-div"
+      class="{% if not value %}d-none{% endif %}"
+      data-id_prefix="{{ field.name }}{{ suffix }}"
+      data-events="load:renderXrefField">
+  <button type="button"
+        class="btn btn-sm btn-secondary mr-2"
+        data-id_prefix="{{ field.name }}{{ suffix }}"
+        data-events="click:resetXrefField">
+    Change
+  </button>
+  <a id="{{ field.name }}{{ suffix }}-link" href="{% if value %}{{ value.uri }}{% endif %}" target="_blank">
+    {% if value %}{{ value.label }}{% endif %}
+  </a>
+</div>
+<div id="{{ field.name }}{{ suffix }}-action-div"
+     class="{% if value %}d-none{% endif %}">
+  <div class="form-check form-check-inline">
+    <input id="{{ field.name }}{{ suffix }}-search-action-radio"
+           type="radio"
+           class="form-check-input"
+           name="{{ field.name }}{{ suffix }}-action-radio"
+           data-id_prefix="{{ field.name }}{{ suffix }}"
+           data-events="change:switchXrefMethod"
+           value="search" checked>
+    <label class="form-check-label" for="{{ field.name }}{{ suffix }}-search-action-radio">Search for existing</label>
+  </div>
+  <div class="form-check form-check-inline">
+    <input id="{{ field.name }}{{ suffix }}-create-action-radio"
+           type="radio"
+           class="form-check-input"
+           name="{{ field.name }}{{ suffix }}-action-radio"
+           data-id_prefix="{{ field.name }}{{ suffix }}"
+           data-events="change:switchXrefMethod"
+           value="create">
+    <label class="form-check-label" for="{{ field.name }}{{ suffix }}-create-action-radio">Create new</label>
+  </div>
+</div>
+<div id="{{ field.name }}{{ suffix }}-search-div"
+     class="{% if value %}d-none{% endif %} xref-action-div">
+</div>
+<div id="{{ field.name }}{{ suffix }}-create-div"
+     class="{% if value %}d-none{% endif %} xref-action-div">
+</div>
+<input id="{{ field.name }}{{ suffix }}-value" type="hidden"
+    class="field-value"
+    data-field_name="{{ field.name }}"
+    data-field_type="{{ field.type }}"
+    data-value_format="raw"
+    value="{% if value %}{{ value.id }}{% endif %}">

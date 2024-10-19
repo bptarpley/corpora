@@ -73,3 +73,7 @@ docker stack rm corpora
 # wait 20 seconds or so for the containers to stop
 docker stack deploy corpora -c docker-compose.yml
 ````
+
+## Scaling Corpora
+
+Should your instance of Corpora receive high traffic volume, it is architected in such a way as to support multiple instances of the Corpora container--this is due to the fact that they all rely on the Redis container for session management. Scaling in this way has only been tested with a [Docker Swarm deployment](/deploying/#running-in-swarm-mode), and may be accomplished by setting the `scale` key in the service configuration for Corpora in `docker-compose.yml`, or by issuing [the appropriate Docker command](https://docs.docker.com/engine/swarm/swarm-tutorial/scale-service/). Scaling Corpora in this way will also multiply the number of Huey task workers you're able to run concurrently. You could alternatively scale Huey by increasing the number of Huey workers in a given Corpora container by setting the `CRP_HUEY_WORKERS` environment variable to something higher than the default, which is currently `10`.

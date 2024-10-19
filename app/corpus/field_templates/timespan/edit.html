@@ -1,0 +1,75 @@
+<div class="row">
+  <div class="col-sm-6 form-group">
+    <label for="{{ field.name }}{{ suffix }}-editor-start">Start Date</label>
+    <input id="{{ field.name }}{{ suffix }}-editor-start"
+           type="date"
+           class="form-control edit-field-input {{ field.type }}-control"
+           data-id_prefix="{{ field.name }}{{ suffix }}"
+           data-events="load:renderTimespanField;input:setTimespanValue"
+           value="{% if value and value.start %}{{ value.start|date:"Y-m-d" }}{% endif %}">
+  </div>
+  <div class="col-sm-6 form-group">
+    <label for="{{ field.name }}{{ suffix }}-editor-end">End Date</label>
+    <input id="{{ field.name }}{{ suffix }}-editor-end"
+           type="date"
+           class="form-control {{ field.type }}-control"
+           data-id_prefix="{{ field.name }}{{ suffix }}"
+           data-events="input:setTimespanValue"
+           value="{% if value and value.end %}{{ value.end|date:"Y-m-d" }}{% endif %}">
+  </div>
+</div>
+<div id="{{ field.name }}{{ suffix }}-editor-time-row" class="row{% if not value or value.granularity != 'Time' %} d-none{% endif %}">
+  <div class="col-sm-6 form-group">
+    <label for="{{ field.name }}{{ suffix }}-editor-start-time">Start Time</label>
+    <input id="{{ field.name }}{{ suffix }}-editor-start-time"
+           type="time"
+           class="form-control {{ field.type }}-control"
+           data-id_prefix="{{ field.name }}{{ suffix }}"
+           data-events="input:setTimespanValue"
+           value="{% if value and value.start %}{{ value.start|date:"H:i" }}{% endif %}">
+  </div>
+  <div class="col-sm-6 form-group">
+    <label for="{{ field.name }}{{ suffix }}-editor-end-time">End Time</label>
+    <input id="{{ field.name }}{{ suffix }}-editor-end-time"
+           type="time"
+           class="form-control {{ field.type }}-control"
+           data-id_prefix="{{ field.name }}{{ suffix }}"
+           data-events="input:setTimespanValue"
+           value="{% if value and value.end %}{{ value.end|date:"H:i" }}{% endif %}">
+  </div>
+</div>
+<div class="row">
+  <div class="col-sm-6">
+    <div class="form-check form-check-inline">
+      <input id="{{ field.name }}{{ suffix }}-editor-uncertain"
+             class="form-check-input {{ field.type }}-control"
+             type="checkbox"
+             data-id_prefix="{{ field.name }}{{ suffix }}"
+             data-events="input:setTimespanValue"
+             {% if value and value.uncertain %}checked{% endif %}>
+      <label class="form-check-label" for="{{ field.name }}{{ suffix }}-editor-uncertain">Uncertain?</label>
+    </div>
+  </div>
+  <div class="col-sm-6 form-group">
+    <label for="{{ field.name }}{{ suffix }}-editor-granularity">Granularity</label>
+    <select id="{{ field.name }}{{ suffix }}-editor-granularity"
+            class="form-control {{ field.type }}-control"
+            data-id_prefix="{{ field.name }}{{ suffix }}"
+            data-events="change:setTimespanValue"
+            data-id-prefix="{{ field.name }}-value{{ field.suffix }}">
+      <option {% if value.granularity == "Year" %}selected{% endif %}>Year</option>
+      <option {% if value.granularity == "Month" %}selected{% endif %}>Month</option>
+      <option {% if value.granularity == "Day" or not value.granularity %}selected{% endif %}>Day</option>
+      <option {% if value.granularity == "Time" %}selected{% endif %}>Time</option>
+    </select>
+  </div>
+</div>
+<div id="{{ field.name }}{{ suffix }}-alert" class="alert alert-danger d-none">
+  Please ensure the end date and time is later than the start date and time!
+</div>
+<input id="{{ field.name }}{{ suffix }}-value"
+       type="hidden"
+       class="field-value"
+       data-field_name="{{ field.name }}"
+       data-field_type="{{ field.type }}"
+       data-value_format="json" />

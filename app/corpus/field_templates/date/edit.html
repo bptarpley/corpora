@@ -1,0 +1,7 @@
+<input id="{{ field.name }}{{ suffix }}-editor"
+    class="form-control {{ field.type }}-control field-value"
+    type="date"
+    data-field_name="{{ field.name }}"
+    data-field_type="{{ field.type }}"
+    data-value_format="raw"
+    value="{% if value %}{{ value|date:"Y-m-d" }}{% endif %}" />

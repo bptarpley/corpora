@@ -2,6 +2,7 @@ import time
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
+from django.conf import settings
 from elasticsearch_dsl import Boolean, normalizer
 from corpus import *
 
@@ -222,22 +223,6 @@ class Command(BaseCommand):
             if str(task.id) not in existing_task_ids:
                 print(f'\nDeleting stale task {task.name}...')
 
-                ''' # NOT NEEDED ANYMORE SINCE COMPLETED TASKS NO LONGER USE DB REFERENCES
-                if task.content_type == 'Corpus':
-                    corpora = Corpus.objects.filter(provenance__task=task.id)
-                    for corpus in corpora:
-                        corpus.provenance = [p for p in corpus.provenance if p.task != task]
-                        corpus.save()
-
-                else:
-                    for corpus in Corpus.objects:
-                        if task.content_type in corpus.content_types:
-                            contents = corpus.get_content(task.content_type, {'provenance__task': task.id})
-                            for content in contents:
-                                content.provenance = [p for p in content.provenance if p.task != task]
-                                content.save()
-                '''
-
                 for jobsite in jobsites:
                     if task.name in jobsite.task_registry:
                         del jobsite.task_registry[task.name]
@@ -245,6 +230,11 @@ class Command(BaseCommand):
 
                 task.delete()
 
+        # make sure file upload paths exist
+        if not os.path.exists(settings.DJANGO_DRF_FILEPOND_UPLOAD_TMP):
+            os.makedirs(settings.DJANGO_DRF_FILEPOND_UPLOAD_TMP)
+        if not os.path.exists(settings.DJANGO_DRF_FILEPOND_FILE_STORE_PATH):
+            os.makedirs(settings.DJANGO_DRF_FILEPOND_FILE_STORE_PATH)
 
         print("\n---------------------------")
         print(" CORPORA INITIALIZED")

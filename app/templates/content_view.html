@@ -13,15 +13,15 @@
             -webkit-tap-highlight-color: rgba(255, 255, 255, 0); /* mobile webkit */
         }
 
-        .html-value {
-            display: block !important;
-        }
+        {% if css_styles %}{{ css_styles|safe }}{% endif %}
 
         {% if default_css %}
         {{ default_css }}
         {% endif %}
     </style>
-    {% if has_geo_field %}<link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">{% endif %}
+    {% for inclusion in inclusions.css %}
+    <link href="{% static inclusion %}" rel="stylesheet">
+    {% endfor %}
 
 {% endblock %}
 
@@ -48,7 +48,26 @@
                             <div class="col-sm-12 col-md-6">
                     {% endif %}
                     <div class="content-type-card" id="content-div">
-                        <!-- content metadata -->
+                        {% for field in content_type.fields %}
+                            <div id="{{ field.name }}-content" class="row">
+                                <div class="col-xs-12 col-sm-2 d-flex align-right field-label {{ field.type }}-label">
+                                    <strong>{{ field.label }}</strong>
+                                </div>
+                                <div class="col-10 align-left field-value {{ field.type }}-value">
+                                    {% if field.value %}
+                                        {% if field.multiple %}
+                                            {% for value in field.value %}
+                                                <div class="{{ field.type }}-multi-value">{% include field.view_html with value=value suffix=forloop.counter0 %}</div>
+                                            {% endfor %}
+                                        {% else %}
+                                            {% include field.view_html with value=field.value %}
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge badge-secondary">Not set</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
                     </div>
                     {% if view_widget_url %}
                             </div>
@@ -76,284 +95,131 @@
     <script src="{% static 'js/filepond.js' %}"></script>
     <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
     <script src="{% static 'js/vis-network.js' %}"></script>
-    {% if has_geo_field %}<script src="{% static 'js/leaflet.js' %}"></script>{% endif %}
+    {% for inclusion in inclusions.js %}
+    <script src="{% static inclusion %}"></script>
+    {% endfor %}
     <script type="application/javascript">
-        let corpus_id = '{{ corpus_id }}';
-        let corpus_uri = `/corpus/${corpus_id}`;
-        let corpus = null;
-        let content_type_name = '{{ content_type }}';
-        let content_id = '{% if content_id %}{{ content_id }}{% endif %}';
-        let content_uri = `${corpus_uri}/${content_type_name}/${content_id}`;
-        let content_type = null;
-        let content = null;
-        let popup = {% if popup %}true{% else %}false{% endif %};
-        let has_widget = {% if view_widget_url %}true{% else %}false{% endif %};
-        let has_geo_field = {% if has_geo_field %}true{% else %}false{% endif %};
-        let network = null;
-        let last_table = null;
-
-        var field_templates = {
-            text: function(field, value) {
-                return `
-                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
-                        ${value}
-                    </div>
-                `;
-            },
-            large_text: function(field, value) {
-                return `
-                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
-                        ${value}
-                    </div>
-                `;
-            },
-            keyword: function(field, value) {
-                return `
-                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
-                        ${value}
-                    </div>
-                `;
-            },
-            html: function(field, value) {
-                return `
-                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
-                        ${value}
-                    </div>
-                `;
-            },
-            number: function(field, value) {
-                return `
-                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
-                        ${value}
-                    </div>
-                `;
-            },
-            decimal: function(field, value) {
-                return `
-                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
-                        ${value}
-                    </div>
-                `;
-            },
-            boolean: function(field, value) {
-                return `
-                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
-                        ${value ? 'Yes' : 'No'}
-                    </div>
-                `;
-            },
-            date: function(field, value) {
-                return `
-                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
-                        ${corpora.date_string(value)}
-                    </div>
-                `;
-            },
-            timespan: function(field, value) {
-                console.log(value)
-                return `
-                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
-                        ${corpora.timespan_string(value)}
-                    </div>
-                `;
-            },
-            file: function(field, value) {
-                return `
-                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
-                        <a href="${corpora.file_url(value.uri)}" download="${value.basename}">${value.basename}</a>
-                    </div>
-                `;
-            },
-            repo: function(field, value) {
-                return `
-                  <div class="col-10 d-flex align-left field-value ${field.type}-value">
-                      ${value}
-                  </div>
-                `
-            },
-            link: function(field, value) {
-                return `
-                    <div class="col-2 d-flex align-right field-value ${field.type}-value">
-                        <a href="${value}" target="_blank">${field.label}</a>
-                    </div>
-                    <div class="col-10">&nbsp;</div>
-                `;
-            },
-            'iiif-image': function(field, value) {
-                return `
-                    <div class="col-10 d-flex align-center field-value ${field.type}-value">
-                        <img src='${value}/full/,100/0/default.png' />
-                    </div>
-                `;
-            },
-            geo_point: function(field, value) {
-                return `
-                    <div class="col-10 d-flex align-center field-value ${field.type}-value">
-                        <div id="${field.name}-map-viewer" class="w-100 geo_point-map" data-latitude="${value[1]}" data-longitude="${value[0]}" style="height: 300px;"></div>
-                    </div>
-                `;
-            },
-            cross_reference: function(field, value) {
-                let intensity_indicator = '';
-                if (field.has_intensity && value.hasOwnProperty('intensity')) intensity_indicator = ` (${value.intensity})`;
-                return `
-                    <div class="col-10 d-flex align-left field-value ${field.type}-value">
-                        <a href="${value.uri}" target="_blank">${value.label}</a>${intensity_indicator}
-                    </div>
-                `;
-            }
-        };
+        let corpus_id = '{{ corpus_id }}'
+        let corpus_uri = `/corpus/${corpus_id}`
+        let corpus = null
+        let role = '{{ role }}'
+        let content_type_name = '{{ content_type.name }}'
+        let content_id = '{{ content_id }}'
+        let content_label = `{{ content_label }}`
+        let content_uri = '{{ content_uri }}'
+        let content_type = null
+        let popup = {% if popup %}true{% else %}false{% endif %}
+        let has_widget = {% if view_widget_url %}true{% else %}false{% endif %}
+        let network = null
+        let last_table = null
 
         $(document).ready(function() {
-            if (popup) $('#content-nav-tabs').addClass('d-none');
+            $('[data-events]').each(function() {
+                let events = this.getAttribute('data-events')
+                events = events.split(';')
+                events.forEach(event => {
+                    let [occasion, callback] = event.split(':')
+                    if (occasion === 'load') {
+                        window[callback](this)
+                    } else {
+                        $(this).on(occasion, window[callback])
+                    }
+                })
+            })
+
+            if (popup) $('#content-nav-tabs').addClass('d-none')
 
             if (has_widget) {
-                $('#metadata').css('height', `${window.innerHeight}px`);
+                $('#metadata').css('height', `${window.innerHeight}px`)
             }
 
             $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
                 if (e.target.id === 'explore-tab') {
-                    network.network.fit({nodes: [content.uri]});
+                    network.network.fit({nodes: [content_uri]})
                 }
-            });
+            })
 
             corpora.get_corpus(corpus_id, function(corpus_data) {
-                corpus = corpus_data;
-                content_type = corpus_data.content_types[content_type_name];
-                build_content_div();
-                corpora.get_content(corpus_id, content_type_name, content_id, function(content_data) {
-                    content = content_data;
-                    console.log(content);
-                    inject_content();
+                corpus = corpus_data
+                content_type = corpus.content_types[content_type_name]
 
-                    {% if view_widget_url %}
-                    $('#view-widget-iframe').attr('src', '{{ view_widget_url }}');
-                    {% endif %}
+                {% if view_widget_url %}
+                $('#view-widget-iframe').attr('src', '{{ view_widget_url }}')
+                {% endif %}
 
-                    if (!popup) {
+                if (!popup) {
 
-                        add_breadcrumb(corpus_data.name, `/corpus/${corpus_id}/`);
-                        add_breadcrumb(content.label, `${content_uri}/`);
+                    if (['Admin', 'Editor'].includes(role)) {
+                        let page_title = document.getElementById('page-title')
+                        page_title.innerHTML += `
+                          <a href="${content_uri}/edit/">
+                              <span class="fas fa-edit"></span>
+                          </a>
+                        `
+                    }
 
-                        // LOAD ASSOCIATED CONTENT TABLES
-                        let associated_cts = {};
-                        for (let ct_name in corpus_data.content_types) {
-                            let ct = corpus_data.content_types[ct_name];
-                            ct.fields.map(field => {
-                                if (field.type === 'cross_reference' && field.cross_reference_type === content_type_name) {
-                                    associated_cts[ct_name] = field.name;
+                    add_breadcrumb(corpus.name, `/corpus/${corpus_id}/`)
+                    add_breadcrumb(content_label, `${content_uri}/`)
+
+                    // LOAD ASSOCIATED CONTENT TABLES
+                    let associated_cts = {}
+                    for (let ct_name in corpus.content_types) {
+                        let ct = corpus.content_types[ct_name]
+                        ct.fields.map(field => {
+                            if (field.type === 'cross_reference' && field.cross_reference_type === content_type_name) {
+                                if (!(ct_name in associated_cts)) {
+                                    associated_cts[ct_name] = []
                                 }
-                            });
-                        }
+                                associated_cts[ct_name].push({
+                                    name: field.name,
+                                    label: field.label
+                                })
+                            }
+                        })
+                    }
 
-                        for (let ct_name in associated_cts) {
+                    for (let ct_name in associated_cts) {
+                        associated_cts[ct_name].forEach(xref_field => {
                             let associated_search = {
                                 page: 1,
                                 'page-size': 5,
-                            };
-                            associated_search[`f_${associated_cts[ct_name]}.id`] = content_id;
+                            }
+                            associated_search[`f_${xref_field.name}.id`] = content_id
                             last_table = new ContentTable({
+                                label: `${corpus.content_types[ct_name].plural_name} (${xref_field.label})`,
                                 container_id: 'associated-div',
                                 corpora: corpora,
-                                corpus: corpus_data,
+                                corpus: corpus,
                                 content_type: ct_name,
                                 search: associated_search
-                            });
-                        }
-
-                        // INITIAL EXPLORE VIZ LOAD
-                        let explore_container_width = $('#content-nav-tabs').innerWidth();
-                        $('#explore-div').css("width", `${explore_container_width}px`);
-                        $('#explore-div').css("height", `80vh`);
-                        network = new ContentGraph(
-                            corpora,
-                            corpus_data,
-                            "explore-div",
-                            "explore-legend",
-                            {
-                                'seeds': [content.uri],
-                                'per_type_limit': 5,
-                                'width': explore_container_width,
-                                'height': '90vh'
-                            }
-                        );
-                        $('#explore-tab').removeClass('disabled');
+                            })
+                        })
                     }
-                });
-            }, true);
-        });
 
-        function build_content_div() {
-            let content_div = $("#content-div");
-
-            for (let x = 0; x < content_type.fields.length; x++) {
-                let field = content_type.fields[x];
-
-                if (field.type !== 'embedded') {
-                    content_div.append(`
-                        <div id="${field.name}-content" class="row">
-                            <div class="col-xs-12 col-sm-2 d-flex align-right field-label ${field.type}-label">
-                                <strong>${field.label}</strong>
-                            </div>
-                        </div>
-                    `);
-                }
-            }
-        }
-
-        function inject_content() {
-            let page_title = $('#page-title');
-            page_title.html(content.label);
-            if (['Editor', 'Admin'].includes(corpus.scholar_role)) {
-                page_title.append(`
-                    <a href="/corpus/${corpus_id}/${content_type_name}/${content_id}/edit/">
-                        <span class="fas fa-edit"></span>
-                    </a>
-                `);
-            }
-
-            for (let f_index = 0; f_index < content_type.fields.length; f_index++) {
-                let field = content_type.fields[f_index];
-                let field_div = $(`#${field.name}-content`);
-
-                if (field.type !== 'embedded') {
-                    if (content && (content[field.name] || content[field.name] === 0)) {
-                        if (field.type === 'link') {
-                            field_div.html('');
+                    // INITIAL EXPLORE VIZ LOAD
+                    let explore_container_width = $('#content-nav-tabs').innerWidth()
+                    $('#explore-div').css("width", `${explore_container_width}px`)
+                    $('#explore-div').css("height", `80vh`)
+                    network = new ContentGraph(
+                        corpora,
+                        corpus,
+                        "explore-div",
+                        "explore-legend",
+                        {
+                            'seeds': [content_uri],
+                            'per_type_limit': 5,
+                            'width': explore_container_width,
+                            'height': '90vh'
                         }
-
-                        if (field.multiple) {
-                            content[field.name].forEach(function (value, index) {
-                                if (field.type !== 'link' && index !== 0) {
-                                    field_div.append('<div class="col-xs-12 col-sm-2">&nbsp;</div>');
-                                }
-                                let multi_field = Object.assign({}, field);
-                                multi_field.name = `${multi_field.name}-${index}`;
-                                field_div.append(field_templates[field.type](multi_field, value));
-                            });
-                        } else {
-                            field_div.append(field_templates[field.type](field, (content[field.name] || content[field.name] === 0) ? content[field.name] : "", ""));
-                        }
-                    } else {
-                        field_div.append(`<div class="col-10 d-flex align-left field-value ${field.type}-value"><span class="badge badge-secondary">Not set</span></div>`);
-                    }
+                    )
+                    $('#explore-tab').removeClass('disabled')
                 }
-            }
+            }, true)
 
-            if (has_geo_field) {
-                $('.geo_point-map').each(function() {
-                    let map_div = $(this);
-                    let coords = [parseFloat(map_div.data('latitude')), parseFloat(map_div.data('longitude'))];
-                    let map = L.map(map_div[0].id).setView(coords, 13);
-                    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        maxZoom: 19,
-                        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    }).addTo(map);
-                    L.marker(coords).addTo(map);
-                });
-            }
+            hide_loading_overlay()
+        })
 
-            hide_loading_overlay();
-        }
+
+        {% if javascript_functions %}{{ javascript_functions|safe }}{% endif %}
     </script>
 {% endblock %}
