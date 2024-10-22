@@ -310,33 +310,6 @@
             setTimeout(callback, 1000)
         }
 
-
-        /*
-        if (bulk_editing) {
-            $('.bulk-edit-indicator').change(function() {
-                let field_name = $(this).data('field');
-
-                if (Object.keys(field_indexes).includes(field_name)) {
-                    let field = corpus.content_types[content_type].fields[field_indexes[field_name]];
-
-                    if (this.checked) {
-                        $(`.${field_name}-control`).attr('disabled', false);
-                        if (field.type === 'html') tinymce.activeEditor.mode.set("design");
-                        bulk_edit_fields.push(field_name);
-                    } else {
-                        $(`.${field_name}-control`).attr('disabled', true);
-                        if (field.type === 'html') tinymce.activeEditor.mode.set("readonly");
-                        bulk_edit_fields = bulk_edit_fields.filter(e => e !== field_name);
-                    }
-                }
-            });
-
-            if (typeof content_query !== 'undefined') {
-                $('#content-query-input').val(JSON.stringify(content_query));
-            }
-        }
-        */
-
         function bundle_content() {
             let bundle = {}
             let multi_map = {}
