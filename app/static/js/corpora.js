@@ -784,6 +784,7 @@ class ContentTable {
             'page': 1,
             'page-size': 20,
         }
+        this.search_timer = null
         this.on_load = 'on_load' in config ? config.on_load : null
         this.min_height = 'min_height' in config ? config.min_height : 100
         this.content_populated = false
@@ -1236,31 +1237,11 @@ class ContentTable {
 
             // setup search events
             $(`#ct-${ct.name}${sender.id_suffix}-search-box`).keypress(function (e) {
+                clearTimeout(sender.search_timer)
                 let key = e.which
                 if (key === 13) {
-                    let query = $(`#ct-${ct.name}${sender.id_suffix}-search-box`).val()
-                    let field = $(`#ct-${ct.name}${sender.id_suffix}-search-setting-value`).val()
-                    let search_type = $(`#ct-${ct.name}${sender.id_suffix}-search-type-value`).val()
-                    let search_type_map = {
-                        default: 'q',
-                        exact: 'f',
-                        term: 't',
-                        phrase: 'p',
-                        wildcard: 'w',
-                        range: 'r',
-                    }
-
-                    if (field === 'default') {
-                        search.q = query
-                    } else {
-                        let param_prefix = search_type_map[search_type]
-                        search[`${param_prefix}_${field}`] = query
-                    }
-
-                    $(`#ct-${ct.name}${sender.id_suffix}-search-clear-button`).removeClass('d-none')
-                    search.page = 1
-                    sender.corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content) })
-                }
+                    sender.do_search()
+                } else sender.search_timer = setTimeout(() => {sender.do_search()}, 500)
             })
 
             $(`#ct-${ct.name}${sender.id_suffix}-search-clear-button`).click(function (event) {
@@ -1282,6 +1263,34 @@ class ContentTable {
             // perform initial query of content based on search settings
             sender.corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content) })
         }
+    }
+
+    do_search() {
+        let sender = this
+
+        let ct = sender.corpus.content_types[sender.content_type]
+        let query = $(`#ct-${ct.name}${sender.id_suffix}-search-box`).val()
+        let field = $(`#ct-${ct.name}${sender.id_suffix}-search-setting-value`).val()
+        let search_type = $(`#ct-${ct.name}${sender.id_suffix}-search-type-value`).val()
+        let search_type_map = {
+            default: 'q',
+            exact: 'f',
+            term: 't',
+            phrase: 'p',
+            wildcard: 'w',
+            range: 'r',
+        }
+
+        if (field === 'default') {
+            sender.search.q = query
+        } else {
+            let param_prefix = search_type_map[search_type]
+            sender.search[`${param_prefix}_${field}`] = query
+        }
+
+        $(`#ct-${ct.name}${sender.id_suffix}-search-clear-button`).removeClass('d-none')
+        sender.search.page = 1
+        sender.corpora.list_content(corpus_id, ct.name, sender.search, function(content){ sender.load_content(content) })
     }
 
     load_content(content, add_to_existing_rows=false) {
@@ -1463,7 +1472,7 @@ class ContentTable {
                 ct.fields.map(field => {
                     if (field.in_lists) {
                         let value = ''
-                        if (item.hasOwnProperty(field.name)) {
+                        if (item.hasOwnProperty(field.name) && item[field.name] != null) {
                             value = sender.format_column_value(item[field.name], field.type, field.multiple)
                         }
 
@@ -1573,7 +1582,6 @@ class ContentTable {
         if (typeof sender.on_load === 'function') sender.on_load(content.meta)
     }
 
-
     order_by(field) {
         let key = "s_" + field
         if (this.search.hasOwnProperty(key)) {
@@ -1589,7 +1597,6 @@ class ContentTable {
         this.search.page = 1
         this.corpora.list_content(this.corpus.id, this.content_type, this.search, function(content){ sender.load_content(content) })
     }
-
 
     remove_search_param(param) {
         if (this.search.hasOwnProperty(param)) {
@@ -2867,6 +2874,7 @@ class JobManager {
         this.custom_parameter_types = 'custom_parameter_types' in config ? config.custom_parameter_types : {}
         this.scholar = null
         this.jobsites = []
+        this.jobs_registered = new Set()
         this.job_modal = $('#job-modal')
         this.report_modal = $('#job-report-modal')
         this.job_report_timer = null
@@ -2929,13 +2937,16 @@ class JobManager {
 
                         $('body').on('click', '.job-retry-button', function() {
                             let retry_button = $(this)
+                            let job_id = retry_button.data('job-id')
+
+                            if (sender.jobs_registered.has(job_id)) sender.jobs_registered.delete(job_id)
                             sender.corpora.retry_job(
                                 sender.corpus.id,
                                 retry_button.data('content-type'),
                                 retry_button.data('content-id'),
                                 retry_button.data('job-id'),
                                 function(data) {
-                                    $(`#provenance-${retry_button.data('job-id')}-div`).remove()
+                                    $(`#provenance-${job_id}-div`).remove()
                                     if ($('.provenance-container').length === 0) {
                                         sender.report_no_jobs(true)
                                     }
@@ -3394,7 +3405,8 @@ class JobManager {
                     }).showToast()
                 }
             }
-        } else {
+        } else if (!this.jobs_registered.has(info.job_id)) {
+            this.jobs_registered.add(info.job_id)
             let sender = this
             this.corpora.get_job(this.corpus.id, info.job_id, function (job) {
                 sender.register_job(
