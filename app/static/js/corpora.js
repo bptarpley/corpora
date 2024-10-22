@@ -780,6 +780,7 @@ class ContentTable {
         this.content_type = 'content_type' in config ? config.content_type : null
         this.mode = 'mode' in config ? config.mode : 'edit'
         this.selection_callback = 'selection_callback' in config ? config.selection_callback : null
+        this.give_search_focus = 'give_search_focus' in config ? config.give_search_focus : false
         this.search = 'search' in config ? config.search : {
             'page': 1,
             'page-size': 20,
@@ -1261,7 +1262,10 @@ class ContentTable {
             })
 
             // perform initial query of content based on search settings
-            sender.corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content) })
+            sender.corpora.list_content(corpus_id, ct.name, search, function(content){
+                sender.load_content(content)
+                if (sender.give_search_focus) $(`#ct-${ct.name}${sender.id_suffix}-search-box`).focus()
+            })
         }
     }
 
