@@ -43,6 +43,7 @@ function switchXrefMethod(target) {
 
 function setupXrefSearch(id_prefix) {
     let ux = getXrefControls(id_prefix)
+    let give_search_focus = ux.search_div.parents('.multi-cross_reference-col').length > 0
     ux.search_div.empty()
     let search_table = new ContentTable({
         label: `${ux.xref_content_type.plural_name}`,
@@ -51,6 +52,7 @@ function setupXrefSearch(id_prefix) {
         corpus: corpus,
         mode: 'select',
         min_height: 300,
+        give_search_focus: give_search_focus,
         content_type: ux.xref_content_type.name,
         selection_callback: (xref) => {
             ux.search_div.empty()
