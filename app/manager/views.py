@@ -11,6 +11,7 @@ from django.http import Http404, JsonResponse, StreamingHttpResponse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from mongoengine.errors import NotUniqueError
 from html import unescape
 from time import sleep
 from corpus import *
@@ -127,7 +128,6 @@ def corpus(request, corpus_id):
                         extension = import_file.split('.')[-1]
                         corpus.save_file(File.process(
                             import_file_path,
-                            #parent_uri=corpus.uri,
                             desc=extension.upper() + " File",
                             prov_type="User Import",
                             prov_id=response['scholar']['username'],
@@ -550,33 +550,37 @@ def edit_content(request, corpus_id, content_type, content_id=None):
                         return redirect("/corpus/{0}/?msg=Bulk edit content job submitted.".format(corpus_id))
 
                     else:
-                        content = process_content_bundle(
-                            corpus,
-                            content_type,
-                            content,
-                            content_bundle,
-                            context['scholar'].id
-                        )
-
-                        if 'save-and-create' in request.POST:
-                            return redirect("/corpus/{0}/{1}/?msg={1} saved.".format(
-                                corpus_id,
-                                content_type
-                            ))
-                        elif created_message_token:
-                            send_event(corpus_id, 'event', {
-                                'event_type': created_message_token,
-                                'id': str(content.id),
-                                'uri': content.uri,
-                                'label': content.label
-                            })
-                            return HttpResponse(status=204)
-                        else:
-                            return redirect("/corpus/{0}/{1}/{2}".format(
-                                corpus_id,
+                        try:
+                            content = process_content_bundle(
+                                corpus,
                                 content_type,
-                                str(content.id)
-                            ))
+                                content,
+                                content_bundle,
+                                context['scholar'].id
+                            )
+                        except NotUniqueError as e:
+                            context['errors'].append(f"Unable to save content! You attempted to save a duplicate value to one or more unique fields.")
+
+                        if not context['errors']:
+                            if 'save-and-create' in request.POST:
+                                return redirect("/corpus/{0}/{1}/?msg={1} saved.".format(
+                                    corpus_id,
+                                    content_type
+                                ))
+                            elif created_message_token:
+                                send_event(corpus_id, 'event', {
+                                    'event_type': created_message_token,
+                                    'id': str(content.id),
+                                    'uri': content.uri,
+                                    'label': content.label
+                                })
+                                return HttpResponse(status=204)
+                            else:
+                                return redirect("/corpus/{0}/{1}/{2}".format(
+                                    corpus_id,
+                                    content_type,
+                                    str(content.id)
+                                ))
 
             # delete content
             elif 'delete-content' in request.POST:

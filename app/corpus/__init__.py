@@ -1614,7 +1614,7 @@ class Corpus(mongoengine.Document):
 
                 # top level fields can be handled by a single simple query string search
                 if top_fields:
-                    general_queries.append(SimpleQueryString(query=query, fields=top_fields))
+                    general_queries.append(SimpleQueryString(query=query.strip() + '*', fields=top_fields))
 
                 # nested fields, however, must each receive their own nested query.
                 for nested_field in nested_fields:

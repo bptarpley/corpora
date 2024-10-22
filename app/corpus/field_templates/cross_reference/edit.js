@@ -50,6 +50,7 @@ function setupXrefSearch(id_prefix) {
         corpora: corpora,
         corpus: corpus,
         mode: 'select',
+        min_height: 300,
         content_type: ux.xref_content_type.name,
         selection_callback: (xref) => {
             ux.search_div.empty()
