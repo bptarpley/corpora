@@ -783,14 +783,16 @@ class ContentTable {
         this.give_search_focus = 'give_search_focus' in config ? config.give_search_focus : false
         this.search = 'search' in config ? config.search : {
             'page': 1,
-            'page-size': 20,
+            'page-size': 10,
         }
         this.search_timer = null
         this.on_load = 'on_load' in config ? config.on_load : null
         this.min_height = 'min_height' in config ? config.min_height : 100
         this.content_populated = false
         this.meta = null
-        this.pages_loaded = {}
+        this.pages_loaded = new Set()
+        this.overlapping_results = true
+        this.loading_accelerated = false
         this.content_view = null
         this.content_view_id = null
         if ('content_view' in config && 'content_view_id' in config) {
@@ -1216,20 +1218,19 @@ class ContentTable {
                         scroll_progress_bar.css('width', `${scroll_progress}%`)
                         scroll_progress_bar.attr('aria-valuenow', scroll_progress)
 
-                        if (next_page && !page_breaker.data('page_loaded')) {
+                        if (next_page) {
                             next_page = parseInt(next_page)
                             let next_page_token = page_breaker.data('next_page_token')
 
-                            if (!Object.keys(sender.pages_loaded).includes(next_page)) {
+                            if (!sender.pages_loaded.has(next_page)) {
+                                sender.pages_loaded.add(next_page)
                                 if (next_page_token) search['page-token'] = next_page_token
                                 else {
                                     delete search['page-token']
                                     search.page = next_page
                                 }
                                 sender.corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content, true) })
-                                sender.pages_loaded[next_page] = true
                             }
-                            page_breaker.data('page_loaded', true)
                         }
 
                     }
@@ -1317,6 +1318,7 @@ class ContentTable {
             // clear the table body and search criteria div
             ct_table_body.html('')
             current_search_div.html('')
+            sender.pages_loaded.clear()
 
             // add the total number of results to the search criteria div
             total_indicator.html(`Total: ${content.meta.total.toLocaleString('en-US')}`)
@@ -1429,68 +1431,82 @@ class ContentTable {
         } else {
             // iterate through the records, adding a row for each one
             content.records.forEach((item, item_index) => {
-                let selected = ''
-                if (selected_content.all) {
-                    selected = "checked disabled"
-                } else if (selected_content.ids.includes(item.id)) {
-                    selected = "checked"
-                }
+                let load_item = true
+                if (sender.overlapping_results)
+                    if ($(`.${ct.name}${sender.id_suffix}-content-row[data-corpora_id="${item.id}"]`).length)
+                        load_item = false
 
-                let action_controls = `
-                    <input id="ct_${ct.name}${sender.id_suffix}_${item.id}_selection-box"
-                        type="checkbox"
-                        class="ct-${ct.name}${sender.id_suffix}-selection-box mr-2"
-                        data-ct="${ct.name}"
-                        data-id="${item.id}"
-                        ${selected}>
-                    <a href="${item.uri}" target="_blank">
-                        <span class="badge badge-warning">Open</span>
-                    </a>
-                `
-                if (sender.mode === 'select') {
-                    action_controls = `
-                        <a href="#"
-                            class="${ct.name}${sender.id_suffix}-content-selection-link badge badge-warning"
+                if (load_item) {
+                    let selected = ''
+                    if (selected_content.all) {
+                        selected = "checked disabled"
+                    } else if (selected_content.ids.includes(item.id)) {
+                        selected = "checked"
+                    }
+
+                    let action_controls = `
+                        <input id="ct_${ct.name}${sender.id_suffix}_${item.id}_selection-box"
+                            type="checkbox"
+                            class="ct-${ct.name}${sender.id_suffix}-selection-box mr-2"
+                            data-ct="${ct.name}"
                             data-id="${item.id}"
-                            data-uri="${item.uri}"
-                            data-label="${sender.corpora.strip_html(item.label)}">
-                            Select
+                            ${selected}>
+                        <a href="${item.uri}" target="_blank">
+                            <span class="badge badge-warning">Open</span>
                         </a>
                     `
-                }
-
-                // infinite scroll page break indicators
-                let page_break_indicators = ''
-                if ((item_index + 1) === 5 && content.meta.has_next_page) {
-                    page_break_indicators = ` class="ct-${ct.name}${sender.id_suffix}-page-breaker" data-next_page="${content.meta.page + 1}"`
-                    if (content.meta.next_page_token) page_break_indicators += ` data-next_page_token="${content.meta.next_page_token}"`
-                }
-
-                let row_html = `
-                    <tr class="${ct.name}${sender.id_suffix}-content-row" data-record_num="${(item_index + 1) + ((content.meta.page - 1) * content.meta.page_size)}"${page_break_indicators}>
-                        <td class="ct-selection-cell">
-                            ${action_controls}
-                        </td>
-                `
-
-                ct.fields.map(field => {
-                    if (field.in_lists) {
-                        let value = ''
-                        if (item.hasOwnProperty(field.name) && item[field.name] != null) {
-                            value = sender.format_column_value(item[field.name], field.type, field.multiple)
-                        }
-
-                        row_html += `
-                            <td style="width: auto;">
-                                <div class="corpora-content-cell">
-                                    ${value}
-                                </div>
-                            </td>`
+                    if (sender.mode === 'select') {
+                        action_controls = `
+                            <a href="#"
+                                class="${ct.name}${sender.id_suffix}-content-selection-link badge badge-warning"
+                                data-id="${item.id}"
+                                data-uri="${item.uri}"
+                                data-label="${sender.corpora.strip_html(item.label)}">
+                                Select
+                            </a>
+                        `
                     }
-                })
 
-                row_html += "</tr>"
-                ct_table_body.append(row_html)
+                    // infinite scroll page break indicators
+                    let page_break_indicators = ''
+                    if (content.meta.has_next_page) {
+                        page_break_indicators = `data-next_page="${content.meta.page + 1}"`
+                        if (content.meta.next_page_token) page_break_indicators += ` data-next_page_token="${content.meta.next_page_token}"`
+                    }
+
+                    let rec_num = (item_index + 1) + ((content.meta.page - 1) * content.meta.page_size)
+                    let row_html = `
+                        <tr class="${ct.name}${sender.id_suffix}-content-row" data-corpora_id="${item.id}"
+                            data-record_num="${rec_num}" ${page_break_indicators}>
+                            <td class="ct-selection-cell">
+                                ${action_controls}
+                            </td>
+                    `
+
+                    ct.fields.map(field => {
+                        if (field.in_lists) {
+                            let value = ''
+                            if (item.hasOwnProperty(field.name) && item[field.name] != null) {
+                                value = sender.format_column_value(item[field.name], field.type, field.multiple)
+                            }
+
+                            row_html += `
+                                <td style="width: auto;">
+                                    <div class="corpora-content-cell">
+                                        ${value}
+                                    </div>
+                                </td>`
+                        }
+                    })
+
+                    row_html += "</tr>"
+                    ct_table_body.append(row_html)
+                }
+            })
+
+            // remove any page breaker attributes for currently loaded page
+            $(`.${ct.name}${sender.id_suffix}-content-row[data-next_page="${content.meta.page}"]`).each(function() {
+                $(this).removeAttr('data-next_page')
             })
 
             // make sure unobserved page breaker rows get observed
@@ -1498,6 +1514,19 @@ class ContentTable {
                 this.setAttribute('data-observed', 'true')
                 sender.page_observer.observe(this)
             })
+
+            // accelerate loading of subsequent pages once first two are loaded
+            if (!sender.loading_accelerated && content.meta.page === 3) {
+                sender.search['page-size'] *= 10
+                sender.search['page'] = 1
+                sender.overlapping_results = true
+                $(`.${ct.name}${sender.id_suffix}-content-row`).each(function() {
+                    $(this).removeAttr('data-next_page')
+                })
+                sender.pages_loaded.clear()
+                sender.loading_accelerated = true
+                sender.corpora.list_content(sender.corpus.id, ct.name, sender.search, function(content) { sender.load_content(content, true) })
+            } else sender.overlapping_results = false
 
             // conditionally scroll to top and set table height and make it resizable
             let table_container = $(`#ct-${ct.name}${sender.id_suffix}-table-container`)
