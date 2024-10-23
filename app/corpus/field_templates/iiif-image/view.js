@@ -29,8 +29,6 @@ function renderIIIFImage(target) {
                 maxZoomLevel:       5,
                 defaultZoomLevel:   1,
                 homeFillsViewer:    true,
-                wrapHorizontal:     true,
-                wrapVertical:       true,
                 sequenceMode:       false,
                 showRotationControl: true,
                 tileSources:   [image_uri + '/info.json']
