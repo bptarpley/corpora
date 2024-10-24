@@ -1278,6 +1278,7 @@
             let region_content = page_regions[region_id].ocr_content;
             if (page_regions[region_id].hasOwnProperty('transcription'))
                 region_content = page_regions[region_id].transcription;
+            
             if (!region_content) {
                 region_content = 'M';
                 has_content = false;
@@ -1401,6 +1402,7 @@
             if (!page_regions[region_id].hasOwnProperty('transcription') &&
                 page_regions[region_id].hasOwnProperty('ocr_content')) {
                 page_regions[region_id]['transcription'] = page_regions[region_id].ocr_content;
+                mark_unsaved()
             }
 
             if (trans_text.length === 0) check_completion();
