@@ -33,56 +33,68 @@ class Corpora {
     }
 
     make_request(path, type, params={}, callback, spool=false, spool_records = []) {
-        let req = {
-            type: type,
-            url: `${this.host}${path}`,
-            dataType: 'json',
-            data: params,
-            success: callback
+        let url = `${this.host}${path}`
+        let req_options = {}
+        let sender = this
+
+        if (path.startsWith('http')) url = path
+        if (this.auth_token) {
+            req_options = {headers: {Authorization: `Token ${sender.auth_token}`}}
         }
 
-        if (path.startsWith('http')) {
-            req.url = path
-        }
+        if (type === 'GET') url += `?${new URLSearchParams(params).toString()}`
+        else if (type === 'POST') {
+            req_options['method'] = 'POST'
+            if (!req_options.headers) req_options.headers = {}
+            if (this.csrf_token) req_options.headers['X-CSRFToken'] = this.csrf_token
 
-        if (spool) {
-            let corpora_instance = this
-            req.success = function(data) {
-                if (
-                    data.hasOwnProperty('records') &&
-                    data.hasOwnProperty('meta') &&
-                    data.meta.hasOwnProperty('has_next_page') &&
-                    data.meta.hasOwnProperty('page') &&
-                    data.meta.hasOwnProperty('page_size') &&
-                    data.meta.has_next_page
-                ) {
-                    let next_params = Object.assign({}, params)
-                    next_params.page = data.meta.page + 1
-                    next_params['page-size'] = data.meta.page_size
-
-                    corpora_instance.make_request(
-                        path,
-                        type,
-                        next_params,
-                        callback,
-                        spool,
-                        spool_records.concat(data.records)
-                    )
-                } else {
-                    data.records = spool_records.concat(data.records)
-                    callback(data)
+            if (params) {
+                let post_params = new FormData()
+                for (let p in params) {
+                    post_params.append(p, params[p])
                 }
+                req_options['body'] = post_params
             }
         }
 
-        if (this.auth_token) {
-            req['beforeSend'] = function(xhr) { xhr.setRequestHeader("Authorization", `Token ${sender.auth_token}`); }
-        } else if (type === 'POST' && this.csrf_token) {
-            req['data'] = Object.assign({}, req['data'], {'csrfmiddlewaretoken': this.csrf_token})
-        }
+        return fetch(url, req_options)
+            .then(res => {
+                if (type === 'POST' && res.ok) {
+                    if (res.status === 204 || res.headers.get('Content-Length') === '0') {
+                        return {}
+                    } else return res.json()
+                }
+                else if (type === 'GET') return res.json()
+            })
+            .then(data => {
+                if (spool) {
+                    if (
+                        data.hasOwnProperty('records') &&
+                        data.hasOwnProperty('meta') &&
+                        data.meta.hasOwnProperty('has_next_page') &&
+                        data.meta.hasOwnProperty('page') &&
+                        data.meta.hasOwnProperty('page_size') &&
+                        data.meta.has_next_page
+                    ) {
+                        let next_params = Object.assign({}, params)
+                        next_params.page = data.meta.page + 1
+                        next_params['page-size'] = data.meta.page_size
 
-        let sender = this
-        return $.ajax(req)
+                        corpora_instance.make_request(
+                            path,
+                            type,
+                            next_params,
+                            callback,
+                            spool,
+                            spool_records.concat(data.records)
+                        )
+                    } else {
+                        data.records = spool_records.concat(data.records)
+                        callback(data)
+                    }
+                }
+                else callback(data)
+            })
     }
 
     get_scholars(search={}, callback) {
@@ -648,7 +660,7 @@ class Corpora {
             page: search_param_input.data('page')
         }
 
-        sender.corpora.list_content(corpus_id, content_type, content_selection_params, function(data){
+        sender.list_content(corpus_id, content_type, content_selection_params, function(data){
             $('#content-selection-modal-prev-page-button').prop('disabled', content_selection_params.page <= 1)
             $('#content-selection-modal-next-page-button').prop('disabled', !data.meta.has_next_page)
 
@@ -782,7 +794,6 @@ class ContentTable {
         this.selection_callback = 'selection_callback' in config ? config.selection_callback : null
         this.give_search_focus = 'give_search_focus' in config ? config.give_search_focus : false
         this.search = 'search' in config ? config.search : {
-            'page': 1,
             'page-size': 10,
         }
         this.search_timer = null
@@ -791,6 +802,9 @@ class ContentTable {
         this.content_populated = false
         this.meta = null
         this.pages_loaded = new Set()
+        this.pages_to_load = []
+        this.total_pages = null
+        this.currently_loading_pages = false
         this.overlapping_results = true
         this.loading_accelerated = false
         this.content_view = null
@@ -962,8 +976,8 @@ class ContentTable {
                                 sender.corpora.await_content_view_population(corpus.id, data.id, function(data) {
                                     refresh_button.html('Refresh')
                                     refresh_button.attr('disabled', false)
-                                    sender.search.page = 1
-                                    sender.corpora.list_content(sender.corpus.id, sender.content_type, sender.search, function(content){ sender.load_content(content) })
+                                    sender.pages_to_load = [{'page': 1}]
+                                    sender.load_pages()
                                 })
                             } else {
                                 refresh_button.html('Error with Refresh!')
@@ -1079,7 +1093,6 @@ class ContentTable {
                         } else {
                             export_url += `${delimiter}content-ids=${selected_content.ids.join(',')}`
                         }
-                        console.log(export_url)
 
                         let export_link = document.createElement('a')
                         export_link.href = export_url
@@ -1222,14 +1235,17 @@ class ContentTable {
                             next_page = parseInt(next_page)
                             let next_page_token = page_breaker.data('next_page_token')
 
-                            if (!sender.pages_loaded.has(next_page)) {
-                                sender.pages_loaded.add(next_page)
-                                if (next_page_token) search['page-token'] = next_page_token
-                                else {
-                                    delete search['page-token']
-                                    search.page = next_page
+                            if (!sender.pages_loaded.has(next_page) && next_page <= sender.total_pages) {
+                                let already_loading = false
+                                sender.pages_to_load.forEach(p => {
+                                    if (p['page'] === next_page) already_loading = true
+                                })
+                                if (!already_loading) {
+                                    let page_info = {'page': next_page}
+                                    if (next_page_token) page_info['page-token'] = next_page_token
+                                    sender.pages_to_load.push(page_info)
+                                    if (!sender.currently_loading_pages) sender.load_pages(true)
                                 }
-                                sender.corpora.list_content(corpus_id, ct.name, search, function(content){ sender.load_content(content, true) })
                             }
                         }
 
@@ -1258,15 +1274,14 @@ class ContentTable {
                 $(`#ct-${ct.name}${sender.id_suffix}-search-setting-selection`).text("All Fields")
                 $(`#ct-${ct.name}${sender.id_suffix}-search-setting-value`).val('default')
 
-                search.page = 1
-                sender.corpora.list_content(corpus_id, ct.name, search, function(content) { sender.load_content(content) })
+                search.pages_to_load = [{'page': 1}]
+                sender.load_pages()
             })
 
             // perform initial query of content based on search settings
-            sender.corpora.list_content(corpus_id, ct.name, search, function(content){
-                sender.load_content(content)
-                if (sender.give_search_focus) $(`#ct-${ct.name}${sender.id_suffix}-search-box`).focus()
-            })
+            sender.pages_to_load = [{'page': 1}]
+            sender.load_pages()
+            if (sender.give_search_focus) $(`#ct-${ct.name}${sender.id_suffix}-search-box`).focus()
         }
     }
 
@@ -1294,8 +1309,27 @@ class ContentTable {
         }
 
         $(`#ct-${ct.name}${sender.id_suffix}-search-clear-button`).removeClass('d-none')
-        sender.search.page = 1
-        sender.corpora.list_content(corpus_id, ct.name, sender.search, function(content){ sender.load_content(content) })
+        sender.pages_to_load = [{'page': 1}]
+        sender.load_pages()
+    }
+
+    async load_pages(add_to_existing_rows=false) {
+        let sender = this
+        this.currently_loading_pages = true
+
+        while (this.pages_to_load.length) {
+            let page_info = this.pages_to_load[0]
+            sender.pages_loaded.add(page_info['page'])
+            this.search['page'] = page_info.page
+            if ('page-token' in page_info) this.search['page-token'] = page_info['page-token']
+
+            await this.corpora.list_content(corpus_id, this.content_type, this.search, function(content){
+                sender.total_pages = content.meta.num_pages
+                sender.load_content(content, add_to_existing_rows)
+            })
+            this.pages_to_load.shift()
+        }
+        this.currently_loading_pages = false
     }
 
     load_content(content, add_to_existing_rows=false) {
@@ -1400,7 +1434,7 @@ class ContentTable {
         if (content.hasOwnProperty('meta')) sender.meta = content.meta
 
         // if there are no search results, show a default message
-        if (content.records.length < 1) {
+        if (content.records.length < 1 && content.meta.page === 1) {
             let no_records_msg = `There are currently no ${ct.plural_name} in this corpus. Click the "Create" button above to create one.`
             if (has_filtering_criteria) {
                 no_records_msg = `No ${ct.plural_name} in this corpus match your search criteria.`
@@ -1432,6 +1466,8 @@ class ContentTable {
             // iterate through the records, adding a row for each one
             content.records.forEach((item, item_index) => {
                 let load_item = true
+                let rec_num = (item_index + 1) + ((content.meta.page - 1) * content.meta.page_size)
+
                 if (sender.overlapping_results)
                     if ($(`.${ct.name}${sender.id_suffix}-content-row[data-corpora_id="${item.id}"]`).length)
                         load_item = false
@@ -1474,7 +1510,6 @@ class ContentTable {
                         if (content.meta.next_page_token) page_break_indicators += ` data-next_page_token="${content.meta.next_page_token}"`
                     }
 
-                    let rec_num = (item_index + 1) + ((content.meta.page - 1) * content.meta.page_size)
                     let row_html = `
                         <tr class="${ct.name}${sender.id_suffix}-content-row" data-corpora_id="${item.id}"
                             data-record_num="${rec_num}" ${page_break_indicators}>
@@ -1518,14 +1553,14 @@ class ContentTable {
             // accelerate loading of subsequent pages once first two are loaded
             if (!sender.loading_accelerated && content.meta.page === 3) {
                 sender.search['page-size'] *= 10
-                sender.search['page'] = 1
                 sender.overlapping_results = true
                 $(`.${ct.name}${sender.id_suffix}-content-row`).each(function() {
                     $(this).removeAttr('data-next_page')
                 })
                 sender.pages_loaded.clear()
                 sender.loading_accelerated = true
-                sender.corpora.list_content(sender.corpus.id, ct.name, sender.search, function(content) { sender.load_content(content, true) })
+                sender.pages_to_load = [{'page': 1}]
+                sender.load_pages(true)
             } else sender.overlapping_results = false
 
             // conditionally scroll to top and set table height and make it resizable
@@ -1627,8 +1662,8 @@ class ContentTable {
             this.search[key] = 'asc'
         }
         let sender = this
-        this.search.page = 1
-        this.corpora.list_content(this.corpus.id, this.content_type, this.search, function(content){ sender.load_content(content) })
+        this.pages_to_load = [{'page': 1}]
+        sender.load_pages()
     }
 
     remove_search_param(param) {
@@ -1636,8 +1671,8 @@ class ContentTable {
             delete this.search[param]
             let sender = this
 
-            this.search.page = 1
-            this.corpora.list_content(this.corpus.id, this.content_type, this.search, function(content){ sender.load_content(content) })
+            this.pages_to_load = [{'page': 1}]
+            this.load_pages()
         }
     }
 
