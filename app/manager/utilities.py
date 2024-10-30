@@ -232,16 +232,16 @@ def build_search_params_from_dict(params):
 
                 if '.' in value:
                     nested_path = value.split('.')[0]
-                    agg = A('nested', path=nested_path)
+                    agg = {'nested': {'path': nested_path}, 'aggs': {}}
                     if field_val:
-                        agg.bucket('names', 'terms', size=10000, field=field_val)
+                        agg['aggs']['names'] = {'terms': {'field': field_val, 'size': 1000}}
                     elif script_val:
-                        agg.bucket('names', 'terms', size=10000, script={'source': script_val})
+                        agg['aggs']['names'] = {'terms': {'script': {'source': script_val}, 'size': 1000}}
                     search['aggregations'][agg_name] = agg
                 elif field_val:
-                    search['aggregations'][agg_name] = A('terms', size=10000, field=field_val)
+                    search['aggregations'][agg_name] = {'terms': {'field': field_val, 'size': 1000}}
                 elif script_val:
-                    search['aggregations'][agg_name] = A('terms', size=10000, script={'source': script_val})
+                    search['aggregations'][agg_name] = {'terms': {'script': {'source': script_val}}, 'size': 1000}
 
             elif param.startswith('a_max_') or param.startswith('a_min_'):
                 metric_parts = param.split('_')
@@ -251,11 +251,12 @@ def build_search_params_from_dict(params):
 
                     if '.' in value:
                         nested_path = value.split('.')[0]
-                        agg = A('nested', path=nested_path)
-                        agg.bucket('names', metric_type, field=value)
+                        agg = {'nested': {'path': nested_path}, 'aggs': {
+                            'names': {metric_type: {'field': value}}
+                        }}
                         search['aggregations'][agg_name] = agg
                     else:
-                        search['aggregations'][agg_name] = A(metric_type, field=value)
+                        search['aggregations'][agg_name] = {metric_type: {'field': value}}
 
             elif param.startswith('a_histogram_'):
                 metric_parts = param.split('_')
@@ -269,11 +270,12 @@ def build_search_params_from_dict(params):
                         if interval.isdigit() and int(interval) > 0:
                             if '.' in field:
                                 nested_path = field.split('.')[0]
-                                agg = A('nested', path=nested_path)
-                                A('histogram', field=field, interval=int(interval))
+                                agg = {'nested': {'path': nested_path}, 'aggs': {
+                                    'names': {'histogram': {'field': field, 'interval': int(interval)}}
+                                }}
                                 search['aggregations'][agg_name] = agg
                             else:
-                                search['aggregations'][agg_name] = A('histogram', field=field, interval=int(interval))
+                                search['aggregations'][agg_name] = {'histogram': {'field': field, 'interval': int(interval)}}
 
         elif param == 'operator':
             search['operator'] = value
