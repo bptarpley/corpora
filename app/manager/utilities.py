@@ -241,7 +241,7 @@ def build_search_params_from_dict(params):
                 elif field_val:
                     search['aggregations'][agg_name] = {'terms': {'field': field_val, 'size': 1000}}
                 elif script_val:
-                    search['aggregations'][agg_name] = {'terms': {'script': {'source': script_val}}, 'size': 1000}
+                    search['aggregations'][agg_name] = {'terms': {'script': {'source': script_val}, 'size': 1000}}
 
             elif param.startswith('a_max_') or param.startswith('a_min_'):
                 metric_parts = param.split('_')
