@@ -50,6 +50,14 @@
                 <li class="toctree-l1 current"><a class="reference internal current" href="./">REST API</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#the-list-endpoint">The List Endpoint</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#list-endpoint-parameters">List Endpoint Parameters</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#chaining-parameters">Chaining Parameters</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#endpoint-output">Endpoint Output</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#the-detail-endpoint">The Detail Endpoint</a>
     </li>
@@ -113,6 +121,7 @@ you'll note that the URL looks something like this:</p>
 <p>The content type name is the name you provided for your content type when you created it in the Content Type Manager for your corpus. At present,
 all corpuses come with the "Document" content type by default. To access the List API for the Document content type in the example corpus above, for example, you'd use this endpoint:</p>
 <p><code>https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Document/</code></p>
+<h4 id="list-endpoint-parameters">List Endpoint Parameters</h4>
 <p>This endpoint accepts several different GET parameters (passed via the query string):</p>
 <table>
 <thead>
@@ -150,8 +159,8 @@ all corpuses come with the "Document" content type by default. To access the Lis
 </tr>
 <tr>
 <td><code>r_[field name]</code></td>
-<td>To filter using a range of possible values (for number, decimal, date, and geospatial fields). Separate min and max values by "to" (for number, decimal, and date fields, if either min or max are omitted, range will just be "less than or equal to" or "greater than or equal to" respectively).</td>
-<td>Number/Decimal/Date:<br />[endpoint url]?r_size=6to10<br /><br />Geospatial (bounding box):<br />[endpoint url]?r_location=[lon],[lat]to[lon],[lat]</td>
+<td>To filter using a range of possible values (for number, decimal, date, and geospatial fields). Separate min and max values by "to" (for number, decimal, and date fields, if either min or max are omitted, range will just be "less than or equal to" or "greater than or equal to" respectively). When parsing dates for range queries, Corpora makes use of the <a href="https://dateutil.readthedocs.io/en/stable/examples.html#parse-examples">dateutil package for Python</a> so that dates can be specified in a variety of ways.</td>
+<td>Number/Decimal:<br />[endpoint url]?r_size=6to10<br /><br />Date:<br />[endpoint url]?r_size=1/1/1980to12/31/1989<br /><br />Geospatial (bounding box):<br />[endpoint url]?r_location=[lon],[lat]to[lon],[lat]</td>
 </tr>
 <tr>
 <td><code>s_[field name]</code></td>
@@ -179,6 +188,16 @@ all corpuses come with the "Document" content type by default. To access the Lis
 <td>[endpoint_url]?a_histogram_decades=age__10</td>
 </tr>
 <tr>
+<td><code>a_geobounds_[aggregation_name]</code></td>
+<td>To produce a bounding box (top left and bottom right lat/long coordinates) for all the values in a geo_point field (appears in the "meta" section of results). Any alphanumeric string may be used for [aggregation_name]. The value for this parameter must be a valid geo_point field name.</td>
+<td>[endpoint_url]?a_geobounds_region=coordinates</td>
+</tr>
+<tr>
+<td><code>a_geotile_[aggregation_name]</code></td>
+<td>To produce a series of "geotiles" and the corresponding number of values found within each tile for a given geo_point field (appears in the "meta" section of results). Any alphanumeric string may be used for [aggregation_name]. The value for this parameter must be a field name, two underscores, and then the desired precision for the geotile. Read more about geotile aggregation and the precision value <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-bucket-geotilegrid-aggregation.html">here</a>.</td>
+<td>[endpoint_url]?a_geotile_areas=coordinates__9</td>
+</tr>
+<tr>
 <td><code>page-size</code></td>
 <td>To specify the size of each page of results</td>
 <td>[endpoint_url]?page-size=50</td>
@@ -200,13 +219,21 @@ all corpuses come with the "Document" content type by default. To access the Lis
 </tr>
 </tbody>
 </table>
+<h4 id="chaining-parameters">Chaining Parameters</h4>
 <p>Parameters can of course be chained together. If you wanted, for instance, to see the first 50 Documents with "Ulysses" in the title
 sorted by publication date in descending order, you could query the endpoint like this:</p>
 <p><code>https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Document/?q_title=Ulysses&amp;s_pub_date=DESC&amp;page-size=50&amp;page=1</code></p>
 <p>You may perform queries using multiple search terms on the same field, though this is <em>not</em> acheived by chaining the same GET parameter together. In order to do this, you must separate the multiple values with two underscores (__) as your delimiter. So, to search a hypothetical field named "color" for both "red" and "green" values, do this:</p>
 <p><code>https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Clothing/?q_color=red__green</code></p>
-<p>By default, however, the "and" operator is used to combine queries, so you'll likely also want to add <code>operator=or</code> so that results that are either "red" or "green" are returned:</p>
+<p>By default, however, the "and" operator is used to combine queries, so the above query would only make sense in a scenario where the <code>color</code> field is multi-valued. If you want to change the operator used to combine queries, you can do so by using the <code>operator</code> parameter like so:</p>
 <p><code>https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Clothing/?q_color=red__green&amp;operator=or</code></p>
+<p>This would provide results where the hypothetical <code>color</code> field contains the values <code>red</code> <em>or</em> <code>green</code>. <strong>Note</strong>: when changing the operator in this manner, you're changing how <em>all</em> queries are combined. Consider this scenario:</p>
+<p><code>https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Clothing/?q_color=red__green&amp;q_texture=smooth&amp;operator=or</code></p>
+<p>Because the operator is changed to <code>or</code>, and unfortunate side effect occurs: results are returned where the value of <code>color</code> is either <code>red</code> or <code>green</code> <em>or</em> the value of the hypothetical <code>texture</code> field is <code>smooth</code>. In other words, you could have results where the value of <code>texture</code> is <code>smooth</code> but the value of <code>color</code> is <code>brown</code>!</p>
+<p>In order to construct queries with more complicated, nested boolean logic, you may make use of numerical prefixes that group queries together. If, for instance, you wanted results where, effectively (texture=smooth AND (color=red OR color=green)), you could create the following query:</p>
+<p><code>https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Clothing/?q_texture=smooth&amp;1_q_color=red__green&amp;1_operator=or</code></p>
+<p>The prefix of <code>1_</code> before the <code>q_color</code> and <code>operator</code> parameters place them in a nested group together. That nested group is then combined with the <code>q_texture</code> query using the default <code>and</code> operator. The Corpora list API supports up to 9 different groups to create complicated nested queries, making use of numerical prefixes <code>1_</code> through <code>9_</code>.</p>
+<h4 id="endpoint-output">Endpoint Output</h4>
 <p>Results are returned in JSON format, with two main (upper-level) keys: "meta," and "records." The "meta" key is a hash with the following key/value pairs:</p>
 <ul>
 <li><strong>content_type</strong>: The name of the content type being queried, i.e. "Document"</li>
