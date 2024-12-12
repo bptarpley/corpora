@@ -648,6 +648,30 @@ class Corpora {
                 </div>
             `)
             modal = $('#content-selection-modal')
+
+            // HANDLE SEARCH BOX
+            $('#content-selection-modal-filter-box').keypress(function (e) {
+                let key = e.which
+                if (key === 13) {
+                    let search_param_input = $('#content-selection-search-params')
+                    search_param_input.data('q', $('#content-selection-modal-filter-box').val())
+                    sender.select_content(corpus_id, content_type, callback, false)
+                }
+            })
+
+            // previous select content page click event
+            $('#content-selection-modal-prev-page-button').click(function() {
+                let search_param_input = $('#content-selection-search-params')
+                search_param_input.data('page', parseInt(search_param_input.data('page')) - 1)
+                sender.select_content(corpus_id, content_type, callback, false)
+            })
+
+            // next select content page click event
+            $('#content-selection-modal-next-page-button').click(function() {
+                let search_param_input = $('#content-selection-search-params')
+                search_param_input.data('page', parseInt(search_param_input.data('page')) + 1)
+                sender.select_content(corpus_id, content_type, callback, false)
+            })
         }
 
         let search_param_input = $('#content-selection-search-params')
@@ -666,7 +690,7 @@ class Corpora {
 
             $('#content-selection-modal-label').html(`Select ${content_type}`)
             $('#content-selection-modal-table-header').html(content_type)
-            $('#content-selection-modal-table-body').html('')
+            $('#content-selection-modal-table-body').empty()
             for (let x = 0; x < data.records.length; x++) {
                 $('#content-selection-modal-table-body').append(`
                     <tr><td><a class="content-selection-item" data-id="${data.records[x].id}" data-label="${data.records[x].label}">${data.records[x].label}</a></td></tr>
@@ -677,27 +701,6 @@ class Corpora {
             $('.content-selection-item').click(function() {
                 modal.modal('hide')
                 callback($(this).data('id'), $(this).data('label'))
-            })
-
-            // HANDLE SEARCH BOX
-            $('#content-selection-modal-filter-box').keypress(function (e) {
-                let key = e.which
-                if (key === 13) {
-                    search_param_input.data('q', $('#content-selection-modal-filter-box').val())
-                    sender.select_content(corpus_id, content_type, callback, false)
-                }
-            })
-
-            // previous select content page click event
-            $('#content-selection-modal-prev-page-button').click(function() {
-                search_param_input.data('page', content_selection_params.page - 1)
-                sender.select_content(corpus_id, content_type, callback, false)
-            })
-
-            // next select content page click event
-            $('#content-selection-modal-next-page-button').click(function() {
-                search_param_input.data('page', content_selection_params.page + 1)
-                sender.select_content(corpus_id, content_type, callback, false)
             })
 
             $('#content-selection-modal').modal()

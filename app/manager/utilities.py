@@ -243,10 +243,12 @@ def build_search_params_from_dict(params):
                 elif script_val:
                     search['aggregations'][agg_name] = {'terms': {'script': {'source': script_val}, 'size': 1000}}
 
-            elif param.startswith('a_max_') or param.startswith('a_min_'):
+            elif param.startswith('a_max_') or param.startswith('a_min_') or param.startswith('a_geobounds_'):
                 metric_parts = param.split('_')
                 if len(metric_parts) == 3:
                     metric_type = metric_parts[1]
+                    if metric_type == 'geobounds':
+                        metric_type = 'geo_bounds'
                     agg_name = metric_parts[2]
 
                     if '.' in value:
@@ -276,6 +278,26 @@ def build_search_params_from_dict(params):
                                 search['aggregations'][agg_name] = agg
                             else:
                                 search['aggregations'][agg_name] = {'histogram': {'field': field, 'interval': int(interval)}}
+
+            elif param.startswith('a_geotile_'):
+                metric_parts = param.split('_')
+                if len(metric_parts) == 3:
+                    agg_name = metric_parts[2]
+                    if '__' in value and len(value.split('__')) == 2:
+                        [field_name, precision] = value.split('__')
+                    else:
+                        field_name = value
+                        precision = 8
+
+                    agg = None
+                    if '.' in value:
+                        nested_path = value.split('.')[0]
+                        agg = {'nested': {'path': nested_path}, 'aggs': {
+                            'names': {'geotile_grid': {'field': field_name, 'precision': precision}}
+                        }}
+                    else:
+                        agg == {'geotile_grid': {'field': field_name, 'precision': precision}}
+                    search['aggregations'][agg_name] = agg
 
         elif param == 'operator':
             search['operator'] = value
