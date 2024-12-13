@@ -1564,6 +1564,7 @@ class Corpus(mongoengine.Document):
                 date_fields = []
                 timespan_fields = []
                 nested_fields = []
+                keyword_fields = []
                 general_queries = []
                 final_query = None
 
@@ -1572,7 +1573,7 @@ class Corpus(mongoengine.Document):
                     top_fields.append('label')
 
                 # determine what kinds of fields this search is eligible for
-                valid_field_types = ['text', 'large_text', 'keyword', 'html']
+                valid_field_types = ['text', 'large_text', 'html']
 
                 # try date
                 date_query_value = parse_date_string(query)
@@ -1603,6 +1604,9 @@ class Corpus(mongoengine.Document):
                             elif f.type == 'timespan':
                                 timespan_fields.append(f"{nested_prefix}{f.name}")
 
+                            elif f.type == 'keyword':
+                                keyword_fields.append(f"{nested_prefix}{f.name}")
+
                             elif f.type in valid_field_types:
                                 top_fields.append(f"{nested_prefix}{f.name}")
 
@@ -1614,6 +1618,11 @@ class Corpus(mongoengine.Document):
                 # numeric fields can be similarly handled, but can't have a wildcard appended to the query
                 if numeric_fields:
                     general_queries.append({'simple_query_string': {'query': query.strip(), 'fields': numeric_fields}})
+
+                # keyword fields can only be searched using term and wildcard queries because they're not analyzed
+                for keyword_field in keyword_fields:
+                    general_queries.append({'term': {keyword_field: query.strip()}})
+                    general_queries.append({'wildcard': {keyword_field: query.strip() + '*'}})
 
                 # nested fields, however, must each receive their own nested query.
                 for nested_field in nested_fields:
