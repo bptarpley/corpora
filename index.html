@@ -43,7 +43,7 @@
 
       <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
-                <li class="toctree-l1 current"><a class="reference internal current" href=".">Getting Started</a>
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Getting Started</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#what-is-corpora">What is Corpora?</a>
     </li>
@@ -385,7 +385,7 @@ following form:</p>
 <p><img alt="Content Save Button" src="assets/img/content_save.png" title="Content Save Button" /></p>
 <h4 id="bulk-creatingimporting-content">Bulk Creating/Importing Content</h4>
 <p>Often, however, entering the data manually using web forms is inefficient, especially if the data is pre-existing in other formats. There are two main ways of importing existing data. The first is to upload a CSV file containing data for a particular content type to your corpus. You can do this by going to the “Metadata” tab of the corpus dashboard, scrolling down to “Corpus Files,” and clicking the “Import” button. You’ll need to ensure, however, that the columns of the first row in your CSV file contain field names that match the field names of your content type. You can then make use of the <a href="/plugins#CSV">CSV plugin</a> which allows you run a task to import the data from that file into your specific content type. The method has limitations, however, in that it does not support importing multi-valued fields or cross referencing between content.</p>
-<p>The second method is to make use of the <a href="/python">Python API for Corpora</a> which allows you to programmatically create content. Often, when going this route, it makes sense to store your source data in an external git repository. You can clone a repository into your corpus by going to the “Metadata” tab on the corpus dashboard, scrolling down to “Corpus Repos,” and clicking the orange “Add” button. You’ll be able to specify a name for your repo, the git URL for cloning, and the specific branch you’d like to clone. Once you click “Save,” that repository will be immediately cloned and the files in that repo will be available in your corpus’ file structure. Using the Corpus Notebook, for instance, you can then write a script in Python allowing you to pull down changes to your repo, read the updated files, and create any content accordingly. If updating content in this way is a task that will be done frequently, it may make sense to then convert that script into a Corpora task that can be launched at any time via the corpus dashboard.</p>
+<p>The second method is to make use of the <a href="/developing/#the-corpus-api-for-python">Python API for Corpora</a> which allows you to programmatically create content. Often, when going this route, it makes sense to store your source data in an external git repository. You can clone a repository into your corpus by going to the “Metadata” tab on the corpus dashboard, scrolling down to “Corpus Repos,” and clicking the orange “Add” button. You’ll be able to specify a name for your repo, the git URL for cloning, and the specific branch you’d like to clone. Once you click “Save,” that repository will be immediately cloned and the files in that repo will be available in your corpus’ file structure. Using the Corpus Notebook, for instance, you can then write a script in Python allowing you to pull down changes to your repo, read the updated files, and create any content accordingly. If updating content in this way is a task that will be done frequently, it may make sense to then convert that script into a Corpora task that can be launched at any time via the corpus dashboard.</p>
               
             </div>
           </div><footer>
@@ -433,6 +433,6 @@ following form:</p>
 </html>
 
 <!--
-MkDocs version : 1.5.3
-Build Date UTC : 2024-12-06 17:30:13.595422+00:00
+MkDocs version : 1.6.0
+Build Date UTC : 2025-01-22 21:08:43.821694+00:00
 -->
