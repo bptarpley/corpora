@@ -405,6 +405,7 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
         ct_fields = corpus.content_types[content_type].get_field_dict()
         post_save_file_moves = []
         files_to_delete = []
+        single_valued_fields_with_values = []
         repo_fields = []
         repo_jobs = []
 
@@ -422,6 +423,11 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                         else:
                             files_to_delete.append(file_field_value.path)
 
+                if not field.multiple:
+                    field_value = getattr(content, field.name)
+                    if field_value or field_value == 0 or field_value is False:
+                        single_valued_fields_with_values.append(field.name)
+
         for field_name, data in content_bundle.items():
             if field_name in ct_fields:
                 field = ct_fields[field_name]
@@ -436,7 +442,7 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                     for value_index, datum in enumerate(data):
                         value = datum['value']
                         valid_value = True
-                        if (not value) and value != 0:
+                        if (not value) and value != 0 and value is not False:
                             valid_value = False
                             value = None
 
@@ -532,6 +538,9 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                                         repo_jobs[-1]['repo_field_multi_index'] = len(getattr(content, field_name)) - 1
                                 else:
                                     setattr(content, field_name, value)
+
+                        elif field.name in single_valued_fields_with_values:
+                            setattr(content, field_name, None)
 
                         if field.has_intensity and 'intensity' in datum:
                             content.set_intensity(field_name, value, datum['intensity'])
