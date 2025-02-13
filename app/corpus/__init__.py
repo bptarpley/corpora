@@ -2207,11 +2207,19 @@ class Corpus(mongoengine.Document):
                                 field_type = mappings[field_name]['type']
                                 if field_type == 'nested' and subfield_name:
                                     field_type = mappings[field_name]['properties'][subfield_name]['type']
+                                    if field_type == 'nested' and 'start' in mappings[field_name]['properties'][subfield_name]['properties']:
+                                        field_type = 'timespan'
+
 
                                 if subfield_name:
                                     full_field_name = '{0}.{1}'.format(field_name, subfield_name)
+                                    if field_type == 'text':
+                                        full_field_name += '.raw'
+                                    elif field_type == 'timespan':
+                                        full_field_name += '.start'
+
                                     adjusted_fields_sort.append({
-                                        full_field_name + '.raw' if field_type == 'text' else full_field_name: {
+                                        full_field_name: {
                                             'order': sort_direction['order'],
                                             'nested': { 'path': field_name }
                                         }
