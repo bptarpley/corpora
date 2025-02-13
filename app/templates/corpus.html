@@ -214,8 +214,8 @@
                             <option value="repo">Git Repository</option>
                             <option value="cross_reference">Cross Reference</option>
                         </select>
-                        <select id="new-f-cross-reference-box" class="form-control mt-2 d-none">
-                            <option value="Document">Document</option>
+                        <select id="new-f-cross-reference-box" class="form-control mt-2 d-none" disabled>
+                            <option value="">No other content types exist</option>
                         </select>
                     </div>
                     <div class="form-check d-none" id="new-f-has-intensity-div">
@@ -1530,7 +1530,13 @@
                 });
 
                 // ADD CONTENT TYPE TO CROSS REFERENCE OPTIONS
-                $('#new-f-cross-reference-box').append(`
+                let new_field_xref_box = $('#new-f-cross-reference-box')
+                if (new_field_xref_box.prop('disabled')) {
+                    new_field_xref_box.html('')
+                    new_field_xref_box.removeAttr('disabled')
+                }
+
+                new_field_xref_box.append(`
                     <option value='${ct_name}'>${ct_name}</option>
                 `);
 
