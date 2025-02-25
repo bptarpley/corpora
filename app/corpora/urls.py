@@ -13,7 +13,7 @@ urlpatterns = [
     path('scholar', manager_views.scholar),
     path('scholars', manager_views.scholars),
     path('backups', manager_views.backups),
-    path('backups/download/<str:export_id>/', manager_views.download_backup),
+    path('backups/download/<str:backup_id>/', manager_views.download_backup),
     path('export/<str:corpus_id>/<str:content_type>/', manager_views.export),
     path('corpus/<str:corpus_id>/', manager_views.corpus),
     path('corpus/<str:corpus_id>/get-file/', manager_views.get_corpus_file),

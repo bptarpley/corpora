@@ -10,7 +10,7 @@ import logging
 import math
 import redis
 from copy import deepcopy
-from corpus import Corpus, Job, get_corpus, File, run_neo, ContentView, ContentDeletion, CorpusExport, JobSite, GitRepo, CompletedTask
+from corpus import Corpus, Job, get_corpus, File, run_neo, ContentView, ContentDeletion, CorpusBackup, JobSite, GitRepo, CompletedTask
 from huey.contrib.djhuey import db_task, db_periodic_task
 from huey import crontab
 from bson.objectid import ObjectId
@@ -367,7 +367,7 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['content_view_lifecycle']
     },
-    "Export Corpus": {
+    "Backup Corpus": {
         "version": "0.2",
         "jobsite_type": "HUEY",
         "track_provenance": True,
@@ -375,15 +375,15 @@ REGISTRY = {
         "content_type": "Corpus",
         "configuration": {
             "parameters": {
-                "export_name": {
+                "backup_name": {
                     "value": "",
                     "type": "pep8_text",
-                    "label": "Export Name",
+                    "label": "Backup Name",
                 }
             }
         },
         "module": 'manager.tasks',
-        "functions": ['export_corpus']
+        "functions": ['backup_corpus']
     }
 }
 
@@ -1155,60 +1155,61 @@ def content_deletion_cleanup():
     for upload in expired_uploads:
         upload.delete()
 
+
 @db_task(priority=3)
-def export_corpus(job_id):
+def backup_corpus(job_id):
     job = Job(job_id)
     corpus = job.corpus
-    export_name = job.get_param_value('export_name')
-    if not export_name:
-        export_name = datetime.now().isoformat().split('T')[0].replace('-', '_')
+    backup_name = job.get_param_value('backup_name')
+    if not backup_name:
+        backup_name = datetime.now().isoformat().split('T')[0].replace('-', '_')
 
-    export_data_files = []
-    export_valid = True
+    backup_data_files = []
+    backup_valid = True
     job.set_status('running')
 
     try:
-        job.report("Exporting corpus with ID {0}".format(job.corpus_id))
-        export_directory = "/corpora/exports/{0}_{1}".format(job.corpus_id, export_name)
-        export_tarfile = "/corpora/exports/{0}_{1}.tar.gz".format(job.corpus_id, export_name)
-        export = CorpusExport.objects(corpus_id=job.corpus_id, name=export_name)
+        job.report("Backing up corpus with ID {0}".format(job.corpus_id))
+        backup_directory = "/corpora/backups/{0}_{1}".format(job.corpus_id, backup_name)
+        backup_tarfile = "/corpora/backups/{0}_{1}.tar.gz".format(job.corpus_id, backup_name)
+        backup = CorpusBackup.objects(corpus_id=job.corpus_id, name=backup_name)
 
-        # Setup export record
-        if export.count():
-            export = export[0]
-            job.report("Export already exists--overwriting...")
+        # Setup backup object
+        if backup.count():
+            backup = backup[0]
+            job.report("Backup already exists--overwriting...")
         else:
-            export = CorpusExport()
+            backup = CorpusBackup()
 
-        export.corpus_id = job.corpus_id
-        export.corpus_name = corpus.name
-        export.corpus_description = corpus.description
-        export.name = export_name
+        backup.corpus_id = job.corpus_id
+        backup.corpus_name = corpus.name
+        backup.corpus_description = corpus.description
+        backup.name = backup_name
 
-        if os.path.exists(export_tarfile):
-            job.report("Removing existing export tarfile...")
-            os.remove(export_tarfile)
+        if os.path.exists(backup_tarfile):
+            job.report("Removing existing backup tarfile...")
+            os.remove(backup_tarfile)
 
-        if os.path.exists(export_directory):
-            job.report("Removing existing export directory...")
-            shutil.rmtree(export_directory)
+        if os.path.exists(backup_directory):
+            job.report("Removing existing backup directory...")
+            shutil.rmtree(backup_directory)
             time.sleep(5)
 
-        os.makedirs(export_directory, exist_ok=True)
+        os.makedirs(backup_directory, exist_ok=True)
 
         # Dump jobsite JSON
         local_jobsite = JobSite.objects(name='Local')[0]
-        jobsite_json_path = export_directory + '/jobsite.json'
+        jobsite_json_path = backup_directory + '/jobsite.json'
         with open(jobsite_json_path, 'w', encoding='utf-8') as jobsite_json_out:
             jobsite_json_out.write(local_jobsite.to_json())
-        export_data_files.append(jobsite_json_path)
+        backup_data_files.append(jobsite_json_path)
         job.report("Jobsite JSON created :)")
 
         # Dump corpus JSON
-        corpus_json_path = export_directory + '/corpus.json'
+        corpus_json_path = backup_directory + '/corpus.json'
         with open(corpus_json_path, 'w', encoding='utf-8') as corpus_json_out:
             json.dump(corpus.to_dict(include_views=True), corpus_json_out, indent=4)
-        export_data_files.append(corpus_json_path)
+        backup_data_files.append(corpus_json_path)
         job.report("Corpus JSON created :)")
 
         mongodb_uri = make_mongo_uri()
@@ -1216,7 +1217,7 @@ def export_corpus(job_id):
         # Create MongoDB dump files for each content type collection
         for ct_name, ct in corpus.content_types.items():
             collection_name = "corpus_{0}_{1}".format(corpus.id, ct.name)
-            collection_export_file = export_directory + '/' + collection_name
+            collection_backup_file = backup_directory + '/' + collection_name
 
             # Ensure we have data in these collections
             if corpus.get_content(ct_name, all=True).count() > 0:
@@ -1226,15 +1227,15 @@ def export_corpus(job_id):
                     'mongodump',
                     '--uri="{0}"'.format(mongodb_uri),
                     '--collection={0}'.format(collection_name),
-                    '--archive={0}'.format(collection_export_file),
+                    '--archive={0}'.format(collection_backup_file),
                 ]
 
                 # Execute command and check return code
                 if call(command) == 0:
-                    export_data_files.append(collection_export_file)
-                    job.report("Collection {0} exported :)".format(collection_name))
+                    backup_data_files.append(collection_backup_file)
+                    job.report("Collection {0} backed up :)".format(collection_name))
                 else:
-                    job.report("Error exporting collection {0}! Halting export.".format(collection_name))
+                    job.report("Error backing up collection {0}! Halting backup.".format(collection_name))
                     job.complete(status='error')
                     return None
 
@@ -1242,24 +1243,24 @@ def export_corpus(job_id):
                 job.report("No records found for {0} collection; skipping.".format(collection_name))
 
         # Create the tarfile
-        with tarfile.open(export_tarfile, "w:gz") as tar:
+        with tarfile.open(backup_tarfile, "w:gz") as tar:
             # Add exported corpus.json and MongoDB Collection dumps
-            for data_file in export_data_files:
+            for data_file in backup_data_files:
                 tar.add(data_file, arcname=os.path.basename(data_file))
 
             # Add corpus directory structure
             tar.add(corpus.path, arcname=os.path.basename(corpus.path))
 
-        if os.path.exists(export_directory):
-            job.report("Cleaning up export files...")
-            shutil.rmtree(export_directory)
+        if os.path.exists(backup_directory):
+            job.report("Cleaning up backup files...")
+            shutil.rmtree(backup_directory)
 
-        job.report("\nExport file {0} successfully created!".format(export_tarfile))
+        job.report("\nBackup file {0} successfully created!".format(backup_tarfile))
 
-        export.created = datetime.now()
-        export.path = export_tarfile
-        export.status = "created"
-        export.save()
+        backup.created = datetime.now()
+        backup.path = backup_tarfile
+        backup.status = "created"
+        backup.save()
         job.complete(status='complete')
     except:
         print(traceback.format_exc())
@@ -1267,22 +1268,22 @@ def export_corpus(job_id):
 
 
 @db_task(priority=3)
-def restore_corpus(export_id):
-    export = CorpusExport.objects(id=export_id)
-    export_directory = None
+def restore_corpus(backup_id):
+    backup = CorpusBackup.objects(id=backup_id)
+    backup_directory = None
 
-    if export.count() > 0:
-        export = export[0]
-        print("Attempting to restore corpus from export file {0}".format(export.path))
+    if backup.count() > 0:
+        backup = backup[0]
+        print("Attempting to restore corpus from backup file {0}".format(backup.path))
 
         try:
-            if export.path.endswith('.tar.gz') and os.path.exists(export.path):
-                with tarfile.open(export.path, 'r:gz') as tar:
+            if backup.path.endswith('.tar.gz') and os.path.exists(backup.path):
+                with tarfile.open(backup.path, 'r:gz') as tar:
                     corpus_json = tar.extractfile('corpus.json').read()
                     jobsite_json = tar.extractfile('jobsite.json').read()
 
                     if corpus_json and jobsite_json:
-                        # Determine if this export file came from another instance of Corpora
+                        # Determine if this backup file came from another instance of Corpora
                         foreign_import = False
                         jobsite_dict = json.loads(jobsite_json)
                         jobsite_id = jobsite_dict['_id']['$oid']
@@ -1297,8 +1298,8 @@ def restore_corpus(export_id):
 
                             if existing_corpus:
                                 print("Corpus with ID {0} already exists! Halting restore.".format(corpus_dict['id']))
-                                export.status = 'created'
-                                export.save()
+                                backup.status = 'created'
+                                backup.save()
                                 return None
                             else:
                                 corpus = Corpus()
@@ -1326,13 +1327,13 @@ def restore_corpus(export_id):
 
                                 corpus.save()
 
-                                export_directory = '/corpora/exports/' + os.path.basename(export.path).split('.')[0]
+                                backup_directory = '/corpora/backups/' + os.path.basename(backup.path).split('.')[0]
 
-                                if os.path.exists(export_directory):
-                                    shutil.rmtree(export_directory)
+                                if os.path.exists(backup_directory):
+                                    shutil.rmtree(backup_directory)
                                     time.sleep(2)
 
-                                os.makedirs(export_directory)
+                                os.makedirs(backup_directory)
 
                                 mongodb_uri = make_mongo_uri()
 
@@ -1345,11 +1346,11 @@ def restore_corpus(export_id):
                                     ct_name = ct['name']
                                     corpus.save_content_type(ct)
                                     collection = "corpus_{0}_{1}".format(corpus.id, ct_name)
-                                    collection_dump_file = export_directory + '/' + collection
+                                    collection_dump_file = backup_directory + '/' + collection
 
                                     try:
                                         collection_dump_file_info = tar.getmember(collection)
-                                        tar.extract(collection_dump_file_info, path=export_directory)
+                                        tar.extract(collection_dump_file_info, path=backup_directory)
 
                                         # Build mongorestore command
                                         command = [
@@ -1369,29 +1370,33 @@ def restore_corpus(export_id):
                                         else:
                                             print("Error restoring collection {0}! Halting restore.".format(collection))
                                             run_job(corpus.queue_local_job(task_name="Delete Corpus", parameters={}))
-                                            shutil.rmtree(export_directory)
-                                            export.status = 'created'
-                                            export.save()
+                                            shutil.rmtree(backup_directory)
+                                            backup.status = 'created'
+                                            backup.save()
                                             return None
 
                                     except KeyError:
                                         print('No collection found for {0}'.format(ct_name))
 
-                                if os.path.exists(export_directory):
-                                    shutil.rmtree(export_directory)
+                                if os.path.exists(backup_directory):
+                                    shutil.rmtree(backup_directory)
                                 tar.extractall(path=corpus.path, members=filter_tarfile(tar, str(corpus.id)))
 
 
         except:
-            if export_directory and os.path.exists(export_directory):
-                shutil.rmtree(export_directory)
+            if backup_directory and os.path.exists(backup_directory):
+                shutil.rmtree(backup_directory)
             print(traceback.format_exc())
 
-        export.status = "created"
-        export.save()
+        backup.status = "created"
+        backup.save()
 
     else:
-        print("Error retrieving export object for restore!")
+        print("Error retrieving backup object for restore!")
+
+
+def export_corpus():
+    pass
 
 
 def make_mongo_uri():

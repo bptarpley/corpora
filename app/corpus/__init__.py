@@ -3300,7 +3300,7 @@ class Corpus(mongoengine.Document):
     }
 
 
-class CorpusExport(mongoengine.Document):
+class CorpusBackup(mongoengine.Document):
     corpus_id = mongoengine.StringField()
     corpus_name = mongoengine.StringField()
     corpus_description = mongoengine.StringField()

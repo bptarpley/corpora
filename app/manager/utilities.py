@@ -595,27 +595,27 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
     return content
 
 
-def process_corpus_export_file(export_file):
-    if export_file and os.path.exists(export_file):
-        basename = os.path.basename(export_file)
+def process_corpus_backup_file(backup_file):
+    if backup_file and os.path.exists(backup_file):
+        basename = os.path.basename(backup_file)
         if '_' in basename and basename.endswith('.tar.gz'):
-            export_name = basename.split('.')[0]
-            export_name = "_".join(export_name.split('_')[1:])
-            export_corpus = None
+            backup_name = basename.split('.')[0]
+            backup_name = "_".join(backup_name.split('_')[1:])
+            backup_corpus = None
 
-            with tarfile.open(export_file, 'r:gz') as tar_in:
-                export_corpus = tar_in.extractfile('corpus.json').read()
+            with tarfile.open(backup_file, 'r:gz') as tar_in:
+                backup_corpus = tar_in.extractfile('corpus.json').read()
 
-            if export_corpus:
-                export_corpus = json.loads(export_corpus)
-                if _contains(export_corpus, ['id', 'name', 'description']):
-                    export = CorpusExport()
-                    export.name = export_name
-                    export.corpus_id = export_corpus['id']
-                    export.corpus_name = export_corpus['name']
-                    export.corpus_description = export_corpus['description']
-                    export.path = export_file
-                    export.save()
+            if backup_corpus:
+                backup_corpus = json.loads(backup_corpus)
+                if _contains(backup_corpus, ['id', 'name', 'description']):
+                    backup = CorpusBackup()
+                    backup.name = backup_name
+                    backup.corpus_id = backup_corpus['id']
+                    backup.corpus_name = backup_corpus['name']
+                    backup.corpus_description = backup_corpus['description']
+                    backup.path = backup_file
+                    backup.save()
 
                     return True
     return False

@@ -30,7 +30,7 @@ from .utilities import(
     clear_cached_session_scholar,
     order_content_schema,
     process_content_bundle,
-    process_corpus_export_file,
+    process_corpus_backup_file,
     fix_mongo_json,
     send_alert
 )
@@ -1057,77 +1057,81 @@ def backups(request):
     if response['scholar'].is_admin:
 
         if request.method == 'POST':
-            if _contains(request.POST, ['export-file-import', 'export-upload-id']):
-                upload_id = _clean(request.POST, 'export-upload-id')
+            if _contains(request.POST, ['backup-file-import', 'backup-upload-id']):
+                upload_id = _clean(request.POST, 'backup-upload-id')
                 temp_upload = TemporaryUpload.objects.get(upload_id=upload_id)
                 temp_path = temp_upload.file.path
-                new_path = f"/corpora/exports/{temp_upload.upload_name}"
+
+                corpora_backups_path = "/corpora/backups"
+                os.makedirs(corpora_backups_path, exist_ok=True)
+
+                new_path = f"{corpora_backups_path}/{temp_upload.upload_name}"
 
                 if os.path.exists(temp_path):
                     os.rename(temp_path, new_path)
 
                 if os.path.exists(new_path):
-                    export_file = new_path
-                    if export_file:
-                        if process_corpus_export_file(export_file):
-                            response['messages'].append('Corpus export file successfully imported.')
+                    backup_file = new_path
+                    if backup_file:
+                        if process_corpus_backup_file(backup_file):
+                            response['messages'].append('Corpus backup file successfully imported.')
                         else:
-                            response['errors'].append('An error occurred while importing this export file!')
+                            response['errors'].append('An error occurred while importing this backup file!')
                             os.remove(new_path)
 
                 temp_upload.delete()
 
-            # HANDLE EXPORT ACTIONS
-            export_action = _clean(request.POST, 'export-action')
+            # HANDLE BACKUP ACTIONS
+            backup_action = _clean(request.POST, 'backup-action')
 
-            if export_action == 'create' and _contains(request.POST, ['export-corpus-id', 'export-name']):
-                export_corpus_id = _clean(request.POST, 'export-corpus-id')
-                export_name = _clean(request.POST, 'export-name')
-                export = CorpusExport.objects(corpus_id=export_corpus_id, name=export_name)
+            if backup_action == 'create' and _contains(request.POST, ['backup-corpus-id', 'backup-name']):
+                backup_corpus_id = _clean(request.POST, 'backup-corpus-id')
+                backup_name = _clean(request.POST, 'backup-name')
+                backup = CorpusBackup.objects(corpus_id=backup_corpus_id, name=backup_name)
 
-                if export.count() > 0:
-                    response['errors'].append('An export with that name already exists for corpus {0}.'.format(export_corpus_id))
+                if backup.count() > 0:
+                    response['errors'].append('A backup with that name already exists for corpus {0}.'.format(backup_corpus_id))
                 else:
-                    corpus = get_corpus(export_corpus_id)
+                    corpus = get_corpus(backup_corpus_id)
                     job_id = corpus.queue_local_job(
-                        task_name="Export Corpus",
+                        task_name="Backup Corpus",
                         scholar_id=response['scholar'].id,
-                        parameters={'export_name': export_name}
+                        parameters={'backup_name': backup_name}
                     )
                     run_job(job_id)
-                    response['messages'].append('Export {0} successfully initiated!'.format(export_name))
+                    response['messages'].append('Backup {0} successfully initiated!'.format(backup_name))
 
-            elif 'export-id' in request.POST:
-                export_id = _clean(request.POST, 'export-id')
-                export = CorpusExport.objects(id=export_id)
-                if export.count() > 0:
-                    export = export[0]
+            elif 'backup-id' in request.POST:
+                backup_id = _clean(request.POST, 'backup-id')
+                backup = CorpusBackup.objects(id=backup_id)
+                if backup.count() > 0:
+                    backup = backup[0]
 
-                    if export_action == 'restore':
-                        export.status = 'restoring'
-                        export.save()
-                        restore_corpus(str(export.id))
+                    if backup_action == 'restore':
+                        backup.status = 'restoring'
+                        backup.save()
+                        restore_corpus(str(backup.id))
                         response['messages'].append('Corpus restore successfully launched.')
 
-                    elif export_action == 'cancel':
-                        export.status = 'created'
-                        export.save()
+                    elif backup_action == 'cancel':
+                        backup.status = 'created'
+                        backup.save()
                         response['messages'].append('Corpus restore cancelled.')
 
-                    elif export_action == 'delete':
-                        os.remove(export.path)
-                        export.delete()
-                        response['messages'].append('Export successfully deleted.')
+                    elif backup_action == 'delete':
+                        os.remove(backup.path)
+                        backup.delete()
+                        response['messages'].append('Backup successfully deleted.')
 
-        exports = CorpusExport.objects.order_by('corpus_name', 'created')
-        exports = [e.to_dict() for e in exports]
+        backups = CorpusBackup.objects.order_by('corpus_name', 'created')
+        backups = [b.to_dict() for b in backups]
 
         return render(
             request,
             'backups.html',
             {
                 'response': response,
-                'exports': exports
+                'backups': backups
             }
         )
     else:
@@ -1135,19 +1139,19 @@ def backups(request):
 
 
 @login_required
-def download_backup(request, export_id):
+def download_backup(request, backup_id):
     response = _get_context(request)
 
     if response['scholar'].is_admin:
-        export = CorpusExport.objects(id=export_id)
-        if export.count() > 0:
-            export = export[0]
-            if os.path.exists(export.path):
+        backup = CorpusBackup.objects(id=backup_id)
+        if backup.count() > 0:
+            backup = backup[0]
+            if os.path.exists(backup.path):
                 response = HttpResponse(content_type="application/gzip")
-                response['Content-Disposition'] = 'attachment; filename="{0}"'.format(os.path.basename(export.path))
-                response['X-Accel-Redirect'] = "/files/{0}".format(export.path.replace('/corpora/', ''))
+                response['Content-Disposition'] = 'attachment; filename="{0}"'.format(os.path.basename(backup.path))
+                response['X-Accel-Redirect'] = "/files/{0}".format(backup.path.replace('/corpora/', ''))
                 return response
-        print(f'{export_id} not found')
+        print(f'{backup_id} not found')
 
     raise Http404("You are not authorized to view this page.")
 

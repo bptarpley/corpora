@@ -1,10 +1,12 @@
 import time
+import shutil
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
 from django.conf import settings
 from elasticsearch_dsl import Boolean, normalizer
 from corpus import *
+from manager.utilities import _contains
 
 initialized_file = '/corpora/initialized'
 
@@ -235,6 +237,66 @@ class Command(BaseCommand):
             os.makedirs(settings.DJANGO_DRF_FILEPOND_UPLOAD_TMP)
         if not os.path.exists(settings.DJANGO_DRF_FILEPOND_FILE_STORE_PATH):
             os.makedirs(settings.DJANGO_DRF_FILEPOND_FILE_STORE_PATH)
+
+        # handle refactoring of CorpusExport to CorpusBackup
+        old_export_path = '/corpora/exports'
+        if os.path.exists(old_export_path):
+            new_backup_path = '/corpora/backups'
+            db = local_jobsite._get_db()
+            old_corpus_exports = []
+            required_backup_fields = [
+                'corpus_id',
+                'corpus_name',
+                'corpus_description',
+                'name',
+                'path',
+                'created',
+                'status'
+            ]
+
+            try:
+                os.makedirs(new_backup_path, exist_ok=True)
+
+                old_corpus_export_collection = db['corpus_export']
+                old_corpus_exports = old_corpus_export_collection.find({})
+            except:
+                print('Old CorpusExport collection does not exist!')
+
+            print("Migrating any old CorpusExports to the new, refactored CorpusBackups...")
+            num_exports_to_migrate = 0
+            export_migration_occurred = False
+
+            for export in old_corpus_exports:
+                if _contains(export, required_backup_fields) and os.path.exists(export['path']):
+
+                    print(
+                        f"Old CorpusExport of {export['corpus_name']} exists. Migrating to refactored CorpusBackup...")
+                    num_exports_to_migrate += 1
+                    new_backup_location = export['path'].replace(old_export_path, new_backup_path)
+
+                    migrated_backup = CorpusBackup()
+                    migrated_backup.corpus_id = export['corpus_id']
+                    migrated_backup.corpus_name = export['corpus_name']
+                    migrated_backup.corpus_description = export['corpus_description']
+                    migrated_backup.name = export['name']
+                    migrated_backup.path = new_backup_location
+                    migrated_backup.created = export['created']
+                    migrated_backup.status = export['status']
+                    migrated_backup.save()
+
+                    shutil.move(export['path'], new_backup_location)
+                    if os.path.exists(new_backup_location):
+                        print(f"Successfully migrated backup for {migrated_backup.corpus_name}!")
+                        num_exports_to_migrate -= 1
+                        export_migration_occurred = True
+
+                else:
+                    print("Invalid CorpusExport found.")
+
+            if num_exports_to_migrate == 0 and export_migration_occurred:
+                shutil.rmtree(old_export_path)
+                old_corpus_export_collection.drop()
+                print('CorpusBackup MIGRATION COMPLETE :)')
 
         print("\n---------------------------")
         print(" CORPORA INITIALIZED")
