@@ -32,6 +32,7 @@ from .utilities import(
     process_content_bundle,
     process_corpus_backup_file,
     fix_mongo_json,
+    delimit_content_json,
     send_alert
 )
 from .captcha import generate_captcha, validate_captcha
@@ -1024,17 +1025,20 @@ async def export(request, corpus_id, content_type):
                     async for chunk in async_range(chunks):
                         start = chunk * chunk_size
                         end = start + chunk_size
-                        print(f'grabbing {start}:{end}')
+
                         content_slice = contents[start:end]
-                        content_dict = [await sync_to_async(content.to_dict)() for content in content_slice]
-                        content_json = await sync_to_async(json.dumps)(content_dict)
+                        content_json = await sync_to_async(delimit_content_json)(content_slice)
+
                         if chunks > 1:
                             if chunk == 0:
-                                content_json = content_json[:-1] + ','
+                                content_json = '[' + content_json + ', '
                             elif chunk == chunks - 1:
-                                content_json = content_json[1:]
+                                content_json = content_json + ']'
                             else:
-                                content_json = content_json[1:-1] + ','
+                                content_json = content_json + ', '
+                        else:
+                            content_json = '[' + content_json + ']'
+
                         asyncio.sleep(0)
                         yield content_json
                 except asyncio.CancelledError:
