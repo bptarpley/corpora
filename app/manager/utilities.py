@@ -11,6 +11,11 @@ from django_eventstream import send_event
 from django_drf_filepond.models import TemporaryUpload
 
 
+# for use by the fix_mongo_json function:
+mongo_id_pattern = re.compile(r'{"\$oid":\s*"([^"]*)"\}')
+mongo_date_pattern = re.compile(r'{"\$date":\s*([^}]*)}')
+
+
 def get_scholar_corpora(scholar, only=[], page=1, page_size=50):
     corpora = []
     start_record = (page - 1) * page_size
@@ -654,9 +659,10 @@ def _clean(obj, key, default_value=''):
 
 
 def fix_mongo_json(json_string):
-    oid_pattern = re.compile(r'{"\$oid": "([^"]*)"}')
-    oid_matches = oid_pattern.finditer(json_string)
-    for oid_match in oid_matches:
-        json_string = json_string.replace(oid_match[0], f'"{ oid_match.group(1) }"')
+    json_string = mongo_id_pattern.sub(r'"\1"', json_string)
+    json_string = mongo_date_pattern.sub(r'\1', json_string)
+    return json_string.replace('"_id"', '"id"')
 
-    return json_string.replace('"_id":', '"id":')
+
+def delimit_content_json(contents, delimiter=', '):
+    return delimiter.join([fix_mongo_json(c.to_json()) for c in contents])
