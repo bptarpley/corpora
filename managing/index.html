@@ -89,7 +89,7 @@
                 </li>
               </ul>
               <ul>
-                <li class="toctree-l1"><a class="" href="../plugins.md">Plugins</a>
+                <li class="toctree-l1"><a class="reference internal" href="../plugins/">Plugins</a>
                 </li>
               </ul>
       </div>
@@ -147,7 +147,7 @@
 </code></pre>
 <p>Note that when providing the export filename in the command above, you only need the name of the file (not the full path). Once that command executes and you get a message saying "Export file successfully registered," you should be able to see it listed as an available corpus export to restore on the "Export/Import Corpus" page. </p>
 <h2 id="installing-plugins">Installing Plugins</h2>
-<p>Corpora is designed with a plugin architecture that leverages Django's "app" convention. As such, installing plugins for Corpora is relatively easy, though you must have access to the filesystem of the server. A given plugin is ultimately a directory with a particular file structure (see <a href="/corpora/developing/#corpora-plugins">creating plugins for Corpora</a>). To install a plugin, place its directory inside the "plugins" subdirectory living in the data directory for Corpora, i.e. <code>/corpora/data/plugins</code>. Once the plugin directory is copied there, you must also enable the plugin by adding it to the comma delimited list of enabled plugins stored in the <code>CRP_INSTALLED_PLUGINS</code> environment variable set for the Corpora container. The easiest way to do this is to edit the <code>docker-compose.yml</code> file, find the "environment" section of the "corpora" service, make sure the line specifying <code>CRP_INSTALLED_PLUGINS</code> isn't commented out, and add the name of the plugin directory to that variables' comma delimited value.</p>
+<p>Corpora is designed with a plugin architecture that leverages Django's "app" convention. As such, installing plugins for Corpora is relatively easy, though you must have access to the filesystem of the server. A given plugin is ultimately a directory with a particular file structure (see <a href="/corpora/developing/#building-corpora-plugins">creating plugins for Corpora</a>). To install a plugin, place its directory inside the "plugins" subdirectory living in the data directory for Corpora, i.e. <code>/corpora/data/plugins</code>. Once the plugin directory is copied there, you must also enable the plugin by adding it to the comma delimited list of enabled plugins stored in the <code>CRP_INSTALLED_PLUGINS</code> environment variable set for the Corpora container. The easiest way to do this is to edit the <code>docker-compose.yml</code> file, find the "environment" section of the "corpora" service, make sure the line specifying <code>CRP_INSTALLED_PLUGINS</code> isn't commented out, and add the name of the plugin directory to that variables' comma delimited value.</p>
 <p><em>Corpora must be restarted</em> for it to be registered properly. And in order for containers to be aware of updated environment variables, the container must be stopped altogether and re-created by the Docker engine. To completely stop and restart Corpora while running with Docker Compose, issue these commands:</p>
 <pre><code class="language-bash"># first change to your codebase directory with the docker-compose.yml file
 docker-compose down
