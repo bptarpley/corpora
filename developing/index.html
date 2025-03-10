@@ -109,7 +109,7 @@
     </li>
         </ul>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#corpora-plugins">Corpora Plugins</a>
+    <li class="toctree-l2"><a class="reference internal" href="#building-corpora-plugins">Building Corpora Plugins</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#minimum-requirements">Minimum Requirements</a>
     </li>
@@ -130,6 +130,10 @@
         </ul>
     </li>
     </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="" href="../plugins.md">Plugins</a>
                 </li>
               </ul>
       </div>
@@ -159,7 +163,7 @@
                 <h1 id="developing">Developing</h1>
 <p>Corpora was built with the DH developer in mind just as much as the DH scholar. It was created as a way to flexibly handle a wide variety of DH projects with minimal effort while also empowering the developer to focus on the more innovative aspects of a given project. Below are detailed the affordances of corpora tailored specifically for developers, listed in order of complexity.</p>
 <h2 id="content-type-templates">Content Type Templates</h2>
-<p>From a developer's perspective, a <a href="/#content-type">Content Type</a> in Corpora is a class whose properties and methods are largely defined by the Content Type Manager (essentially a data schema editor) available on the Admin tab of a given corpus. Content Type Templates are the convention Corpora uses to allow developers to control how instances of content get <em>rendered</em>, whether as a textual label, an HTML snippet, a JavaScript component, an XML document, etc. This rendering is done using <a href="https://docs.djangoproject.com/en/5.0/ref/templates/">the Jinja2-style Django template convention</a>, and indeed it's recommended to refer to Django's documentation when editing or creating templates (particularly as a reference for <a href="https://docs.djangoproject.com/en/5.0/ref/templates/builtins/#built-in-tag-reference">Django's built-in template tags</a>).</p>
+<p>From a developer's perspective, a <a href="#content-type">Content Type</a> in Corpora is a class whose properties and methods are largely defined by the Content Type Manager (essentially a data schema editor) available on the Admin tab of a given corpus. Content Type Templates are the convention Corpora uses to allow developers to control how instances of content get <em>rendered</em>, whether as a textual label, an HTML snippet, a JavaScript component, an XML document, etc. This rendering is done using <a href="https://docs.djangoproject.com/en/5.0/ref/templates/">the Jinja2-style Django template convention</a>, and indeed it's recommended to refer to Django's documentation when editing or creating templates (particularly as a reference for <a href="https://docs.djangoproject.com/en/5.0/ref/templates/builtins/#built-in-tag-reference">Django's built-in template tags</a>).</p>
 <h3 id="editing-label-templates">Editing Label Templates</h3>
 <p>By way of example, let's consider the following Content Type used to keep track of named entities throughout a corpus of XML documents:</p>
 <p><img alt="Entity Content Type" src="../assets/img/content_type_templates_entity_example.png" title="Entity Content Type" /></p>
@@ -271,7 +275,7 @@ my_corpus = get_corpus('6661e28c4399e45f0bfd2121')
 <tr>
 <td>repos</td>
 <td>dictionary</td>
-<td>The keys are the name given to the repo, and the values are <a href="/#repos">Repo objects</a>.</td>
+<td>The keys are the name given to the repo, and the values are <a href="#repos">Repo objects</a>.</td>
 </tr>
 <tr>
 <td>open_access</td>
@@ -497,12 +501,12 @@ my_corpus.save()
 <p>To install a given package (like, say, <code>pandas</code>) at runtime, simply prefix a <code>pip install</code> command with an exclamation point in a notebook cell and execute it. For example:</p>
 <pre><code class="language-shell">!pip install pandas
 </code></pre>
-<p>This will prompt pip (the Package Installer for Python) to download and install the package to the "user installation" of Python. Specifically, this is found at <code>/conf/plugin_modules/lib/python3.11/site-packages</code> inside the Corpora container. As instructed in the <a href="/deploying/#prerequisites">deployment documentation</a>, you should have various subdirectories inside a data directory on your host machine mounted inside of Corpora, and one of those subdirectories is <code>conf</code>, corresponding to the <code>/conf</code> path inside the Corpora container. As such, assuming the Corpora data directory you set up on your host machine is at <code>/corpora/data</code>, you'll find packages installed in this manner in <code>/corpora/data/conf/plugin_modules/lib/python3.11/site-packages</code> on your host machine. Because these files are living in a directory mounted from your host computer, <em>any packages you install at runtime will persist</em> until you delete or uninstall them.</p>
+<p>This will prompt pip (the Package Installer for Python) to download and install the package to the "user installation" of Python. Specifically, this is found at <code>/conf/plugin_modules/lib/python3.11/site-packages</code> inside the Corpora container. As instructed in the <a href="/corpora/deploying/#prerequisites">deployment documentation</a>, you should have various subdirectories inside a data directory on your host machine mounted inside of Corpora, and one of those subdirectories is <code>conf</code>, corresponding to the <code>/conf</code> path inside the Corpora container. As such, assuming the Corpora data directory you set up on your host machine is at <code>/corpora/data</code>, you'll find packages installed in this manner in <code>/corpora/data/conf/plugin_modules/lib/python3.11/site-packages</code> on your host machine. Because these files are living in a directory mounted from your host computer, <em>any packages you install at runtime will persist</em> until you delete or uninstall them.</p>
 <h4 id="installing-via-plugin">Installing via Plugin</h4>
-<p>Corpora is built with a plugin architecture allowing you to extend its functionality. One way to ensure that certain Python packages are installed when the Corpora container first launches is to specify them in a <code>requirements.txt</code> file in the directory for your plugin. Note that for Corpora to look for that <code>requirements.txt</code> file, <em>your plugin must be enabled</em> as instructed <a href="/managing/#installing-plugins">here</a>, and enabling a plugin (as well as installing packages specified via <code>requirements.txt</code>) requires that you restart the Corpora container. Once Corpora has installed your packages in this way, they are persisted at the same <code>/conf/plugin_modules/lib/python3.11/site-packages</code> location and won't have to be installed during subsequent restarts.</p>
+<p>Corpora is built with a plugin architecture allowing you to extend its functionality. One way to ensure that certain Python packages are installed when the Corpora container first launches is to specify them in a <code>requirements.txt</code> file in the directory for your plugin. Note that for Corpora to look for that <code>requirements.txt</code> file, <em>your plugin must be enabled</em> as instructed <a href="/corpora/managing/#installing-plugins">here</a>, and enabling a plugin (as well as installing packages specified via <code>requirements.txt</code>) requires that you restart the Corpora container. Once Corpora has installed your packages in this way, they are persisted at the same <code>/conf/plugin_modules/lib/python3.11/site-packages</code> location and won't have to be installed during subsequent restarts.</p>
 <h3 id="limitations">Limitations</h3>
 <p>While your notebook is saved as you go and can be returned to over multiple sessions, at this time Corpora only supports a single notebook per corpus. Also, at this time <em>only a single notebook can be running on a given instance of Corpora at any given time</em>. As such, should you be working in your notebook, and should another user attempt to launch their own corpus notebook, your notebook will be shut down and they will have the active notebook session.</p>
-<h2 id="corpora-plugins">Corpora Plugins</h2>
+<h2 id="building-corpora-plugins">Building Corpora Plugins</h2>
 <p>Corpora's plugin architecture allows you to extend the functionality of Corpora by adding custom Content Types, asynchronous Tasks, and even new REST API endpoints or public facing web pages. In this way, Corpora's codebase can remain relatively generic while the data schema and functionality of a custom project can be contained in a separate and distributable codebase.</p>
 <h3 id="minimum-requirements">Minimum Requirements</h3>
 <p>For Corpora to recognize your plugin, you must choose a name for your plugin that adheres to the <a href="https://peps.python.org/pep-0008/#package-and-module-names">Python convention for package and module names</a>, i.e. short, all lowercase, and usually one word or acronym, though underscores are okay if necessary (no other special characters or spaces). For the purposes of this documentation, we'll assume you're creating a plugin named <code>survey</code>.</p>
@@ -510,10 +514,10 @@ my_corpus.save()
 <pre><code>survey
 │   __init__.py
 </code></pre>
-<p>Technically, placing this directory in the correct place, enabling the plugin, and restarting Corpora according to <a href="/managing/#installing-plugins">these instructions</a> is all that is required for your plugin to work. At this point, however, the <code>survey</code> plugin does nothing useful. See below for the various ways to build functionality for your plugin.</p>
+<p>Technically, placing this directory in the correct place, enabling the plugin, and restarting Corpora according to <a href="/corpora/managing/#installing-plugins">these instructions</a> is all that is required for your plugin to work. At this point, however, the <code>survey</code> plugin does nothing useful. See below for the various ways to build functionality for your plugin.</p>
 <h3 id="custom-content-types">Custom Content Types</h3>
 <p>Often, the various tasks and functionality of your plugin require specialized Content Types for storing idiosyncratic data. The <a href="https://github.com/corpora-plugins/tesseract">tesseract</a> plugin, for instance, requires a Content Type called <code>TesseractLanguageModel</code> in order to store models for specific languages or fonts that can be trained using Corpora's interface.</p>
-<p>As for our <code>survey</code> plugin, let's create some Content Types to keep track of surveys, questions, sessions, and responses. The easiest way to go about this is to <a href="/#creating-a-corpus">create a new corpus</a> and use the Content Type Manager to <a href="/#creating-content-types">craft your Content Types</a>. Here are the various Content Types we'll create:</p>
+<p>As for our <code>survey</code> plugin, let's create some Content Types to keep track of surveys, questions, sessions, and responses. The easiest way to go about this is to <a href="/corpora/#creating-a-corpus">create a new corpus</a> and use the Content Type Manager to <a href="/#creating-content-types">craft your Content Types</a>. Here are the various Content Types we'll create:</p>
 <p><strong>Survey</strong></p>
 <table>
 <thead>

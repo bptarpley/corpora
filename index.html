@@ -100,6 +100,10 @@
                 <li class="toctree-l1"><a class="reference internal" href="developing/">Developing</a>
                 </li>
               </ul>
+              <ul>
+                <li class="toctree-l1"><a class="" href="plugins.md">Plugins</a>
+                </li>
+              </ul>
       </div>
     </div>
     </nav>
@@ -346,7 +350,7 @@ types, changing their labels, and then creating some content. For more detailed 
     allowfullscreen>
 </iframe>
 
-<p>To create a <a href="/#content-type">content type</a>, you must be logged in as a scholar that is either an Editor for the corpus
+<p>To create a <a href="/corpora/#content-type">content type</a>, you must be logged in as a scholar that is either an Editor for the corpus
 in question or is an Admin for the instance of Corpora, and must visit the dashboard for that corpus. Once there, click
 on the “Admin” tab:</p>
 <p><img alt="Corpus Dashboard Admin Tab" src="assets/img/dashboard-admin.png" title="Corpus Dashboard Admin Tab" /></p>
@@ -369,13 +373,13 @@ following form:</p>
 <p>Click the orange “New Field” button, which will bring up the “Create New Field” form:</p>
 <p><img alt="New Field Form" src="assets/img/dashboard_new_field.png" title="New Field Form" /></p>
 <p>To then create a field, you’ll need to provide the following information:</p>
-<p><strong>Name</strong>: This should be the unique name of the field in a “sluggified” format (all lowercase with no spaces or special characters other than underscores). This name is how the computer will refer to your field, how you can refer to it using the <a href="/python">Python corpus API</a>, and how it will appear in the JSON representation of your data in the various API’s automatically created by Corpora.</p>
+<p><strong>Name</strong>: This should be the unique name of the field in a “sluggified” format (all lowercase with no spaces or special characters other than underscores). This name is how the computer will refer to your field, how you can refer to it using the <a href="/corpora/developing/#the-corpus-api-for-python">Python corpus API</a>, and how it will appear in the JSON representation of your data in the various API’s automatically created by Corpora.</p>
 <p><strong>Label</strong>: This is the human readable label for your field, and will be used as the headers for columns in the tabular representation of your content and as the labels for field values in the create/edit/view pages automatically created by Corpora. You may use uppercase letters, spaces, and punctuation marks for field labels.</p>
-<p><strong>Type</strong>: This is the datatype for your field, and you can read about the various types of field <a href="/#field">here</a>. The type of field will dictate the kind of data you can store in this field, as well as the various ways in which you can search and query your data.</p>
+<p><strong>Type</strong>: This is the datatype for your field, and you can read about the various types of field <a href="/corpora/#field">here</a>. The type of field will dictate the kind of data you can store in this field, as well as the various ways in which you can search and query your data.</p>
 <p><strong>Include in Lists</strong>: This checkbox determines whether the data stored in this field will be available in the Elasticsearch index, which provides Corpora’s search capacity. If, for instance, you were only storing computational data that doesn’t need to be searched, you can uncheck this box so that the data doesn’t take up too much memory.</p>
 <p><strong>Indexed</strong>: This checkbox determines whether an index for this field will be created in the MongoDB collection used to store your data. Because data also lives in Elasticsearch by default, and because Elasticsearch already provides highly efficient indexes for your fields out-of-the-box, you almost never need to check this box. If, however, you plan on storing millions of records and you plan on accessing them via MongoDB using searches that key off of this field, you may want to check this box. Note, however, that indexing every field in a content type almost never makes sense, and generally defeats the purpose of creating an index at all.</p>
 <p><strong>Unique</strong>: Checking this box will cause MongoDB to enforce a uniqueness constraint on data stored in this field. This means that each value stored in the field will need to be unique. Attempting to save an already existing value to this field will cause the save process to fail.</p>
-<p><strong>Multiple</strong>: Checking this box will allow you to save multiple values of the specified type to this same field. All field types support this functionality, and you’re able to specify those values on the automatically generated content creation/edit form. You’re also able to add multiple values to this field using the <a href="/python">python API</a> by treating the field as a list (or array).</p>
+<p><strong>Multiple</strong>: Checking this box will allow you to save multiple values of the specified type to this same field. All field types support this functionality, and you’re able to specify those values on the automatically generated content creation/edit form. You’re also able to add multiple values to this field using the <a href="/corpora/developing/#the-corpus-api-for-python">python API</a> by treating the field as a list (or array).</p>
 <p>Once you’ve made the appropriate choices to define your field, click the orange “Create” button to tentatively add the field to your content type. The word tentatively is used here to highlight the fact that your <em>content type still isn’t saved/created at this point</em>, allowing you the opportunity to continue adding fields until the content type is fully defined.</p>
 <p>When you are satisfied with how your content types(s) and fields are defined, you must save your content type schema by scrolling down below the list of content types and clicking the orange “Save Changes” button on the bottom right (in the same horizontal space as the “New Content Type” button):</p>
 <p><img alt="Content Type Save Button" src="assets/img/ct_manager_save.png" title="Content Type Save Button" /></p>
@@ -385,8 +389,8 @@ following form:</p>
 <p>You’ll then be taken to an automatically generated web form allowing you to assign values to each of the fields defined by your content type. Once you’ve entered in the desired values for your fields, click the orange “Save” button at the bottom left:</p>
 <p><img alt="Content Save Button" src="assets/img/content_save.png" title="Content Save Button" /></p>
 <h4 id="bulk-creatingimporting-content">Bulk Creating/Importing Content</h4>
-<p>Often, however, entering the data manually using web forms is inefficient, especially if the data is pre-existing in other formats. There are two main ways of importing existing data. The first is to upload a CSV file containing data for a particular content type to your corpus. You can do this by going to the “Metadata” tab of the corpus dashboard, scrolling down to “Corpus Files,” and clicking the “Import” button. You’ll need to ensure, however, that the columns of the first row in your CSV file contain field names that match the field names of your content type. You can then make use of the <a href="/plugins#CSV">CSV plugin</a> which allows you run a task to import the data from that file into your specific content type. The method has limitations, however, in that it does not support importing multi-valued fields or cross referencing between content.</p>
-<p>The second method is to make use of the <a href="/developing/#the-corpus-api-for-python">Python API for Corpora</a> which allows you to programmatically create content. Often, when going this route, it makes sense to store your source data in an external git repository. You can clone a repository into your corpus by going to the “Metadata” tab on the corpus dashboard, scrolling down to “Corpus Repos,” and clicking the orange “Add” button. You’ll be able to specify a name for your repo, the git URL for cloning, and the specific branch you’d like to clone. Once you click “Save,” that repository will be immediately cloned and the files in that repo will be available in your corpus’ file structure. Using the Corpus Notebook, for instance, you can then write a script in Python allowing you to pull down changes to your repo, read the updated files, and create any content accordingly. If updating content in this way is a task that will be done frequently, it may make sense to then convert that script into a Corpora task that can be launched at any time via the corpus dashboard.</p>
+<p>Often, however, entering the data manually using web forms is inefficient, especially if the data is pre-existing in other formats. There are two main ways of importing existing data. The first is to upload a CSV file containing data for a particular content type to your corpus. You can do this by going to the “Metadata” tab of the corpus dashboard, scrolling down to “Corpus Files,” and clicking the “Import” button. You’ll need to ensure, however, that the columns of the first row in your CSV file contain field names that match the field names of your content type. You can then make use of the <a href="https://github.com/corpora-plugins/csv">CSV plugin</a> which allows you run a task to import the data from that file into your specific content type. The method has limitations, however, in that it does not support importing multi-valued fields or cross referencing between content.</p>
+<p>The second method is to make use of the <a href="/corpora/developing/#the-corpus-api-for-python">Python API for Corpora</a> which allows you to programmatically create content. Often, when going this route, it makes sense to store your source data in an external git repository. You can clone a repository into your corpus by going to the “Metadata” tab on the corpus dashboard, scrolling down to “Corpus Repos,” and clicking the orange “Add” button. You’ll be able to specify a name for your repo, the git URL for cloning, and the specific branch you’d like to clone. Once you click “Save,” that repository will be immediately cloned and the files in that repo will be available in your corpus’ file structure. Using the Corpus Notebook, for instance, you can then write a script in Python allowing you to pull down changes to your repo, read the updated files, and create any content accordingly. If updating content in this way is a task that will be done frequently, it may make sense to then convert that script into a Corpora task that can be launched at any time via the corpus dashboard.</p>
               
             </div>
           </div><footer>
@@ -439,5 +443,5 @@ following form:</p>
 
 <!--
 MkDocs version : 1.6.0
-Build Date UTC : 2025-01-23 17:39:13.634912+00:00
+Build Date UTC : 2025-03-10 18:24:25.654354+00:00
 -->
