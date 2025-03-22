@@ -6,7 +6,7 @@ Corpora was built with the DH developer in mind just as much as the DH scholar. 
 
 ## Content Type Templates
 
-From a developer's perspective, a [Content Type](/#content-type) in Corpora is a class whose properties and methods are largely defined by the Content Type Manager (essentially a data schema editor) available on the Admin tab of a given corpus. Content Type Templates are the convention Corpora uses to allow developers to control how instances of content get *rendered*, whether as a textual label, an HTML snippet, a JavaScript component, an XML document, etc. This rendering is done using [the Jinja2-style Django template convention](https://docs.djangoproject.com/en/5.0/ref/templates/), and indeed it's recommended to refer to Django's documentation when editing or creating templates (particularly as a reference for [Django's built-in template tags](https://docs.djangoproject.com/en/5.0/ref/templates/builtins/#built-in-tag-reference)).
+From a developer's perspective, a [Content Type](#content-type) in Corpora is a class whose properties and methods are largely defined by the Content Type Manager (essentially a data schema editor) available on the Admin tab of a given corpus. Content Type Templates are the convention Corpora uses to allow developers to control how instances of content get *rendered*, whether as a textual label, an HTML snippet, a JavaScript component, an XML document, etc. This rendering is done using [the Jinja2-style Django template convention](https://docs.djangoproject.com/en/5.0/ref/templates/), and indeed it's recommended to refer to Django's documentation when editing or creating templates (particularly as a reference for [Django's built-in template tags](https://docs.djangoproject.com/en/5.0/ref/templates/builtins/#built-in-tag-reference)).
 
 ### Editing Label Templates
 
@@ -132,18 +132,18 @@ my_corpus = get_corpus('6661e28c4399e45f0bfd2121')
 
 The `get_corpus` function will accept as its first parameter either a string or a BSON ObjectId and will return an instance of the Corpus object, which is ultimately a MongoEngine Document with the following properties:
 
-| Property      | Data Type  | Purpose                                                                                                                                                    |
-|---------------|------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| name          | string     | To provide a brief project label, typically an acronym.                                                                                                    | 
-| description   | string     | To provide a full project descriptor, typically the spelled out version of the project's name.                                                             |
+| Property      | Data Type  | Purpose                                                                                                                                                   |
+|---------------|------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name          | string     | To provide a brief project label, typically an acronym.                                                                                                   | 
+| description   | string     | To provide a full project descriptor, typically the spelled out version of the project's name.                                                            |
 | uri           | string     | This property is generated when the corpus is first saved, and it provides a unique URI for the corpus as it exists on the instance of Corpora hosting it. |
-| path          | string     | Generated upon first save. It contains the file path to the corpus' files within the Corpora Docker container, should it have any.                         |
-| kvp           | dictionary | KVP stands for "key/value pairs," and it's intended to house arbitrary metadata (rarely used).                                                             |
-| files         | dictionary | The keys for the dictionary are unique hashes based on the file's path. These are long alphanumeric strings. The values are [File objects](#Files).        |
-| repos         | dictionary | The keys are the name given to the repo, and the values are [Repo objects](/#repos).                                                                       |
-| open_access   | boolean    | A flag for determining whether a corpus is open access, making its read-only API publicly available.                                                       |
-| content_types | dictionary | The keys are the name of a given Content Type, and the values are a dictionary specifying the metadata for a given Content Type and its fields.            |
-| provenance    | list       | A list of completed jobs for this corpus.                                                                                                                  |
+| path          | string     | Generated upon first save. It contains the file path to the corpus' files within the Corpora Docker container, should it have any.                        |
+| kvp           | dictionary | KVP stands for "key/value pairs," and it's intended to house arbitrary metadata (rarely used).                                                            |
+| files         | dictionary | The keys for the dictionary are unique hashes based on the file's path. These are long alphanumeric strings. The values are [File objects](#Files).       |
+| repos         | dictionary | The keys are the name given to the repo, and the values are [Repo objects](#repos).                                                                       |
+| open_access   | boolean    | A flag for determining whether a corpus is open access, making its read-only API publicly available.                                                      |
+| content_types | dictionary | The keys are the name of a given Content Type, and the values are a dictionary specifying the metadata for a given Content Type and its fields.           |
+| provenance    | list       | A list of completed jobs for this corpus.                                                                                                                 |
 
 A corpus object also has several methods which will be covered in subsequent sections.
 
@@ -376,17 +376,17 @@ To install a given package (like, say, `pandas`) at runtime, simply prefix a `pi
 !pip install pandas
 ```
 
-This will prompt pip (the Package Installer for Python) to download and install the package to the "user installation" of Python. Specifically, this is found at `/conf/plugin_modules/lib/python3.11/site-packages` inside the Corpora container. As instructed in the [deployment documentation](/deploying/#prerequisites), you should have various subdirectories inside a data directory on your host machine mounted inside of Corpora, and one of those subdirectories is `conf`, corresponding to the `/conf` path inside the Corpora container. As such, assuming the Corpora data directory you set up on your host machine is at `/corpora/data`, you'll find packages installed in this manner in `/corpora/data/conf/plugin_modules/lib/python3.11/site-packages` on your host machine. Because these files are living in a directory mounted from your host computer, *any packages you install at runtime will persist* until you delete or uninstall them.
+This will prompt pip (the Package Installer for Python) to download and install the package to the "user installation" of Python. Specifically, this is found at `/conf/plugin_modules/lib/python3.11/site-packages` inside the Corpora container. As instructed in the [deployment documentation](/corpora/deploying/#prerequisites), you should have various subdirectories inside a data directory on your host machine mounted inside of Corpora, and one of those subdirectories is `conf`, corresponding to the `/conf` path inside the Corpora container. As such, assuming the Corpora data directory you set up on your host machine is at `/corpora/data`, you'll find packages installed in this manner in `/corpora/data/conf/plugin_modules/lib/python3.11/site-packages` on your host machine. Because these files are living in a directory mounted from your host computer, *any packages you install at runtime will persist* until you delete or uninstall them.
 
 #### Installing via Plugin
 
-Corpora is built with a plugin architecture allowing you to extend its functionality. One way to ensure that certain Python packages are installed when the Corpora container first launches is to specify them in a `requirements.txt` file in the directory for your plugin. Note that for Corpora to look for that `requirements.txt` file, *your plugin must be enabled* as instructed [here](/managing/#installing-plugins), and enabling a plugin (as well as installing packages specified via `requirements.txt`) requires that you restart the Corpora container. Once Corpora has installed your packages in this way, they are persisted at the same `/conf/plugin_modules/lib/python3.11/site-packages` location and won't have to be installed during subsequent restarts.
+Corpora is built with a plugin architecture allowing you to extend its functionality. One way to ensure that certain Python packages are installed when the Corpora container first launches is to specify them in a `requirements.txt` file in the directory for your plugin. Note that for Corpora to look for that `requirements.txt` file, *your plugin must be enabled* as instructed [here](/corpora/managing/#installing-plugins), and enabling a plugin (as well as installing packages specified via `requirements.txt`) requires that you restart the Corpora container. Once Corpora has installed your packages in this way, they are persisted at the same `/conf/plugin_modules/lib/python3.11/site-packages` location and won't have to be installed during subsequent restarts.
 
 ### Limitations
 
 While your notebook is saved as you go and can be returned to over multiple sessions, at this time Corpora only supports a single notebook per corpus. Also, at this time *only a single notebook can be running on a given instance of Corpora at any given time*. As such, should you be working in your notebook, and should another user attempt to launch their own corpus notebook, your notebook will be shut down and they will have the active notebook session.
 
-## Corpora Plugins
+## Building Corpora Plugins
 
 Corpora's plugin architecture allows you to extend the functionality of Corpora by adding custom Content Types, asynchronous Tasks, and even new REST API endpoints or public facing web pages. In this way, Corpora's codebase can remain relatively generic while the data schema and functionality of a custom project can be contained in a separate and distributable codebase.
 
@@ -401,13 +401,13 @@ survey
 │   __init__.py
 ```
 
-Technically, placing this directory in the correct place, enabling the plugin, and restarting Corpora according to [these instructions](/managing/#installing-plugins) is all that is required for your plugin to work. At this point, however, the `survey` plugin does nothing useful. See below for the various ways to build functionality for your plugin.
+Technically, placing this directory in the correct place, enabling the plugin, and restarting Corpora according to [these instructions](/corpora/managing/#installing-plugins) is all that is required for your plugin to work. At this point, however, the `survey` plugin does nothing useful. See below for the various ways to build functionality for your plugin.
 
 ### Custom Content Types
 
 Often, the various tasks and functionality of your plugin require specialized Content Types for storing idiosyncratic data. The [tesseract](https://github.com/corpora-plugins/tesseract) plugin, for instance, requires a Content Type called `TesseractLanguageModel` in order to store models for specific languages or fonts that can be trained using Corpora's interface.
 
-As for our `survey` plugin, let's create some Content Types to keep track of surveys, questions, sessions, and responses. The easiest way to go about this is to [create a new corpus](/#creating-a-corpus) and use the Content Type Manager to [craft your Content Types](/#creating-content-types). Here are the various Content Types we'll create:
+As for our `survey` plugin, let's create some Content Types to keep track of surveys, questions, sessions, and responses. The easiest way to go about this is to [create a new corpus](/corpora/#creating-a-corpus) and use the Content Type Manager to [craft your Content Types](/corpora/#creating-content-types). Here are the various Content Types we'll create:
 
 **Survey**
 
@@ -693,3 +693,53 @@ When using subprocesses like this, it's not necessary to manually mark the Corpo
 ### Beyond Content and Tasks
 
 Because Corpora plugins are essentially Django apps, you can also create custom views and templates, include static files, and even create an entire frontend for your plugin. Documentation for this level of custom development is beyond the scope here, as it essentially involves Django development. You can see an example of a fully fledged frontend for a plugin by examining the codebase for the [New Variorum Shakespeare plugin for Corpora](https://gitlab.dh.tamu.edu/corpora-plugins/nvs).
+
+## Developer FAQ's
+
+This section is intended to answer certain questions about how and why Corpora is built the way it is, and is intended for potential contributors to Corpora's codebase.
+
+### Why Django?
+
+Django is a popular web framework written in Python. Python is one of the easiest procedural programming languages to learn, and is increasingly the lingua franca of the humanities and sciences, due to the strong support it has for things like machine learning and natural language processing.
+
+### Why so many databases?
+
+One of the most glaring departures from the typical Django development pattern for Corpora is its reliance on a document (rather than relational) model for storing the majority of its data. There has long been interest in a document-based approach to writing Django apps, as evidenced by [mongoengine](https://docs.mongoengine.org/), and [MongoDB's own efforts to create an officially supported ORM for Django]( https://medium.com/mongodb/creating-the-mongodb-database-backend-for-django-1f3caf23a235). This interest is driven by a desire for a more flexible, dynamic data schema that can change on-the-fly without so much hassle. This is one of Corpora's biggest conceits: it attempts to support project data schemas that are capable of evolving organically as the project develops, as is particularly appropriate to Digital Humanities projects.
+
+Consider, for instance, what needs to happen when a user decides they want their data schema to support a many-to-many relationship. In the relational paradigm, this involves the need for an entirely new table (a cross-table) to track those relationships and requires any queries for that data to usually involve at least three tables. Should performant queries for this data become an important requirement, supporting both the retrieval of this data and retaining the ability to sort and filter on fields other than the primary keys for that cross-table generally requires some retooling of indexes, etc.
+
+In the document-based paradigm, the establishment of a many-to-many relationship requires the addition of a single, multi-valued field to one of the two document collections. To borrow analogies from the object-oriented programming world, the relational model requires you to create an entirely new object (representing that cross-table), whereas the document-based model only requires adding a new property, i.e. an array, to one of the two objects in the relationship.
+
+The complexity introduced by things like cross-tables required by the relational paradigm echoes across much of what Corpora tries to support, such as the ability to quickly export project data in the form of JSON. With the document-based model, this is a direct export (MongoDB document collections are expressed naturally as JSON). A cross-table would require at the very least either a new JSON file specifically for the relationship between objects or some kind of logic that embeds that relationship in one or the other JSON representations of the related objects.
+
+The use of ElasticSearch and Neo4J are attempts to use databases that are tuned and purpose-built to perform full-text searching, sorting, and aggregating (ElasticSearch); and also to traverse the relational connections between datapoints in the form of a network graph (Neo4J). While this seems like both a redundancy in terms of data storage and the addition of a layer of complexity, the data living in those two databases are added/deleted/modified downstream (using signals) from any MongoDB operations, making them low-effort/high-reward additions. While for certain very large datasets that are constantly changing (on the order of hundreds of millions of datapoints and thousands of transactions per second), such duplication of data would have negative impacts both in terms of storage requirements and performance. The vast majority of Digital Humanities projects, however, are small in size and relatively static. For those projects, what matters most is flexibility in terms of the data schema, not efficiency in terms of storage or the performance of CRUD operations.
+
+It may seem ridiculous that despite making use of MongoDB, ElasticSearch, and Neo4J, Corpora _also relies on an sqlite relational database_. This is an unfortunate side-effect of the fact that certain low-hanging-fruit, out-of-the-box functionalities of Django (like user management and authentication) require the use of its baked-in ORM for relational databases. The aforementioned project to create an official MongoDB ORM for Django may eventually obviate the need for this database.
+
+### Where does the core of Corpora's functionality live, code-wise?
+
+The heart of Corpora's backend codebase lives [here](https://github.com/bptarpley/corpora/blob/main/app/corpus/__init__.py). This is a giant file containing the classes that define a Corpus, the Content Types that describe the various kinds of objects comprising a given corpus, the Fields that describe the various properties for those objects, and the abstract Content class that a given instance of content inherits in order to present a [mongoengine Document](https://docs.mongoengine.org/apireference.html#documents) dynamically built according to a given Content Type.
+
+Inside that giant file are also classes that describe JobSites, Tasks, and Jobs in order to support Corpora's asynchronous job queue.
+
+The frontend "heart" of Corpora's codebase is [here](https://github.com/bptarpley/corpora/blob/main/app/static/js/corpora.js). These are JavaScript objects that provide functionality for much of Corpora's web interface, including its Content Tables, its Job Manager, and its Content Graphs.
+
+### Why is this codebase missing certain necessities like comment headers above functions and code tests?
+
+When I acquired my computer science degree in the early 2000's, certain coding conventions had not yet been widely embraced by developer culture at large--most code, for instance, did not live in git repositories! One of the conventions that had yet to become normalized is the tendency to break large files into smaller ones, ideally at least one file per class. Another is to always create copious documentation inside one's code, with the bare minimum being headers above each function that can be used to automatically generate API-level code documentation. The final, and perhaps most important convention that had not yet become normalized was the creation of code-tests that can be run any time changes to a codebase are made.
+
+I realize that for Corpora to become more amenable to the developer culture at large, these housekeeping tasks are crucial. Particularly the creation of code-tests given the size and complexity of the project. My only excuse for the lack of these necessities so far is that the majority of Corpora's codebase was developed as a way to manage/develop multiple DH projects at once, each with its own idiosyncratic needs in terms of a data schema, while also each sharing the need for things like an interface for browsing and managing data, a REST API for accessing that data using 3rd-party tools or frontends, and a task queue for performing potentially long-running tasks to ingest or transform data. Rather than create 20 boutique web applications, I chose to focus my development time on a single core codebase that could grow over time to serve an increasingly diverse array of projects. I have also historically been the only full-time developer at the center I work for, so I just haven't had time to devote to making Corpora more friendly for other developers (and therefore more sustainable as a project).
+
+My hope is that time to tend to these matters will manifest at my current position, or that one of the projects relying on Corpora will be awarded grant funds to hire external entities to perform this work. I also realize much of the tedium of things like creating header comments above classes and functions could be alleviated by the use of AI, so long as I also have the time to vet the results.
+
+### Why in the world would you use jQuery?
+
+In the modern JavaScript development world, the use of jQuery is a crutch at best. For the first half of my career, however, the vast majority of the development work I performed was on the backend. While I've always been a full-stack developer, I wrote C# code and relied on the ASP.NET framework to create most of my applications. That framework (at least at the time) relied much more intensely on things like visual interface builders and "postbacks," such that it was rare that I needed to write more than a few lines of JavaScript. As such, in my initial forays into the language I very much looked for shortcuts and fell into the bad habit of using jQuery. I will slowly be untethering Corpora's frontend codebase from that library over time.
+
+Rather unintentionally, however, my reliance on jQuery and the fact that I never got on the transpiler bus for JavaScript has resulted in what I now consider to be a good thing: no iota of Corpora's JavaScript codebase requires transpilation, which means there are zero NPM-style dependencies. In the world of DH, funding comes and goes, which means that projects can go years without being touched. The JavaScript world (particularly the one that relies entirely on transpilation), however, moves very quickly. I've encountered several projects where the build dependencies for a project have gone stale to the point of requiring a major refactor after a mere year or two of sitting on the shelf.
+
+This unintentional place I find myself in has actually become a kind of philosophical stance when it comes to the Corpora codebase: at no point should its procedural code require a build step. While this may feel maddening to a frontend developer that relies on frameworks like React, I'm rather stubborn on this point, as it somewhat future-proofs its frontend codebase.
+
+### Why is a JavaScript error thrown on individual Content pages in the browser's inspect panel?
+
+This error is a result of a hack I've made to the vis-network.js package that creates Corpora's network graphs. I've modified the physics algorithm to support what I call "directional wind," and added a section to the config that gets passed in to instantiate each graph, one that specifies a direction that blows each type of node in a particular direction for each iteration of the physics engine. This wind allows for the graph to tease itself out and become far more legible by subtly pushing similar nodes in the same direction, regardless of where they fall on the graph. I have made a corresponding feature request to this effect [here](https://github.com/visjs/vis-network/issues/2085). Unfortunately, viz.js rigorously vets its config objects and throws an error any time something is amiss, hence the big ugly error in the JavaScript console.

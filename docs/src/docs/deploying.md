@@ -81,6 +81,26 @@ Append a comma directly after "localhost" and add your own domain name, i.e.:
 CRP_HOSTS: localhost,mycorpora.org
 ````
 
+### Directory Creation and Ownership
+
+While directory creation and ownership are usually automatically setup for you when running Corpora on Docker Desktop, the same cannot be said for running on a Linux server. When running on Linux, you must manually create directories and set ownership inside the `data` directory you set up, i.e. `/corpora/data`. Here is a tree based representation of those directories, with the ownership info (UID:GID) of those directories specified next to them in parentheses:
+
+````
+- archive (999:0)
+- conf (1000:1000)
+- corpora (1000:1000)
+- iiif (102:0)
+  |_ cache (102:0)
+  |_ temp (102:0)
+- link (7474:7474)
+  |_ data (7474:7474)
+  |_ logs (7474:7474)
+- search (1000:0)
+  |_ data (1000:0)
+  |_ logs (1000:0)
+- static (1000:1000)
+````
+
 ### Running in Swarm Mode
 
 Docker Swarm is a technology for orchestrating containers in a highly available, fault-tolerant server environment (it's what Kubernetes uses under the hood). Ideally, a fully-fledged Docker Swarm deployment would run as a cluster of servers with three master nodes and at least a couple of worker nodes, and configuring such a setup is beyond the scope of this documentation. Swarm will run, however, on a single server, and instructions for doing so are provided here for the sake of simplicity.
