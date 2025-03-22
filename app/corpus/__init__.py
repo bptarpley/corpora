@@ -379,7 +379,6 @@ class Job(object):
             j.jobsite = local_jobsite
             j.scholar = scholar
             j.configuration = deepcopy(completed_task.task_configuration)
-            j.status = 'preparing'
             j.save()
             return j
 
@@ -453,7 +452,7 @@ class JobTracker(mongoengine.Document):
     jobsite = mongoengine.ReferenceField(JobSite)
     scholar = mongoengine.ReferenceField('Scholar')
     submitted_time = mongoengine.DateTimeField(default=datetime.now)
-    status = mongoengine.StringField()
+    status = mongoengine.StringField(default='queueing')
     status_time = mongoengine.DateTimeField(default=datetime.now)
     report_path = mongoengine.StringField()
     stage = mongoengine.IntField(default=0)
@@ -611,12 +610,16 @@ class JobTracker(mongoengine.Document):
             self.report("\nCORPORA JOB COMPLETE")
 
         if self.task.track_provenance:
+            scholar_name = "None"
+            if self.scholar:
+                scholar_name = f"{self.scholar.fname} {self.scholar.lname} ({self.scholar.username})".strip()
+
             ct = CompletedTask()
             ct.job_id = str(self.id)
             ct.task_name = self.task.name
             ct.task_version = self.task.version
             ct.task_configuration = deepcopy(self.configuration)
-            ct.scholar_name = f"{self.scholar.fname} {self.scholar.lname} ({self.scholar.username})".strip()
+            ct.scholar_name = scholar_name
             ct.submitted = self.submitted_time
             ct.completed = self.status_time
             ct.report_path = self.report_path
@@ -1004,8 +1007,8 @@ class File(mongoengine.EmbeddedDocument):
     description = mongoengine.StringField()
     provenance_type = mongoengine.StringField()
     provenance_id = mongoengine.StringField()
-    height = mongoengine.IntField()
-    width = mongoengine.IntField()
+    height = mongoengine.IntField(required=False)
+    width = mongoengine.IntField(required=False)
     iiif_info = mongoengine.DictField()
 
     @property

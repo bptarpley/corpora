@@ -477,7 +477,6 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                                     post_save_file_moves.append({
                                         'field': field_name,
                                         'multiple': field.multiple,
-                                        'index': value_index,
                                         'upload': temp_upload
                                     })
 
@@ -493,6 +492,9 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                                         prov_type="Scholar",
                                         prov_id=str(scholar_id)
                                     )
+
+                                else:
+                                    valid_value = False
 
                             elif field.type == 'repo':
                                 if value.get('name') and value.get('url') and value.get('branch'):
@@ -582,15 +584,17 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
             if post_save_file_moves:
                 for post_save_file_move in post_save_file_moves:
                     if post_save_file_move['multiple']:
-                        content._move_temp_file(
-                            post_save_file_move['field'],
-                            post_save_file_move['index'],
-                            new_basename=post_save_file_move['upload'].upload_name
-                        )
+                        for value_index in range(0, len(getattr(content, post_save_file_move['field']))):
+                            if settings.DJANGO_DRF_FILEPOND_UPLOAD_TMP in getattr(content, post_save_file_move['field'])[value_index].path:
+                                content._move_temp_file(
+                                    post_save_file_move['field'],
+                                    value_index,
+                                    new_basename=post_save_file_move['upload'].upload_name.replace(' ', '_').replace('%20', '_')
+                                )
                     else:
                         content._move_temp_file(
                             post_save_file_move['field'],
-                            new_basename=post_save_file_move['upload'].upload_name
+                            new_basename=post_save_file_move['upload'].upload_name.replace(' ', '_').replace('%20', '_')
                         )
 
                     post_save_file_move['upload'].delete()
