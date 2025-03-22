@@ -948,6 +948,12 @@ class ContentType(mongoengine.EmbeddedDocument):
         css_styles = ""
         req_file = f"{settings.BASE_DIR}/corpus/field_templates/requirements.json"
 
+        if self.inherited_from_module and self.inherited_from_class:
+            module = importlib.import_module(self.inherited_from_module)
+            class_obj = getattr(module, self.inherited_from_class)
+            if hasattr(class_obj, 'get_render_requirements'):
+                inclusions, javascript_functions, css_styles = class_obj.get_render_requirements(mode)
+
         if os.path.exists(req_file):
             with open(req_file, 'r') as reqs_in:
                 all_reqs = json.load(reqs_in)
@@ -972,6 +978,15 @@ class ContentType(mongoengine.EmbeddedDocument):
                     css_styles += '\n' + css_renderer.render(Context({'field': None}))
 
         return inclusions, javascript_functions, css_styles
+
+    def render_embedded_field(self, field_name):
+        if self.inherited_from_module and self.inherited_from_class:
+            module = importlib.import_module(self.inherited_from_module)
+            class_obj = getattr(module, self.inherited_from_class)
+            field = self.get_field(field_name)
+            if hasattr(class_obj, 'render_embedded_field') and field.value:
+                return class_obj.render_embedded_field(field_name, field.value)
+        return ''
 
     def to_dict(self):
         ct_dict = {
