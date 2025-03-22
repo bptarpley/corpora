@@ -226,7 +226,6 @@ def document(request, corpus_id, document_id):
                     job.task_id = str(task.id)
                     job.scholar = response['scholar'].id
                     job.jobsite = jobsite.id
-                    job.status = "preparing"
                     job.configuration = task.configuration
                     for parameter in task_parameters:
                         job.configuration['parameters'][parameter]['value'] = _clean(request.POST, parameter)
@@ -287,7 +286,7 @@ def process_document_file_upload(document, upload_id, username):
 
     temp_upload = TemporaryUpload.objects.get(upload_id=upload_id)
     temp_upload_path = temp_upload.file.path
-    import_file_path = f"{document.path}/files/{temp_upload.upload_name}"
+    import_file_path = f"{document.path}/files/{temp_upload.upload_name.replace(' ', '_').replace('%20', '_')}"
 
     if not os.path.exists(import_file_path):
         os.rename(temp_upload_path, import_file_path)

@@ -895,7 +895,7 @@ class ContentTable {
             }
 
             this.container.append(`
-                <div class="row corpora-content-table">
+                <div class="row corpora-content-table" data-content-type="${ct.name}">
                     <div class="col-12">
                         <a name="${ct.plural_name}"></a>
                         <div class="alert alert-info mt-4">

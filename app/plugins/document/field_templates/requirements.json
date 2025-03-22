@@ -1,0 +1,8 @@
+{
+    "pages": {
+        "view": {
+            "js": ["js/openseadragon.min.js", "js/openseadragonselection.js"],
+            "directories": ["img/openseadragon", "img/openseadragonselection"]
+        }
+    }
+}
