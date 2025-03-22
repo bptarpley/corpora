@@ -34,7 +34,7 @@
                 <div class="col-12">
                     <div class="brand d-flex align-items-center justify-content-between">
                         {% if page_title %}
-                            <h1 id="page-title">{{ page_title }}</h1>
+                            <h1 id="page-title">{{ page_title|safe }}</h1>
                         {% else %}
                             <a href="/"><img src="{% static 'img/logo.png' %}" class="logo" /></a>
                         {% endif %}

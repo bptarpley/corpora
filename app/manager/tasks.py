@@ -9,19 +9,30 @@ import pymysql
 import logging
 import math
 import redis
+import re
 from copy import deepcopy
 from corpus import Corpus, Job, get_corpus, File, run_neo, ContentView, ContentDeletion, CorpusBackup, JobSite, GitRepo, CompletedTask
 from huey.contrib.djhuey import db_task, db_periodic_task
 from huey import crontab
 from bson.objectid import ObjectId
-from django.conf import settings
 from urllib.parse import quote
 from elasticsearch_dsl.connections import get_connection
+from elasticsearch.helpers import scan
 from PIL import Image
 from datetime import datetime, timedelta
 from subprocess import call
-from manager.utilities import _contains, build_search_params_from_dict, order_content_schema, process_content_bundle, publish_message
+from manager.utilities import (
+    _contains,
+    build_search_params_from_dict,
+    order_content_schema,
+    process_content_bundle,
+    delimit_content_json,
+    publish_message
+)
+from django.conf import settings
 from django.utils.text import slugify
+from django.template.loader import get_template
+from django.template.context import Context
 from zipfile import ZipFile
 from django_drf_filepond.models import TemporaryUpload
 
@@ -209,23 +220,6 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['delete_corpus']
     },
-    #"Content Deletion Cleanup": {
-    #    "version": "0",
-    #    "jobsite_type": "HUEY",
-    #    "track_provenance": False,
-    #    "content_type": "Corpus",
-    #    "configuration": {
-    #        "parameters": {
-    #            "content_path": {
-    #                "value": "",
-    #                "type": "text",
-    #                "label": "Content Path"
-    #            }
-    #        }
-    #    },
-    #    "module": 'manager.tasks',
-    #    "functions": ['content_deletion_cleanup']
-    #},
     "Merge Content": {
         "version": "0",
         "jobsite_type": "HUEY",
@@ -384,6 +378,34 @@ REGISTRY = {
         },
         "module": 'manager.tasks',
         "functions": ['backup_corpus']
+    },
+    "Export Corpus": {
+        "version": "0.1",
+        "jobsite_type": "HUEY",
+        "track_provenance": True,
+        "create_report": True,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "export_json": {
+                    "value": True,
+                    "type": "boolean",
+                    "label": "Export all data to JSON?"
+                },
+                "export_html": {
+                    "value": True,
+                    "type": "boolean",
+                    "label": "Export all content as HTML?",
+                },
+                "export_tabular": {
+                    "value": True,
+                    "type": "boolean",
+                    "label": "Export tabular index pages for each Content Type?",
+                },
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['export_corpus']
     }
 }
 
@@ -1395,8 +1417,282 @@ def restore_corpus(backup_id):
         print("Error retrieving backup object for restore!")
 
 
-def export_corpus():
-    pass
+@db_task(priority=3)
+def export_corpus(job_id):
+    from django.template.autoreload import reset_loaders
+    reset_loaders()
+
+    job = Job(job_id)
+    corpus = job.corpus
+    export_json = job.get_param_value('export_json')
+    export_html = job.get_param_value('export_html')
+    export_tabular = job.get_param_value('export_tabular')
+    export_path = f"{corpus.path}/export"
+    export_tar_file = f"{corpus.path}/export.tar.gz"
+
+    job.set_status('running')
+
+    # clean up any existing exports
+    if os.path.exists(export_path):
+        job.report("Deleting existing export directory...")
+        shutil.rmtree(export_path)
+    if os.path.exists(export_tar_file):
+        job.report("Deleting existing export tar file...")
+        os.remove(export_tar_file)
+
+    job.set_status('running', percent_complete=25)
+
+    #######################################
+    ### MAKE JSON DATA DUMPS OF CONTENT ###
+    #######################################
+    if export_json:
+        job.report("Commencing JSON export...")
+
+        json_path = f"{export_path}/json"
+        schema = []
+
+        os.makedirs(json_path, exist_ok=True)
+
+        for ct_name in corpus.content_types.keys():
+            schema.append(corpus.content_types[ct_name].to_dict())
+
+            ct_json_file = f"{json_path}/{ct_name}.json"
+            with open(ct_json_file, 'w', encoding='utf-8') as ct_json_out:
+                contents = corpus.get_content(ct_name, all=True)
+                contents = contents.order_by('id')
+                contents = contents.no_cache()
+                contents = contents.batch_size(10)
+
+                content_count = contents.count()
+                schema[-1]['total_content'] = content_count
+
+                chunk_size = 1000
+                chunk_byte_sizes = []
+                chunks = math.ceil(content_count / chunk_size)
+
+                for chunk in range(0, chunks):
+                    start = chunk * chunk_size
+                    end = start + chunk_size
+
+                    content_slice = contents[start:end]
+                    content_json = delimit_content_json(content_slice)
+
+                    if chunks > 1:
+                        if chunk == 0:
+                            content_json = '[' + content_json + ', '
+                        elif chunk == chunks - 1:
+                            content_json = content_json + ']'
+                        else:
+                            content_json = content_json + ', '
+                    else:
+                        content_json = '[' + content_json + ']'
+
+                    chunk_byte_sizes.append(len(content_json.encode('utf-8')) / content_slice.count())
+                    ct_json_out.write(content_json)
+
+                if chunks and chunk_byte_sizes:
+                    schema[-1]['average_byte_size'] = math.ceil(sum(chunk_byte_sizes) / chunks)
+                else:
+                    schema[-1]['average_byte_size'] = 0
+
+        if schema:
+            with open(f"{json_path}/schema.json", 'w', encoding='utf-8') as schema_out:
+                json.dump(schema, schema_out, indent=4)
+
+    job.set_status('running', percent_complete=50)
+
+    #######################################
+    ###   MAKE HTML PAGES FOR CONTENT   ###
+    #######################################
+    if export_html:
+        job.report("Commencing HTML export...")
+
+        static_files = set()
+        static_dirs = set()
+        corpora_path_pattern = re.compile(r'\/corpora\/[^\/]*')
+
+        def get_static_file_path(file_path):
+            return os.path.join(settings.STATIC_ROOT, file_path)
+
+
+        for ct_name in corpus.content_types.keys():
+            ct_path = f"{export_path}/{ct_name}"
+            contents = corpus.get_content(ct_name, all=True)
+            contents = contents.no_cache()
+            contents = contents.batch_size(10)
+
+            inclusions, javascript_functions, css_styles = corpus.content_types[ct_name].get_render_requirements('view')
+            export_template = get_template('content_export.html')
+
+            for lang in inclusions.keys():
+                if lang == 'directories':
+                    for directory in inclusions[lang]:
+                        static_dirs.add(directory)
+                else:
+                    for static_file in inclusions[lang]:
+                        static_files.add(static_file)
+
+            default_css = None
+            if 'DefaultCSS' in corpus.content_types[ct_name].templates:
+                default_css = corpus.content_types[ct_name].templates['DefaultCSS'].template
+
+            for content in contents:
+                breakout_dir = str(content.id)[-6:-2]
+                exported_content_path = f"{ct_path}/{breakout_dir}/{content.id}"
+                os.makedirs(exported_content_path, exist_ok=True)
+
+                if content.path and os.path.exists(content.path):
+                    shutil.copytree(content.path, f"{exported_content_path}", dirs_exist_ok=True)
+
+                    for field in corpus.content_types[ct_name].fields:
+                        if field.type == 'file':
+                            if getattr(content, field.name, None):
+                                if field.multiple:
+                                    for file_index in range(0, len(getattr(content, field.name))):
+                                        full_file_path = getattr(content, field.name)[file_index].path
+                                        if full_file_path:
+                                            setattr(
+                                                getattr(content, field.name)[file_index],
+                                                'relative_path',
+                                                corpora_path_pattern.sub('', full_file_path)
+                                            )
+                                else:
+                                    full_file_path = getattr(content, field.name).path
+                                    if full_file_path:
+                                        setattr(
+                                            getattr(content, field.name),
+                                            'relative_path',
+                                            corpora_path_pattern.sub('', full_file_path)
+                                        )
+
+                corpus.content_types[ct_name].set_field_values_from_content(content)
+                html_path = f"{exported_content_path}/index.html"
+                html = export_template.render({
+                    'content_label': content.label,
+                    'content_type': corpus.content_types[ct_name],
+                    'content_type_names': list(corpus.content_types.keys()),
+                    'content_id': str(content.id),
+                    'content_uri': content.uri,
+                    'breakout_dir': breakout_dir,
+                    'inclusions': inclusions,
+                    'javascript_functions': javascript_functions,
+                    'css_styles': css_styles,
+                    'default_css': default_css
+                })
+                with open(html_path, 'w', encoding='utf-8') as html_out:
+                    html_out.write(html)
+
+        # create the static dependencies (.js/.css, etc) directory
+        static_files_path = f"{export_path}/static"
+        os.makedirs(static_files_path, exist_ok=True)
+
+        # copy over any global dependencies
+        dependencies_path = get_static_file_path('export_dependencies')
+        if os.path.exists(dependencies_path):
+            shutil.copytree(dependencies_path, static_files_path, dirs_exist_ok=True)
+
+        for static_file in static_files:
+            static_file_path = get_static_file_path(static_file)
+            copied_path = f"{static_files_path}/{static_file}"
+
+            os.makedirs(os.path.dirname(copied_path), exist_ok=True)
+            shutil.copy(static_file_path, copied_path)
+
+        for static_dir in static_dirs:
+            shutil.copytree(get_static_file_path(static_dir), f"{static_files_path}/{static_dir}", dirs_exist_ok=True)
+
+    job.set_status('running', percent_complete=75)
+
+    ###########################################
+    ### BUILD OUT TABULAR JSON AND PAGES    ###
+    ###########################################
+    if export_tabular:
+        job.report("Commencing tabular export...")
+
+        export_template = get_template('content_table_export.html')
+        average_record_sizes = {}
+
+        for ct_name in corpus.content_types.keys():
+            tabular_json_file = f"{export_path}/json/{ct_name}_table.json"
+
+            tabular_results = scan(
+                client=get_connection(),
+                index=f"corpus-{corpus.id}-{ct_name}".lower(),
+                query={"query": {"match_all": {}}},
+                scroll='5m',
+                size=1000,
+                request_timeout=60
+            )
+
+            record_sizes = []
+            chunk_sizes = []
+            num_records = 0
+
+            with open(tabular_json_file, 'w', encoding='utf-8') as table_json_out:
+                table_json_out.write('[\n')
+
+                first_result = True
+                for tabular_result in tabular_results:
+                    tabular_result['_source']['id'] = tabular_result['_id']
+
+                    if first_result:
+                        first_result = False
+                    else:
+                        table_json_out.write(',\n')
+
+                    json_record = json.dumps(tabular_result['_source'])
+                    chunk_sizes.append(len(json_record.encode('utf-8')))
+                    table_json_out.write(json_record)
+                    num_records += 1
+
+                    if record_sizes and num_records % 1000 == 0:
+                        chunk_sizes.append(sum(record_sizes) / len(record_sizes))
+                        record_sizes = []
+
+                table_json_out.write('\n]')
+
+            if record_sizes:
+                chunk_sizes.append(sum(record_sizes) / len(record_sizes))
+
+            if chunk_sizes:
+                average_record_sizes[ct_name] = math.ceil(sum(chunk_sizes) / len(chunk_sizes))
+            else:
+                average_record_sizes[ct_name] = 0
+
+            with open(f"{export_path}/{ct_name}.html", 'w', encoding='utf-8') as table_out:
+                table_out.write(export_template.render({'content_type': corpus.content_types[ct_name]}))
+
+        if average_record_sizes:
+            schema = []
+            schema_path = f"{export_path}/json/schema.json"
+
+            if os.path.exists(schema_path):
+                with open(schema_path, 'r', encoding='utf-8') as schema_in:
+                    schema = json.load(schema_in)
+
+                if schema:
+                    for ct_index in range(0, len(schema)):
+                        if schema[ct_index]['name'] in average_record_sizes:
+                            schema[ct_index]['average_tabular_byte_size'] = average_record_sizes[schema[ct_index]['name']]
+
+                with open(schema_path, 'w', encoding='utf-8') as schema_out:
+                    json.dump(schema, schema_out, indent=4)
+
+    '''
+    if os.path.exists(export_path):
+        job.report("Creating compressed tar file for download...")
+
+        with tarfile.open(export_tar_file, "w:gz") as tar:
+            tar.add(export_path, arcname='export')
+
+        if os.path.exists(export_tar_file):
+            shutil.rmtree(export_path)
+    '''
+
+    corpora_url = 'https://' if settings.USE_SSL else 'http://'
+    corpora_url += settings.ALLOWED_HOSTS[0]
+    job.report(f"Export complete! Download here: {corpora_url}/export/download/{corpus.id}/")
+    job.complete(status='complete')
 
 
 def make_mongo_uri():

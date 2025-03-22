@@ -1,0 +1,476 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- CSS -->
+    <link href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css" rel="stylesheet" />
+    <style type="text/css">
+        .content-cell {
+            max-height: 100px;
+            overflow: auto;
+        }
+
+        .gridjs-th-content {
+            white-space: nowrap;
+        }
+
+        th.gridjs-th .gridjs-th-content {
+            overflow: unset;
+            text-overflow: unset;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .data-note {
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .total-box {
+            font-weight: bold;
+            float: right;
+        }
+    </style>
+
+    <title>{{ content_type.name }}</title>
+</head>
+<body>
+<h1 id="page-title">{{ content_type.name }}</h1>
+
+<div id="grid"></div>
+
+<div id="bg-container" class="hidden">
+    <div class="data-note">
+        The amount of data represented by the {{ content_type.name }} content type in this corpus is too large to allow
+        for sorting on a static site. The table below displays 50 records at a time pulled from a large JSON file using
+        byte ranges. As such, data is displayed in a potentially arbitrary order, and can only be browsed by clicking
+        the "Get Next/Previous 50 Records" buttons. A simple keyword filter is also available--when providing your
+        keyword and clicking "Apply Filter," only records containing that exact keyword (case-insensitive) will populate.
+        The page will keep searching for records containing that keyword until it finds the first 50 results and displays them.
+    </div>
+    <div class="controls">
+        <button id="bg-get-prev-button" role="button" disabled>Get Previous 50 Records</button>
+        <button id="bg-get-next-button" role="button">Get Next 50 Records</button>
+        <input id="bg-search-filter-box" type="text" placeholder="Filter by keyword..." />
+        <button id="bg-set-filter-button" role="button">Apply Filter</button>
+        <div class="total-box"><span class="total-records-indicator"></span></div>
+    </div>
+    <div id="big-grid"></div>
+</div>
+
+<script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
+<script id="schema-data" type="application/json" src="/json/schema.json"></script>
+<script id="content-data" type="application/json" src="/json/{{ content_type.name }}.json"></script>
+<script type="application/javascript">
+    let contentType = '{{ content_type.name }}'
+    let schemaURL = '/json/schema.json'
+    let tabularJsonURL = '/json/{{ content_type.name }}_table.json'
+    let schema = []
+    let content_type_names = []
+    let fields = []
+    let totalRecords = 0
+    let avgByteSize = 7000
+    let pageSize = 50
+    let grid = null
+    let usingBigGrid = false
+
+    // if the total number of records exceeds
+    // 5,000, we'll need to use a "big grid,"
+    // which in this context means fetching
+    // byte-range chunks of a large JSON file
+    // and displaying what we can parse from it
+    // one page at a time. This "bg" object
+    // handles the state for that big grid.
+    let bg = {
+        grid: null,
+        pageRecords: [],
+        lastPageIDs: new Set(),
+        thisPageIDs: new Set(),
+        startByte: 0,
+        endByte: avgByteSize,
+        maxByte: -1,
+        keyword: '',
+        ui: { // big grid UI elements
+            container: document.getElementById('bg-container'),
+            nextButton: document.getElementById('bg-get-next-button'),
+            prevButton: document.getElementById('bg-get-prev-button'),
+            filterBox: document.getElementById('bg-search-filter-box'),
+            filterButton: document.getElementById('bg-set-filter-button')
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        fetch(schemaURL).then(data => data.json()).then(schemaData => {
+            schema = schemaData
+            schema.forEach(ct => {
+                content_type_names.push(ct.name)
+
+                if (ct.name === contentType) {
+                    fields = ct.fields
+                    totalRecords = ct.total_content
+                    avgByteSize = ct.average_tabular_byte_size
+
+                    document.querySelectorAll('.total-records-indicator').forEach(span => {
+                        span.innerText = `Total {{ content_type.plural_name }}: ${totalRecords.toLocaleString()}`
+                    })
+
+                    if (totalRecords > 2000) {
+                        setupBigGrid()
+                    } else {
+                        fetch(tabularJsonURL).then(data => data.json()).then(data => {
+                            for (let x = 0; x < data.length; x++) {
+                                fields.forEach(f => {
+                                    if (!data[x].hasOwnProperty(f.name)) {
+                                        data[x][f.name] = null
+                                        if (f.multiple) data[x][f.name] = []
+                                    }
+                                })
+                            }
+
+                            grid = new gridjs.Grid({
+                                columns: get_data_grid_columns(),
+                                data: data,
+                                sort: true,
+                                pagination: { limit: pageSize },
+                                search: {
+                                    selector: (cell, rowIndex, cellIndex) => {
+                                        if (cellIndex > 0)
+                                            if (fields[cellIndex - 1].multiple) {
+                                                return cell.map(c => `${c.label}`).join(' ')
+                                            } else if (fields[cellIndex - 1].type === 'cross_reference') {
+                                                return cell.label
+                                            }
+                                        return cell
+                                    }
+                                },
+                                className: {
+                                    container: 'gridjs-container',
+                                    table: 'gridjs-table',
+                                    th: 'gridjs-th',
+                                    td: 'gridjs-td',
+                                },
+                                style: {
+                                    td: {
+                                        padding: '12px 16px'
+                                    }
+                                },
+                                width: '100%'
+                            }).render(document.getElementById('grid'))
+
+                            let sortCols = document.querySelectorAll('.gridjs-th-sort')
+                            sortCols.forEach(col => {
+                                let inlineWidth = col.style.width.replace('px', '')
+                                if (inlineWidth) {
+                                    col.style.width = `${parseInt(inlineWidth) + 20}px`
+                                }
+                            })
+                        })
+                    }
+                }
+            })
+        })
+    })
+
+    async function setupBigGrid() {
+        usingBigGrid = true
+
+        bg.startByte = 0
+        bg.endByte = avgByteSize
+        bg.maxByte = await getJSONByteSize()
+
+        bg.ui.container.classList.remove('hidden')
+
+        await getBigGridRecords('forward')
+
+        bg.ui.prevButton.addEventListener('click', (e) => {
+            bg.pageRecords = []
+            getBigGridRecords('backward')
+        })
+        bg.ui.nextButton.addEventListener('click', (e) => {
+            bg.pageRecords = []
+            getBigGridRecords('forward')
+        })
+        bg.ui.filterButton.addEventListener('click', (e) => {
+            bg.pageRecords = []
+            bg.keyword = bg.ui.filterBox.value.trim()
+            bg.startByte = 0
+            getBigGridRecords('forward')
+        })
+    }
+
+    async function getBigGridRecords(direction) {
+        // Calculate byte range for this chunk
+        if (direction === 'forward') {
+            bg.startByte = Math.max(0, bg.startByte - avgByteSize)
+            bg.endByte = Math.min(bg.maxByte, bg.startByte + ((pageSize + 2) * avgByteSize))
+        } else if (direction === 'backward') {
+            bg.endByte = Math.min(bg.maxByte, bg.startByte + avgByteSize)
+            bg.startByte = Math.max(0, bg.endByte - ((pageSize + 2) * avgByteSize))
+        } else  { // here we assume start and end bytes have already been set elsewhere
+            bg.startByte = Math.max(0, bg.startByte - avgByteSize)
+            bg.endByte = Math.min(bg.maxByte, bg.endByte + avgByteSize)
+        }
+
+        try {
+            // Fetch the byte range
+            const response = await fetch(tabularJsonURL, {
+                headers: { 'Range': `bytes=${bg.startByte}-${bg.endByte}` }
+            })
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`)
+            }
+
+            // Get the text content
+            const text = await response.text()
+
+            // Split into lines and trim if necessary
+            let lines = text.split('\n').map(line => {
+                let fixed_line = line.trim()
+                if (fixed_line.endsWith(',')) fixed_line = fixed_line.slice(0, -1)
+                return fixed_line
+            })
+
+            // If we're moving backward, we need to reverse the lines so that the
+            // "estimatedBytesParsed" convention works properly
+            if (direction === 'backward') lines.reverse()
+
+            // Parse each line as JSON
+            let jsonParseErrors = 0
+            let estimatedBytesParsed = 0
+            let chunkTooLarge = false
+
+            lines.forEach(line => {
+                if (bg.pageRecords.length < pageSize) {
+                    estimatedBytesParsed += new Blob([line]).size
+                    if (line.startsWith('{') && line.endsWith('}') && (bg.keyword.length === 0 || line.toLowerCase().includes(bg.keyword.toLowerCase()))) {
+                        try {
+                            let record = JSON.parse(line)
+
+                            if (record.id && !bg.lastPageIDs.has(record.id)) {
+                                bg.thisPageIDs.add(record.id)
+                                fields.forEach(f => {
+                                    if (!record.hasOwnProperty(f.name)) {
+                                        record[f.name] = null
+                                        if (f.multiple) record[f.name] = []
+                                    }
+                                })
+                                bg.pageRecords.push(record)
+                            }
+                        } catch (e) {
+                            console.warn('Incomplete record encountered due to inexact byte range issue.')
+                            jsonParseErrors += 1
+                        }
+                    }
+                } else chunkTooLarge = true
+            })
+
+            if (direction === 'forward') {
+                if (chunkTooLarge) bg.startByte = bg.startByte + estimatedBytesParsed
+                else bg.startByte = bg.endByte
+            } else if (direction === 'backward') {
+                if (chunkTooLarge) bg.endByte = bg.endByte - estimatedBytesParsed
+                else bg.endByte = bg.startByte
+            }
+
+            if ((direction === 'forward' && bg.endByte < bg.maxByte) || (direction === 'backward' && bg.startByte > 0)) {
+                if (bg.pageRecords.length < pageSize && jsonParseErrors < 5)
+                    await getBigGridRecords(direction)
+            }
+
+            if(bg.pageRecords.length) {
+                refreshBigGrid()
+            }
+        } catch (error) {
+            console.error('Error fetching data chunk:', error);
+            throw error;
+        }
+    }
+
+    function refreshBigGrid() {
+        if (bg.grid) bg.grid.destroy()
+
+        bg.grid = new gridjs.Grid({
+            columns: get_data_grid_columns(),
+            data: bg.pageRecords,
+            sort: false, // Disable sorting because JSON is too large
+            className: {
+                container: 'gridjs-container',
+                table: 'gridjs-table',
+                th: 'gridjs-th',
+                td: 'gridjs-td',
+            },
+            style: {
+                td: {
+                    padding: '12px 16px'
+                }
+            },
+            width: '100%'
+        }).render(document.getElementById('big-grid'))
+
+        if (bg.startByte > 0) bg.ui.prevButton.disabled = false
+        else bg.ui.prevButton.disabled = true
+
+        if (bg.endByte < bg.maxByte) bg.ui.nextButton.disabled = false
+        else bg.ui.nextButton.disabled = true
+    }
+
+    async function getJSONByteSize() {
+        try {
+            const response = await fetch(tabularJsonURL, { method: 'HEAD' });
+            if (!response.ok) {
+                return -1;
+            }
+            const fileSize = parseInt(response.headers.get('Content-Length'));
+            return isNaN(fileSize) ? -1 : fileSize;
+        } catch (error) {
+            return -1;
+        }
+    }
+
+    function get_data_grid_columns() {
+        let cols = [
+            {
+                id: 'uri',
+                name: '',
+                formatter: (cell) => gridjs.html(`<a href="${format_url_from_uri(cell)}" target="_blank">Open</a>`),
+                sort: false
+            }
+        ]
+
+        fields.forEach(f => {
+            cols.push(
+                {
+                    id: f.name,
+                    name: f.label,
+                    formatter: (cell) => gridjs.html(format_column_value(cell, f.type, f.multiple)),
+                    sort: !f.multiple && !usingBigGrid
+                }
+            )
+        })
+
+        return cols
+    }
+
+    function format_column_value(field_value, field_type, is_multiple) {
+        let formatted_values = []
+        let raw_values = [field_value]
+        let delimiter = ', '
+        if (is_multiple && field_value !== null && field_value.constructor === Array) raw_values = field_value
+
+        raw_values.forEach(value => {
+            if (value === null) formatted_values.push('')
+            else {
+                if (field_type === 'date') {
+                    value = date_string(value)
+                } else if (field_type === 'html') {
+                    value = strip_html(value)
+                    value = value.slice(0, 500)
+                    delimiter = '<br />'
+                } else if (field_type === 'timespan') {
+                    value = timespan_string(value)
+                } else if (field_type === 'iiif-image') {
+                    value = `<img loading="lazy" src='${value}/full/,100/0/default.png' />`
+                    delimiter = '<br />'
+                } else if (field_type === 'file' && ['.png', '.jpg', '.gif', 'jpeg'].includes(value.toLowerCase().substring(value.length - 4))) {
+                    value = `<img loading="lazy" src='${value.path}' />`
+                    delimiter = '<br />'
+                } else if (field_type === 'large_text') {
+                    value = value.slice(0, 500) + '...'
+                } else if (field_type === 'cross_reference') {
+                    value = `<a href="${format_url_from_uri(value.uri)}" target="_blank">${strip_html(value.label)}</a>`
+                }
+                formatted_values.push(value)
+            }
+        })
+
+        return `<div class="content-cell">${formatted_values.join(delimiter)}</div>`
+    }
+
+    function time_string(timestamp, from_mongo=true, just_time=false, adjust_for_timezone=true) {
+        let date = null
+        //if (from_mongo) date = new Date(timestamp*1000)
+        //else
+        date = new Date(timestamp)
+
+        let representation = null
+        if (adjust_for_timezone) representation = date.toLocaleString('en-US', { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })
+        else representation = date.toLocaleString('en-US')
+
+        if (just_time) representation = representation.split(', ')[1]
+        return representation
+    }
+
+    function date_string(timestamp, granularity='Day', adjust_for_timezone=true) {
+        let date = new Date(timestamp)
+        if (granularity === 'Day')
+            return date.toISOString().split('T')[0]
+        else if (granularity === 'Year')
+            return date.toLocaleString('default', { year: 'numeric' })
+        else if (granularity === 'Month')
+            return date.toLocaleString('default', { month: 'long', year: 'numeric' })
+        else if (granularity === 'Time')
+            return time_string(timestamp, false, false, adjust_for_timezone)
+    }
+
+    function timespan_string(timespan) {
+        let uncertain_prefix = ''
+        let granularity = timespan.granularity ?? 'Day'
+        let start_string = ''
+        let end_string = ''
+        let range_combinator = ''
+
+        if (timespan.start) {
+            start_string = date_string(timespan.start, granularity)
+            if (timespan.uncertain) uncertain_prefix = 'Around '
+
+            if (timespan.end) {
+                end_string = date_string(timespan.end, granularity)
+
+                if (start_string !== end_string) {
+                    range_combinator = ' - '
+                    if (timespan.uncertain) {
+                        uncertain_prefix = 'Between '
+                        range_combinator = ' and '
+                    }
+                } else end_string = ''
+            }
+        }
+
+        return `${uncertain_prefix}${start_string}${range_combinator}${end_string}`
+    }
+
+    function strip_html(html) {
+        let doc = new DOMParser().parseFromString(html, 'text/html')
+        return doc.body.textContent || ""
+    }
+
+    function format_url_from_uri(uri) {
+        if (uri) {
+            if (uri.endsWith('/')) uri = uri.slice(0, -1)
+
+            let uri_parts = uri.split('/')
+            if (uri_parts.length === 5) {
+                let ct_name = uri_parts[3]
+                if (content_type_names.includes(ct_name)) {
+                    let content_id = uri_parts[4]
+                    let breakout_dir = content_id.slice(-6, -2)
+
+                    return `/${ct_name}/${breakout_dir}/${content_id}/index.html`
+                }
+            }
+        }
+        return uri
+    }
+
+</script>
+</body>
+</html>

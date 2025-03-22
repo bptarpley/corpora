@@ -246,40 +246,6 @@ def corpus(request, corpus_id):
                 else:
                     response['errors'].append('An error occurred when attempting to delete the "{0}" repository!'.format(repo_name))
 
-            # HANDLE JOB SUBMISSION
-            elif _contains(request.POST, ['jobsite', 'task']):
-                jobsite = JobSite.objects(id=_clean(request.POST, 'jobsite'))[0]
-                task = Task.objects(id=_clean(request.POST, 'task'))[0]
-                task_parameters = [key for key in task.configuration['parameters'].keys() if task.configuration['parameters'][key]['type'] != 'boolean']
-                if _contains(request.POST, task_parameters):
-                    job = Job()
-                    job.corpus_id = corpus_id
-                    job.content_type = 'Corpus'
-                    job.content_id = None
-                    job.task_id = str(task.id)
-                    job.scholar_id = str(response['scholar'].id)
-                    job.jobsite_id = str(jobsite.id)
-                    job.status = "preparing"
-                    job.configuration = task.configuration
-
-                    for parameter in task_parameters:
-                        job.configuration['parameters'][parameter]['value'] = unescape(_clean(request.POST, parameter))
-
-                    for bool_parameter in [key for key in task.configuration['parameters'].keys() if task.configuration['parameters'][key]['type'] == 'boolean']:
-                        job.configuration['parameters'][bool_parameter]['value'] = bool_parameter in request.POST
-
-                    job.save()
-                    run_job(job.id)
-                    response['messages'].append("Job successfully submitted.")
-                else:
-                    response['errors'].append("Please provide values for all task parameters.")
-
-            # HANDLE JOB KILL
-            elif _contains(request.POST, ['kill-job-id']):
-                kill_job_id = _clean(request.POST, 'kill-job-id')
-                job = Job(kill_job_id)
-                job.kill()
-
             # HANDLE CONTENT TYPE SCHEMA SUBMISSION
             elif 'schema' in request.POST:
                 schema = json.loads(request.POST['schema'])
@@ -1069,7 +1035,7 @@ def backups(request):
                 corpora_backups_path = "/corpora/backups"
                 os.makedirs(corpora_backups_path, exist_ok=True)
 
-                new_path = f"{corpora_backups_path}/{temp_upload.upload_name}"
+                new_path = f"{corpora_backups_path}/{temp_upload.upload_name.replace(' ', '_').replace('%20', '_')}"
 
                 if os.path.exists(temp_path):
                     os.rename(temp_path, new_path)
@@ -1158,6 +1124,22 @@ def download_backup(request, backup_id):
         print(f'{backup_id} not found')
 
     raise Http404("You are not authorized to view this page.")
+
+
+@login_required
+def download_export(request, corpus_id):
+    response = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
+
+    if corpus and (response['scholar'].is_admin or role == 'Editor'):
+        export_path = f"{corpus.path}/export.tar.gz"
+        if os.path.exists(export_path):
+            response = HttpResponse(content_type="application/gzip")
+            response['Content-Disposition'] = 'attachment; filename="{0}"'.format(os.path.basename(export_path))
+            response['X-Accel-Redirect'] = "/files/{0}".format(export_path.replace('/corpora/', ''))
+            return response
+
+    raise Http404("Export not found for this corpus, or you do not have permission to download it.")
 
 
 @login_required
@@ -1777,6 +1759,46 @@ def api_content_view(request, corpus_id, content_view_id=None):
         )
 
 
+@api_view(['GET', 'POST'])
+def api_content_group(request, corpus_id):
+    context = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+
+    if corpus and request.method == 'POST' and (context['scholar'].is_admin or role == 'Editor'):
+        if _contains(request.POST, ['content-group-json', 'action']):
+            content_group_dict = json.loads(unescape(_clean(request.POST, 'content-group-json')))
+            action = _clean(request.POST, 'action')
+
+            if action == 'create':
+                existing_group_titles = [ct_group.title for ct_group in corpus.content_type_groups]
+                if content_group_dict['title'] and content_group_dict['title'] not in existing_group_titles:
+                    existing_grouped_cts = []
+                    for ct_group in corpus.content_type_groups:
+                        existing_grouped_cts += ct_group.content_types
+                    for member in content_group_dict['members']:
+                        if member['name'] in existing_grouped_cts:
+                            return HttpResponse(
+                                json.dumps({'success': False, 'message': 'Content types can only belong to one content group at a time.'}),
+                                content_type='application/json'
+                            )
+
+                    ct_group = ContentTypeGroup()
+                    ct_group.title = content_group_dict['title']
+                    if content_group_dict['description']:
+                        ct_group.description = content_group_dict['description']
+
+                else:
+                    return HttpResponse(
+                        json.dumps({'success': False, 'message': 'Title blank or not unique.'}),
+                        content_type='application/json'
+                    )
+
+    return HttpResponse(
+        json.dumps({'success': True}),
+        content_type='application/json'
+    )
+
+
 @api_view(['GET'])
 def api_plugin_schema(request):
     context = _get_context(request)
@@ -2224,7 +2246,6 @@ def api_submit_jobs(request, corpus_id):
                         job.task_id = str(task.id)
                         job.scholar = context['scholar']
                         job.jobsite = jobsite
-                        job.status = "preparing"
                         job.configuration = deepcopy(task.configuration)
 
                         for param in task.configuration['parameters'].keys():
@@ -2304,3 +2325,4 @@ def api_publish(request, corpus_id, event_type):
         send_event(corpus_id, 'event', data)
 
     return HttpResponse(status=204)
+
