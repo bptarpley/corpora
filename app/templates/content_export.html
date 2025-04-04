@@ -1,0 +1,102 @@
+{% load static %}
+{% load extras %}
+<!doctype html>
+<html lang="en">
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+        <!-- CSS -->
+        <style type="text/css">
+            {% if css_styles %}{{ css_styles|safe }}{% endif %}
+
+            {% if default_css %}
+            {{ default_css }}
+            {% endif %}
+        </style>
+
+        <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    {% for inclusion in inclusions.css %}
+        <link href="{% static inclusion %}" rel="stylesheet">
+    {% endfor %}
+
+        <title>{{ content_type.name }}</title>
+    </head>
+    <body>
+        <h1 id="page-title">{{ content_label|safe }}</h1>
+
+        <div class="content-type-card" id="content-div">
+            {% for field in content_type.fields %}
+                <div id="{{ field.name }}-content" class="row">
+                    <div class="col-xs-12 col-sm-2 d-flex align-right field-label {{ field.type }}-label">
+                        <strong>{{ field.label }}</strong>
+                    </div>
+                    <div class="col-10 align-left field-value {{ field.type }}-value">
+                        {% if field.value %}
+                            {% if field.type == 'embedded' %}
+                                {% call_method content_type 'render_embedded_field' field.name %}
+                            {% elif field.multiple %}
+                                {% for value in field.value %}
+                                    <div class="{{ field.type }}-multi-value">{% include field.view_html with value=value suffix=forloop.counter0 %}</div>
+                                {% endfor %}
+                            {% else %}
+                                {% include field.view_html with value=field.value %}
+                            {% endif %}
+                        {% else %}
+                            <span class="badge badge-secondary">Not set</span>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <script src="/static/js/jquery-3.7.1.min.js"></script>
+        <script src="/static/js/bootstrap.bundle.min.js"></script>
+        {% for inclusion in inclusions.js %}
+        <script src="{% static inclusion %}"></script>
+        {% endfor %}
+        <script type="application/javascript">
+            let content_type_names = {% if content_type_names %}{{ content_type_names|safe }}{% else %}[]{% endif %}
+
+            $(document).ready(function() {
+                $('[data-events]').each(function() {
+                    let events = this.getAttribute('data-events')
+                    events = events.split(';')
+                    events.forEach(event => {
+                        let [occasion, callback] = event.split(':')
+                        if (occasion === 'load') {
+                            window[callback](this)
+                        } else {
+                            $(this).on(occasion, window[callback])
+                        }
+                    })
+                })
+
+                $('a').each(function() {
+                    $(this).attr('href', format_url_from_uri($(this).attr('href')))
+                })
+            })
+
+            function format_url_from_uri(uri) {
+                if (uri) {
+                    if (uri.endsWith('/')) uri = uri.slice(0, -1)
+
+                    let uri_parts = uri.split('/')
+                    if (uri_parts.length === 5) {
+                        let ct_name = uri_parts[3]
+                        if (content_type_names.includes(ct_name)) {
+                            let content_id = uri_parts[4]
+                            let breakout_dir = content_id.slice(-6, -2)
+
+                            return `/${ct_name}/${breakout_dir}/${content_id}/index.html`
+                        }
+                    }
+                }
+                return uri
+            }
+
+            {% if javascript_functions %}{{ javascript_functions|safe }}{% endif %}
+        </script>
+    </body>
+</html>

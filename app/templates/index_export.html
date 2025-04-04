@@ -1,0 +1,41 @@
+{% load static %}
+{% load extras %}
+<!doctype html>
+<html lang="en">
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+        <!-- CSS -->
+        <style type="text/css">
+            {% if default_css %}
+            {{ default_css }}
+            {% endif %}
+        </style>
+
+        <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+
+        <title>{{ corpus.name }}</title>
+    </head>
+    <body>
+        <h1 id="page-title">{{ corpus.name }}</h1>
+        {% if corpus.description %}<h2>{{ corpus.description }}</h2>{% endif %}
+
+        {% for ct_name, ct in corpus.content_types.items %}
+            <div class="content-type-listing">
+                <h3>{{ ct_name }}</h3>
+                <div class="ct-link-div">
+                    <a href="/{{ ct_name }}.html" target="_blank">Browse using a table</a>
+                </div>
+                <div class="ct-link-div">
+                    <a href="/json/{{ ct_name }}.json" download="{{ ct_name }}.json">Download JSON</a>
+                </div>
+                <div class="ct-link-div">
+                    <a href="/json/{{ ct_name }}_table.json" download="{{ ct_name }}_table.json">Download JSON with Cross-Referenced Content Stubs</a>
+                </div>
+            </div>
+        {% endfor %}
+        <script src="/static/js/bootstrap.bundle.min.js"></script>
+    </body>
+</html>

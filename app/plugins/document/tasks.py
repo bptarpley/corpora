@@ -380,7 +380,7 @@ def import_page_images(job_id):
         for temp_upload_id in temp_upload_ids:
             temp_upload = TemporaryUpload.objects.get(upload_id=temp_upload_id)
             old_upload_path = temp_upload.file.path
-            new_upload_path = f"{temp_upload_dir}/{temp_upload.upload_name}"
+            new_upload_path = f"{temp_upload_dir}/{temp_upload.upload_name.replace(' ', '_').replace('%20', '_')}"
             os.rename(old_upload_path, new_upload_path)
             temp_upload.delete()
             import_files.append(new_upload_path)

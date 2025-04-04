@@ -1,0 +1,24 @@
+{% load document_extras %}
+
+{% for ref_no, page in value|get_ordered_pages %}
+
+    <div class="page-viewer">
+        <h3>{{ page.ref_no }}</h3>
+        {% for file_key, file in page.files.items %}
+            {% if file.is_image %}
+                {% if file.iiif_info %}
+                    <div id="{{ page.ref_no }}-{{ file_key }}-image-viewer"
+                        class="iiif-page-image-viewer"
+                        data-iiif_uri="{{ file.path }}"
+                        data-events="load:setupPageIIIFImage">
+                    </div>
+                {% else %}
+                    <img src="{{ file.path|get_static_file_path }}" style="max-width: 100%;" />
+                {% endif %}
+            {% else %}
+                <a href="{{ file.path|get_static_file_path }}" download>{{ file.basename }}</a>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+{% endfor %}

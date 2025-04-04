@@ -11,6 +11,11 @@ from django_eventstream import send_event
 from django_drf_filepond.models import TemporaryUpload
 
 
+# for use by the fix_mongo_json function:
+mongo_id_pattern = re.compile(r'{"\$oid":\s*"([^"]*)"\}')
+mongo_date_pattern = re.compile(r'{"\$date":\s*([^}]*)}')
+
+
 def get_scholar_corpora(scholar, only=[], page=1, page_size=50):
     corpora = []
     start_record = (page - 1) * page_size
@@ -472,7 +477,6 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                                     post_save_file_moves.append({
                                         'field': field_name,
                                         'multiple': field.multiple,
-                                        'index': value_index,
                                         'upload': temp_upload
                                     })
 
@@ -488,6 +492,9 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
                                         prov_type="Scholar",
                                         prov_id=str(scholar_id)
                                     )
+
+                                else:
+                                    valid_value = False
 
                             elif field.type == 'repo':
                                 if value.get('name') and value.get('url') and value.get('branch'):
@@ -577,15 +584,17 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
             if post_save_file_moves:
                 for post_save_file_move in post_save_file_moves:
                     if post_save_file_move['multiple']:
-                        content._move_temp_file(
-                            post_save_file_move['field'],
-                            post_save_file_move['index'],
-                            new_basename=post_save_file_move['upload'].upload_name
-                        )
+                        for value_index in range(0, len(getattr(content, post_save_file_move['field']))):
+                            if settings.DJANGO_DRF_FILEPOND_UPLOAD_TMP in getattr(content, post_save_file_move['field'])[value_index].path:
+                                content._move_temp_file(
+                                    post_save_file_move['field'],
+                                    value_index,
+                                    new_basename=post_save_file_move['upload'].upload_name.replace(' ', '_').replace('%20', '_')
+                                )
                     else:
                         content._move_temp_file(
                             post_save_file_move['field'],
-                            new_basename=post_save_file_move['upload'].upload_name
+                            new_basename=post_save_file_move['upload'].upload_name.replace(' ', '_').replace('%20', '_')
                         )
 
                     post_save_file_move['upload'].delete()
@@ -595,27 +604,27 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
     return content
 
 
-def process_corpus_export_file(export_file):
-    if export_file and os.path.exists(export_file):
-        basename = os.path.basename(export_file)
+def process_corpus_backup_file(backup_file):
+    if backup_file and os.path.exists(backup_file):
+        basename = os.path.basename(backup_file)
         if '_' in basename and basename.endswith('.tar.gz'):
-            export_name = basename.split('.')[0]
-            export_name = "_".join(export_name.split('_')[1:])
-            export_corpus = None
+            backup_name = basename.split('.')[0]
+            backup_name = "_".join(backup_name.split('_')[1:])
+            backup_corpus = None
 
-            with tarfile.open(export_file, 'r:gz') as tar_in:
-                export_corpus = tar_in.extractfile('corpus.json').read()
+            with tarfile.open(backup_file, 'r:gz') as tar_in:
+                backup_corpus = tar_in.extractfile('corpus.json').read()
 
-            if export_corpus:
-                export_corpus = json.loads(export_corpus)
-                if _contains(export_corpus, ['id', 'name', 'description']):
-                    export = CorpusExport()
-                    export.name = export_name
-                    export.corpus_id = export_corpus['id']
-                    export.corpus_name = export_corpus['name']
-                    export.corpus_description = export_corpus['description']
-                    export.path = export_file
-                    export.save()
+            if backup_corpus:
+                backup_corpus = json.loads(backup_corpus)
+                if _contains(backup_corpus, ['id', 'name', 'description']):
+                    backup = CorpusBackup()
+                    backup.name = backup_name
+                    backup.corpus_id = backup_corpus['id']
+                    backup.corpus_name = backup_corpus['name']
+                    backup.corpus_description = backup_corpus['description']
+                    backup.path = backup_file
+                    backup.save()
 
                     return True
     return False
@@ -654,9 +663,10 @@ def _clean(obj, key, default_value=''):
 
 
 def fix_mongo_json(json_string):
-    oid_pattern = re.compile(r'{"\$oid": "([^"]*)"}')
-    oid_matches = oid_pattern.finditer(json_string)
-    for oid_match in oid_matches:
-        json_string = json_string.replace(oid_match[0], f'"{ oid_match.group(1) }"')
+    json_string = mongo_id_pattern.sub(r'"\1"', json_string)
+    json_string = mongo_date_pattern.sub(r'\1', json_string)
+    return json_string.replace('"_id"', '"id"')
 
-    return json_string.replace('"_id":', '"id":')
+
+def delimit_content_json(contents, delimiter=', '):
+    return delimiter.join([fix_mongo_json(c.to_json()) for c in contents])

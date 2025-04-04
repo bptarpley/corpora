@@ -379,7 +379,6 @@ class Job(object):
             j.jobsite = local_jobsite
             j.scholar = scholar
             j.configuration = deepcopy(completed_task.task_configuration)
-            j.status = 'preparing'
             j.save()
             return j
 
@@ -453,7 +452,7 @@ class JobTracker(mongoengine.Document):
     jobsite = mongoengine.ReferenceField(JobSite)
     scholar = mongoengine.ReferenceField('Scholar')
     submitted_time = mongoengine.DateTimeField(default=datetime.now)
-    status = mongoengine.StringField()
+    status = mongoengine.StringField(default='queueing')
     status_time = mongoengine.DateTimeField(default=datetime.now)
     report_path = mongoengine.StringField()
     stage = mongoengine.IntField(default=0)
@@ -611,12 +610,16 @@ class JobTracker(mongoengine.Document):
             self.report("\nCORPORA JOB COMPLETE")
 
         if self.task.track_provenance:
+            scholar_name = "None"
+            if self.scholar:
+                scholar_name = f"{self.scholar.fname} {self.scholar.lname} ({self.scholar.username})".strip()
+
             ct = CompletedTask()
             ct.job_id = str(self.id)
             ct.task_name = self.task.name
             ct.task_version = self.task.version
             ct.task_configuration = deepcopy(self.configuration)
-            ct.scholar_name = f"{self.scholar.fname} {self.scholar.lname} ({self.scholar.username})".strip()
+            ct.scholar_name = scholar_name
             ct.submitted = self.submitted_time
             ct.completed = self.status_time
             ct.report_path = self.report_path
@@ -945,6 +948,12 @@ class ContentType(mongoengine.EmbeddedDocument):
         css_styles = ""
         req_file = f"{settings.BASE_DIR}/corpus/field_templates/requirements.json"
 
+        if self.inherited_from_module and self.inherited_from_class:
+            module = importlib.import_module(self.inherited_from_module)
+            class_obj = getattr(module, self.inherited_from_class)
+            if hasattr(class_obj, 'get_render_requirements'):
+                inclusions, javascript_functions, css_styles = class_obj.get_render_requirements(mode)
+
         if os.path.exists(req_file):
             with open(req_file, 'r') as reqs_in:
                 all_reqs = json.load(reqs_in)
@@ -969,6 +978,15 @@ class ContentType(mongoengine.EmbeddedDocument):
                     css_styles += '\n' + css_renderer.render(Context({'field': None}))
 
         return inclusions, javascript_functions, css_styles
+
+    def render_embedded_field(self, field_name):
+        if self.inherited_from_module and self.inherited_from_class:
+            module = importlib.import_module(self.inherited_from_module)
+            class_obj = getattr(module, self.inherited_from_class)
+            field = self.get_field(field_name)
+            if hasattr(class_obj, 'render_embedded_field') and field.value:
+                return class_obj.render_embedded_field(field_name, field.value)
+        return ''
 
     def to_dict(self):
         ct_dict = {
@@ -1004,8 +1022,8 @@ class File(mongoengine.EmbeddedDocument):
     description = mongoengine.StringField()
     provenance_type = mongoengine.StringField()
     provenance_id = mongoengine.StringField()
-    height = mongoengine.IntField()
-    width = mongoengine.IntField()
+    height = mongoengine.IntField(required=False)
+    width = mongoengine.IntField(required=False)
     iiif_info = mongoengine.DictField()
 
     @property
@@ -3300,7 +3318,7 @@ class Corpus(mongoengine.Document):
     }
 
 
-class CorpusExport(mongoengine.Document):
+class CorpusBackup(mongoengine.Document):
     corpus_id = mongoengine.StringField()
     corpus_name = mongoengine.StringField()
     corpus_description = mongoengine.StringField()

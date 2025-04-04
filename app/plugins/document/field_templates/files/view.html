@@ -1,0 +1,7 @@
+{% load document_extras %}
+
+{% for file_key, file in value.items %}
+    <a href="{{ file.path|get_static_file_path }}" download="{{ file.basename }}">
+        {{ file.basename }}
+    </a><br />
+{% endfor %}

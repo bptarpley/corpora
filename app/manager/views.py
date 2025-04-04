@@ -30,8 +30,9 @@ from .utilities import(
     clear_cached_session_scholar,
     order_content_schema,
     process_content_bundle,
-    process_corpus_export_file,
+    process_corpus_backup_file,
     fix_mongo_json,
+    delimit_content_json,
     send_alert
 )
 from .captcha import generate_captcha, validate_captcha
@@ -244,40 +245,6 @@ def corpus(request, corpus_id):
                     response['messages'].append('The "{0}" repository has been deleted.'.format(repo_name))
                 else:
                     response['errors'].append('An error occurred when attempting to delete the "{0}" repository!'.format(repo_name))
-
-            # HANDLE JOB SUBMISSION
-            elif _contains(request.POST, ['jobsite', 'task']):
-                jobsite = JobSite.objects(id=_clean(request.POST, 'jobsite'))[0]
-                task = Task.objects(id=_clean(request.POST, 'task'))[0]
-                task_parameters = [key for key in task.configuration['parameters'].keys() if task.configuration['parameters'][key]['type'] != 'boolean']
-                if _contains(request.POST, task_parameters):
-                    job = Job()
-                    job.corpus_id = corpus_id
-                    job.content_type = 'Corpus'
-                    job.content_id = None
-                    job.task_id = str(task.id)
-                    job.scholar_id = str(response['scholar'].id)
-                    job.jobsite_id = str(jobsite.id)
-                    job.status = "preparing"
-                    job.configuration = task.configuration
-
-                    for parameter in task_parameters:
-                        job.configuration['parameters'][parameter]['value'] = unescape(_clean(request.POST, parameter))
-
-                    for bool_parameter in [key for key in task.configuration['parameters'].keys() if task.configuration['parameters'][key]['type'] == 'boolean']:
-                        job.configuration['parameters'][bool_parameter]['value'] = bool_parameter in request.POST
-
-                    job.save()
-                    run_job(job.id)
-                    response['messages'].append("Job successfully submitted.")
-                else:
-                    response['errors'].append("Please provide values for all task parameters.")
-
-            # HANDLE JOB KILL
-            elif _contains(request.POST, ['kill-job-id']):
-                kill_job_id = _clean(request.POST, 'kill-job-id')
-                job = Job(kill_job_id)
-                job.kill()
 
             # HANDLE CONTENT TYPE SCHEMA SUBMISSION
             elif 'schema' in request.POST:
@@ -1024,17 +991,20 @@ async def export(request, corpus_id, content_type):
                     async for chunk in async_range(chunks):
                         start = chunk * chunk_size
                         end = start + chunk_size
-                        print(f'grabbing {start}:{end}')
+
                         content_slice = contents[start:end]
-                        content_dict = [await sync_to_async(content.to_dict)() for content in content_slice]
-                        content_json = await sync_to_async(json.dumps)(content_dict)
+                        content_json = await sync_to_async(delimit_content_json)(content_slice)
+
                         if chunks > 1:
                             if chunk == 0:
-                                content_json = content_json[:-1] + ','
+                                content_json = '[' + content_json + ', '
                             elif chunk == chunks - 1:
-                                content_json = content_json[1:]
+                                content_json = content_json + ']'
                             else:
-                                content_json = content_json[1:-1] + ','
+                                content_json = content_json + ', '
+                        else:
+                            content_json = '[' + content_json + ']'
+
                         asyncio.sleep(0)
                         yield content_json
                 except asyncio.CancelledError:
@@ -1057,77 +1027,81 @@ def backups(request):
     if response['scholar'].is_admin:
 
         if request.method == 'POST':
-            if _contains(request.POST, ['export-file-import', 'export-upload-id']):
-                upload_id = _clean(request.POST, 'export-upload-id')
+            if _contains(request.POST, ['backup-file-import', 'backup-upload-id']):
+                upload_id = _clean(request.POST, 'backup-upload-id')
                 temp_upload = TemporaryUpload.objects.get(upload_id=upload_id)
                 temp_path = temp_upload.file.path
-                new_path = f"/corpora/exports/{temp_upload.upload_name}"
+
+                corpora_backups_path = "/corpora/backups"
+                os.makedirs(corpora_backups_path, exist_ok=True)
+
+                new_path = f"{corpora_backups_path}/{temp_upload.upload_name.replace(' ', '_').replace('%20', '_')}"
 
                 if os.path.exists(temp_path):
                     os.rename(temp_path, new_path)
 
                 if os.path.exists(new_path):
-                    export_file = new_path
-                    if export_file:
-                        if process_corpus_export_file(export_file):
-                            response['messages'].append('Corpus export file successfully imported.')
+                    backup_file = new_path
+                    if backup_file:
+                        if process_corpus_backup_file(backup_file):
+                            response['messages'].append('Corpus backup file successfully imported.')
                         else:
-                            response['errors'].append('An error occurred while importing this export file!')
+                            response['errors'].append('An error occurred while importing this backup file!')
                             os.remove(new_path)
 
                 temp_upload.delete()
 
-            # HANDLE EXPORT ACTIONS
-            export_action = _clean(request.POST, 'export-action')
+            # HANDLE BACKUP ACTIONS
+            backup_action = _clean(request.POST, 'backup-action')
 
-            if export_action == 'create' and _contains(request.POST, ['export-corpus-id', 'export-name']):
-                export_corpus_id = _clean(request.POST, 'export-corpus-id')
-                export_name = _clean(request.POST, 'export-name')
-                export = CorpusExport.objects(corpus_id=export_corpus_id, name=export_name)
+            if backup_action == 'create' and _contains(request.POST, ['backup-corpus-id', 'backup-name']):
+                backup_corpus_id = _clean(request.POST, 'backup-corpus-id')
+                backup_name = _clean(request.POST, 'backup-name')
+                backup = CorpusBackup.objects(corpus_id=backup_corpus_id, name=backup_name)
 
-                if export.count() > 0:
-                    response['errors'].append('An export with that name already exists for corpus {0}.'.format(export_corpus_id))
+                if backup.count() > 0:
+                    response['errors'].append('A backup with that name already exists for corpus {0}.'.format(backup_corpus_id))
                 else:
-                    corpus = get_corpus(export_corpus_id)
+                    corpus = get_corpus(backup_corpus_id)
                     job_id = corpus.queue_local_job(
-                        task_name="Export Corpus",
+                        task_name="Backup Corpus",
                         scholar_id=response['scholar'].id,
-                        parameters={'export_name': export_name}
+                        parameters={'backup_name': backup_name}
                     )
                     run_job(job_id)
-                    response['messages'].append('Export {0} successfully initiated!'.format(export_name))
+                    response['messages'].append('Backup {0} successfully initiated!'.format(backup_name))
 
-            elif 'export-id' in request.POST:
-                export_id = _clean(request.POST, 'export-id')
-                export = CorpusExport.objects(id=export_id)
-                if export.count() > 0:
-                    export = export[0]
+            elif 'backup-id' in request.POST:
+                backup_id = _clean(request.POST, 'backup-id')
+                backup = CorpusBackup.objects(id=backup_id)
+                if backup.count() > 0:
+                    backup = backup[0]
 
-                    if export_action == 'restore':
-                        export.status = 'restoring'
-                        export.save()
-                        restore_corpus(str(export.id))
+                    if backup_action == 'restore':
+                        backup.status = 'restoring'
+                        backup.save()
+                        restore_corpus(str(backup.id))
                         response['messages'].append('Corpus restore successfully launched.')
 
-                    elif export_action == 'cancel':
-                        export.status = 'created'
-                        export.save()
+                    elif backup_action == 'cancel':
+                        backup.status = 'created'
+                        backup.save()
                         response['messages'].append('Corpus restore cancelled.')
 
-                    elif export_action == 'delete':
-                        os.remove(export.path)
-                        export.delete()
-                        response['messages'].append('Export successfully deleted.')
+                    elif backup_action == 'delete':
+                        os.remove(backup.path)
+                        backup.delete()
+                        response['messages'].append('Backup successfully deleted.')
 
-        exports = CorpusExport.objects.order_by('corpus_name', 'created')
-        exports = [e.to_dict() for e in exports]
+        backups = CorpusBackup.objects.order_by('corpus_name', 'created')
+        backups = [b.to_dict() for b in backups]
 
         return render(
             request,
             'backups.html',
             {
                 'response': response,
-                'exports': exports
+                'backups': backups
             }
         )
     else:
@@ -1135,21 +1109,37 @@ def backups(request):
 
 
 @login_required
-def download_backup(request, export_id):
+def download_backup(request, backup_id):
     response = _get_context(request)
 
     if response['scholar'].is_admin:
-        export = CorpusExport.objects(id=export_id)
-        if export.count() > 0:
-            export = export[0]
-            if os.path.exists(export.path):
+        backup = CorpusBackup.objects(id=backup_id)
+        if backup.count() > 0:
+            backup = backup[0]
+            if os.path.exists(backup.path):
                 response = HttpResponse(content_type="application/gzip")
-                response['Content-Disposition'] = 'attachment; filename="{0}"'.format(os.path.basename(export.path))
-                response['X-Accel-Redirect'] = "/files/{0}".format(export.path.replace('/corpora/', ''))
+                response['Content-Disposition'] = 'attachment; filename="{0}"'.format(os.path.basename(backup.path))
+                response['X-Accel-Redirect'] = "/files/{0}".format(backup.path.replace('/corpora/', ''))
                 return response
-        print(f'{export_id} not found')
+        print(f'{backup_id} not found')
 
     raise Http404("You are not authorized to view this page.")
+
+
+@login_required
+def download_export(request, corpus_id):
+    response = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
+
+    if corpus and (response['scholar'].is_admin or role == 'Editor'):
+        export_path = f"{corpus.path}/export.tar.gz"
+        if os.path.exists(export_path):
+            response = HttpResponse(content_type="application/gzip")
+            response['Content-Disposition'] = 'attachment; filename="{0}"'.format(os.path.basename(export_path))
+            response['X-Accel-Redirect'] = "/files/{0}".format(export_path.replace('/corpora/', ''))
+            return response
+
+    raise Http404("Export not found for this corpus, or you do not have permission to download it.")
 
 
 @login_required
@@ -1554,6 +1544,14 @@ def get_image(
 def iiif_passthrough(request, req_path):
     context = _get_context(request)
 
+    if req_path.endswith('/info.json'):
+        req_path_parts = req_path.split('/')
+        file_path = "/".join(req_path_parts[:-1])
+        iiif_identifier = "$!$".join(req_path_parts[:-1])
+        response = HttpResponse(content_type='application/json')
+        response['X-Accel-Redirect'] = f"/media/{iiif_identifier}/info.json"
+        return response
+
     req_path_parts = req_path.split('/')
     file_path = "/".join(req_path_parts[:-4])
     iiif_identifier = "$!$".join(req_path_parts[:-4])
@@ -1767,6 +1765,46 @@ def api_content_view(request, corpus_id, content_view_id=None):
             json.dumps(cv_dict),
             content_type='application/json'
         )
+
+
+@api_view(['GET', 'POST'])
+def api_content_group(request, corpus_id):
+    context = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+
+    if corpus and request.method == 'POST' and (context['scholar'].is_admin or role == 'Editor'):
+        if _contains(request.POST, ['content-group-json', 'action']):
+            content_group_dict = json.loads(unescape(_clean(request.POST, 'content-group-json')))
+            action = _clean(request.POST, 'action')
+
+            if action == 'create':
+                existing_group_titles = [ct_group.title for ct_group in corpus.content_type_groups]
+                if content_group_dict['title'] and content_group_dict['title'] not in existing_group_titles:
+                    existing_grouped_cts = []
+                    for ct_group in corpus.content_type_groups:
+                        existing_grouped_cts += ct_group.content_types
+                    for member in content_group_dict['members']:
+                        if member['name'] in existing_grouped_cts:
+                            return HttpResponse(
+                                json.dumps({'success': False, 'message': 'Content types can only belong to one content group at a time.'}),
+                                content_type='application/json'
+                            )
+
+                    ct_group = ContentTypeGroup()
+                    ct_group.title = content_group_dict['title']
+                    if content_group_dict['description']:
+                        ct_group.description = content_group_dict['description']
+
+                else:
+                    return HttpResponse(
+                        json.dumps({'success': False, 'message': 'Title blank or not unique.'}),
+                        content_type='application/json'
+                    )
+
+    return HttpResponse(
+        json.dumps({'success': True}),
+        content_type='application/json'
+    )
 
 
 @api_view(['GET'])
@@ -2216,7 +2254,6 @@ def api_submit_jobs(request, corpus_id):
                         job.task_id = str(task.id)
                         job.scholar = context['scholar']
                         job.jobsite = jobsite
-                        job.status = "preparing"
                         job.configuration = deepcopy(task.configuration)
 
                         for param in task.configuration['parameters'].keys():
@@ -2296,3 +2333,4 @@ def api_publish(request, corpus_id, event_type):
         send_event(corpus_id, 'event', data)
 
     return HttpResponse(status=204)
+

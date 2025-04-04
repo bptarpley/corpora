@@ -1,10 +1,12 @@
 site_name: Corpora
+repo_url: https://github.com/bptarpley/corpora
 nav:
   - Getting Started: index.md
   - REST API: rest_api.md
   - Deploying: deploying.md
   - Managing: managing.md
   - Developing: developing.md
+  - Plugins: plugins.md
 theme:
   name: readthedocs
   logo: assets/logo.png

@@ -34,7 +34,7 @@
                 <div class="col-12">
                     <div class="brand d-flex align-items-center justify-content-between">
                         {% if page_title %}
-                            <h1 id="page-title">{{ page_title }}</h1>
+                            <h1 id="page-title">{{ page_title|safe }}</h1>
                         {% else %}
                             <a href="/"><img src="{% static 'img/logo.png' %}" class="logo" /></a>
                         {% endif %}
@@ -52,7 +52,7 @@
                 </div>
             </div>
             {% elif page_title %}
-                <div class="row mb-3"><div class="col-12"><h3 id="page-title">{{ page_title }}</h3></div></div>
+                <div class="row mb-3"><div class="col-12"><h3 id="page-title">{{ page_title|safe }}</h3></div></div>
             {% endif %}
 
         {% if response.messages or response.errors %}

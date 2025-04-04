@@ -2,7 +2,8 @@
     "geo_point": {
         "view": {
             "js": ["js/leaflet.js"],
-            "css": ["css/leaflet/leaflet.css"]
+            "css": ["css/leaflet/leaflet.css"],
+            "directories": ["css/leaflet"]
         },
         "edit": {
             "js": ["js/leaflet.js"],
@@ -11,7 +12,8 @@
     },
     "iiif-image": {
         "view": {
-            "js": ["js/openseadragon.min.js", "js/openseadragonselection.js"]
+            "js": ["js/openseadragon.min.js", "js/openseadragonselection.js"],
+            "directories": ["img/openseadragon", "img/openseadragonselection"]
         },
         "edit": {
             "js": ["js/openseadragon.min.js", "js/openseadragonselection.js"]

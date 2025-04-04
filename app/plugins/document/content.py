@@ -5,11 +5,13 @@ import html
 import os
 import shutil
 import mongoengine
-from corpus import Content, File, run_neo, get_corpus
+from corpus import Content, File, run_neo, get_corpus, FieldRenderer
 from manager.utilities import _contains
 from natsort import natsorted
 from datetime import datetime
 from django.utils.text import slugify
+from django.template import Template, Context
+from django.conf import settings
 
 
 REGISTRY = [
@@ -539,6 +541,14 @@ class PageSet(mongoengine.EmbeddedDocument):
         }
 
 
+class PagesRenderer(object):
+
+    def render(self, context):
+        html_template = open(f"{settings.BASE_DIR}/plugins/document/field_templates/pages/view.html", 'r').read()
+        django_template = Template(html_template)
+        return django_template.render(context)
+
+
 class Document(Content):
     title = mongoengine.StringField()
     work = mongoengine.StringField()
@@ -665,6 +675,32 @@ class Document(Content):
         for ct_field in self._ct.fields:
             if not ct_field.inherited and ct_field.name in dict:
                 setattr(self, ct_field.name, dict[ct_field.name])
+
+    @classmethod
+    def get_render_requirements(cls, mode):
+        inclusions = {}
+        javascript_functions = ""
+        css_styles = ""
+
+        if mode == 'view':
+            inclusions = {
+                'js': ['js/openseadragon.min.js', 'js/openseadragonselection.js'],
+                 'directories': ['img/openseadragon', 'img/openseadragonselection']
+            }
+
+            javascript_functions = open(f"{settings.BASE_DIR}/plugins/document/field_templates/pages/view.js", 'r').read()
+            css_styles = open(f"{settings.BASE_DIR}/plugins/document/field_templates/pages/view.css", 'r').read()
+
+        return inclusions, javascript_functions, css_styles
+
+    @classmethod
+    def render_embedded_field(cls, field_name, field_value):
+        template_path = f"{settings.BASE_DIR}/plugins/document/field_templates/{field_name}/view.html"
+        if os.path.exists(template_path):
+            html_template = open(template_path, 'r').read()
+            django_template = Template(html_template)
+            return django_template.render(Context({'value': field_value}))
+        return ''
 
     meta = {
         'abstract': True

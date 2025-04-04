@@ -41,3 +41,8 @@ def to_int(obj):
     if hasattr(obj, 'isdigit') and obj.isdigit():
         return int(obj)
     return 0
+
+
+@register.simple_tag
+def call_method(obj, method, param):
+    return getattr(obj, method)(param)
