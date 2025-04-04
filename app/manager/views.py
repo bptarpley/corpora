@@ -1544,6 +1544,14 @@ def get_image(
 def iiif_passthrough(request, req_path):
     context = _get_context(request)
 
+    if req_path.endswith('/info.json'):
+        req_path_parts = req_path.split('/')
+        file_path = "/".join(req_path_parts[:-1])
+        iiif_identifier = "$!$".join(req_path_parts[:-1])
+        response = HttpResponse(content_type='application/json')
+        response['X-Accel-Redirect'] = f"/media/{iiif_identifier}/info.json"
+        return response
+
     req_path_parts = req_path.split('/')
     file_path = "/".join(req_path_parts[:-4])
     iiif_identifier = "$!$".join(req_path_parts[:-4])
