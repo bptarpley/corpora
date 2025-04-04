@@ -52,7 +52,7 @@
                 </div>
             </div>
             {% elif page_title %}
-                <div class="row mb-3"><div class="col-12"><h3 id="page-title">{{ page_title }}</h3></div></div>
+                <div class="row mb-3"><div class="col-12"><h3 id="page-title">{{ page_title|safe }}</h3></div></div>
             {% endif %}
 
         {% if response.messages or response.errors %}

@@ -9,7 +9,7 @@
     Change
   </button>
   <a id="{{ field.name }}{{ suffix }}-link" href="{% if value %}{{ value.uri }}{% endif %}" target="_blank">
-    {% if value %}{{ value.label }}{% endif %}
+    {% if value %}{{ value.label|safe }}{% endif %}
   </a>
 </div>
 <div id="{{ field.name }}{{ suffix }}-action-div"

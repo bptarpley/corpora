@@ -380,28 +380,19 @@ REGISTRY = {
         "functions": ['backup_corpus']
     },
     "Export Corpus": {
-        "version": "0.1",
+        "version": "0.2",
         "jobsite_type": "HUEY",
         "track_provenance": True,
         "create_report": True,
         "content_type": "Corpus",
         "configuration": {
             "parameters": {
-                "export_json": {
-                    "value": True,
-                    "type": "boolean",
-                    "label": "Export all data to JSON?"
-                },
                 "export_html": {
                     "value": True,
                     "type": "boolean",
-                    "label": "Export all content as HTML?",
-                },
-                "export_tabular": {
-                    "value": True,
-                    "type": "boolean",
-                    "label": "Export tabular index pages for each Content Type?",
-                },
+                    "label": "Export static HTML representations of content?",
+                    "note": "By unchecking this box, only JSON exports of your content will be created."
+                }
             }
         },
         "module": 'manager.tasks',
@@ -1424,11 +1415,10 @@ def export_corpus(job_id):
 
     job = Job(job_id)
     corpus = job.corpus
-    export_json = job.get_param_value('export_json')
     export_html = job.get_param_value('export_html')
-    export_tabular = job.get_param_value('export_tabular')
     export_path = f"{corpus.path}/export"
     export_tar_file = f"{corpus.path}/export.tar.gz"
+    total_content_count = 0
 
     job.set_status('running')
 
@@ -1440,80 +1430,84 @@ def export_corpus(job_id):
         job.report("Deleting existing export tar file...")
         os.remove(export_tar_file)
 
-    job.set_status('running', percent_complete=25)
+    job.set_status('running', percent_complete=5)
 
     #######################################
     ### MAKE JSON DATA DUMPS OF CONTENT ###
     #######################################
-    if export_json:
-        job.report("Commencing JSON export...")
+    job.report("Commencing JSON export...")
 
-        json_path = f"{export_path}/json"
-        schema = []
+    json_path = f"{export_path}/json"
+    schema = []
 
-        os.makedirs(json_path, exist_ok=True)
+    os.makedirs(json_path, exist_ok=True)
 
-        for ct_name in corpus.content_types.keys():
-            schema.append(corpus.content_types[ct_name].to_dict())
+    for ct_name in corpus.content_types.keys():
+        schema.append(corpus.content_types[ct_name].to_dict())
 
-            ct_json_file = f"{json_path}/{ct_name}.json"
-            with open(ct_json_file, 'w', encoding='utf-8') as ct_json_out:
-                contents = corpus.get_content(ct_name, all=True)
-                contents = contents.order_by('id')
-                contents = contents.no_cache()
-                contents = contents.batch_size(10)
+        ct_json_file = f"{json_path}/{ct_name}.json"
+        with open(ct_json_file, 'w', encoding='utf-8') as ct_json_out:
+            contents = corpus.get_content(ct_name, all=True)
+            contents = contents.order_by('id')
+            contents = contents.no_cache()
+            contents = contents.batch_size(10)
 
-                content_count = contents.count()
-                schema[-1]['total_content'] = content_count
+            content_count = contents.count()
+            schema[-1]['total_content'] = content_count
+            total_content_count += content_count
 
-                chunk_size = 1000
-                chunk_byte_sizes = []
-                chunks = math.ceil(content_count / chunk_size)
+            chunk_size = 1000
+            chunk_byte_sizes = []
+            chunks = math.ceil(content_count / chunk_size)
 
-                for chunk in range(0, chunks):
-                    start = chunk * chunk_size
-                    end = start + chunk_size
+            for chunk in range(0, chunks):
+                start = chunk * chunk_size
+                end = start + chunk_size
 
-                    content_slice = contents[start:end]
-                    content_json = delimit_content_json(content_slice)
+                content_slice = contents[start:end]
+                content_json = delimit_content_json(content_slice)
 
-                    if chunks > 1:
-                        if chunk == 0:
-                            content_json = '[' + content_json + ', '
-                        elif chunk == chunks - 1:
-                            content_json = content_json + ']'
-                        else:
-                            content_json = content_json + ', '
+                if chunks > 1:
+                    if chunk == 0:
+                        content_json = '[' + content_json + ', '
+                    elif chunk == chunks - 1:
+                        content_json = content_json + ']'
                     else:
-                        content_json = '[' + content_json + ']'
-
-                    chunk_byte_sizes.append(len(content_json.encode('utf-8')) / content_slice.count())
-                    ct_json_out.write(content_json)
-
-                if chunks and chunk_byte_sizes:
-                    schema[-1]['average_byte_size'] = math.ceil(sum(chunk_byte_sizes) / chunks)
+                        content_json = content_json + ', '
                 else:
-                    schema[-1]['average_byte_size'] = 0
+                    content_json = '[' + content_json + ']'
 
-        if schema:
-            with open(f"{json_path}/schema.json", 'w', encoding='utf-8') as schema_out:
-                json.dump(schema, schema_out, indent=4)
+                chunk_byte_sizes.append(len(content_json.encode('utf-8')) / content_slice.count())
+                ct_json_out.write(content_json)
 
-    job.set_status('running', percent_complete=50)
+            if chunks and chunk_byte_sizes:
+                schema[-1]['average_byte_size'] = math.ceil(sum(chunk_byte_sizes) / chunks)
+            else:
+                schema[-1]['average_byte_size'] = 0
+
+    if schema:
+        with open(f"{json_path}/schema.json", 'w', encoding='utf-8') as schema_out:
+            json.dump(schema, schema_out, indent=4)
+
+    percent_complete = 100
+    if export_html:
+        percent_complete = 25
+
+    job.set_status('running', percent_complete=percent_complete)
 
     #######################################
     ###   MAKE HTML PAGES FOR CONTENT   ###
     #######################################
     if export_html:
-        job.report("Commencing HTML export...")
+        job.report("Commencing HTML export (this may take quite a long time, depending on how much content is in your corpus)...")
 
         static_files = set()
         static_dirs = set()
         corpora_path_pattern = re.compile(r'\/corpora\/[^\/]*')
+        total_content_exported = 0
 
         def get_static_file_path(file_path):
             return os.path.join(settings.STATIC_ROOT, file_path)
-
 
         for ct_name in corpus.content_types.keys():
             ct_path = f"{export_path}/{ct_name}"
@@ -1582,6 +1576,13 @@ def export_corpus(job_id):
                 with open(html_path, 'w', encoding='utf-8') as html_out:
                     html_out.write(html)
 
+                total_content_exported += 1
+                if total_content_exported % 500 == 0:
+                    html_export_percent_complete = (total_content_exported / total_content_count) * 100
+                    percent_complete = math.floor(((html_export_percent_complete / 100) * 25) + 25)
+                    job.set_status('running', percent_complete=percent_complete)
+
+
         # create the static dependencies (.js/.css, etc) directory
         static_files_path = f"{export_path}/static"
         os.makedirs(static_files_path, exist_ok=True)
@@ -1601,16 +1602,16 @@ def export_corpus(job_id):
         for static_dir in static_dirs:
             shutil.copytree(get_static_file_path(static_dir), f"{static_files_path}/{static_dir}", dirs_exist_ok=True)
 
-    job.set_status('running', percent_complete=75)
+        job.set_status('running', percent_complete=50)
 
-    ###########################################
-    ### BUILD OUT TABULAR JSON AND PAGES    ###
-    ###########################################
-    if export_tabular:
+        ###########################################
+        ###   BUILD OUT TABULAR JSON AND PAGES  ###
+        ###########################################
         job.report("Commencing tabular export...")
 
         export_template = get_template('content_table_export.html')
         average_record_sizes = {}
+        total_records_exported = 0
 
         for ct_name in corpus.content_types.keys():
             tabular_json_file = f"{export_path}/json/{ct_name}_table.json"
@@ -1641,13 +1642,18 @@ def export_corpus(job_id):
                         table_json_out.write(',\n')
 
                     json_record = json.dumps(tabular_result['_source'])
-                    chunk_sizes.append(len(json_record.encode('utf-8')))
+                    record_sizes.append(len(json_record.encode('utf-8')))
                     table_json_out.write(json_record)
                     num_records += 1
 
                     if record_sizes and num_records % 1000 == 0:
                         chunk_sizes.append(sum(record_sizes) / len(record_sizes))
                         record_sizes = []
+                        total_records_exported += num_records
+                        tabular_export_percent_complete = (total_records_exported / total_content_count) * 100
+                        percent_complete = math.floor(((tabular_export_percent_complete / 100) * 25) + 50)
+                        job.set_status('running', percent_complete=percent_complete)
+
 
                 table_json_out.write('\n]')
 
@@ -1678,16 +1684,23 @@ def export_corpus(job_id):
                 with open(schema_path, 'w', encoding='utf-8') as schema_out:
                     json.dump(schema, schema_out, indent=4)
 
-    '''
+        job.set_status('running', percent_complete=75)
+
+        with open(f"{export_path}/index.html", 'w', encoding='utf-8') as index_out:
+            index_template = get_template('index_export.html')
+            index_html = index_template.render({'corpus': corpus})
+            index_out.write(index_html)
+
     if os.path.exists(export_path):
-        job.report("Creating compressed tar file for download...")
+        job.report("Creating compressed tar file for download (this may take a long time)...")
 
         with tarfile.open(export_tar_file, "w:gz") as tar:
             tar.add(export_path, arcname='export')
 
+        job.set_status('running', percent_complete=85)
+
         if os.path.exists(export_tar_file):
             shutil.rmtree(export_path)
-    '''
 
     corpora_url = 'https://' if settings.USE_SSL else 'http://'
     corpora_url += settings.ALLOWED_HOSTS[0]
