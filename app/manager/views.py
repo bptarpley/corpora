@@ -1474,7 +1474,6 @@ def get_corpus_event_dispatcher(request, corpus_id):
     )
 
 
-@login_required
 def get_image(
     request,
     image_uri,
@@ -1493,7 +1492,7 @@ def get_image(
     req_type = request.META.get('HTTP_ACCEPT', 'none')
 
     if 'corpus' in uri_dict:
-        if context['scholar'].is_admin or uri_dict['corpus'] in context['scholar'].available_corpora.keys():
+        if (context['scholar'] and (context['scholar'].is_admin or uri_dict['corpus'] in context['scholar'].available_corpora.keys())) or uri_dict['corpus'] in get_open_access_corpora():
             results = run_neo(
                 '''
                     MATCH (f:_File { uri: $image_uri, is_image: true })
