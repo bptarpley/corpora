@@ -3605,7 +3605,13 @@ class Content(mongoengine.Document):
 
                             for xref_field in self._corpus.content_types[field.cross_reference_type].fields:
                                 if xref_field.in_lists and xref_field.type != "cross_reference":
-                                    if xref_field.type == 'geo_point' and xref_field.multiple:
+                                    if xref_field.type == 'file':
+                                        if xref_field.multiple:
+                                            field_value[xref_field.name] = [f.path for f in getattr(xref, xref_field.name) if hasattr(f, 'path')]
+                                        elif hasattr(getattr(xref, xref_field.name), 'path'):
+                                            field_value[xref_field.name] = getattr(xref, xref_field.name).path
+
+                                    elif xref_field.type == 'geo_point' and xref_field.multiple:
                                         field_value[xref_field.name] = {
                                             'type': 'MultiPoint',
                                             'coordinates': [v['coordinates'] for v in getattr(xref, xref_field.name)]
