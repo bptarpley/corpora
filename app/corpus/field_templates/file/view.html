@@ -1,6 +1,9 @@
 <a href="#"
     data-events="load:renderFile"
     data-uri="{{ field.parent_uri }}/file/{{ value.key }}"
+    data-is-image="{{ value.is_image }}"
+    data-width="{{ value.width }}"
+    data-height="{{ value.height }}"
     {% if value.relative_path %}data-relative-path="{{ value.relative_path }}"{% endif %}
     download="{{ value.basename }}">
     {{ value.basename }}
