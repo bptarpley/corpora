@@ -5,4 +5,4 @@
     data-field_name="{{ field.name }}"
     data-field_type="{{ field.type }}"
     data-value_format="float"
-    value="{% if value %}{{ value }}{% endif %}" />
+    value="{% if value or value == 0 or value == 0.0 %}{{ value }}{% endif %}" />
