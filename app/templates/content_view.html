@@ -54,7 +54,7 @@
                                     <strong>{{ field.label }}</strong>
                                 </div>
                                 <div class="col-10 align-left field-value {{ field.type }}-value">
-                                    {% if field.value %}
+                                    {% if field.value or field.value == 0 or field.value == 0.0 %}
                                         {% if field.multiple %}
                                             {% for value in field.value %}
                                                 <div class="{{ field.type }}-multi-value">{% include field.view_html with value=value suffix=forloop.counter0 %}</div>
