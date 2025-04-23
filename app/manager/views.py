@@ -2140,11 +2140,16 @@ def api_jobsites(request):
 
 @api_view(['GET'])
 def api_tasks(request, content_type=None):
-    response = _get_context(request)
-    tasks = get_tasks(response['scholar'], content_type=content_type)
+    context = _get_context(request)
+    response_content = '[]'
+
+    tasks = get_tasks(context['scholar'], content_type=content_type)
+
+    if tasks:
+        response_content = fix_mongo_json(tasks.to_json())
 
     return HttpResponse(
-        fix_mongo_json(tasks.to_json()),
+        response_content,
         content_type='application/json'
     )
 
