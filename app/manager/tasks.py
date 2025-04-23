@@ -1155,7 +1155,7 @@ def content_deletion_cleanup():
     for reindex_ct in reindex_cts:
         reindex_ct_parts = reindex_ct.split('_')
         if reindex_ct_parts[0] in corpora:
-            corpora[reindex_ct_parts[0]].queue_local_job(task_name="Adjust Content", parameters={
+            corpora[reindex_ct_parts[0]]['instance'].queue_local_job(task_name="Adjust Content", parameters={
                 'content_type': reindex_ct_parts[1],
                 'reindex': True,
                 'relabel': True,
