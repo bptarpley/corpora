@@ -1021,13 +1021,13 @@
 
                     // PEP8 CLASS FORMAT CONTENT TYPE NAME
                     $('#new-ct-name-box').focusout(function () {
-                        $('#new-ct-name-box').val(pep8_class_format(pep8_variable_format($('#new-ct-name-box').val())));
+                        $('#new-ct-name-box').val(corpora.pep8_class_format(corpora.pep8_variable_format($('#new-ct-name-box').val())));
                     });
 
                     // PEP8 VARIABLE FORMAT FIELD NAME
                     $('#new-f-name-box').focusout(function () {
                         let f_box = $('#new-f-name-box');
-                        f_box.val(pep8_variable_format(f_box.val()));
+                        f_box.val(corpora.pep8_variable_format(f_box.val()));
                         if (INVALID_FIELD_NAMES.includes(f_box.val())) {
                             $('#new-f-modal-body').prepend(`
                                 <div id="new-f-modal-invalid-field-msg" class="alert alert-danger">
@@ -2027,7 +2027,7 @@
         }
 
         function handle_folder_creation() {
-            let dirname = pep8_variable_format($('#file-upload-modal-new-folder-box').val());
+            let dirname = corpora.pep8_variable_format($('#file-upload-modal-new-folder-box').val());
             corpora.make_corpus_file_dir(corpus_id, file_upload_path, dirname, function() {
                 $('#file-upload-modal-new-folder-box').val('');
                 upload_file(path=file_upload_path);
@@ -2068,7 +2068,7 @@
 
         // PEP8 CLASS FORMAT REPO NAME
         $('#new-repo-name-box').focusout(function () {
-            $('#new-repo-name-box').val(pep8_variable_format($('#new-repo-name-box').val()))
+            $('#new-repo-name-box').val(corpora.pep8_variable_format($('#new-repo-name-box').val()))
         })
 
         function job_finished() {
