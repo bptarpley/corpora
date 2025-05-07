@@ -39,6 +39,7 @@ FIELD_LANGUAGES = {
     'persian': "Persian", 'portuguese': "Portuguese", 'romanian': "Romanian", 'russian': "Russian", 'sorani': "Sorani",
     'spanish': "Spanish", 'swedish': "Swedish", 'turkish': "Turkish", 'thai': "Thai"
 }
+CONTENT_TYPE_GROUP_MEMBER_DISPLAY_SETTINGS = ('full', 'half', 'minimized')
 MIME_TYPES = ('text/html', 'text/css', 'text/xml', 'text/turtle', 'application/json')
 es_logger = logging.getLogger('elasticsearch')
 es_logger.setLevel(logging.ERROR)
@@ -1012,6 +1013,36 @@ class ContentType(mongoengine.EmbeddedDocument):
         return ct_dict
 
 
+class ContentTypeGroupMember(mongoengine.EmbeddedDocument):
+    name = mongoengine.StringField(required=True)
+    display_preference = mongoengine.StringField(default='full', choices=CONTENT_TYPE_GROUP_MEMBER_DISPLAY_SETTINGS)
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'display_preference': self.display_preference,
+        }
+
+
+class ContentTypeGroup(mongoengine.EmbeddedDocument):
+    title = mongoengine.StringField()
+    description = mongoengine.StringField()
+    members = mongoengine.ListField(mongoengine.EmbeddedDocumentField(ContentTypeGroupMember))
+
+    @property
+    def content_types(self):
+        if not hasattr(self, '_content_types'):
+            self._content_types = [m.name for m in self.members]
+        return self._content_types
+
+    def to_dict(self):
+        return {
+            'title': self.title,
+            'description': self.description,
+            'members': [m.to_dict() for m in self.members],
+        }
+
+
 class File(mongoengine.EmbeddedDocument):
     uri = mongoengine.StringField(blank=True)
     primary_witness = mongoengine.BooleanField()
@@ -1301,6 +1332,7 @@ class Corpus(mongoengine.Document):
     repos = mongoengine.MapField(mongoengine.EmbeddedDocumentField(GitRepo))
     open_access = mongoengine.BooleanField(default=False)
     content_types = mongoengine.MapField(mongoengine.EmbeddedDocumentField(ContentType))
+    content_type_groups = mongoengine.ListField(mongoengine.EmbeddedDocumentField(ContentTypeGroup))
     provenance = mongoengine.EmbeddedDocumentListField(CompletedTask)
 
     def save_file(self, file):
@@ -3291,6 +3323,8 @@ class Corpus(mongoengine.Document):
                     if 'views' not in corpus_dict['content_types'][cv.target_ct]:
                         corpus_dict['content_types'][cv.target_ct]['views'] = []
                     corpus_dict['content_types'][cv.target_ct]['views'].append(cv.to_dict())
+
+            corpus_dict['content_type_groups'] = [ctg.to_dict() for ctg in self.content_type_groups]
 
         corpus_dict['provenance'] = [prov.to_dict() for prov in self.provenance]
 

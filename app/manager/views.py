@@ -1774,16 +1774,19 @@ def api_content_group(request, corpus_id):
     if corpus and request.method == 'POST' and (context['scholar'].is_admin or role == 'Editor'):
         if _contains(request.POST, ['content-group-json', 'action']):
             content_group_dict = json.loads(unescape(_clean(request.POST, 'content-group-json')))
+            existing_titles = []
+            existing_members = []
+            for ctg in corpus.content_type_groups:
+                existing_titles.append(ctg.title)
+                for member in ctg.members:
+                    existing_members.append(member.name)
+
             action = _clean(request.POST, 'action')
 
             if action == 'create':
-                existing_group_titles = [ct_group.title for ct_group in corpus.content_type_groups]
-                if content_group_dict['title'] and content_group_dict['title'] not in existing_group_titles:
-                    existing_grouped_cts = []
-                    for ct_group in corpus.content_type_groups:
-                        existing_grouped_cts += ct_group.content_types
+                if content_group_dict['title'] and content_group_dict['title'] not in existing_titles:
                     for member in content_group_dict['members']:
-                        if member['name'] in existing_grouped_cts:
+                        if member['name'] in existing_members:
                             return HttpResponse(
                                 json.dumps({'success': False, 'message': 'Content types can only belong to one content group at a time.'}),
                                 content_type='application/json'
@@ -1794,11 +1797,45 @@ def api_content_group(request, corpus_id):
                     if content_group_dict['description']:
                         ct_group.description = content_group_dict['description']
 
+                    for member in content_group_dict['members']:
+                        ctg_member = ContentTypeGroupMember()
+                        ctg_member.name = member['name']
+                        ctg_member.display_preference = member['display_preference']
+                        ct_group.members.append(ctg_member)
+
+                    corpus.content_type_groups.append(ct_group)
+                    corpus.save()
                 else:
                     return HttpResponse(
                         json.dumps({'success': False, 'message': 'Title blank or not unique.'}),
                         content_type='application/json'
                     )
+
+            elif action in ['edit', 'delete']:
+                ct_group_index = -1
+                for index in range(0, len(corpus.content_type_groups)):
+                    if corpus.content_type_groups[index].title == content_group_dict['title']:
+                        ct_group_index = index
+
+                if action == 'edit' and ct_group_index > -1:
+                    members_currently_in_relevant_group = [m.name for m in corpus.content_type_groups[ct_group_index].members]
+                    existing_members = [m for m in existing_members if m not in members_currently_in_relevant_group]
+
+                    corpus.content_type_groups[ct_group_index].description = content_group_dict['description']
+                    corpus.content_type_groups[ct_group_index].members = []
+                    for member in content_group_dict['members']:
+                        if member['name'] not in existing_members:
+                            ctg_member = ContentTypeGroupMember()
+                            ctg_member.name = member['name']
+                            ctg_member.display_preference = member['display_preference']
+                            corpus.content_type_groups[ct_group_index].members.append(ctg_member)
+
+                    corpus.save()
+
+                elif action == 'delete' and ct_group_index > -1:
+                    corpus.content_type_groups.pop(ct_group_index)
+                    corpus.save()
+
 
     return HttpResponse(
         json.dumps({'success': True}),

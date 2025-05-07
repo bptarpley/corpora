@@ -10054,6 +10054,55 @@ h5 {
   background-color: #091540;
 }
 
+.content-type-group .alert.alert-info {
+  border-color: #c2c2c2 !important;
+}
+
+.content-type-group .corpora-content-table .alert.alert-info,
+.content-type-group-description,
+.content-type-group-member-minimized {
+  margin-top: 20px !important;
+  margin-bottom: 0 !important;
+}
+
+.content-type-group-description > p:last-child {
+  margin-bottom: 0;
+}
+
+.content-type-group-member-controls {
+  text-align: right;
+  position: relative;
+  z-index: 100;
+  padding-right: 20px;
+  margin-bottom: -55px;
+  margin-top: 30px;
+}
+
+.content-type-group-member-minimized {
+  border: solid 1px #c2c2c2;
+  border-radius: 5px;
+  padding: 10px;
+}
+
+.content-type-group-member-minimized[open] {
+  border: none;
+  padding: 0;
+}
+
+.content-type-group-member-minimized[open] > summary {
+  margin-bottom: -20px;
+  position: relative;
+  z-index: 100;
+}
+
+.content-type-group-member-minimized > summary > h4 {
+  display: inline;
+}
+
+.content-type-group-member-minimized[open] > summary > h4 {
+  display: none;
+}
+
 .corpora-content-table .badge {
   display: inline-flex;
   align-items: center;

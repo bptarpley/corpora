@@ -277,6 +277,35 @@
         </div>
     </div>
 
+    <!-- CONTENT TYPE GROUP MODAL -->
+    <div class="modal fade" id="new-ct-group-modal" tabindex="-1" role="dialog" aria-labelledby="new-ct-group-modal-label" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="new-ct-group-modal-label">Create New Content Type Group</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="new-ct-name-box">Title</label>
+                        <input id="new-ct-group-title-box" type="text" class="form-control">
+                        <div class="text-muted mt-3">
+                            A content type group allows you to put content types into containers that have a title
+                            and can also have a rich text description. This helps to both organize and document your
+                            content types, and is especially useful if your corpus has a large number of them.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="new-ct-group-create-button">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- TEMPLATE MODAL -->
     <div class="modal fade" id="template-modal" tabindex="-1" role="dialog" aria-labelledby="template-modal-label" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -343,53 +372,6 @@
         </div>
     </div>
 
-    <!-- CONTENT MANAGER CONFIRMATION MODAL -->
-    <div class="modal fade" id="confirmation-modal" tabindex="-1" role="dialog" aria-labelledby="confirmation-modal-label" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="confirmation-modal-label">Confirm Deletion</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <input type="hidden" id="confirmation-ct-name" name="content_type" value="">
-                        <input type="hidden" id="confirmation-field-name" name="field" value="">
-                        <input type="hidden" id="confirmation-action" name="action" value="">
-                        <div id="confirmation-modal-message" class="alert alert-danger"></div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary" id="confirmation-confirm-button">Confirm</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- CONTENT DELETION CONFIRMATION MODAL -->
-    <div class="modal fade" id="deletion-confirmation-modal" tabindex="-1" role="dialog" aria-labelledby="deletion-confirmation-modal-label" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="deletion-confirmation-modal-label">Confirm Deletion</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div id="deletion-confirmation-modal-message" class="alert alert-danger"></div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="deletion-confirmation-button">Delete</button>
-                </div>
-            </div>
-        </div>
-    </div>
 {% endblock %}
 
 {% block main %}
@@ -415,10 +397,17 @@
 
                 <!-- sticky nav -->
                 <div class="sticky-nav py-2">
-                    <div id="content-types-nav" class="alert alert-info m-0">
-                        <a href="#breadcrumb"><i class="fas fa-sort-up"></i> Top</a>
+                    <div class="alert alert-info m-0 row">
+                        <div id="content-types-nav" class="col-md-11">
+                            <a href="#breadcrumb"><i class="fas fa-sort-up"></i> Top</a>
+                        </div>
+                        <div class="col-md-1">
+                            <button type="button" id="new-ct-group-button" class="btn btn-primary btn-sm rounded" data-toggle="modal" data-target="#new-ct-group-modal">New Group</button>
+                        </div>
                     </div>
                 </div>
+
+                <div id="content-type-groups-div"></div>
 
                 <div id="content-types-div">
 
@@ -430,6 +419,12 @@
                     <form id="multiselect-form" method="post" action="/not/set">
                         {% csrf_token %}
                         <input id="multiselect-content-ids" name="content-ids" type="hidden" value="">
+                    </form>
+                    <form id="content-action-form" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" id="confirmation-ct-name" name="content_type" value="">
+                        <input type="hidden" id="confirmation-field-name" name="field" value="">
+                        <input type="hidden" id="confirmation-action" name="action" value="">
                     </form>
                 </div>
             </div>
@@ -658,6 +653,7 @@
     <script src="{% static 'js/vis-network.js' %}"></script>
     <script src="{% static 'js/sortable.js' %}"></script>
     <script src="{% static 'js/interact.min.js' %}"></script>
+    <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
     <script type="application/javascript">
         let corpus_id = "{{ corpus_id }}";
         let role = "{{ role }}";
@@ -674,6 +670,9 @@
         let template_editor;
         let job_report_timer = null;
         let ignore_finished_jobs = false;
+
+        // FOR CONTENT TYPE GROUPS
+        let content_type_groups = {}
 
         // VARS FOR FILE UPLOADS/IMPORTS
         let file_upload_path = '';
@@ -875,7 +874,7 @@
                                     <div class="col-sm-11">
                                         <b>${repo.name}</b><br/>
                                         Branch "${repo.remote_branch}"
-                                        last pulled ${corpora.time_string(repo.last_pull)}
+                                        last pulled ${corpora.date_string(repo.last_pull, 'Day', true, true)}
                                     </div>
                                     <div class="col-sm-1 text-right">
                                         <button type="button" class="btn btn-secondary repo-delete-button" data-repo-name="${repo.name}"><span class="fas fa-trash-alt"></span></button>
@@ -890,17 +889,21 @@
                         let button = $(this)
                         let repo_name = button.data('repo-name')
                         let multi_form = $('#multiselect-form')
-                        $('#deletion-confirmation-modal-message').html(`
-                            Are you sure you want to delete the "${repo_name}" repository?
-                        `)
-                        multi_form.append(`
-                            <input type='hidden' class="repo-deletion-input" name='repo' value='${repo_name}'/>
-                        `)
-                        let deletion_modal = $('#deletion-confirmation-modal')
-                        deletion_modal.modal()
-                        deletion_modal.on('hidden.bs.modal', function (e) {
-                            $('.repo-deletion-input').remove()
-                        })
+
+                        corpora.confirm_action(
+                            function() {
+                                multi_form.append(`
+                                    <input type='hidden' class="repo-deletion-input" name='repo' value='${repo_name}' />
+                                    <input type='hidden' name='deletion-confirmed' value='y' />
+                                `)
+                                multi_form.attr('action', '')
+                                multi_form.submit()
+                            },
+                            "Delete Repo?",
+                            `Are you sure you want to delete the "${repo_name}" repository?`,
+                            'Delete',
+                            true
+                        )
                     })
                 }
 
@@ -908,7 +911,6 @@
                 let cv_sticky_nav = $('#views-nav')
                 $('.content-view-table').each(function() {
                     let table_div = $(this)
-                    console.log(table_div[0].id)
                     let table = new ContentTable({
                         container_id: table_div[0].id,
                         corpora: corpora,
@@ -1007,17 +1009,15 @@
 
                     // setup event for saving the content type schema
                     $('#save-content-type-schema-button').click(function () {
-                        $('#save-content-type-schema-button').attr('disabled', true);
-                        let ct_schema = [];
+                        $('#save-content-type-schema-button').attr('disabled', true)
+                        let ct_schema = []
                         for (let ct_name in corpus.content_types) {
-                            ct_schema.push(corpus.content_types[ct_name]);
+                            ct_schema.push(corpus.content_types[ct_name])
                         }
 
-                        console.log(JSON.stringify(ct_schema, null, 4));
-
-                        $('#ct-schema').val(JSON.stringify(ct_schema));
-                        $('#ct-schema-form').submit();
-                    });
+                        $('#ct-schema').val(JSON.stringify(ct_schema))
+                        $('#ct-schema-form').submit()
+                    })
 
                     // PEP8 CLASS FORMAT CONTENT TYPE NAME
                     $('#new-ct-name-box').focusout(function () {
@@ -1232,6 +1232,7 @@
 
                 if (Object.keys(corpus.content_types).length > 0) $('.no-content-types-message').remove()
 
+                let tables_loaded = false
                 for (let ct_name in corpus.content_types) {
                     ct_tables[ct_name] = new ContentTable({
                         container_id: 'content-types-div',
@@ -1239,17 +1240,24 @@
                         corpus: corpus,
                         content_type: ct_name,
                         on_load: function(meta) {
-                            if (['Admin', 'Editor'].includes(corpus.scholar_role) && Object.keys(corpus.content_types).length > 1) {
-                                if (Object.keys(ct_tables).length === Object.keys(corpus.content_types).length) {
-                                    let tables_loaded = true;
-                                    Object.keys(ct_tables).map(ct_name => {
-                                        if (!ct_tables[ct_name].meta) tables_loaded = false;
-                                    });
-                                    if (tables_loaded) draw_ct_graph();
+                            if (!tables_loaded) {
+                                if (['Admin', 'Editor'].includes(corpus.scholar_role) && Object.keys(corpus.content_types).length > 1) {
+                                    if (Object.keys(ct_tables).length === Object.keys(corpus.content_types).length) {
+                                        let all_metas_loaded = true
+                                        Object.keys(ct_tables).map(ct_name => {
+                                            if (!ct_tables[ct_name].meta) all_metas_loaded = false
+                                        })
+                                        if (all_metas_loaded) {
+                                            tables_loaded = true
+                                            draw_ct_graph()
+                                            setup_ct_groups()
+                                            hide_loading_overlay()
+                                        }
+                                    }
                                 }
                             }
                         }
-                    });
+                    })
 
                     if (role === 'Editor' || role === 'Admin') {
                         manage_content_type(ct_name);
@@ -1260,6 +1268,7 @@
                         ct_sticky_nav.append(` | <a href="#${ct_plural_name}">${ct_plural_name}</a>`);
                     }
                 }
+                if (Object.keys(corpus.content_types).length === 0) hide_loading_overlay()
 
                 // SETUP JOBS
                 if (role === 'Editor' || role === 'Admin') {
@@ -1338,8 +1347,6 @@
                 location.hash = '';
                 location.hash = scroll_location;
             }, true);
-
-            hide_loading_overlay();
         });
 
         function draw_ct_graph() {
@@ -1437,7 +1444,6 @@
             );
 
             $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
-                console.log(e.target.id);
                 if (e.target.id === 'admin-tab') {
                     ct_graph.fit({nodes: node_ids});
                 }
@@ -1456,6 +1462,36 @@
                     nodes.update([{ id: id, fixed: true }])
                 })
             })
+        }
+
+        function setup_ct_groups() {
+            // UI components
+            let contentTypeGroupsDiv = $('#content-type-groups-div')
+
+            // layout content type groups
+            corpus.content_type_groups.forEach((ctg_dict, index) => {
+                let ctg = new ContentGroup(corpora, corpus, ctg_dict, index)
+                ctg.render(contentTypeGroupsDiv, 'content-types-div')
+            })
+
+            // setup ct group events
+            $('#new-ct-group-create-button').click(function() {
+                let ctGroup = new ContentGroup(corpora, corpus, {title: $('#new-ct-group-title-box').val()}, corpus.content_type_groups.length)
+                ctGroup.save(function(response) {
+                    if (response.success) {
+                        ctGroup.render(contentTypeGroupsDiv, 'content-types-div')
+                        ctGroup.edit()
+                        ctGroup.scrollTo()
+                        $('#new-ct-group-modal').modal('hide')
+                    }
+                })
+            })
+
+            if (Object.keys(content_type_groups).length && $('#content-types-div .corpora-content-table').length) {
+                $('#content-types-div').prepend(`
+                    <h2 class="mt-4">Other Content Types</h2>
+                `)
+            }
         }
 
         function manage_content_type(ct_name) {
@@ -1572,61 +1608,58 @@
                     $('#new-ct-modal').modal();
                 });
 
-                // REINDEX CONTENT TYPE BUTTPN
-                $(`#${ct_div_prefix}-reindex-button`).click(function() {
-                    $('#confirmation-ct-name').val(ct_name);
-                    $('#confirmation-field-index').val('');
-                    $('#confirmation-field-name').val('');
-                    $('#confirmation-action').val('reindex');
-                    $('#confirmation-confirm-button').attr('disabled', false);
-                    $('#confirmation-modal-label').html('Confirm Re-indexing');
-
-                    let message = `You are attempting to re-index the <b>${ct_name}</b> content type.
-                    Depending on how much content belongs to this type, this may take a long time, and
-                    while re-indexing is taking place, the content will be temporarily unavailable in
-                    lists. Do you wish to proceed?`;
-
-                    $('#confirmation-modal-message').html(message);
-                    $('#confirmation-modal').modal();
-                });
-
                 // REINDEX CONTENT TYPE BUTTON
-                $(`#${ct_div_prefix}-relabel-button`).click(function() {
-                    $('#confirmation-ct-name').val(ct_name);
-                    $('#confirmation-field-index').val('');
-                    $('#confirmation-field-name').val('');
-                    $('#confirmation-action').val('relabel');
-                    $('#confirmation-confirm-button').attr('disabled', false);
-                    $('#confirmation-modal-label').html('Confirm Re-Labeling');
-
-                    let message = `You are attempting to re-label content belonging to the <b>${ct_name}</b> content type.
-                    Depending on how much content belongs to this type, this may take a long time. Do you wish to proceed?`;
-
-                    $('#confirmation-modal-message').html(message);
-                    $('#confirmation-modal').modal();
+                $(`#${ct_div_prefix}-reindex-button`).click(function() {
+                    corpora.confirm_action(
+                        function() {
+                            $('#confirmation-ct-name').val(ct_name)
+                            $('#confirmation-field-index').val('')
+                            $('#confirmation-field-name').val('')
+                            $('#confirmation-action').val('reindex')
+                            $('#content-action-form').submit()
+                        },
+                        'Confirm Re-indexing',
+                        `You are attempting to re-index the <b>${ct_name}</b> content type.
+                            Depending on how much content belongs to this type, this may take a long time, and
+                            while re-indexing is taking place, the content will be temporarily unavailable in
+                            lists. Do you wish to proceed?`,
+                        'Confirm',
+                        false
+                    )
                 });
+
+                // RELABEL CONTENT TYPE BUTTON
+                $(`#${ct_div_prefix}-relabel-button`).click(function() {
+                    corpora.confirm_action(
+                        function() {
+                            $('#confirmation-ct-name').val(ct_name)
+                            $('#confirmation-field-index').val('')
+                            $('#confirmation-field-name').val('')
+                            $('#confirmation-action').val('relabel')
+                            $('#content-action-form').submit()
+                        },
+                        'Confirm Re-labeling',
+                        `You are attempting to re-label content belonging to the <b>${ct_name}</b> content type.
+                            Depending on how much content belongs to this type, this may take a long time. Do you wish to proceed?`,
+                        'Confirm',
+                        false
+                    )
+                })
 
                 // DELETE CONTENT TYPE BUTTON
                 $(`#${ct_div_prefix}-delete-button`).click(function() {
                     if (!corpus.content_types[ct_name].inherited) {
                         if (!corpus.content_types[ct_name].hasOwnProperty('is_new')) {
-                            $('#confirmation-ct-name').val(ct_name);
-                            $('#confirmation-field-index').val('');
-                            $('#confirmation-field-name').val('');
-                            $('#confirmation-action').val('delete');
-                            $('#confirmation-confirm-button').attr('disabled', false);
-                            $('#confirmation-modal-label').html('Confirm Deletion');
-
-
+                            let performDeletion = true
                             let message = `You are attempting to delete the <b>${ct_name}</b> content type.
-                            Upon doing so, <b>all content of this type will be irreversibly deleted</b>. Some templates may also need to be
-                            regenerated or manually adjusted. Are you sure you want to proceed?`;
+                                Upon doing so, <b>all content of this type will be irreversibly deleted</b>. Some templates may also need to be
+                                regenerated or manually adjusted. Are you sure you want to proceed?`
 
-                            let referencing_fields = [];
+                            let referencing_fields = []
                             for (let x in corpus.content_types) {
                                 for (let y = 0; y < corpus.content_types[x].fields.length; y++) {
                                     if (corpus.content_types[x].fields[y].cross_reference_type === ct_name) {
-                                        referencing_fields.push(`${x} -> ${corpus.content_types[x].fields[y].name}`);
+                                        referencing_fields.push(`${x} -> ${corpus.content_types[x].fields[y].name}`)
                                     }
                                 }
                             }
@@ -1634,24 +1667,38 @@
                             if (referencing_fields.length > 0) {
                                 message = `
                                     You are attempting to delete the ${ct_name} content type.
-                                    This is currently not possible, as the following fields reference this content type:<ul class="mt-2">
-                                `;
+                                    This is currently not possible, as the following fields reference this content type:<ul class="mt-2">`
+
                                 referencing_fields.map(x => message += `<li>${x}</li>`);
                                 message += `
                                     </ul>If you still wish to delete the ${ct_name} content type,
-                                    you must first delete the above fields.
-                                `;
-                                $('#confirmation-confirm-button').attr('disabled', true);
+                                    you must first delete the above fields.`
+                                performDeletion = false
                             }
 
-                            $('#confirmation-modal-message').html(message);
-                            $('#confirmation-modal').modal();
+                            corpora.confirm_action(
+                                function() {
+                                    if (performDeletion) {
+                                        $('#confirmation-ct-name').val(ct_name)
+                                        $('#confirmation-field-index').val('')
+                                        $('#confirmation-field-name').val('')
+                                        $('#confirmation-action').val('delete')
+                                        $('#content-action-form').submit()
+                                    } else {
+                                        corpora.cancel_action()
+                                    }
+                                },
+                                performDeletion ? 'Confirm Deletion' : 'Unable to Delete Content Type',
+                                message,
+                                performDeletion ? 'Confirm' : 'Okay',
+                                true
+                            )
                         } else {
                             delete corpus.content_types[ct_name];
                             $(`#${ct_div_prefix}-container`).remove();
                         }
                     }
-                });
+                })
 
                 // NEW FIELD BUTTON
                 $(`#${ct_div_prefix}-new-f-button`).click(function (){
@@ -1759,7 +1806,6 @@
                     }
                 // event for handling when re-ordering finished
                 }).on('sortable:stop', () => {
-                    console.log('fired');
                     setTimeout(function() {
                         const old_fields = [...corpus.content_types[ct_name].fields];
                         const new_order = [];
@@ -1934,24 +1980,32 @@
                 // FIELD DELETE BUTTON CLICK
                 $(`#${f_div_prefix}-delete-button`).click(function () {
                     if (!ct.fields[f_index].inherited) {
-                        $('#confirmation-ct-name').val(ct_name);
-                        $('#confirmation-field-name').val(ct.fields[f_index].name);
-                        $('#confirmation-action').val('delete');
-                        $('#confirmation-confirm-button').attr('disabled', false);
-
+                        let performDeletion = true
                         let message = `You are attempting to delete the <b>${ct_name} -> ${ct.fields[f_index].name}</b> field.
-                        Upon doing so, <b>all content stored in this field will be irreversibly deleted</b>. Some templates may also need to be
-                        regenerated or manually adjusted. Are you sure you want to proceed?`;
+                            Upon doing so, <b>all content stored in this field will be irreversibly deleted</b>. Some templates may also need to be
+                            regenerated or manually adjusted. Are you sure you want to proceed?`
 
                         if (ct.fields.length === 1) {
                             message = `You are attempting to delete the <b>${ct_name} -> ${ct.fields[f_index].name}</b> field.
-                        This is currently not possible, as all content types must have at least one field. Please create another field for
-                        this content type before deleting this field.`;
-                            $('#confirmation-confirm-button').attr('disabled', true);
+                                This is currently not possible, as all content types must have at least one field. Please create another field for
+                                this content type before deleting this field.`
+                            performDeletion = false
                         }
 
-                        $('#confirmation-modal-message').html(message);
-                        $('#confirmation-modal').modal();
+                        corpora.confirm_action(
+                            function() {
+                                if (performDeletion) {
+                                    $('#confirmation-ct-name').val(ct_name)
+                                    $('#confirmation-field-name').val(ct.fields[f_index].name)
+                                    $('#confirmation-action').val('delete')
+                                    $('#content-action-form').submit()
+                                } else corpora.cancel_action()
+                            },
+                            performDeletion ? 'Confirm Deletion' : 'Unable to Delete Field',
+                            message,
+                            performDeletion ? 'Confirm' : 'Okay',
+                            true
+                        )
                     }
                 });
             } else {

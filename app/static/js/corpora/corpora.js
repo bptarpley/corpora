@@ -680,6 +680,55 @@ class Corpora {
         })
     }
 
+    confirm_action(callback, title='Confirm', message='Are you Sure?', actionButton='Confirm', dangerous=false) {
+        let corporaConfirmModal = $('#corpora-confirm-modal')
+
+        if (!corporaConfirmModal.length) {
+            $('body').prepend(`
+                <div class="modal fade" id="corpora-confirm-modal" tabindex="-1" role="dialog" aria-labelledby="corpora-confirm-modal-label" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="corpora-confirm-modal-label">${title}</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div id="corpora-confirm-modal-message" class="alert alert-${dangerous ? 'danger' : 'info'}">${message}</div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="corpora-confirm-modal-action-button">${actionButton}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `)
+            corporaConfirmModal = $('#corpora-confirm-modal')
+        } else {
+            let confirmMessageDiv = $('#corpora-confirm-modal-message')
+            confirmMessageDiv.html(message)
+            if (dangerous) confirmMessageDiv.removeClass('alert-info').addClass('alert-danger')
+            else confirmMessageDiv.removeClass('alert-danger').addClass('alert-info')
+
+            $('#corpora-confirm-modal-label').html(title)
+        }
+
+        let confirmButton = $('#corpora-confirm-modal-action-button')
+        confirmButton.html(actionButton)
+        confirmButton.off('click').on('click', function() {
+            callback()
+            corporaConfirmModal.modal('hide')
+        })
+        corporaConfirmModal.modal('show')
+    }
+
+    cancel_action() {
+        let corporaConfirmModal = $('#corpora-confirm-modal')
+        if (corporaConfirmModal.length) corporaConfirmModal.modal('hide')
+    }
+
     file_url(uri) {
         return `/file/uri/${uri.split('/').join('|')}/`
     }
