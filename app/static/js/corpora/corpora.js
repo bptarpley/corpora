@@ -710,8 +710,11 @@ class Corpora {
         return representation
     }
 
-    date_string(timestamp, granularity='Day', adjust_for_timezone=true) {
-        let date = new Date(timestamp)
+    date_string(timestamp, granularity='Day', adjust_for_timezone=true, from_mongo=false) {
+        let date = null
+        if (from_mongo) date = new Date(timestamp*1000)
+        else date = new Date(timestamp)
+
         if (granularity === 'Day')
             return date.toISOString().split('T')[0]
         else if (granularity === 'Year')
