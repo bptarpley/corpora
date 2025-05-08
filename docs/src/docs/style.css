@@ -80,3 +80,8 @@ pre code.hljs {
     padding: 1em;
     line-height: 1.4;
 }
+
+.document img {
+    width: 100%;
+    height: auto;
+}

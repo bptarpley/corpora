@@ -722,7 +722,7 @@ The heart of Corpora's backend codebase lives [here](https://github.com/bptarple
 
 Inside that giant file are also classes that describe JobSites, Tasks, and Jobs in order to support Corpora's asynchronous job queue.
 
-The frontend "heart" of Corpora's codebase is [here](https://github.com/bptarpley/corpora/blob/main/app/static/js/corpora.js). These are JavaScript objects that provide functionality for much of Corpora's web interface, including its Content Tables, its Job Manager, and its Content Graphs.
+The frontend "heart" of Corpora's codebase is broken up into object-based files found in [this directory](https://github.com/bptarpley/corpora/tree/main/app/static/js/corpora). These JavaScript objects provide functionality for much of Corpora's web interface, including its Content Tables, Graphs, and Groups; as well as its Job Manager.
 
 ### Why is this codebase missing certain necessities like comment headers above functions and code tests?
 

@@ -121,12 +121,17 @@ When you scroll to the bottom of the page, you’ll see a series of buttons–cl
 
 ![Corpus Creation Dialog](assets/img/create.png "Corpus Creation Dialog")
 
-In the form provided, provide the following information. Name: A title for the corpus, usually an acronym or a short
-phrase. Description: A longer description for the purpose of distinguishing the corpus. Open Access: When this checkbox
+In the form provided, provide the following information:
+
+* `Name`: A title for the corpus, usually an acronym or a short
+phrase.
+* `Description`: A longer description for the purpose of distinguishing the corpus.
+* `Open Access`: When this checkbox
 is checked, users will be able to see your content and use the various content API’s to search/query your corpus without
 having to log into Corpora. Leaving this checkbox unchecked will mean that users will have to log in and have explicit
 permissions in order to see your content. Any external computers wishing to access the content API’s will also need to
 have a scholar account with their IP addresses registered, and will also need to use an authentication token.
+* `Include default content types from Document plugin`: If this box is checked, three content types from the [Document plugin](/corpora/plugins/) will be added to your corpus upon creation: `Document`, which is structured to support paged artifacts that can be cataloged according to the [FRBR standard](https://www.oclc.org/research/activities/frbr.html) (work, expression, manifestation, and item); `TranscriptionProject`, which organizes pages of transcribed text; and `Transcription`, which represents a page of transcribed text. These default content types would allow a user the ability to upload document pages (via PDF, for instance) and transcribe them using a special transcription GUI.
 
 Click the “Create” button to proceed. Once the corpus has been created, you’ll still be on the home screen showing the
 corpora available to you, but should now see your new corpus listed among them. Click on the name of your corpus to
@@ -227,6 +232,12 @@ Once you’ve made the appropriate choices to define your field, click the orang
 When you are satisfied with how your content types(s) and fields are defined, you must save your content type schema by scrolling down below the list of content types and clicking the orange “Save Changes” button on the bottom right (in the same horizontal space as the “New Content Type” button):
 
 ![Content Type Save Button](assets/img/ct_manager_save.png "Content Type Save Button")
+
+Once you click the save button, the page refreshes and an asynchronous job is launched whose task is to reconfigure the backend data structures according to your new Content Type schema. When an asynchronous job like this completes, you'll see a small alert appear on the bottom-right of the page letting you know you should probably refresh the page before proceeding:
+
+![Job Completion Alert](assets/img/job_alert.png "Job Completion Alert")
+
+**It is very important** to go ahead and perform that refresh, especially if you are continuing to build out your Content Type schema--you want to make sure the changes you just made are reflected on the page before making further changes.
 
 ### Creating Content
 
