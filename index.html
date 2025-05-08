@@ -314,12 +314,18 @@ corpora, i.e. <code>https://mycorpora.org/</code></p>
 <p><img alt="Corpora Homepage" src="assets/img/corpora.png" title="Corpora Homepage" /></p>
 <p>When you scroll to the bottom of the page, you’ll see a series of buttons–click on the “New Corpus” button.</p>
 <p><img alt="Corpus Creation Dialog" src="assets/img/create.png" title="Corpus Creation Dialog" /></p>
-<p>In the form provided, provide the following information. Name: A title for the corpus, usually an acronym or a short
-phrase. Description: A longer description for the purpose of distinguishing the corpus. Open Access: When this checkbox
+<p>In the form provided, provide the following information:</p>
+<ul>
+<li><code>Name</code>: A title for the corpus, usually an acronym or a short
+phrase.</li>
+<li><code>Description</code>: A longer description for the purpose of distinguishing the corpus.</li>
+<li><code>Open Access</code>: When this checkbox
 is checked, users will be able to see your content and use the various content API’s to search/query your corpus without
 having to log into Corpora. Leaving this checkbox unchecked will mean that users will have to log in and have explicit
 permissions in order to see your content. Any external computers wishing to access the content API’s will also need to
-have a scholar account with their IP addresses registered, and will also need to use an authentication token.</p>
+have a scholar account with their IP addresses registered, and will also need to use an authentication token.</li>
+<li><code>Include default content types from Document plugin</code>: If this box is checked, three content types from the <a href="/corpora/plugins/">Document plugin</a> will be added to your corpus upon creation: <code>Document</code>, which is structured to support paged artifacts that can be cataloged according to the <a href="https://www.oclc.org/research/activities/frbr.html">FRBR standard</a> (work, expression, manifestation, and item); <code>TranscriptionProject</code>, which organizes pages of transcribed text; and <code>Transcription</code>, which represents a page of transcribed text. These default content types would allow a user the ability to upload document pages (via PDF, for instance) and transcribe them using a special transcription GUI.</li>
+</ul>
 <p>Click the “Create” button to proceed. Once the corpus has been created, you’ll still be on the home screen showing the
 corpora available to you, but should now see your new corpus listed among them. Click on the name of your corpus to
 access your corpus’ dashboard.</p>
@@ -383,6 +389,9 @@ following form:</p>
 <p>Once you’ve made the appropriate choices to define your field, click the orange “Create” button to tentatively add the field to your content type. The word tentatively is used here to highlight the fact that your <em>content type still isn’t saved/created at this point</em>, allowing you the opportunity to continue adding fields until the content type is fully defined.</p>
 <p>When you are satisfied with how your content types(s) and fields are defined, you must save your content type schema by scrolling down below the list of content types and clicking the orange “Save Changes” button on the bottom right (in the same horizontal space as the “New Content Type” button):</p>
 <p><img alt="Content Type Save Button" src="assets/img/ct_manager_save.png" title="Content Type Save Button" /></p>
+<p>Once you click the save button, the page refreshes and an asynchronous job is launched whose task is to reconfigure the backend data structures according to your new Content Type schema. When an asynchronous job like this completes, you'll see a small alert appear on the bottom-right of the page letting you know you should probably refresh the page before proceeding:</p>
+<p><img alt="Job Completion Alert" src="assets/img/job_alert.png" title="Job Completion Alert" /></p>
+<p><strong>It is very important</strong> to go ahead and perform that refresh, especially if you are continuing to build out your Content Type schema--you want to make sure the changes you just made are reflected on the page before making further changes.</p>
 <h3 id="creating-content">Creating Content</h3>
 <p>Once content types have been created you’re given the opportunity to create content according to your content type schema via the corpus dashboard, specifically on the default “Content” tab. Once there, scroll down to the tabular representation of your specific content type and click the orange “Create” button:</p>
 <p><img alt="Content Create Button" src="assets/img/content_create.png" title="Content Create Button" /></p>
@@ -443,5 +452,5 @@ following form:</p>
 
 <!--
 MkDocs version : 1.6.0
-Build Date UTC : 2025-05-08 17:04:05.328255+00:00
+Build Date UTC : 2025-05-08 21:03:46.551483+00:00
 -->
