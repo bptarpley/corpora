@@ -88,6 +88,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'corpora.urls'
 
+# configuring templates and disabling caching if DEBUG = True
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -95,7 +96,7 @@ TEMPLATES = [
             os.path.join(BASE_DIR, 'templates'),
             '/corpora'
         ],
-        'APP_DIRS': True,
+        'APP_DIRS': not DEBUG,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
@@ -106,6 +107,12 @@ TEMPLATES = [
         },
     },
 ]
+
+if DEBUG:
+    TEMPLATES[0]['OPTIONS']['loaders'] = [
+        "django.template.loaders.filesystem.Loader",
+        "django.template.loaders.app_directories.Loader",
+    ]
 
 WSGI_APPLICATION = 'corpora.wsgi.application'
 ASGI_APPLICATION = 'corpora.asgi.application'

@@ -748,7 +748,7 @@ class Corpora {
 
     time_string(timestamp, from_mongo=true, just_time=false, adjust_for_timezone=true) {
         let date = null
-        if (from_mongo) date = new Date(timestamp*1000)
+        if (from_mongo) date = new Date((timestamp * 1000) + (new Date().getTimezoneOffset() * 60 * 1000))
         else date = new Date(timestamp)
 
         let representation = null
@@ -761,11 +761,11 @@ class Corpora {
 
     date_string(timestamp, granularity='Day', adjust_for_timezone=true, from_mongo=false) {
         let date = null
-        if (from_mongo) date = new Date(timestamp*1000)
+        if (from_mongo) date = new Date((timestamp * 1000) + (new Date().getTimezoneOffset() * 60 * 1000))
         else date = new Date(timestamp)
 
         if (granularity === 'Day')
-            return date.toISOString().split('T')[0]
+            return date.toLocaleString('default', {month: 'numeric', day: 'numeric', year: 'numeric'})
         else if (granularity === 'Year')
             return date.toLocaleString('default', { year: 'numeric' })
         else if (granularity === 'Month')
