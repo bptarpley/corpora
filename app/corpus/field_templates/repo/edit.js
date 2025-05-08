@@ -67,7 +67,7 @@ function setRepoValueField(target) {
     let branch_box = $(`#${id_prefix}-branch`)
 
     if (name_box.val()) {
-        name_box.val(pep8_variable_format(name_box.val()))
+        name_box.val(corpora.pep8_variable_format(name_box.val()))
     }
 
     if (name_box.val() && url_box.val() && branch_box.val()) {
