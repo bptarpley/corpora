@@ -22,14 +22,13 @@ function renderGeoPointMap(target) {
 
     if (lat_input.val() && long_input.val()) {
         let coords = setGeoPointMarker(lat_input, long_input, target, map)
-        map.setView(coords, 13)
     } else
         map.locate({setView: true})
 
     map.on('click', function(e) {
         lat_input.val(e.latlng.lat)
         long_input.val(e.latlng.lng)
-        let coords = setGeoPointMarker(lat_input, long_input, target, map)
+        let coords = setGeoPointMarker(lat_input, long_input, target, map, false)
         lat_input.val(coords[0])
         long_input.val(coords[1])
         value_control.val(JSON.stringify([coords[1], coords[0]]))
@@ -38,32 +37,20 @@ function renderGeoPointMap(target) {
     $(`#${id_prefix}-lat, #${id_prefix}-long`).on('change paste keyup', function() {
         clearTimeout(LatLongTimer)
         LatLongTimer = setTimeout(function() {
-            setGeoPointMarker(lat_input, long_input, target, map)
+            let coords = setGeoPointMarker(lat_input, long_input, target, map)
+            value_control.val(JSON.stringify([coords[1], coords[0]]))
         }, 1000)
     });
 }
 
-function setGeoPointMarker(lat_input, long_input, target, map) {
+function setGeoPointMarker(lat_input, long_input, target, map, setView=true) {
     let lat = parseFloat(lat_input.val())
     let long = parseFloat(long_input.val())
-    let reset_view = false
 
-    while (lat < -90) {
-        lat += 180;
-        reset_view = true
-    }
-    while (lat > 90) {
-        lat -= 180;
-        reset_view = true
-    }
-    while (long < -180) {
-        long += 360;
-        reset_view = true
-    }
-    while (long > 180) {
-        long -= 360;
-        reset_view = true
-    }
+    while (lat < -90) lat += 180
+    while (lat > 90) lat -= 180
+    while (long < -180) long += 360
+    while (long > 180) long -= 360
 
     let coords = [lat, long]
 
@@ -76,7 +63,7 @@ function setGeoPointMarker(lat_input, long_input, target, map) {
     marker.addTo(map)
     GeoPointMarkers[marker._leaflet_id] = marker
     target.data('marker', marker._leaflet_id)
-    if (reset_view) map.setView(coords, 13)
+    if (setView) map.setView(coords, 13)
     return coords
 }
 
