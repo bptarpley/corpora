@@ -3459,26 +3459,30 @@ class Content(mongoengine.Document):
             if do_linking:
                 self._do_linking()
 
-    def delete(self, track_deletions=True, **kwargs):
+    def delete(self, track_deletions=True, unindex=True, unlink=True, **kwargs):
         setattr(self, '_track_deletions', track_deletions)
+        setattr(self, '_unindex', unindex)
+        setattr(self, '_unlink', unlink)
         super().delete(**kwargs)
 
     @classmethod
     def _pre_delete(cls, sender, document, **kwargs):
-        # delete Neo4J node
-        run_neo(
-            '''
-                MATCH (d:{content_type} {{ uri: $content_uri }})
-                DETACH DELETE d
-            '''.format(content_type=document.content_type),
-            {
-                'content_uri': document.uri
-            }
-        )
+        if (document._unlink):
+            # delete Neo4J node
+            run_neo(
+                '''
+                    MATCH (d:{content_type} {{ uri: $content_uri }})
+                    DETACH DELETE d
+                '''.format(content_type=document.content_type),
+                {
+                    'content_uri': document.uri
+                }
+            )
 
-        # delete from ES index
-        es_index = "corpus-{0}-{1}".format(document.corpus_id, document.content_type.lower())
-        Search(index=es_index).query("match", _id=str(document.id)).delete()
+        if (document._unindex):
+            # delete from ES index
+            es_index = "corpus-{0}-{1}".format(document.corpus_id, document.content_type.lower())
+            Search(index=es_index).query("match", _id=str(document.id)).delete()
 
         # delete any files
         if document.path and os.path.exists(document.path):
@@ -3492,6 +3496,12 @@ class Content(mongoengine.Document):
 
         # determine if deletion cleanup needed
         if hasattr(document, '_track_deletions') and document._track_deletions:
+            # mark any relevant content views as needs_refresh
+            cvs = ContentView.objects(corpus=document._corpus, status='populated', relevant_cts=document.content_type)
+            for cv in cvs:
+                cv.set_status('needs_refresh')
+                cv.save()
+
             reffed_cts = document._corpus.get_referencing_content_type_fields(document.content_type)
             if reffed_cts or document.path:
                 deletion = ContentDeletion()
