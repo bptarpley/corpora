@@ -239,9 +239,11 @@ class JobManager {
         })
     }
 
-    load_tasks(content_type=null) {
+    load_tasks(content_type=null, selectedJobsiteId=null, selectedTaskId=null) {
         let jobsite_selector = $('#jobsite-selector')
         let task_selector = $('#task-selector')
+
+        if (selectedJobsiteId !== null) jobsite_selector.val(selectedJobsiteId)
         task_selector.empty()
 
         let first = true
@@ -249,14 +251,18 @@ class JobManager {
             if (jobsite.id === jobsite_selector.val()) {
                 for (let task_name in jobsite.task_registry) {
                     let task = jobsite.task_registry[task_name]
+
                     if ((!content_type || content_type === task.content_type) && task.track_provenance)
                     {
+                        let selected = ''
+                        if (selectedTaskId === task.id) selected = ' selected'
+
                         task_selector.append(`
-                            <option class="job-task" value="${task.id}">
+                            <option class="job-task" value="${task.id}"${selected}>
                                 ${task.name}
                             </option>
                         `)
-                        if (first) {
+                        if ((selectedTaskId === null && first) || (selectedTaskId !== null && selectedTaskId === task.id)) {
                             this.load_task_parameters(task)
                             first = false
                         }
@@ -455,8 +461,8 @@ class JobManager {
         })
     }
 
-    new_job(content_type, content_id) {
-        this.load_tasks(content_type)
+    new_job(content_type, content_id, selectedTaskId=null) {
+        this.load_tasks(content_type, null, selectedTaskId)
         if (content_type) $('#job-content-type').val(content_type)
         if (content_id) $('#job-content-id').val(content_id)
         this.job_modal.modal()

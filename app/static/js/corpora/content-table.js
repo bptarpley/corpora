@@ -4,6 +4,7 @@ class ContentTable {
         this.corpora = 'corpora' in config ? config.corpora : null
         this.corpus = 'corpus' in config ? config.corpus : null
         this.content_type = 'content_type' in config ? config.content_type : null
+        this.job_manager = 'job_manager' in config ? config.job_manager : null
         this.mode = 'mode' in config ? config.mode : 'edit'
         this.selection_callback = 'selection_callback' in config ? config.selection_callback : null
         this.give_search_focus = 'give_search_focus' in config ? config.give_search_focus : false
@@ -44,7 +45,6 @@ class ContentTable {
             let ct = this.corpus.content_types[this.content_type]
             let role = this.corpus.scholar_role
             let search = this.search
-            let selected_content = this.selected_content
             this.label = 'label' in config ? config.label : ct.plural_name
             let sender = this
 
@@ -256,8 +256,8 @@ class ContentTable {
                     let ct_name = $(this).data('ct')
 
                     if ($(this).is(':checked')) {
-                        selected_content.all = true
-                        selected_content.ids = []
+                        sender.selected_content.all = true
+                        sender.selected_content.ids = []
 
                         $(`.ct-${ct_name}${sender.id_suffix}-selection-box`).each(function () {
                             $(this).prop("checked", true)
@@ -268,7 +268,7 @@ class ContentTable {
                             selection_action_div.addClass('d-flex')
                         })
                     } else {
-                        selected_content.all = false
+                        sender.selected_content.all = false
                         $(`.ct-${ct_name}${sender.id_suffix}-selection-box`).each(function () {
                             $(this).prop("checked", false)
                             $(this).removeAttr("disabled")
@@ -284,14 +284,14 @@ class ContentTable {
                     let ct_name = $(this).data('ct')
                     let action = $(`#ct-${ct.name}${sender.id_suffix}-selection-action-selector`).val()
                     let multi_form = $('#multiselect-form')
-                    $('#multiselect-content-ids').val(selected_content.ids.join(','))
+                    $('#multiselect-content-ids').val(sender.selected_content.ids.join(','))
 
                     if (action === 'explore') {
                         multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/explore/`)
                         multi_form.submit()
                     } else if (action === 'bulk-edit') {
                         multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/`)
-                        if (selected_content.all) {
+                        if (sender.selected_content.all) {
                             multi_form.append(`<input id='multiselect-content-query' type='hidden' name='content-query'>`)
                             $('#multiselect-content-query').val(JSON.stringify(search))
                         }
@@ -299,13 +299,13 @@ class ContentTable {
                     } else if (action === 'export') {
                         let export_url = `/export/${corpus_id}/${ct_name}/`
                         let delimiter = '?'
-                        if (selected_content.all) {
+                        if (sender.selected_content.all) {
                             Object.keys(search).forEach(param => {
                                 export_url += `${delimiter}${param}=${search[param]}`
                                 delimiter = '&'
                             })
                         } else {
-                            export_url += `${delimiter}content-ids=${selected_content.ids.join(',')}`
+                            export_url += `${delimiter}content-ids=${sender.selected_content.ids.join(',')}`
                         }
 
                         let export_link = document.createElement('a')
@@ -328,15 +328,19 @@ class ContentTable {
                         `)
                         $('#deletion-confirmation-modal').modal()
                     } else {
-                        multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/bulk-job-manager/`)
-                        multi_form.append(`
-                            <input type='hidden' name='task-id' value='${action}'/>
-                        `)
-                        if (selected_content.all) {
-                            multi_form.append(`<input id='multiselect-content-query' type='hidden' name='content-query'>`)
-                            $('#multiselect-content-query').val(JSON.stringify(search))
+                        if (sender.selected_content.ids.length > 1 || sender.selected_content.all || sender.job_manager === null) {
+                            multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/bulk-job-manager/`)
+                            multi_form.append(`
+                                <input type='hidden' name='task-id' value='${action}'/>
+                            `)
+                            if (sender.selected_content.all) {
+                                multi_form.append(`<input id='multiselect-content-query' type='hidden' name='content-query'>`)
+                                $('#multiselect-content-query').val(JSON.stringify(search))
+                            }
+                            multi_form.submit()
+                        } else if (sender.job_manager !== null) {
+                            sender.job_manager.new_job(ct_name, sender.selected_content.ids[0], action)
                         }
-                        multi_form.submit()
                     }
                 })
 
@@ -345,7 +349,7 @@ class ContentTable {
                     if (tasks_data.length > 0) {
                         let task_selection_html = '<optgroup label="Launch Job">'
                         tasks_data.map(task => {
-                            if (role === 'Admin' || available_tasks.includes(task.id)) {
+                            if (role === 'Admin') {
                                 task_selection_html += `<option value="${task.id}">${task.name}</option>`
                             }
                         })
@@ -551,7 +555,6 @@ class ContentTable {
         let corpus = this.corpus
         let ct = corpus.content_types[content.meta.content_type]
         let search = this.search
-        let selected_content = this.selected_content
         let sender = this
 
         // instantiate some variables to keep track of elements
@@ -688,9 +691,9 @@ class ContentTable {
 
                 if (load_item) {
                     let selected = ''
-                    if (selected_content.all) {
+                    if (sender.selected_content.all) {
                         selected = "checked disabled"
-                    } else if (selected_content.ids.includes(item.id)) {
+                    } else if (sender.selected_content.ids.includes(item.id)) {
                         selected = "checked"
                     }
 
@@ -830,12 +833,12 @@ class ContentTable {
             let selection_action_div = $(`#ct-${ct.name}${sender.id_suffix}-selection-action-div`)
 
             if($(this).is(':checked')) {
-                selected_content.ids.push(content_id)
+                sender.selected_content.ids.push(content_id)
             } else {
-                selected_content.ids = selected_content.ids.filter(id => id !== content_id)
+                sender.selected_content.ids = sender.selected_content.ids.filter(id => id !== content_id)
             }
 
-            if (selected_content.ids.length > 0) {
+            if (sender.selected_content.ids.length > 0) {
                 selection_action_div.slideDown('slow', 'swing', function () {
                     selection_action_div.addClass('d-flex')
                 })

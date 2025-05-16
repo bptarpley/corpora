@@ -1224,51 +1224,6 @@
                     oa_button.click(function() { $('#open-access-toggle-form').submit(); })
                 }
 
-                // BUILD CONTENT TABLES
-                add_breadcrumb(corpus.name, `/corpus/${corpus.id}/`);
-
-                // load first pages of 5 items for each content type; setup content type nav
-                let ct_sticky_nav = $('#content-types-nav')
-
-                if (Object.keys(corpus.content_types).length > 0) $('.no-content-types-message').remove()
-
-                let tables_loaded = false
-                for (let ct_name in corpus.content_types) {
-                    ct_tables[ct_name] = new ContentTable({
-                        container_id: 'content-types-div',
-                        corpora: corpora,
-                        corpus: corpus,
-                        content_type: ct_name,
-                        on_load: function(meta) {
-                            if (!tables_loaded) {
-                                if (['Admin', 'Editor'].includes(corpus.scholar_role) && Object.keys(corpus.content_types).length > 1) {
-                                    if (Object.keys(ct_tables).length === Object.keys(corpus.content_types).length) {
-                                        let all_metas_loaded = true
-                                        Object.keys(ct_tables).map(ct_name => {
-                                            if (!ct_tables[ct_name].meta) all_metas_loaded = false
-                                        })
-                                        if (all_metas_loaded) {
-                                            tables_loaded = true
-                                            draw_ct_graph()
-                                            setup_ct_groups()
-                                            hide_loading_overlay()
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    })
-
-                    if (role === 'Editor' || role === 'Admin') {
-                        manage_content_type(ct_name);
-                    }
-
-                    let ct_plural_name = corpus.content_types[ct_name].plural_name;
-                    if (corpus.content_types[ct_name].show_in_nav) {
-                        ct_sticky_nav.append(` | <a href="#${ct_plural_name}">${ct_plural_name}</a>`);
-                    }
-                }
-                if (Object.keys(corpus.content_types).length === 0) hide_loading_overlay()
 
                 // SETUP JOBS
                 if (role === 'Editor' || role === 'Admin') {
@@ -1286,6 +1241,49 @@
                         job_manager.new_job("Corpus", null)
                     });
                 }
+
+
+                // BUILD CONTENT TABLES
+                add_breadcrumb(corpus.name, `/corpus/${corpus.id}/`);
+
+                // load first pages of 5 items for each content type; setup content type nav
+                if (Object.keys(corpus.content_types).length > 0) $('.no-content-types-message').remove()
+
+                let tables_loaded = false
+                for (let ct_name in corpus.content_types) {
+                    ct_tables[ct_name] = new ContentTable({
+                        container_id: 'content-types-div',
+                        corpora: corpora,
+                        corpus: corpus,
+                        content_type: ct_name,
+                        job_manager: job_manager,
+                        on_load: function(meta) {
+                            if (!tables_loaded) {
+                                if (['Admin', 'Editor'].includes(corpus.scholar_role) && Object.keys(corpus.content_types).length > 1) {
+                                    if (Object.keys(ct_tables).length === Object.keys(corpus.content_types).length) {
+                                        let all_metas_loaded = true
+                                        Object.keys(ct_tables).map(ct_name => {
+                                            if (!ct_tables[ct_name].meta) all_metas_loaded = false
+                                        })
+                                        if (all_metas_loaded) {
+                                            tables_loaded = true
+                                            draw_ct_graph()
+                                            setup_ct_groups()
+                                            setupStickyNav()
+                                            hide_loading_overlay()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    })
+
+                    if (role === 'Editor' || role === 'Admin') {
+                        manage_content_type(ct_name);
+                    }
+                }
+                if (Object.keys(corpus.content_types).length === 0) hide_loading_overlay()
+
 
                 // SETUP PLUGIN CONTENT SCHEMA IMPORT
                 corpora.get_plugin_schema(function(schemas) {
@@ -1467,6 +1465,8 @@
         function setup_ct_groups() {
             // UI components
             let contentTypeGroupsDiv = $('#content-type-groups-div')
+            let breadCrumbNav = $('#content-types-nav')
+            let topNavigator = $('#top-breadcrumb-navigator')
 
             // layout content type groups
             corpus.content_type_groups.forEach((ctg_dict, index) => {
@@ -1492,6 +1492,36 @@
                     <h2 class="mt-4">Other Content Types</h2>
                 `)
             }
+        }
+
+        function setupStickyNav() {
+            let nav = $('#content-types-nav')
+            let ctsRepresented = []
+            let ctsRemaining = []
+
+            nav.empty()
+            nav.append('<a href="#breadcrumb"><i class="fas fa-sort-up"></i> Top</a> | ')
+
+            corpus.content_type_groups.forEach((ctg, ctgIndex) => {
+                let memberCrumbs = []
+                ctg.members.forEach(ctMember => {
+                    if (Object.keys(corpus.content_types).includes(ctMember.name)) {
+                        let pluralName = corpus.content_types[ctMember.name].plural_name
+                        memberCrumbs.push(`<a href="#${pluralName}">${pluralName}</a>`)
+                        ctsRepresented.push(ctMember.name)
+                    }
+                })
+
+                nav.append(`<a href="#ct-group-${ctgIndex}" class="text-secondary">${ctg.title}</a> <b>[</b> ${memberCrumbs.join(' | ')} <b>]</b>&nbsp;`)
+            })
+
+            for (let ctName in corpus.content_types) {
+                let pluralName = corpus.content_types[ctName].plural_name
+                let showInNav = corpus.content_types[ctName].show_in_nav
+                if (!ctsRepresented.includes(ctName) && showInNav) ctsRemaining.push(`<a href="#${pluralName}">${pluralName}</a>`)
+            }
+
+            nav.append(ctsRemaining.join(' | '))
         }
 
         function manage_content_type(ct_name) {
