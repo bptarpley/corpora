@@ -12,7 +12,6 @@ class ContentGroup {
             this.members = contentGroup.members.map(member => member)
         }
 
-        this.rendered = false
         this.editing = false
         this.contentTypesDivID = null
     }
@@ -30,7 +29,7 @@ class ContentGroup {
 
         groupContainer.append(`
             <div id="ct-group-${this.index}" class="alert alert-info content-type-group mt-4 pb-4" data-title="${this.title}">
-                <h2 class="content-type-group-header">${this.title}${editButtonHTML}</h2>
+                <h2 class="content-type-group-header d-flex justify-content-between">${this.title}${editButtonHTML}</h2>
                 <div id="ct-group-${this.index}-controls-div" class="d-none my-2 justify-content-between align-bottom">
                     <span>
                         <button id="ct-group-${this.index}-delete-button" type="button" class="btn btn-danger mr-4" data-title="${this.title}" data-toggle="tooltip" title="Delete Group">
@@ -81,16 +80,19 @@ class ContentGroup {
         })
 
         ctgCancelButton.click(function() {
-            let descBoxID = `ct-group-${sender.index}-description`
+            if (sender.editing) {
+                let descBoxID = `ct-group-${sender.index}-description`
 
-            $(`#ct-group-${sender.index}-ct-selector-div`).addClass('d-none')
-            $(`#ct-group-${sender.index}-controls-div`).removeClass('d-flex').addClass('d-none')
-            $(`.content-type-group-member-controls`).addClass('d-none')
+                $(`#ct-group-${sender.index}-ct-selector-div`).addClass('d-none')
+                $(`#ct-group-${sender.index}-controls-div`).removeClass('d-flex').addClass('d-none')
+                $(`.content-type-group-member-controls`).addClass('d-none')
+                $(`#ct-group-${sender.index}-edit-button`).removeClass('d-none')
 
-            tinymce.get(descBoxID).remove()
-            $(`#${descBoxID}`).html(sender.description)
+                tinymce.get(descBoxID).remove()
+                $(`#${descBoxID}`).html(sender.description)
 
-            sender.editing = false
+                sender.editing = false
+            }
         })
 
         ctgSaveButton.click(function() {
@@ -202,37 +204,41 @@ class ContentGroup {
     }
 
     edit() {
-        let ctSelectorDiv = $(`#ct-group-${this.index}-ct-selector-div`)
-        let ctSelector = $(`#ct-group-${this.index}-ct-selector`)
-        let ctgControlsDiv = $(`#ct-group-${this.index}-controls-div`)
-        let ctgMemberControls = $(`.content-type-group-member-controls`)
+        if (this.canEdit) {
+            let ctSelectorDiv = $(`#ct-group-${this.index}-ct-selector-div`)
+            let ctSelector = $(`#ct-group-${this.index}-ct-selector`)
+            let ctgEditButton = $(`#ct-group-${this.index}-edit-button`)
+            let ctgControlsDiv = $(`#ct-group-${this.index}-controls-div`)
+            let ctgMemberControls = $(`.content-type-group-member-controls`)
 
-        ctSelector.empty()
+            ctSelector.empty()
 
-        $(`#${this.contentTypesDivID} .corpora-content-table`).each(function() {
-            let ctName = $(this).data('content-type')
-            ctSelector.append(`<option value="${ctName}">${ctName}</option>`)
-        })
+            $(`#${this.contentTypesDivID} .corpora-content-table`).each(function() {
+                let ctName = $(this).data('content-type')
+                ctSelector.append(`<option value="${ctName}">${ctName}</option>`)
+            })
 
-        ctSelectorDiv.removeClass('d-none')
-        ctgControlsDiv.removeClass('d-none')
-        ctgControlsDiv.addClass('d-flex')
-        ctgMemberControls.removeClass('d-none')
+            ctgEditButton.addClass('d-none')
+            ctSelectorDiv.removeClass('d-none')
+            ctgControlsDiv.removeClass('d-none')
+            ctgControlsDiv.addClass('d-flex')
+            ctgMemberControls.removeClass('d-none')
 
-        if (!this.editing) {
-            tinymce.init(
-                {
-                    selector: `#ct-group-${this.index}-description`,
-                    width: '100%',
-                    min_height: '200px',
-                    plugins: 'autoresize link image media code table',
-                    menubar: 'edit insert media view format table tools help',
-                    image_advtab: true
-                }
-            )
+            if (!this.editing) {
+                tinymce.init(
+                    {
+                        selector: `#ct-group-${this.index}-description`,
+                        width: '100%',
+                        min_height: '200px',
+                        plugins: 'autoresize link image media code table',
+                        menubar: 'edit insert media view format table tools help',
+                        image_advtab: true
+                    }
+                )
+            }
+
+            this.editing = true
         }
-
-        this.editing = true
     }
 
     changeMember(contentType, action) {
