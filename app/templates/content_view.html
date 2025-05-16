@@ -106,7 +106,7 @@
         let role = '{{ role }}'
         let content_type_name = '{{ content_type.name }}'
         let content_id = '{{ content_id }}'
-        let content_label = `{{ content_label }}`
+        let content_label = `{{ content_label|safe }}`
         let content_uri = '{{ content_uri }}'
         let content_type = null
         let popup = {% if popup %}true{% else %}false{% endif %}
