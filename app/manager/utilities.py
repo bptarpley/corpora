@@ -605,28 +605,32 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
 
 
 def process_corpus_backup_file(backup_file):
-    if backup_file and os.path.exists(backup_file):
-        basename = os.path.basename(backup_file)
-        if '_' in basename and basename.endswith('.tar.gz'):
-            backup_name = basename.split('.')[0]
-            backup_name = "_".join(backup_name.split('_')[1:])
-            backup_corpus = None
+    if backup_file:
+        if not backup_file.startswith('/corpora/backups'):
+            backup_file = os.path.join('/corpora/backups', backup_file)
 
-            with tarfile.open(backup_file, 'r:gz') as tar_in:
-                backup_corpus = tar_in.extractfile('corpus.json').read()
+        if os.path.exists(backup_file):
+            basename = os.path.basename(backup_file)
+            if '_' in basename and basename.endswith('.tar.gz'):
+                backup_name = basename.split('.')[0]
+                backup_name = "_".join(backup_name.split('_')[1:])
+                backup_corpus = None
 
-            if backup_corpus:
-                backup_corpus = json.loads(backup_corpus)
-                if _contains(backup_corpus, ['id', 'name', 'description']):
-                    backup = CorpusBackup()
-                    backup.name = backup_name
-                    backup.corpus_id = backup_corpus['id']
-                    backup.corpus_name = backup_corpus['name']
-                    backup.corpus_description = backup_corpus['description']
-                    backup.path = backup_file
-                    backup.save()
+                with tarfile.open(backup_file, 'r:gz') as tar_in:
+                    backup_corpus = tar_in.extractfile('corpus.json').read()
 
-                    return True
+                if backup_corpus:
+                    backup_corpus = json.loads(backup_corpus)
+                    if _contains(backup_corpus, ['id', 'name', 'description']):
+                        backup = CorpusBackup()
+                        backup.name = backup_name
+                        backup.corpus_id = backup_corpus['id']
+                        backup.corpus_name = backup_corpus['name']
+                        backup.corpus_description = backup_corpus['description']
+                        backup.path = backup_file
+                        backup.save()
+
+                        return True
     return False
 
 
