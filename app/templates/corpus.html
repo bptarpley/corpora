@@ -1021,6 +1021,7 @@
                             }
 
                             corpus.content_types[import_schema[x].name] = import_schema[x]
+                            $('.no-content-types-message').remove()
                             manage_content_type(import_schema[x].name)
                         }
 
