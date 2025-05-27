@@ -11,7 +11,11 @@ import math
 import redis
 import re
 from copy import deepcopy
-from corpus import Corpus, Job, get_corpus, File, run_neo, ContentView, ContentDeletion, CorpusBackup, JobSite, GitRepo, CompletedTask
+from corpus import (
+    Corpus, Job, get_corpus, File,
+    run_neo, ContentView, ContentTypeGroup, ContentDeletion,
+    CorpusBackup, JobSite, GitRepo, CompletedTask
+)
 from huey.contrib.djhuey import db_task, db_periodic_task
 from huey import crontab
 from bson.objectid import ObjectId
@@ -1331,6 +1335,14 @@ def restore_corpus(backup_id):
                                     r = GitRepo.from_dict(repo_info)
                                     if r:
                                         corpus.repos[repo_name] = r
+
+                                # todo: test content type group restore
+                                for ctg_info in corpus_dict['content_type_groups']:
+                                    ctg = ContentTypeGroup()
+                                    ctg.from_dict(ctg_info)
+                                    corpus.content_type_groups.append(ctg)
+
+                                # todo: backup and restore content views
 
                                 if not foreign_import:
                                     for prov_info in corpus_dict['provenance']:

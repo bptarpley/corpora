@@ -511,15 +511,16 @@ class JobTracker(mongoengine.Document):
     def publish_status(self):
         if self.percent_complete > 100:
             self.percent_complete = 100
+
         publish_message(self.corpus_id, 'job', {
             'job_id': self.id,
-            'task_name': self.task.name,
+            'task_name': self.task.name if self.task else self.task_id,
             'status': self.status,
             'percent_complete': self.percent_complete,
         })
 
     def report(self, message, overwrite=False):
-        if self.task.create_report and self.report_path:
+        if self.task and self.task.create_report and self.report_path:
             mode = 'a+'
             if overwrite:
                 mode = 'w'
@@ -608,9 +609,12 @@ class JobTracker(mongoengine.Document):
             self.error = error_msg
 
         if self.report_path:
-            self.report("\nCORPORA JOB COMPLETE")
+            if self.error:
+                self.report(f"\nERROR: This job encountered the following problem and was unable to complete:\n\n{self.error}")
+            else:
+                self.report("\nCORPORA JOB COMPLETE")
 
-        if self.task.track_provenance:
+        if self.task and self.task.track_provenance:
             scholar_name = "None"
             if self.scholar:
                 scholar_name = f"{self.scholar.fname} {self.scholar.lname} ({self.scholar.username})".strip()
@@ -1017,6 +1021,10 @@ class ContentTypeGroupMember(mongoengine.EmbeddedDocument):
     name = mongoengine.StringField(required=True)
     display_preference = mongoengine.StringField(default='full', choices=CONTENT_TYPE_GROUP_MEMBER_DISPLAY_SETTINGS)
 
+    def from_dict(self, member_dict):
+        self.name = member_dict['name']
+        self.display_preference = member_dict['display_preference']
+
     def to_dict(self):
         return {
             'name': self.name,
@@ -1034,6 +1042,14 @@ class ContentTypeGroup(mongoengine.EmbeddedDocument):
         if not hasattr(self, '_content_types'):
             self._content_types = [m.name for m in self.members]
         return self._content_types
+
+    def from_dict(self, group_dict):
+        self.title = group_dict['title']
+        self.description = group_dict['description']
+        for member_info in group_dict['members']:
+            member = ContentTypeGroupMember()
+            member.from_dict(member_info)
+            self.members.append(member)
 
     def to_dict(self):
         return {
@@ -2843,6 +2859,12 @@ class Corpus(mongoengine.Document):
                             self.content_types[ct_name].fields[field_index].synonym_file = schema['fields'][x].get('synonym_file', default_field_values['synonym_file'])
                             self.content_types[ct_name].fields[field_index].language = schema['fields'][x].get('language', default_field_values['language'])
                             self.content_types[ct_name].fields[field_index].autocomplete = schema['fields'][x].get('autocomplete', default_field_values['autocomplete'])
+
+                        del old_fields[schema['fields'][x]['name']]
+
+            # check to see if any old fields weren't present in the new schema, indicating they should be deleted
+            for field_to_delete in old_fields.keys():
+                self.delete_content_type_field(ct_name, field_to_delete)
 
             # now that old and new fields have been reconciled, sort them according to the order found in the schema
             schema_ordered = [self.content_types[ct_name].get_field(f_spec['name']) for f_spec in schema['fields']]

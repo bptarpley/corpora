@@ -293,6 +293,7 @@ def corpus(request, corpus_id):
                             }))
 
                             response['messages'].append("Content type {0} successfully deleted.".format(action_content_type))
+                            sleep(4)
 
                         # re-index content type
                         elif action == 'reindex':
