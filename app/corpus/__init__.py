@@ -68,6 +68,52 @@ es_logger.setLevel(logging.ERROR)
 
 
 class Field(mongoengine.EmbeddedDocument):
+    """
+    Defines a single field within a ContentType, analogous to a column in a database table.
+
+    Fields support various data types including text, numbers, dates, files, and cross-references
+    to other content. They can be configured for indexing, uniqueness constraints, and
+    multi-value storage.
+
+    Attributes:
+        name (str): The field identifier used in code. Must be unique within a ContentType.
+        label (str): Human-readable label for UI display.
+        indexed (bool): Whether this field should be indexed for searching. Defaults to False.
+        unique (bool): Whether values must be unique across all content. Defaults to False.
+        multiple (bool): Whether this field can store multiple values. Defaults to False.
+        in_lists (bool): Whether to include in list views and search results. Defaults to True.
+        type (str): The data type. Must be one of FIELD_TYPES.
+        choices (list): For 'choice' type fields, the allowed values.
+        cross_reference_type (str): For 'cross_reference' fields, the target ContentType name.
+        has_intensity (bool): For cross-references, whether to support weighted relationships.
+        language (str): For text fields, the language for analysis. Defaults to 'english'.
+        autocomplete (bool): Whether to enable search suggestions. Defaults to False.
+        synonym_file (str): Reference to a synonym configuration for search enhancement.
+        indexed_with (list): Other field names to create compound indexes with.
+        unique_with (list): Other field names to create compound unique constraints with.
+        stats (dict): Statistical information about field usage.
+        inherited (bool): Whether this field is inherited from a base class.
+
+    Examples:
+        >>> # Simple text field
+        >>> title_field = Field(
+        ...     name='title',
+        ...     label='Title',
+        ...     type='text',
+        ...     indexed=True
+        ... )
+
+        >>> # Cross-reference field with multiple values
+        >>> authors_field = Field(
+        ...     name='authors',
+        ...     label='Authors',
+        ...     type='cross_reference',
+        ...     cross_reference_type='Person',
+        ...     multiple=True,
+        ...     has_intensity=True
+        ... )
+    """
+
     name = mongoengine.StringField(required=True)
     label = mongoengine.StringField()
     indexed = mongoengine.BooleanField(default=False)
@@ -87,6 +133,21 @@ class Field(mongoengine.EmbeddedDocument):
     inherited = mongoengine.BooleanField(default=False)
 
     def get_dict_value(self, value, parent_uri, field_intensities={}):
+        """
+        Convert field value to dictionary representation for serialization.
+
+        Handles special conversions for dates, cross-references, files, and other complex types.
+        For multiple-value fields, returns a list of converted values.
+
+        Args:
+            value: The field value to convert.
+            parent_uri (str): URI of the parent content object.
+            field_intensities (dict): Intensity values for weighted cross-references.
+
+        Returns:
+            Converted value suitable for JSON serialization.
+        """
+
         dict_value = None
 
         if self.multiple:
@@ -106,6 +167,20 @@ class Field(mongoengine.EmbeddedDocument):
         return dict_value
 
     def to_primitive(self, value, parent_uri, field_intensities={}):
+        """
+        Convert a single value to its primitive (and thus serializable) representation.
+
+        This is a helper function used chiefly by the get_dict_value method.
+
+        Args:
+            value: The value to convert.
+            parent_uri (str): URI of the parent content object.
+            field_intensities (dict): Intensity values for weighted cross-references.
+
+        Returns:
+            Primitive representation of the value.
+        """
+
         if value:
             if self.type == 'date':
                 dt = datetime.combine(value, datetime.min.time())
@@ -127,6 +202,15 @@ class Field(mongoengine.EmbeddedDocument):
         return value
     
     def get_mongoengine_field_class(self):
+        """
+        Generate the appropriate MongoEngine field class for this field type.
+
+        Used by the get_mongoengine_class method of the Corpus class.
+
+        Returns:
+            MongoEngine field class instance configured with appropriate constraints.
+        """
+
         if self.type == 'number':
             if self.unique and not self.unique_with:
                 return mongoengine.IntField(unique=True, sparse=True)
@@ -162,6 +246,16 @@ class Field(mongoengine.EmbeddedDocument):
                 return mongoengine.StringField()
 
     def get_elasticsearch_analyzer(self):
+        """
+        Create an Elasticsearch analyzer for text fields.
+
+        Configures language-specific analyzers with appropriate filters, tokenizers,
+        and synonym support based on field configuration.
+
+        Returns:
+            elasticsearch_dsl.analyzer instance or None for non-text fields.
+        """
+
         analyzer_filters = ['lowercase', 'classic', 'stop']
         tokenizer = "standard"
         if self.language in lang_settings:
@@ -204,6 +298,13 @@ class Field(mongoengine.EmbeddedDocument):
         return FieldRenderer(self.type, 'edit', 'html')
 
     def to_dict(self):
+        """
+        Export field definition as a dictionary.
+
+        Returns:
+            dict: Complete field definition including all configuration.
+        """
+
         return {
             'name': self.name,
             'label': self.label,
