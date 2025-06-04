@@ -195,7 +195,7 @@ class Field(mongoengine.EmbeddedDocument):
                 return value_dict
             elif self.type == 'repo':
                 return value.remote_url
-            elif self.type in ['embedded', 'file', 'timespan']:
+            elif self.type in ['embedded', 'file', 'timespan'] and hasattr(value, 'to_dict'):
                 return value.to_dict(parent_uri)
             elif self.type == 'geo_point':
                 return value['coordinates']
