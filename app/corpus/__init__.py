@@ -737,7 +737,7 @@ class JobTracker(mongoengine.Document):
             else:
                 self.report("\nCORPORA JOB COMPLETE")
 
-        if self.task and self.task.track_provenance:
+        if self.content and self.task and self.task.track_provenance:
             scholar_name = "None"
             if self.scholar:
                 scholar_name = f"{self.scholar.fname} {self.scholar.lname} ({self.scholar.username})".strip()
