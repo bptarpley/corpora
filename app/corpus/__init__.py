@@ -1,3 +1,25 @@
+"""
+Corpus Data Management System
+
+This module provides a comprehensive data management system that mirrors database functionality
+using MongoDB for document storage, Elasticsearch for full-text search, and Neo4j for graph
+relationships. The core architecture follows a hierarchical structure:
+
+- Corpus (analogous to a database)
+  - Content Types (analogous to tables)
+    - Fields (analogous to columns)
+      - Content instances (analogous to rows)
+
+The system supports:
+- Dynamic schema definition and modification
+- Multi-language text analysis (34 languages)
+- Cross-references between content types
+- File and media management
+- Provenance tracking and audit trails
+- Advanced search with faceting and aggregations
+- Graph-based relationship queries
+"""
+
 import mongoengine
 import os
 import json
