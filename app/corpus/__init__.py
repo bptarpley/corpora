@@ -1462,6 +1462,46 @@ class GitRepo(mongoengine.EmbeddedDocument):
 
 
 class Corpus(mongoengine.Document):
+    """
+    Primary container for content, analogous to a database in traditional RDBMS.
+
+    A Corpus contains multiple ContentTypes and manages their schemas, relationships,
+    and storage across MongoDB, Elasticsearch, and Neo4j. It provides methods for
+    content CRUD operations, searching, and schema management.
+
+    Attributes:
+        name (str): Unique name for the corpus.
+        description (str): Human-readable description.
+        uri (str): Unique resource identifier, auto-generated as /corpus/{id}.
+        path (str): File system path for corpus data storage.
+        kvp (dict): Key-value pairs for arbitrary metadata.
+        files (dict[str, File]): Files attached to the corpus itself.
+        repos (dict[str, GitRepo]): Git repositories associated with the corpus.
+        open_access (bool): Whether the corpus is publicly accessible.
+        content_types (dict[str, ContentType]): Content type definitions by name.
+        content_type_groups (list[ContentTypeGroup]): Groupings for UI organization.
+        provenance (list[CompletedTask]): Audit trail of completed tasks.
+
+    Examples:
+        >>> # Create a new corpus
+        >>> corpus = Corpus(
+        ...     name="Digital Library",
+        ...     description="Repository of academic papers and books"
+        ... )
+        >>> corpus.save()
+
+        >>> # Define a content type
+        >>> schema = {
+        ...     'name': 'Book',
+        ...     'plural_name': 'Books',
+        ...     'fields': [
+        ...         {'name': 'title', 'type': 'text', 'label': 'Title'},
+        ...         {'name': 'isbn', 'type': 'keyword', 'label': 'ISBN', 'unique': True}
+        ...     ]
+        ... }
+        >>> corpus.save_content_type(schema)
+    """
+
     name = mongoengine.StringField(unique=True)
     description = mongoengine.StringField()
     uri = mongoengine.StringField(unique=True)
@@ -1486,7 +1526,7 @@ class Corpus(mongoengine.Document):
             content_id_or_query (str | ObjectId | dict): A string representation of a BSON ObjectId, a BSON ObjectId, or a dictionary specifying your content query.
             only (list): A list of content field names (strings) to exclusively return.
             exclude (list): A list of content field names (strings) to exclude.
-            all (bool): A flag specifying whether you want all of the content for your content type.
+            all (bool): A flag specifying whether you want all content for this content type.
             single_result (bool): A flag specifying whether you expect a single instance of content.
 
         Returns:
@@ -1551,6 +1591,21 @@ class Corpus(mongoengine.Document):
         return content
 
     def get_or_create_content(self, content_type, fields={}, use_cache=False):
+        """
+        Retrieve existing content or create new if not found.
+
+        Useful for ensuring unique content based on field values, with optional
+        Redis caching for performance.
+
+        Args:
+            content_type (str): Name of the Content Type.
+            fields (dict): Field values to match or set.
+            use_cache (bool): Whether to use Redis cache. Defaults to False.
+
+        Returns:
+            Content: Existing or newly created content instance.
+        """
+
         content = None
         cache_key = None
 
@@ -1579,7 +1634,29 @@ class Corpus(mongoengine.Document):
 
         return content
 
-    def make_link(self, source_uri, target_uri, link_label, link_attrs={}, cardinality=1):
+    def make_link(self, source_uri, target_uri, link_label, link_attrs={}, cardinality=3):
+        """
+        Creates a labelled edge between two content nodes in Neo4J.
+
+        Useful for creating relationships manually between two arbitrary pieces of content.
+        NOTE: Currently, all outbound relationships for a node are deleted and recreated
+        when the content it represents is saved/modified somehow using the Corpus API.
+        Arbitrary links are NOT recreated at this time, thus it is recommended that these
+        links have a "cardinality" of either 0 (undirected) or 3 (bidirectional) so they
+        aren't unintentionally deleted when either piece of content in the relationship
+        is modified.
+
+        Args:
+            source_uri (str): The URI for a piece of content to be considered the source.
+            target_uri (str): The URI for a piece of content to be considered the target.
+            link_label (str): The label to be affixed to the edge created.
+            link_attrs (dict): A dictionary of attributes to add to the edge created (all values must be serializable).
+            cardinality (int): A value from 0-3, defaults to 3. Value 0 makes edge undirected, 1 makes it directed from source to target, 2 makes it directed from target to source, and 3 makes it bidirectional.
+
+        Returns:
+            None
+        """
+
         # cardinality values:
         # 0: source --- target
         # 1: source --> target
@@ -1647,6 +1724,27 @@ class Corpus(mongoengine.Document):
                     )
 
     def get_content_dbref(self, content_type, content_id):
+        """
+        Retrieves a MongoDB-friendly ObjectID reference to a document in a collection.
+
+        Useful for setting the value of a cross-reference field without having to first obtain
+        an instance of the content. Particularly useful when bulk creating large amounts of content.
+
+        Args:
+            content_type (str): Name of the Content Type.
+            content_id (str | ObjectId): A string representation of a BSON ObjectId or a BSON ObjectId.
+
+        Returns:
+            A MongoDB DBRef: https://www.mongodb.com/docs/manual/reference/database-references/
+
+        Examples:
+           >>> # Avoid having to query the database for content of type Author before setting it as
+           >>> # the value of a cross-reference field:
+           >>> author = my_corpus.get_content_dbref('Author', '5f623f2a52023c009d73108e')
+           >>> book.author = author
+           >>> book.save()
+        """
+
         if not type(content_id) == ObjectId:
             content_id = ObjectId(content_id)
         return DBRef(
@@ -1655,6 +1753,20 @@ class Corpus(mongoengine.Document):
         )
 
     def get_referencing_content_type_fields(self, content_type):
+        """
+        Retrieve any fields (and the content types they belong to) of type cross-reference
+        that reference a particular content type.
+
+        Useful for determining how exactly other content may be referencing content of this type.
+
+        Args:
+            content_type (str): Name of the Content Type.
+
+        Returns:
+            A dictionary where the keys are the names of content types and the values are a list
+            of field objects of type cross-reference that reference this content type, or an empty list.
+        """
+
         referencing = {}
         for ct in self.content_types.keys():
             for field in self.content_types[ct].fields:
@@ -1693,6 +1805,76 @@ class Corpus(mongoengine.Document):
             es_debug_query=False,
             generate_query_only=False
     ):
+        """
+        Perform advanced search on content using Elasticsearch.
+
+        Supports full-text search, field-specific queries, filtering, sorting,
+        highlighting, and aggregations. Results are paginated and include metadata. This function
+        is generally called after translating GET param style key/value pairs formatted according
+        to the search REST API, but can of course be called directly.
+
+        Args:
+            content_type (str): Name of the Content Type to search.
+            page (int): Page number for results (1-based). Defaults to 1.
+            page_size (int): Results per page. Defaults to 50.
+            general_query (str): A generalized, field-type aware search across all indexed fields.
+            fields_query (dict): Field-specific, type-aware searches.
+            fields_term (dict): Field-specific exact term matching.
+            fields_phrase (dict): Field-specific exact phrase matching.
+            fields_wildcard (dict): Field-specific wildcard pattern matching.
+            fields_filter (dict): Field-specific filtering without scoring.
+            fields_range (dict): Field-specific range queries (numeric, date, geo).
+            fields_highlight (list): Fields to highlight matches in.
+            fields_exist (list): Fields that must have values.
+            fields_sort (list): Field sort specifications.
+            only (list): Fields to include in results (excluding all others).
+            excludes (list): Fields to exclude from results.
+            content_view (str): The ID of a ContentView to use for filtering results.
+            grouped_searches (list): Sub-queries for combining with boolean logic.
+            operator (str): Boolean operator for entire query ('and' or 'or').
+            highlight_num_fragments (int): Number of fragments in results to highlight (for use with fields_highlight).
+            highlight_fragment_size (int): The max character length of any highlighted fragments.
+            only_highlights (bool): Whether to restrict results to matches that have highlights. Defaults to False.
+            aggregations (dict): Elasticsearch aggregations to perform.
+            next_page_token (str): Token for deep pagination.
+            es_debug (bool): Whether to print out both the Elasticsearch query and the results to stdout inside the Corpora container. Defaults to False.
+            es_debug_query (bool): Whether to print to stdout only the Elasticsearch query. Defaults to False.
+            generate_query_only (bool): Whether to only return the Elasticsearch query without running it. Defaults to False.
+
+        Returns:
+            dict: Search results with structure:
+                {
+                    'meta': {
+                        'total': int,
+                        'page': int,
+                        'page_size': int,
+                        'num_pages': int,
+                        'has_next_page': bool,
+                        'aggregations': dict
+                    },
+                    'records': list[dict]
+                }
+
+        Examples:
+            >>> # Simple text search
+            >>> results = corpus.search_content(
+            ...     'Article',
+            ...     general_query="machine learning",
+            ...     page_size=20
+            ... )
+
+            >>> # Complex field-specific search with aggregations
+            >>> results = corpus.search_content(
+            ...     'Article',
+            ...     fields_filter={'status': 'published'},
+            ...     fields_range={'date': '2020-01-01to2023-12-31'},
+            ...     fields_sort=[{'date': {'order': 'desc'}}],
+            ...     aggregations={
+            ...         'by_author': A('terms', field='author.label.raw', size=10)
+            ...     }
+            ... )
+        """
+
         results = {
             'meta': {
                 'content_type': content_type,
@@ -2545,6 +2727,42 @@ class Corpus(mongoengine.Document):
             right_content_type=None,
             right_id=None,
             order_by=None):
+        """
+        Explore graph relationships between content using Neo4j.
+
+        Traverses the graph database to find related content based on relationship
+        patterns. Results are attached to the source content objects.
+
+        Args:
+            left_content_type (str): Source content type name.
+            left_id (str): Specific source content ID.
+            left_content (list): Pre-loaded source content objects.
+            relationship_cypher (str): Custom Cypher relationship pattern.
+            relationship (str): Simple relationship type name.
+            cardinality (int): Relationship direction:
+                - 0: Undirected (---)
+                - 1: Left to right (-->)
+                - 2: Right to left (<--)
+                - 3: Bidirectional (<->)
+            right_content_type (str): Target content type name.
+            right_id (str): Specific target content ID.
+            order_by (str): Cypher ORDER BY clause.
+
+        Returns:
+            list: Source content objects with a new _exploration attribute for any content that matches specified pattern.
+                The _explororation attribute is a dictionary where the keys are the labels of any edges (like 'hasAuthor')
+                and the value for each key is a list containing a "content stub," which is a dictionary containing the
+                content type, id, and URI for a piece of content having the specified relationship.
+
+        Examples:
+            >>> # Find all articles by a specific author
+            >>> articles = corpus.explore_content(
+            ...     'Article',
+            ...     relationship='hasAuthor',
+            ...     right_content_type='Person',
+            ...     right_id=author_id
+            ... )
+        """
 
         results_added = 0
         if left_content_type in self.content_types:
@@ -2655,6 +2873,32 @@ class Corpus(mongoengine.Document):
             filters={},
             es_debug=False
     ):
+        """
+        Generate autocomplete suggestions for content fields.
+
+        Uses Elasticsearch's search-as-you-type (autocomplete) functionality to provide
+        real-time suggestions based on indexed content.
+
+        Args:
+            content_type (str): Name of the content type.
+            prefix (str): Partial text to match.
+            fields (list): Specific fields to search (empty for all autocomplete fields).
+            max_suggestions_per_field (int): Maximum suggestions per field. Defaults to 5.
+            filters (dict): Field specific term searches to use as criteria.
+            es_debug (bool): Whether to print the Elasticsearch query and the results to stdout. Defaults to False.
+
+        Returns:
+            dict: Suggestions organized by field name.
+
+        Examples:
+            >>> suggestions = corpus.suggest_content(
+            ...     'Person',
+            ...     prefix='joh',
+            ...     fields=['first_name', 'last_name']
+            ... )
+            >>> # Returns: {'first_name': ['John', 'Johann'], 'last_name': ['Johnson']}
+        """
+
         results = {}
 
         if content_type in self.content_types:
