@@ -958,6 +958,42 @@ class ContentTemplate(mongoengine.EmbeddedDocument):
 
 
 class ContentType(mongoengine.EmbeddedDocument):
+    """
+    Defines a type of content within a Corpus, analogous to a table schema in a database.
+
+    ContentTypes define the structure and behavior of content instances, including their
+    fields, display templates, and indexing configuration. They support inheritance from
+    Python classes for custom behavior.
+
+    Attributes:
+        name (str): Singular name of the content type (e.g., 'Document').
+        plural_name (str): Plural form for UI display (e.g., 'Documents').
+        fields (list[Field]): List of Field objects defining the structure.
+        show_in_nav (bool): Whether to show in navigation menus. Defaults to True.
+        autocomplete_labels (bool): Enable search suggestions on labels. Defaults to False.
+        proxy_field (str): Field name whose value determines the URI structure.
+        templates (dict[str, ContentTemplate]): Display templates by name.
+        view_widget_url (str): URL for custom view widget.
+        edit_widget_url (str): URL for custom edit widget.
+        inherited_from_module (str): Python module for base class.
+        inherited_from_class (str): Python class name to inherit from.
+        base_mongo_indexes (str): JSON string of additional MongoDB indexes.
+        has_file_field (bool): Whether any field is of type 'file' or 'repo'.
+        invalid_field_names (list[str]): Reserved field names that cannot be used.
+
+    Examples:
+        >>> article_type = ContentType(
+        ...     name='Article',
+        ...     plural_name='Articles',
+        ...     fields=[
+        ...         Field(name='title', type='text', label='Title'),
+        ...         Field(name='author', type='cross_reference',
+        ...               cross_reference_type='Person', label='Author'),
+        ...         Field(name='content', type='large_text', label='Content')
+        ...     ]
+        ... )
+    """
+
     name = mongoengine.StringField(required=True)
     plural_name = mongoengine.StringField(required=True)
     fields = mongoengine.EmbeddedDocumentListField('Field')
@@ -3033,6 +3069,50 @@ class Corpus(mongoengine.Document):
         return results
 
     def save_content_type(self, schema):
+        """
+        Create or update a content type definition.
+
+        Validates the schema, creates necessary indexes, and triggers reindexing
+        if needed. For existing content types, handles field additions, modifications,
+        and deletions gracefully.
+
+        Args:
+            schema (dict): Content type definition with structure:
+                {
+                    'name': str,
+                    'plural_name': str,
+                    'fields': list[dict],
+                    'show_in_nav': bool,
+                    'templates': dict,
+                    'inherited_from_module': str (optional),
+                    'inherited_from_class': str (optional),
+                    'autocomplete_labels': bool (optional),
+                    'view_widget_url': str (optional),
+                    'edit_widget_url': str (optional),
+                    'has_file_field': bool (optional),
+                    'invalid_field_names': list (optional),
+                }
+
+        Returns:
+            list[str]: Job IDs for any triggered reindexing tasks.
+
+        Examples:
+            >>> schema = {
+            ...     'name': 'Person',
+            ...     'plural_name': 'People',
+            ...     'fields': [
+            ...         {
+            ...             'name': 'email',
+            ...             'type': 'keyword',
+            ...             'label': 'Email Address',
+            ...             'unique': True,
+            ...             'indexed': True
+            ...         }
+            ...     ]
+            ... }
+            >>> job_ids = corpus.save_content_type(schema)
+        """
+
         valid = True
         existing = False
         had_file_field = False
@@ -3080,9 +3160,9 @@ class Corpus(mongoengine.Document):
             new_content_type = ContentType()
             new_content_type.name = schema['name']
             new_content_type.plural_name = schema['plural_name']
-            new_content_type.show_in_nav = schema['show_in_nav']
+            new_content_type.show_in_nav = schema.get('show_in_nav', True)
             new_content_type.autocomplete_labels = schema.get('autocomplete_labels', False)
-            new_content_type.proxy_field = schema['proxy_field']
+            new_content_type.proxy_field = schema.get('proxy_field', None)
             new_content_type.view_widget_url = schema.get('view_widget_url', None)
             new_content_type.edit_widget_url = schema.get('edit_widget_url', None)
             new_content_type.has_file_field = schema.get('has_file_field', False)
@@ -3369,6 +3449,16 @@ class Corpus(mongoengine.Document):
                     db[collection_name].update_many({}, {'$unset': {field_name: 1}})
 
     def build_content_type_elastic_index(self, content_type):
+        """
+        Build or rebuild the Elasticsearch index for a content type.
+
+        Creates appropriate index mappings based on field definitions, including
+        analyzers for text fields and nested mappings for cross-references.
+
+        Args:
+            content_type (str): Name of the content type to index.
+        """
+
         if content_type in self.content_types:
             ct = self.content_types[content_type]
             field_type_map = {
@@ -3481,6 +3571,34 @@ class Corpus(mongoengine.Document):
             index.save()
 
     def queue_local_job(self, content_type=None, content_id=None, task_id=None, task_name=None, scholar_id=None, parameters={}):
+        """
+        Queue an asynchronous task for execution.
+
+        Creates a job entry for background processing of tasks like reindexing,
+        import/export, or custom operations using HUEY asynchronous task runners.
+
+        Args:
+            content_type (str): Target content type (None for corpus-level tasks).
+            content_id (str): Specific content ID to process.
+            task_id (str): Task definition ID.
+            task_name (str): Task name (alternative to task_id).
+            scholar_id (str): ID of user initiating the task.
+            parameters (dict): Task-specific parameters.
+
+        Returns:
+            str: Job ID for tracking, or None if task not found.
+
+        Examples:
+            >>> # Launch the "Adjust Content" task so that it reindexes, relabels, and resaves every Book
+            >>> my_corpus.queue_local_job(task_name="Adjust Content", parameters={
+            ...     'content_type': 'Book',
+            ...     'reindex': True,
+            ...     'relabel': True,
+            ...     'resave': True,
+            ...     'related_content_types': "Author,Library"
+            >>> })
+        """
+
         local_jobsite = JobSite.objects(name='Local')[0]
         if task_name and not task_id:
             task_id = local_jobsite.task_registry[task_name]['task_id']
@@ -3683,6 +3801,19 @@ class Corpus(mongoengine.Document):
             shutil.rmtree(document.path)
         
     def to_dict(self, include_views=False):
+        """
+        Export corpus configuration as a dictionary.
+
+        Includes all content type definitions, configuration, and optionally
+        content views. Useful for backup and migration.
+
+        Args:
+            include_views (bool): Whether to include ContentView definitions.
+
+        Returns:
+            dict: Complete corpus configuration.
+        """
+
         corpus_dict = {
             'id': str(self.id),
             'name': self.name,
@@ -3742,6 +3873,37 @@ class Corpus(mongoengine.Document):
 
 
 class CorpusBackup(mongoengine.Document):
+    """
+    Describes a snapshot in time of a given corpus, ultimately in the form of a tarball containing
+    Corpus metadata like Content Type definitions, MongoDB dumps for each collection of content,
+    and any associated file structures and files for the corpus.
+
+    Useful for registering a backup of a corpus that allows you to restore from a certain
+    point in time. The backup tarball it describes works across instances of Corpora.
+
+    Attributes:
+        corpus_id (str): The unique ID of this corpus in the form of a string representation of an ObjectId
+        corpus_name (str): The name (typically an acronymn) for this corpus
+        corpus_description (str): The description (typically what the acronymn stands for) of this corpus
+        name (str): The name of this backup; typically a string representation of the date the backup was made
+        path (str): The path to the tarball file containing the backed-up data for this corpus
+        status (str): Whether it's being created, has been created, or is being restored
+        created (datetime): When this backup was created.
+
+    Examples:
+        >>> # Registering an existing backup
+        >>> backup = CorpusBackup(
+        ...     corpus_id='5f623f2a52023c009d73108e'
+        ...     corpus_name='MTC',
+        ...     corpus_description='My Test Corpus',
+        ...     name='2025_06_05',
+        ...     path='/corpora/backups/5f623f2a52023c009d73108e_2025_06_05.tar.gz'
+        ...     status='created',
+        ...     created=datetime.now()
+        ... )
+        >>> backup.save()
+    """
+
     corpus_id = mongoengine.StringField()
     corpus_name = mongoengine.StringField()
     corpus_description = mongoengine.StringField()
