@@ -1,14 +1,22 @@
+import os
+import re
+import json
 import redis
 import traceback
 import tarfile
-from corpus import *
+from copy import deepcopy
 from mongoengine.queryset.visitor import Q
 from django.utils.html import escape
 from django.conf import settings
 from urllib.parse import unquote
-from elasticsearch_dsl import A
 from django_eventstream import send_event
 from django_drf_filepond.models import TemporaryUpload
+from corpus import (
+    Corpus, CorpusBackup, Scholar,
+    JobSite, Task,
+    File, GitRepo, Timespan,
+    get_corpus, parse_date_string
+)
 
 
 # for use by the fix_mongo_json function:

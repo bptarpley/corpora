@@ -1,22 +1,31 @@
-import re
 import subprocess
 import mimetypes
-import tarfile
-import urllib.parse
 import asyncio
+from copy import deepcopy
 from ipaddress import ip_address
 from asgiref.sync import sync_to_async
 from django.shortcuts import render, redirect, HttpResponse
 from django.http import Http404, JsonResponse, StreamingHttpResponse
+from django.template import Context, Template
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from mongoengine.errors import NotUniqueError
+from rest_framework.decorators import api_view
+from rest_framework.authtoken.models import Token
+from django_eventstream import send_event
+from types import SimpleNamespace
 from html import unescape
 from time import sleep
-from corpus import *
+from corpus import (
+    Scholar, Task,
+    ContentTypeGroupMember, FieldRenderer,
+    run_neo, get_network_json, search_corpora, search_scholars,
+    FIELD_LANGUAGES
+)
+from .captcha import generate_captcha, validate_captcha
 from .tasks import *
-from .utilities import(
+from .utilities import (
     _get_context,
     _clean,
     _contains,
@@ -35,11 +44,6 @@ from .utilities import(
     delimit_content_json,
     send_alert
 )
-from .captcha import generate_captcha, validate_captcha
-from rest_framework.decorators import api_view 
-from rest_framework.authtoken.models import Token
-from django_eventstream import send_event
-from types import SimpleNamespace
 
 
 @login_required
@@ -2204,7 +2208,9 @@ def api_job(request, corpus_id=None, job_id=None):
                     json.dumps(job.to_dict()),
                     content_type='application/json'
                 )
+
     return Http404("Job not found.")
+
 
 @api_view(['GET'])
 def api_jobs(request, corpus_id=None, content_type=None, content_id=None):

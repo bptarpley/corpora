@@ -34,7 +34,7 @@ function setTimespanValue(target) {
         } else time_div.addClass('d-none')
 
         if (timespan.end != null) {
-            if (timespan.start >= timespan.end) alert_div.removeClass('d-none')
+            if (timespan.start > timespan.end) alert_div.removeClass('d-none')
             else alert_div.addClass('d-none')
         }
 

@@ -1,12 +1,17 @@
+import os
 import time
 import shutil
+import traceback
+import importlib
+from copy import deepcopy
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
 from django.conf import settings
-from elasticsearch_dsl import Boolean, normalizer
-from corpus import *
+from elasticsearch_dsl import Boolean, normalizer, Index, Mapping, analyzer, Keyword
 from manager.utilities import _contains
+from corpus import CorpusBackup, JobSite, Task, Scholar
+
 
 initialized_file = '/corpora/initialized'
 

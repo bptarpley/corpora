@@ -5,15 +5,13 @@ import importlib
 import time
 import traceback
 import tarfile
-import pymysql
 import logging
 import math
 import redis
 import re
-from copy import deepcopy
 from corpus import (
     Corpus, Job, get_corpus, File,
-    run_neo, ContentView, ContentTypeGroup, ContentDeletion,
+    ContentView, ContentTypeGroup, ContentDeletion,
     CorpusBackup, JobSite, GitRepo, CompletedTask
 )
 from huey.contrib.djhuey import db_task, db_periodic_task
@@ -22,7 +20,6 @@ from bson.objectid import ObjectId
 from urllib.parse import quote
 from elasticsearch_dsl.connections import get_connection
 from elasticsearch.helpers import scan
-from PIL import Image
 from datetime import datetime, timedelta
 from subprocess import call
 from manager.utilities import (
@@ -30,14 +27,10 @@ from manager.utilities import (
     build_search_params_from_dict,
     order_content_schema,
     process_content_bundle,
-    delimit_content_json,
-    publish_message
+    delimit_content_json
 )
 from django.conf import settings
-from django.utils.text import slugify
 from django.template.loader import get_template
-from django.template.context import Context
-from zipfile import ZipFile
 from django_drf_filepond.models import TemporaryUpload
 
 
@@ -572,6 +565,8 @@ def check_jobs():
         proceed = True
 
     if proceed:
+        # here we're checking for any jobs that the user has launched, or for any jobs with multiple stages where
+        # one stage has completed and the other needs to commence.
         jobs = Job.get_jobs(limit=settings.NUM_JOBS_PER_MINUTE)
         for job in jobs:
             if job.jobsite.name == 'Local':
