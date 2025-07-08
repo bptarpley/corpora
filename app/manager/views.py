@@ -42,6 +42,7 @@ from .utilities import (
     process_corpus_backup_file,
     fix_mongo_json,
     delimit_content_json,
+    create_content_csv_rows,
     send_alert
 )
 
@@ -928,9 +929,14 @@ def bulk_job_manager(request, corpus_id, content_type):
 async def export(request, corpus_id, content_type):
     context = await sync_to_async(_get_context)(request)
     corpus, role = await sync_to_async(get_scholar_corpus)(corpus_id, context['scholar'])
+    export_file_extension = 'json'
+    csv_format = 'csv-format' in request.GET
     export_all = False
     export_ids = []
     contents = None
+
+    if csv_format:
+        export_file_extension = 'csv'
 
     if corpus:
         if context['search']:
@@ -998,20 +1004,35 @@ async def export(request, corpus_id, content_type):
                         end = start + chunk_size
 
                         content_slice = contents[start:end]
-                        content_json = await sync_to_async(delimit_content_json)(content_slice)
+                        exported_content = ''
 
-                        if chunks > 1:
-                            if chunk == 0:
-                                content_json = '[' + content_json + ', '
-                            elif chunk == chunks - 1:
-                                content_json = content_json + ']'
+                        if csv_format:
+                            exported_content = await sync_to_async(create_content_csv_rows)(content_slice)
+
+                            if chunks == 1 or chunk == 0:
+                                header_fields = [field.name for field in corpus.content_types[content_type].fields]
+                                header_fields = ['id', 'label', 'uri'] + header_fields
+                                header_row = f"{','.join(header_fields)}\n"
+                                exported_content = f"{header_row}{exported_content}"
+
                             else:
-                                content_json = content_json + ', '
-                        else:
-                            content_json = '[' + content_json + ']'
+                                exported_content = f"\n{exported_content}"
 
-                        asyncio.sleep(0)
-                        yield content_json
+                        else:
+                            exported_content = await sync_to_async(delimit_content_json)(content_slice)
+
+                            if chunks > 1:
+                                if chunk == 0:
+                                    exported_content = '[' + exported_content + ', '
+                                elif chunk == chunks - 1:
+                                    exported_content = exported_content + ']'
+                                else:
+                                    exported_content = exported_content + ', '
+                            else:
+                                exported_content = '[' + exported_content + ']'
+
+                        # asyncio.sleep(0)
+                        yield exported_content
                 except asyncio.CancelledError:
                     raise
 
@@ -1019,7 +1040,7 @@ async def export(request, corpus_id, content_type):
             response['Content-Type'] = 'application/octet-stream'
             response['X-Accel-Buffering'] = 'no'
             response['Cache-Control'] = 'no-cache'
-            response['Content-Disposition'] = f'attachment; filename="{content_type}.json"'
+            response['Content-Disposition'] = f'attachment; filename="{content_type}.{export_file_extension}"'
             return response
 
     raise Http404("You are not authorized to view this page.")

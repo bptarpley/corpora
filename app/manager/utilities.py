@@ -682,3 +682,73 @@ def fix_mongo_json(json_string):
 
 def delimit_content_json(contents, delimiter=', '):
     return delimiter.join([fix_mongo_json(c.to_json()) for c in contents])
+
+
+def convert_content_to_csv_row(content):
+        """
+        Converts a Content object to a CSV row.
+
+        Args:
+            content: Content object to output to CSV row
+
+        Returns:
+            CSV values in correct order
+        """
+
+        internal_list_delimiter = '|'
+
+        # Preallocate result array
+        values = [''] * len(content._ct.fields)
+        for field_index in range(0, len(content._ct.fields)):
+            field = content._ct.fields[field_index]
+            if getattr(content, field.name) not in ['', None] and field.type != 'embedded':
+                field_values = [getattr(content, field.name)]
+                if field.multiple:
+                    field_values = getattr(content, field.name)
+
+                if field.type in ['text', 'large_text', 'keyword', 'html', 'choice']:
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = field_values[field_value_index].replace('"', '""')
+
+                elif field.type == 'cross_reference':
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = f"{field_values[field_value_index].id}"
+
+                elif field.type == 'date':
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = field_values[field_value_index].strftime('%Y-%m-%d')
+
+                elif field.type == 'geo_point':
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = f"{field_values[field_value_index]['coordinates']}"
+
+                elif field.type == 'timespan':
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = field_values[field_value_index].string_representation
+
+                elif field.type == 'file':
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = field_values[field_value_index].path
+
+                elif field.type == 'repo':
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = f"{field_values[field_value_index].remote_url} ({field_values[field_value_index].remote_branch})"
+
+                else:
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = f"{field_values[field_value_index]}"
+
+                csv_value = internal_list_delimiter.join(field_values)
+
+                if field.type in ['text', 'large_text', 'keyword', 'html', 'choice', 'geo_point', 'timespan', 'file', 'repo']:
+                    csv_value = f'"{csv_value}"'
+
+                values[field_index] = csv_value
+
+        escaped_label = content.label.replace('"', '""')
+        values = [str(content.id), f'"{escaped_label}"', content.uri] + values
+        return ','.join(values)
+
+
+def create_content_csv_rows(contents):
+    return '\n'.join([convert_content_to_csv_row(c) for c in contents])

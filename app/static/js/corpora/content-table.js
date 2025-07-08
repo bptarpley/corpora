@@ -142,7 +142,8 @@ class ContentTable {
                                     With selected:
                                     <select class="form-control-sm btn-primary ml-1 mr-1" id="ct-${ct.name}${sender.id_suffix}-selection-action-selector" data-ct="${ct.name}">
                                         <option value="explore" selected>Explore</option>
-                                        <option value="export">Export</option>
+                                        <option value="export">Export (JSON)</option>
+                                        <option value="export-csv">Export (CSV)</option>
                                         ${['Editor', 'Admin'].includes(role) ? '<option value="bulk-edit">Bulk Edit</option>' : ''}
                                         ${['Editor', 'Admin'].includes(role) ? '<option value="merge">Merge</option>' : ''}
                                         ${['Editor', 'Admin'].includes(role) ? '<option value="create_view">Create View</option>' : ''}
@@ -296,9 +297,12 @@ class ContentTable {
                             $('#multiselect-content-query').val(JSON.stringify(search))
                         }
                         multi_form.submit()
-                    } else if (action === 'export') {
+                    } else if (['export', 'export-csv'].includes(action)) {
                         let export_url = `/export/${corpus_id}/${ct_name}/`
                         let delimiter = '?'
+
+                        if (action === 'export-csv') export_url += '?csv-format=true'
+
                         if (sender.selected_content.all) {
                             Object.keys(search).forEach(param => {
                                 export_url += `${delimiter}${param}=${search[param]}`
