@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from manager.utilities import order_content_schema
-from corpus import *
+from corpus import Corpus
 
 
 class Command(BaseCommand):

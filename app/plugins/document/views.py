@@ -1,18 +1,23 @@
-import re
+import os
+import json
+from django.conf import settings
 from django.shortcuts import render, HttpResponse, redirect
 from django.http import Http404
+from django.template import Template, Context
 from django.contrib.auth.decorators import login_required
 from django.utils.text import slugify
-from corpus import *
-from .content import Document, Page, PageSet, reset_page_extraction
+from .content import PageSet
 from manager.utilities import _get_context, get_scholar_corpus, _contains, _clean
 from manager.tasks import run_job
 from manager.views import view_content
 from natsort import natsorted
 from rest_framework.decorators import api_view
-from google.cloud import vision
 from bs4 import BeautifulSoup
 from django_drf_filepond.models import TemporaryUpload
+from corpus import (
+    Job, JobSite, Task,
+    File
+)
 
 
 @login_required
@@ -29,7 +34,6 @@ def document(request, corpus_id, document_id):
 
             # HANDLE IMPORT PAGES FORM SUBMISSION
             if _contains(request.POST, ['import-pages-type', 'import-pages-files']):
-                files_to_process = []
                 import_type = _clean(request.POST, 'import-pages-type')
                 import_source = _clean(request.POST, 'import-pages-pdf-source')
                 existing_file_key = _clean(request.POST, 'import-pages-pdf-existing-file', None)

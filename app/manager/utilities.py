@@ -1,14 +1,22 @@
+import os
+import re
+import json
 import redis
 import traceback
 import tarfile
-from corpus import *
+from copy import deepcopy
 from mongoengine.queryset.visitor import Q
 from django.utils.html import escape
 from django.conf import settings
 from urllib.parse import unquote
-from elasticsearch_dsl import A
 from django_eventstream import send_event
 from django_drf_filepond.models import TemporaryUpload
+from corpus import (
+    Corpus, CorpusBackup, Scholar,
+    JobSite, Task,
+    File, GitRepo, Timespan,
+    get_corpus, parse_date_string
+)
 
 
 # for use by the fix_mongo_json function:
@@ -605,28 +613,32 @@ def process_content_bundle(corpus, content_type, content, content_bundle, schola
 
 
 def process_corpus_backup_file(backup_file):
-    if backup_file and os.path.exists(backup_file):
-        basename = os.path.basename(backup_file)
-        if '_' in basename and basename.endswith('.tar.gz'):
-            backup_name = basename.split('.')[0]
-            backup_name = "_".join(backup_name.split('_')[1:])
-            backup_corpus = None
+    if backup_file:
+        if not backup_file.startswith('/corpora/backups'):
+            backup_file = os.path.join('/corpora/backups', backup_file)
 
-            with tarfile.open(backup_file, 'r:gz') as tar_in:
-                backup_corpus = tar_in.extractfile('corpus.json').read()
+        if os.path.exists(backup_file):
+            basename = os.path.basename(backup_file)
+            if '_' in basename and basename.endswith('.tar.gz'):
+                backup_name = basename.split('.')[0]
+                backup_name = "_".join(backup_name.split('_')[1:])
+                backup_corpus = None
 
-            if backup_corpus:
-                backup_corpus = json.loads(backup_corpus)
-                if _contains(backup_corpus, ['id', 'name', 'description']):
-                    backup = CorpusBackup()
-                    backup.name = backup_name
-                    backup.corpus_id = backup_corpus['id']
-                    backup.corpus_name = backup_corpus['name']
-                    backup.corpus_description = backup_corpus['description']
-                    backup.path = backup_file
-                    backup.save()
+                with tarfile.open(backup_file, 'r:gz') as tar_in:
+                    backup_corpus = tar_in.extractfile('corpus.json').read()
 
-                    return True
+                if backup_corpus:
+                    backup_corpus = json.loads(backup_corpus)
+                    if _contains(backup_corpus, ['id', 'name', 'description']):
+                        backup = CorpusBackup()
+                        backup.name = backup_name
+                        backup.corpus_id = backup_corpus['id']
+                        backup.corpus_name = backup_corpus['name']
+                        backup.corpus_description = backup_corpus['description']
+                        backup.path = backup_file
+                        backup.save()
+
+                        return True
     return False
 
 
@@ -670,3 +682,73 @@ def fix_mongo_json(json_string):
 
 def delimit_content_json(contents, delimiter=', '):
     return delimiter.join([fix_mongo_json(c.to_json()) for c in contents])
+
+
+def convert_content_to_csv_row(content):
+        """
+        Converts a Content object to a CSV row.
+
+        Args:
+            content: Content object to output to CSV row
+
+        Returns:
+            CSV values in correct order
+        """
+
+        internal_list_delimiter = '|'
+
+        # Preallocate result array
+        values = [''] * len(content._ct.fields)
+        for field_index in range(0, len(content._ct.fields)):
+            field = content._ct.fields[field_index]
+            if getattr(content, field.name) not in ['', None] and field.type != 'embedded':
+                field_values = [getattr(content, field.name)]
+                if field.multiple:
+                    field_values = getattr(content, field.name)
+
+                if field.type in ['text', 'large_text', 'keyword', 'html', 'choice']:
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = field_values[field_value_index].replace('"', '""')
+
+                elif field.type == 'cross_reference':
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = f"{field_values[field_value_index].id}"
+
+                elif field.type == 'date':
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = field_values[field_value_index].strftime('%Y-%m-%d')
+
+                elif field.type == 'geo_point':
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = f"{field_values[field_value_index]['coordinates']}"
+
+                elif field.type == 'timespan':
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = field_values[field_value_index].string_representation
+
+                elif field.type == 'file':
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = field_values[field_value_index].path
+
+                elif field.type == 'repo':
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = f"{field_values[field_value_index].remote_url} ({field_values[field_value_index].remote_branch})"
+
+                else:
+                    for field_value_index in range(0, len(field_values)):
+                        field_values[field_value_index] = f"{field_values[field_value_index]}"
+
+                csv_value = internal_list_delimiter.join(field_values)
+
+                if field.type in ['text', 'large_text', 'keyword', 'html', 'choice', 'geo_point', 'timespan', 'file', 'repo']:
+                    csv_value = f'"{csv_value}"'
+
+                values[field_index] = csv_value
+
+        escaped_label = content.label.replace('"', '""')
+        values = [str(content.id), f'"{escaped_label}"', content.uri] + values
+        return ','.join(values)
+
+
+def create_content_csv_rows(contents):
+    return '\n'.join([convert_content_to_csv_row(c) for c in contents])

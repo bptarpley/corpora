@@ -44,7 +44,7 @@
             <div class="tab-content h-100 {% if popup %}p-0 m-0{% else %}p-3{% endif %}">
                 <div class="tab-pane fade show active" id="metadata" role="tabpanel" aria-labelledby="metadata-tab">
                     {% if view_widget_url %}
-                        <div class="row h-100">
+                        <div class="row" style="min-height: 70vh;">
                             <div class="col-sm-12 col-md-6">
                     {% endif %}
                     <div class="content-type-card" id="content-div">
@@ -106,7 +106,7 @@
         let role = '{{ role }}'
         let content_type_name = '{{ content_type.name }}'
         let content_id = '{{ content_id }}'
-        let content_label = `{{ content_label }}`
+        let content_label = `{{ content_label|safe }}`
         let content_uri = '{{ content_uri }}'
         let content_type = null
         let popup = {% if popup %}true{% else %}false{% endif %}
@@ -131,7 +131,7 @@
             if (popup) $('#content-nav-tabs').addClass('d-none')
 
             if (has_widget) {
-                $('#metadata').css('min-height', '100vh')
+                $('#metadata').css('min-height', '70vh')
             }
 
             $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {

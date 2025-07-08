@@ -110,7 +110,7 @@
             var corpora = null
             var corpora_event_source = null
             var scholar_id = "{{ response.scholar.id }}"
-            var main_container = $('#main-container');
+            var main_container = $('#main-container')
 
             function hide_loading_overlay() {
                 let loading_overlay = $('#loading-overlay')
@@ -121,32 +121,32 @@
             }
 
             function show_loading_overlay() {
-                let loading_overlay = $('#loading-overlay');
-                loading_overlay.addClass('d-flex');
-                loading_overlay.removeClass('d-none');
+                let loading_overlay = $('#loading-overlay')
+                loading_overlay.addClass('d-flex')
+                loading_overlay.removeClass('d-none')
             }
 
             function add_breadcrumb(label=null, url=null) {
-                let breadcrumb_inner_div = $('#breadcrumb-inner');
+                let breadcrumb_inner_div = $('#breadcrumb-inner')
                 if (breadcrumb_inner_div.html()) {
-                    breadcrumb_inner_div.append(' <i class="fas fa-chevron-right"></i> ');
+                    breadcrumb_inner_div.append(' <i class="fas fa-chevron-right"></i> ')
                 } else {
-                    $('#breadcrumb').removeClass('d-none');
-                    breadcrumb_inner_div.append(`<a href="/"><img src="/static/img/logo.png" class="logo-small"></a>`);
-                    if (label) breadcrumb_inner_div.append(` <i class="fas fa-chevron-right"></i> `);
+                    $('#breadcrumb').removeClass('d-none')
+                    breadcrumb_inner_div.append(`<a href="/"><img src="/static/img/logo.png" class="logo-small"></a>`)
+                    if (label) breadcrumb_inner_div.append(` <i class="fas fa-chevron-right"></i> `)
                 }
 
-                breadcrumb_inner_div.append(`<a href="${url}">${label}</a>`);
+                breadcrumb_inner_div.append(`<a href="${url}">${label}</a>`)
             }
 
             function resolve(path, obj=self, separator='.') {
-                let properties = Array.isArray(path) ? path : path.split(separator);
-                return properties.reduce((prev, curr) => prev && prev[curr], obj);
+                let properties = Array.isArray(path) ? path : path.split(separator)
+                return properties.reduce((prev, curr) => prev && prev[curr], obj)
             }
 
             $(document).ready(function() {
                 corpora = new Corpora({'csrf_token': "{{ csrf_token }}"})
-            });
+            })
         </script>
 
         {% block js %}
