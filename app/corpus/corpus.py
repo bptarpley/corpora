@@ -2359,6 +2359,8 @@ class Corpus(mongoengine.Document):
         )
 
         # Delete any available_corpora entries in Scholar objects
+        # Importing here to avoid circular dependency between Scholar and Corpus classes
+        from .scholar import Scholar
         scholars = Scholar.objects
         scholars = scholars.batch_size(10)
         for scholar in scholars:
