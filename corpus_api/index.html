@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <link rel="shortcut icon" href="../img/favicon.ico" />
-    <title>Plugins - Corpora</title>
+    <title>Corpus API - Corpora</title>
     <link rel="stylesheet" href="../css/theme.css" />
     <link rel="stylesheet" href="../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
@@ -14,8 +14,8 @@
     
       <script>
         // Current page data
-        var mkdocs_page_name = "Plugins";
-        var mkdocs_page_input_path = "plugins.md";
+        var mkdocs_page_name = "Corpus API";
+        var mkdocs_page_input_path = "corpus_api.md";
         var mkdocs_page_url = null;
       </script>
     
@@ -62,18 +62,16 @@
                 <li class="toctree-l1"><a class="reference internal" href="../developing/">Developing</a>
                 </li>
               </ul>
-              <ul>
-                <li class="toctree-l1"><a class="reference internal" href="../corpus_api/">Corpus API</a>
-                </li>
-              </ul>
               <ul class="current">
-                <li class="toctree-l1 current"><a class="reference internal current" href="#">Plugins</a>
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Corpus API</a>
     <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#for-corpora">For Corpora</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#for-wordpress">For Wordpress</a>
+    <li class="toctree-l2"><a class="reference internal" href="#corpus">corpus</a>
     </li>
     </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../plugins/">Plugins</a>
                 </li>
               </ul>
       </div>
@@ -90,9 +88,9 @@
         <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
   <ul class="wy-breadcrumbs">
     <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
-      <li class="breadcrumb-item active">Plugins</li>
+      <li class="breadcrumb-item active">Corpus API</li>
     <li class="wy-breadcrumbs-aside">
-          <a href="https://github.com/bptarpley/corpora/edit/master/docs/plugins.md" class="icon icon-github"> Edit on GitHub</a>
+          <a href="https://github.com/bptarpley/corpora/edit/master/docs/corpus_api.md" class="icon icon-github"> Edit on GitHub</a>
     </li>
   </ul>
   <hr/>
@@ -100,32 +98,62 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="plugins">Plugins</h1>
-<h2 id="for-corpora">For Corpora</h2>
-<p>Here is a list of plugins currently developed for Corpora, which will hopefully aid in creating new or repurposing existing ones.</p>
+                <h1 id="corpus-api">Corpus API</h1>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<a id="corpus"></a>
+    <div class="doc doc-contents first">
+
+        <p>Corpus API</p>
+<p>This module provides a comprehensive data management system that mirrors database functionality
+using MongoDB for document storage, Elasticsearch for full-text search, and Neo4j for graph
+relationships. The core architecture follows a hierarchical structure:</p>
 <ul>
-<li><a href="https://github.com/bptarpley/corpora/tree/main/app/plugins/document">Document</a> (built-in)</li>
-<li><a href="https://github.com/corpora-plugins/csv">CSV</a></li>
-<li><a href="https://github.com/corpora-plugins/melp">Maria Edgeworth Letters Project</a></li>
-<li><a href="https://github.com/corpora-plugins/tesseract">Tesseract</a></li>
-<li><a href="https://github.com/corpora-plugins/google_cloud_vision">Google Cloud Vision</a></li>
-<li><a href="https://gitlab.dh.tamu.edu/corpora-plugins/nvs">New Variorum Shakespeare</a></li>
-<li><a href="https://gitlab.dh.tamu.edu/corpora-plugins/clo">Carlyle Letters Online</a></li>
-<li><a href="https://gitlab.dh.tamu.edu/corpora-plugins/arc">Advanced Research Consortium</a></li>
+<li>Corpus (analogous to a database)</li>
+<li>Content Types (analogous to tables)<ul>
+<li>Fields (analogous to columns)</li>
+<li>Content instances (analogous to rows)</li>
 </ul>
-<h2 id="for-wordpress">For Wordpress</h2>
-<p>These are custom Wordpress plugins that allow Wordpress sites to query Corpora in order to display a frontend interface.</p>
-<ul>
-<li><a href="https://github.com/bptarpley/wp_corpora">Generic Plugin for Corpora</a></li>
-<li><a href="https://github.com/bptarpley/wp_melp">Maria Edgeworth Letters Project</a></li>
-<li><a href="https://gitlab.dh.tamu.edu/clo/clo">Carlyle Letters Online</a></li>
-<li><a href="https://gitlab.dh.tamu.edu/corpora-plugins/collex">Advanced Research Consortium</a></li>
+</li>
 </ul>
+<p>The system supports:
+- Dynamic schema definition and modification
+- Multi-language text analysis (34 languages)
+- Cross-references between content types
+- File and media management
+- Provenance tracking and audit trails
+- Advanced search with faceting and aggregations
+- Graph-based relationship queries</p>
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="../corpus_api/" class="btn btn-neutral float-left" title="Corpus API"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../developing/" class="btn btn-neutral float-left" title="Developing"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../plugins/" class="btn btn-neutral float-right" title="Plugins">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -152,8 +180,10 @@
         </span>
     
     
-      <span><a href="../corpus_api/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../developing/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
+    
+      <span><a href="../plugins/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
