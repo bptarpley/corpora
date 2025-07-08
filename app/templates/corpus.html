@@ -398,12 +398,14 @@
                 <!-- sticky nav -->
                 <div class="sticky-nav py-2">
                     <div class="alert alert-info m-0 row">
-                        <div id="content-types-nav" class="col-md-11">
+                        <div id="content-types-nav" class="{% if response.scholar.is_admin or role == 'Editor' %}col-md-11{% else %}col-sm-12{% endif %}">
                             <a href="#breadcrumb"><i class="fas fa-sort-up"></i> Top</a>
                         </div>
+                        {% if response.scholar.is_admin or role == 'Editor' %}
                         <div class="col-md-1">
                             <button type="button" id="new-ct-group-button" class="btn btn-primary btn-sm rounded" data-toggle="modal" data-target="#new-ct-group-modal">New Group</button>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -516,6 +518,7 @@
                             There are currently no files for this corpus.
                         </div>
                     </div>
+                    {% if response.scholar.is_admin or role == 'Editor' %}
                     <div id="corpus-files-footer" class="card-footer justify-content-between d-none">
                         <button type="button" class="btn btn-sm btn-danger" id="corpus-files-delete-button" disabled>Delete Selected</button>
                         <form id="corpus-files-delete-form" method="post">
@@ -523,6 +526,7 @@
                             <input type="hidden" id="corpus-files-to-delete" name="corpus-files-to-delete" value="" />
                         </form>
                     </div>
+                    {% endif %}
                 </div>
 
                 <!-- REPOS -->
@@ -657,6 +661,7 @@
     <script type="application/javascript">
         let corpus_id = "{{ corpus_id }}";
         let role = "{{ role }}";
+        let is_admin = ['Admin', 'Editor'].includes(role)
         let available_jobsites = {{ available_jobsites|safe }};
         let available_tasks = {{ available_tasks|safe }};
         let corpus = null;
@@ -757,7 +762,7 @@
                         <table class="table table-striped">
                             <thead class="thead-dark">
                                 <th scope="col">
-                                    <input type="checkbox" id="corpus-files-select-all-checkbox">
+                                    ${ is_admin ? `<input type="checkbox" id="corpus-files-select-all-checkbox">` : '' }
                                 </th>
                                 <th scope="col">
                                     File
@@ -794,7 +799,7 @@
                         corpus_files_tbody.append(`
                             <tr>
                                 <td>
-                                    <input type="checkbox" class="corpus-file-checkbox" data-file_key="${file_key}">
+                                    ${ is_admin ? `<input type="checkbox" class="corpus-file-checkbox" data-file_key="${file_key}">` : '' }
                                 </td>
                                 <td>
                                     <a href="${file_url}" target="_blank">${file.basename}</a>
@@ -812,46 +817,48 @@
                         `)
                     }
 
-                    let files_footer = $('#corpus-files-footer')
-                    let select_all_box = $('#corpus-files-select-all-checkbox')
-                    let delete_button = $('#corpus-files-delete-button')
-                    files_footer.removeClass('d-none')
-                    files_footer.addClass('d-flex')
+                    if (is_admin) {
+                        let files_footer = $('#corpus-files-footer')
+                        let select_all_box = $('#corpus-files-select-all-checkbox')
+                        let delete_button = $('#corpus-files-delete-button')
+                        files_footer.removeClass('d-none')
+                        files_footer.addClass('d-flex')
 
-                    select_all_box.change(function() {
-                        let is_selected = select_all_box.is(':checked')
+                        select_all_box.change(function () {
+                            let is_selected = select_all_box.is(':checked')
 
-                        $('.corpus-file-checkbox').each(function() {
-                            $(this).prop("checked", is_selected)
-                            $(this).attr("disabled", is_selected)
-                        });
-                        delete_button.attr("disabled", !is_selected)
-                    });
+                            $('.corpus-file-checkbox').each(function () {
+                                $(this).prop("checked", is_selected)
+                                $(this).attr("disabled", is_selected)
+                            });
+                            delete_button.attr("disabled", !is_selected)
+                        })
 
-                    $('.corpus-file-checkbox').change(function() {
-                        let file_selected = false
-                        $('.corpus-file-checkbox').each(function() {
-                            if ($(this).is(':checked')) file_selected = true
-                        });
-                        if (file_selected) delete_button.attr('disabled', false)
-                        else delete_button.attr('disabled', true)
-                    });
+                        $('.corpus-file-checkbox').change(function () {
+                            let file_selected = false
+                            $('.corpus-file-checkbox').each(function () {
+                                if ($(this).is(':checked')) file_selected = true
+                            });
+                            if (file_selected) delete_button.attr('disabled', false)
+                            else delete_button.attr('disabled', true)
+                        })
 
-                    delete_button.click(function() {
-                        let files_to_delete = $('#corpus-files-to-delete')
-                        let file_keys = []
+                        delete_button.click(function () {
+                            let files_to_delete = $('#corpus-files-to-delete')
+                            let file_keys = []
 
-                        if (select_all_box.is(':checked')) files_to_delete.val('ALL')
-                        else {
-                            $('.corpus-file-checkbox').each(function() {
-                                let checkbox = $(this)
-                                if (checkbox.is(':checked')) file_keys.push(checkbox.data('file_key'))
-                            })
-                            files_to_delete.val(file_keys.join(','))
-                        }
+                            if (select_all_box.is(':checked')) files_to_delete.val('ALL')
+                            else {
+                                $('.corpus-file-checkbox').each(function () {
+                                    let checkbox = $(this)
+                                    if (checkbox.is(':checked')) file_keys.push(checkbox.data('file_key'))
+                                })
+                                files_to_delete.val(file_keys.join(','))
+                            }
 
-                        $('#corpus-files-delete-form').submit()
-                    });
+                            $('#corpus-files-delete-form').submit()
+                        })
+                    }
                 }
 
                 // load corpus repos
@@ -871,40 +878,44 @@
                         else {
                             corpus_repos_div.append(`
                                 <div class="alert alert-info row no-gutters">
-                                    <div class="col-sm-11">
+                                    <div class="col-sm-${ is_admin ? '11' : '12' }">
                                         <b>${repo.name}</b><br/>
                                         Branch "${repo.remote_branch}"
                                         last pulled ${corpora.date_string(repo.last_pull, 'Day', true, true)}
                                     </div>
+                                    ${ is_admin ? `
                                     <div class="col-sm-1 text-right">
                                         <button type="button" class="btn btn-secondary repo-delete-button" data-repo-name="${repo.name}"><span class="fas fa-trash-alt"></span></button>
                                     </div>
+                                    ` : '' }
                                 </div>
                             `)
                         }
                     }
 
-                    // repo deletion button click
-                    $('.repo-delete-button').off('click').on('click', function() {
-                        let button = $(this)
-                        let repo_name = button.data('repo-name')
-                        let multi_form = $('#multiselect-form')
+                    if (is_admin) {
+                        // repo deletion button click
+                        $('.repo-delete-button').off('click').on('click', function() {
+                            let button = $(this)
+                            let repo_name = button.data('repo-name')
+                            let multi_form = $('#multiselect-form')
 
-                        corpora.confirm_action(
-                            function() {
-                                multi_form.append(`
-                                    <input type='hidden' class="repo-deletion-input" name='repo' value='${repo_name}' />
-                                    <input type='hidden' name='deletion-confirmed' value='y' />
-                                `)
-                                multi_form.attr('action', '')
-                                multi_form.submit()
-                            },
-                            "Delete Repo?",
-                            `Are you sure you want to delete the "${repo_name}" repository?`,
-                            'Delete',
-                            true
-                        )
-                    })
+                            corpora.confirm_action(
+                                function() {
+                                    multi_form.append(`
+                                        <input type='hidden' class="repo-deletion-input" name='repo' value='${repo_name}' />
+                                        <input type='hidden' name='deletion-confirmed' value='y' />
+                                    `)
+                                    multi_form.attr('action', '')
+                                    multi_form.submit()
+                                },
+                                "Delete Repo?",
+                                `Are you sure you want to delete the "${repo_name}" repository?`,
+                                'Delete',
+                                true
+                            )
+                        })
+                    }
                 }
 
                 // load content views
@@ -922,30 +933,33 @@
                     })
                     cv_sticky_nav.append(` | <a href="#${table_div[0].id}">${table_div.data('name')}</a>`);
                 })
-                $('#new-content-view-button').click(function() {
-                    corpora.create_content_view(corpus, function(data) {
-                        $('#content-views-body').append(`
-                            <div
-                                id="content-view-table-${data.id}"
-                                class="content-view-table"
-                                data-ct="${data.target_ct}"
-                                data-es-doc-id="${data.es_document_id}"
-                                data-name="${data.name}"
-                                data-id="${data.id}">
-                            </div>
-                        `)
-                        let table = new ContentTable({
-                            container_id: `content-view-table-${data.id}`,
-                            corpora: corpora,
-                            corpus: corpus,
-                            content_type: data.target_ct,
-                            content_view: data.es_document_id,
-                            content_view_id: data.id,
-                            label: data.name
+
+                if (is_admin) {
+                    $('#new-content-view-button').click(function() {
+                        corpora.create_content_view(corpus, function(data) {
+                            $('#content-views-body').append(`
+                                <div
+                                    id="content-view-table-${data.id}"
+                                    class="content-view-table"
+                                    data-ct="${data.target_ct}"
+                                    data-es-doc-id="${data.es_document_id}"
+                                    data-name="${data.name}"
+                                    data-id="${data.id}">
+                                </div>
+                            `)
+                            let table = new ContentTable({
+                                container_id: `content-view-table-${data.id}`,
+                                corpora: corpora,
+                                corpus: corpus,
+                                content_type: data.target_ct,
+                                content_view: data.es_document_id,
+                                content_view_id: data.id,
+                                label: data.name
+                            })
+                            $(`#content-view-table-${data.id}`)[0].scrollIntoView()
                         })
-                        $(`#content-view-table-${data.id}`)[0].scrollIntoView()
                     })
-                })
+                }
 
                 // setup content type manager
                 if (role === 'Editor' || role === 'Admin') {
