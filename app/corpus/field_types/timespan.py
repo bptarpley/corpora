@@ -31,6 +31,31 @@ class Timespan(mongoengine.EmbeddedDocument):
             self.start = parse_date_string(f"{start_year}-{start_month}-{start_day} 00:00")
             self.end = parse_date_string(f"{end_year}-{end_month}-{end_day} 23:59")
 
+    @property
+    def string_representation(self):
+        if self.start:
+            time_format_string = '%Y-%m-%d %H:%M'
+
+            if self.granularity == 'Year':
+                time_format_string = '%Y'
+            elif self.granularity == 'Month':
+                time_format_string = '%B %Y'
+            elif self.granularity == 'Day':
+                time_format_string = '%Y-%m-%d'
+
+            start_date = self.start.strftime(time_format_string)
+            formatted_value = start_date
+
+            if self.end:
+                end_date = self.end.strftime(time_format_string)
+                formatted_value = f'{start_date} to {end_date}'
+
+            if self.uncertain == 'true':
+                formatted_value = f'Around {formatted_value}'
+
+            return formatted_value
+        return ''
+
     def to_dict(self, parent_uri=None):
         start_dt = None
         if self.start:
