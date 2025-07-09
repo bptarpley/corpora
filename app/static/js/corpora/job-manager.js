@@ -11,6 +11,7 @@ class JobManager {
         this.custom_parameter_types = 'custom_parameter_types' in config ? config.custom_parameter_types : {}
         this.scholar = null
         this.jobsites = []
+        this.local_jobsite_id = null
         this.jobs_registered = new Set()
         this.job_modal = $('#job-modal')
         this.report_modal = $('#job-report-modal')
@@ -436,6 +437,20 @@ class JobManager {
                 }
             }
         }
+    }
+
+    get_local_task_id(task_name) {
+        let taskID = null
+
+        this.jobsites.forEach(jobsite => {
+            if (jobsite.id === this.local_jobsite_id) {
+                console.log('found jobsite')
+                if (task_name in jobsite.task_registry) {
+                    taskID = jobsite.task_registry[task_name].id
+                }
+            }
+        })
+        return taskID
     }
 
     view_job_report(job_id) {
