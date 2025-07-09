@@ -619,8 +619,12 @@
                             <h4>Corpus Management</h4>
                         </div>
                         <div class="card-body">
+                            <div id="download-corpus-export-div" class="alert alert-info d-none">
+                                <a href="/export/download/{{ corpus_id }}">Download Exported Corpus Data</a>
+                            </div>
                             <button type="button" class="btn btn-danger" id="corpus-show-delete-confirmation-button">Delete Corpus</button>
                             <button type="button" class="btn btn-secondary ml-1" id="open-access-button">Make Open Access</button>
+                            <button type="button" class="btn btn-secondary ml-1" id="create-export-button">Export Corpus Data</button>
                             <div id="corpus-deletion-confirmation-div" class="alert alert-danger mt-3 d-none">
                                 <strong>Warning:</strong> Should you delete this corpus, all data and linkages comprising it
                                 will be deleted, and it will only be recoverable via backups. Depending on the size of your corpus,
@@ -1257,6 +1261,18 @@
                     let oa_button = $('#open-access-button');
                     if (corpus.open_access) oa_button.html('Revoke Open Access');
                     oa_button.click(function() { $('#open-access-toggle-form').submit(); })
+
+                    // CORPUS EXPORT BUTTON
+                    let createExportButton = $('#create-export-button')
+                    if ('Corpus Export' in corpus.kvp) {
+                        createExportButton.html('Refresh Exported Corpus Data')
+                        $('#download-corpus-export-div').removeClass('d-none')
+                    }
+                    createExportButton.click(function() {
+                        let exportTaskID = job_manager.get_local_task_id('Export Corpus')
+                        console.log(exportTaskID)
+                        job_manager.new_job('Corpus', corpus_id, exportTaskID)
+                    })
                 }
 
 
