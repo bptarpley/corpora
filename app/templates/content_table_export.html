@@ -142,10 +142,10 @@
                                 pagination: { limit: pageSize },
                                 search: {
                                     selector: (cell, rowIndex, cellIndex) => {
-                                        if (cellIndex > 0)
+                                        if (cellIndex > 0 && cell)
                                             if (fields[cellIndex - 1].multiple) {
                                                 return cell.map(c => `${c.label}`).join(' ')
-                                            } else if (fields[cellIndex - 1].type === 'cross_reference') {
+                                            } else if (fields[cellIndex - 1].type === 'cross_reference' && cell.label) {
                                                 return cell.label
                                             }
                                         return cell

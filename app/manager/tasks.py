@@ -27,7 +27,8 @@ from manager.utilities import (
     build_search_params_from_dict,
     order_content_schema,
     process_content_bundle,
-    delimit_content_json
+    delimit_content_json,
+    create_content_csv_rows
 )
 from django.conf import settings
 from django.template.loader import get_template
@@ -377,7 +378,7 @@ REGISTRY = {
         "functions": ['backup_corpus']
     },
     "Export Corpus": {
-        "version": "0.2",
+        "version": "0.4",
         "jobsite_type": "HUEY",
         "track_provenance": True,
         "create_report": True,
@@ -388,7 +389,11 @@ REGISTRY = {
                     "value": True,
                     "type": "boolean",
                     "label": "Export static HTML representations of content?",
-                    "note": "By unchecking this box, only JSON exports of your content will be created."
+                },
+                "export_csv": {
+                    "value": True,
+                    "type": "boolean",
+                    "label": "Export CSV representations of content?",
                 }
             }
         },
@@ -1423,6 +1428,7 @@ def export_corpus(job_id):
     job = Job(job_id)
     corpus = job.corpus
     export_html = job.get_param_value('export_html')
+    export_csv = job.get_param_value('export_csv')
     export_path = f"{corpus.path}/export"
     export_tar_file = f"{corpus.path}/export.tar.gz"
     total_content_count = 0
@@ -1439,62 +1445,86 @@ def export_corpus(job_id):
 
     job.set_status('running', percent_complete=5)
 
-    #######################################
-    ### MAKE JSON DATA DUMPS OF CONTENT ###
-    #######################################
-    job.report("Commencing JSON export...")
+    ###########################################
+    ### MAKE JSON/CSV DATA DUMPS OF CONTENT ###
+    ###########################################
+    if export_csv:
+        job.report("Commencing JSON and CSV export...")
+    else:
+        job.report("Commencing JSON export...")
 
     json_path = f"{export_path}/json"
+    csv_path = f"{export_path}/csv"
     schema = []
 
     os.makedirs(json_path, exist_ok=True)
+    os.makedirs(csv_path, exist_ok=True)
 
     for ct_name in corpus.content_types.keys():
         schema.append(corpus.content_types[ct_name].to_dict())
 
         ct_json_file = f"{json_path}/{ct_name}.json"
+        ct_csv_file = f"{csv_path}/{ct_name}.csv"
         with open(ct_json_file, 'w', encoding='utf-8') as ct_json_out:
-            contents = corpus.get_content(ct_name, all=True)
-            contents = contents.order_by('id')
-            contents = contents.no_cache()
-            contents = contents.batch_size(10)
+            with open(ct_csv_file, 'w', encoding='utf-8') as ct_csv_out:
+                contents = corpus.get_content(ct_name, all=True)
+                contents = contents.order_by('id')
+                contents = contents.no_cache()
+                contents = contents.batch_size(10)
 
-            content_count = contents.count()
-            schema[-1]['total_content'] = content_count
-            total_content_count += content_count
+                content_count = contents.count()
+                schema[-1]['total_content'] = content_count
+                total_content_count += content_count
 
-            chunk_size = 1000
-            chunk_byte_sizes = []
-            chunks = math.ceil(content_count / chunk_size)
+                chunk_size = 1000
+                chunk_byte_sizes = []
+                chunks = math.ceil(content_count / chunk_size)
 
-            for chunk in range(0, chunks):
-                start = chunk * chunk_size
-                end = start + chunk_size
+                for chunk in range(0, chunks):
+                    start = chunk * chunk_size
+                    end = start + chunk_size
 
-                content_slice = contents[start:end]
-                content_json = delimit_content_json(content_slice)
+                    content_slice = contents[start:end]
+                    content_json = delimit_content_json(content_slice)
 
-                if chunks > 1:
-                    if chunk == 0:
-                        content_json = '[' + content_json + ', '
-                    elif chunk == chunks - 1:
-                        content_json = content_json + ']'
+                    if chunks > 1:
+                        if chunk == 0:
+                            content_json = '[' + content_json + ', '
+                        elif chunk == chunks - 1:
+                            content_json = content_json + ']'
+                        else:
+                            content_json = content_json + ', '
                     else:
-                        content_json = content_json + ', '
+                        content_json = '[' + content_json + ']'
+
+                    chunk_byte_sizes.append(len(content_json.encode('utf-8')) / content_slice.count())
+                    ct_json_out.write(content_json)
+
+                    if export_csv:
+                        content_csv = create_content_csv_rows(content_slice)
+
+                        if chunks == 1 or chunk == 0:
+                            header_fields = [field.name for field in corpus.content_types[ct_name].fields]
+                            header_fields = ['id', 'label', 'uri'] + header_fields
+                            header_row = f"{','.join(header_fields)}\n"
+                            content_csv = f"{header_row}{content_csv}"
+
+                        else:
+                            content_csv = f"\n{content_csv}"
+
+                        ct_csv_out.write(content_csv)
+
+                if chunks and chunk_byte_sizes:
+                    schema[-1]['average_byte_size'] = math.ceil(sum(chunk_byte_sizes) / chunks)
                 else:
-                    content_json = '[' + content_json + ']'
-
-                chunk_byte_sizes.append(len(content_json.encode('utf-8')) / content_slice.count())
-                ct_json_out.write(content_json)
-
-            if chunks and chunk_byte_sizes:
-                schema[-1]['average_byte_size'] = math.ceil(sum(chunk_byte_sizes) / chunks)
-            else:
-                schema[-1]['average_byte_size'] = 0
+                    schema[-1]['average_byte_size'] = 0
 
     if schema:
         with open(f"{json_path}/schema.json", 'w', encoding='utf-8') as schema_out:
             json.dump(schema, schema_out, indent=4)
+
+    if not export_csv and os.path.exists(csv_path):
+        shutil.rmtree(csv_path)
 
     percent_complete = 100
     if export_html:
@@ -1695,7 +1725,7 @@ def export_corpus(job_id):
 
         with open(f"{export_path}/index.html", 'w', encoding='utf-8') as index_out:
             index_template = get_template('index_export.html')
-            index_html = index_template.render({'corpus': corpus})
+            index_html = index_template.render({'corpus': corpus, 'export_csv': export_csv})
             index_out.write(index_html)
 
     if os.path.exists(export_path):
@@ -1711,7 +1741,10 @@ def export_corpus(job_id):
 
     corpora_url = 'https://' if settings.USE_SSL else 'http://'
     corpora_url += settings.ALLOWED_HOSTS[0]
-    job.report(f"Export complete! Download here: {corpora_url}/export/download/{corpus.id}/")
+    export_download_url = f"/export/download/{corpus.id}/"
+    corpus.kvp['Corpus Export'] = f"<a href='{export_download_url}'>Download</a>"
+    corpus.save()
+    job.report(f"Export complete! Download here: {corpora_url}{export_download_url}/")
     job.complete(status='complete')
 
 

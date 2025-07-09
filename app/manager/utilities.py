@@ -741,7 +741,10 @@ def convert_content_to_csv_row(content):
                 csv_value = internal_list_delimiter.join(field_values)
 
                 if field.type in ['text', 'large_text', 'keyword', 'html', 'choice', 'geo_point', 'timespan', 'file', 'repo']:
-                    csv_value = f'"{csv_value}"'
+                    if field.type == 'html':
+                        csv_value = csv_value.replace('\n', ' ')
+
+                    csv_value = f'"{csv_value.strip()}"'
 
                 values[field_index] = csv_value
 
