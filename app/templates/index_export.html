@@ -9,6 +9,15 @@
 
         <!-- CSS -->
         <style type="text/css">
+            body { padding: 20px; }
+
+            .content-type-listing {
+                border: solid 1px #e2e2e2;
+                border-radius: 10px;
+                padding: 20px;
+                margin: 10px 0;
+            }
+
             {% if default_css %}
             {{ default_css }}
             {% endif %}
@@ -28,6 +37,11 @@
                 <div class="ct-link-div">
                     <a href="/{{ ct_name }}.html" target="_blank">Browse using a table</a>
                 </div>
+                {% if export_csv %}
+                <div class="ct-link-div">
+                    <a href="/csv/{{ ct_name }}.csv" download="{{ ct_name }}.csv">Download CSV</a>
+                </div>
+                {% endif %}
                 <div class="ct-link-div">
                     <a href="/json/{{ ct_name }}.json" download="{{ ct_name }}.json">Download JSON</a>
                 </div>
