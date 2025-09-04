@@ -331,8 +331,11 @@ STATICFILES_DIRS = [
 STATIC_URL = '/static/'
 STATIC_ROOT = '/static'
 
+# to prevent stale browser caching
+STATIC_NO_CACHE_SUFFIX = 'nocache'
+if os.path.exists('/corpora/.last_started'):
+    STATIC_NO_CACHE_SUFFIX = str(int(os.path.getmtime('/corpora/.last_started')))
 
-# file upload config
 DJANGO_DRF_FILEPOND_UPLOAD_TMP = '/corpora/uploads/temp'
 DJANGO_DRF_FILEPOND_FILE_STORE_PATH = '/corpora/uploads/files'
 DJANGO_DRF_FILEPOND_ALLOW_EXTERNAL_UPLOAD_DIR = True

@@ -1,4 +1,5 @@
 {% load static %}
+{% load extras %}
 <!doctype html>
 <html lang="en">
     <head>
@@ -96,12 +97,12 @@
         <script src="{% static 'js/jquery-3.3.1.min.js' %}"></script>
         <script src="{% static 'js/popper.min.js' %}"></script>
         <script src="{% static 'js/bootstrap.min.js' %}"></script>
-        <script src="{% static 'js/corpora/corpora.js' %}"></script>
-        <script src="{% static 'js/corpora/content-table.js' %}"></script>
-        <script src="{% static 'js/corpora/content-graph.js' %}"></script>
-        <script src="{% static 'js/corpora/content-selector.js' %}"></script>
-        <script src="{% static 'js/corpora/content-group.js' %}"></script>
-        <script src="{% static 'js/corpora/job-manager.js' %}"></script>
+        <script src="{% static 'js/corpora/corpora.js' %}?no-cache={% no_cache_suffix %}"></script>
+        <script src="{% static 'js/corpora/content-table.js' %}?no-cache={% no_cache_suffix %}"></script>
+        <script src="{% static 'js/corpora/content-graph.js' %}?no-cache={% no_cache_suffix %}"></script>
+        <script src="{% static 'js/corpora/content-selector.js' %}?no-cache={% no_cache_suffix %}"></script>
+        <script src="{% static 'js/corpora/content-group.js' %}?no-cache={% no_cache_suffix %}"></script>
+        <script src="{% static 'js/corpora/job-manager.js' %}?no-cache={% no_cache_suffix %}"></script>
         <script src="{% static 'django_eventstream/eventsource.min.js' %}"></script>
         <script src="{% static 'django_eventstream/reconnecting-eventsource.js' %}"></script>
         <script src="{% static 'js/toastify-js.js' %}"></script>

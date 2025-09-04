@@ -94,13 +94,15 @@ class ContentTable {
             }
 
             let edit_action = ``
-            if (sender.mode === 'edit' && (role === 'Editor' || role === 'Admin')) {
+            if (sender.mode === 'edit') {
                 if (sender.content_view) {
-                    edit_action = `
-                        <button role="button" id="ct-${ct.name}${sender.id_suffix}-refresh-view-button" class="btn btn-primary rounded mr-2">Refresh View</button>
-                        <button role="button" id="ct-${ct.name}${sender.id_suffix}-delete-view-button" class="btn btn-primary rounded">Delete View</button>
-                    `
-                } else {
+                    if (sender.corpora.scholar_has_privilege('Editor', role)) {
+                        edit_action = `
+                            <button role="button" id="ct-${ct.name}${sender.id_suffix}-refresh-view-button" class="btn btn-primary rounded mr-2">Refresh View</button>
+                            <button role="button" id="ct-${ct.name}${sender.id_suffix}-delete-view-button" class="btn btn-primary rounded">Delete View</button>
+                        `
+                    }
+                } else if (sender.corpora.scholar_has_privilege('Contributor', role)) {
                     edit_action = `<a role="button" id="ct-${ct.name}${sender.id_suffix}-new-button" href="/corpus/${corpus_id}/${ct.name}/" class="btn btn-primary rounded">Create</a>`
                 }
             }
@@ -144,10 +146,10 @@ class ContentTable {
                                         <option value="explore" selected>Explore</option>
                                         <option value="export">Export (JSON)</option>
                                         <option value="export-csv">Export (CSV)</option>
-                                        ${['Editor', 'Admin'].includes(role) ? '<option value="bulk-edit">Bulk Edit</option>' : ''}
-                                        ${['Editor', 'Admin'].includes(role) ? '<option value="merge">Merge</option>' : ''}
-                                        ${['Editor', 'Admin'].includes(role) ? '<option value="create_view">Create View</option>' : ''}
-                                        ${['Editor', 'Admin'].includes(role) ? '<option value="delete">Delete</option>' : ''}
+                                        ${sender.corpora.scholar_has_privilege('Contributor', role) ? '<option value="bulk-edit">Bulk Edit</option>' : ''}
+                                        ${sender.corpora.scholar_has_privilege('Contributor', role) ? '<option value="merge">Merge</option>' : ''}
+                                        ${sender.corpora.scholar_has_privilege('Editor', role) ? '<option value="create_view">Create View</option>' : ''}
+                                        ${sender.corpora.scholar_has_privilege('Contributor', role) ? '<option value="delete">Delete</option>' : ''}
                                     </select>
                                     <button type="button" class="btn btn-sm btn-secondary" id="ct-${ct.name}${sender.id_suffix}-selection-action-go-button" data-ct="${ct.name}">Go</button>
                                 </div>
@@ -285,7 +287,10 @@ class ContentTable {
                     let ct_name = $(this).data('ct')
                     let action = $(`#ct-${ct.name}${sender.id_suffix}-selection-action-selector`).val()
                     let multi_form = $('#multiselect-form')
-                    $('#multiselect-content-ids').val(sender.selected_content.ids.join(','))
+                    let content_ids_input = $('#multiselect-content-ids')
+
+                    if (sender.selected_content.all) content_ids_input.val('all')
+                    else content_ids_input.val(sender.selected_content.ids.join(','))
 
                     if (action === 'explore') {
                         multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/explore/`)

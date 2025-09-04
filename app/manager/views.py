@@ -14,6 +14,7 @@ from mongoengine.errors import NotUniqueError
 from rest_framework.decorators import api_view
 from rest_framework.authtoken.models import Token
 from django_eventstream import send_event
+from notebook.notebookapp import list_running_servers, NotebookApp
 from types import SimpleNamespace
 from html import unescape
 from time import sleep
@@ -32,6 +33,7 @@ from .utilities import (
     build_search_params_from_dict,
     get_scholar_corpora,
     get_scholar_corpus,
+    scholar_has_privilege,
     get_open_access_corpora,
     parse_uri,
     get_jobsites,
@@ -64,6 +66,9 @@ def corpora(request):
             c.description = c_desc
             c.open_access = True if c_open else False
             c.save()
+
+            if c.open_access:
+                get_open_access_corpora(False)
 
             if include_document_content_types:
                 from plugins.document.content import REGISTRY
@@ -102,7 +107,7 @@ def corpus(request, corpus_id):
 
     if corpus:
         # ADMIN REQUESTS
-        if response['scholar'].is_admin or role == 'Editor':
+        if scholar_has_privilege('Admin', role):
             # get content views
             content_views = ContentView.objects(corpus=corpus, status__in=['populated', 'needs_refresh']).order_by('name')
 
@@ -117,339 +122,361 @@ def corpus(request, corpus_id):
                     content_type='application/json'
                 )
 
-        # HANDLE ADMIN ONLY POST REQUESTS
-        if (response['scholar'].is_admin or role == 'Editor') and request.method == 'POST':
-
-            # HANDLE IMPORT CORPUS FILES FORM SUBMISSION
-            if 'import-corpus-files' in request.POST:
-                import_files = json.loads(request.POST['import-corpus-files'])
-                upload_path = corpus.path + '/files'
-
-                for import_file in import_files:
-                    import_file_path = "{0}{1}".format(upload_path, import_file)
-                    fixed_basename = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', os.path.basename(import_file_path))
-                    import_file_path = "{0}/{1}".format(os.path.dirname(import_file_path), fixed_basename)
-
-                    if os.path.exists(import_file_path):
-                        extension = import_file.split('.')[-1]
-                        corpus.save_file(File.process(
-                            import_file_path,
-                            desc=extension.upper() + " File",
-                            prov_type="User Import",
-                            prov_id=response['scholar']['username'],
-                            primary=False
-                        ))
-
-            # HANDLE CORPUS FILE DELETION
-            if 'corpus-files-to-delete' in request.POST:
-                files_to_delete = _clean(request.POST, 'corpus-files-to-delete')
-                files_dir = "{0}/files".format(corpus.path)
-
-                if corpus.files and os.path.exists(files_dir):
-                    if files_to_delete == 'ALL':
-                        shutil.rmtree(files_dir)
-
-                        run_neo('''
-                            MATCH (c:Corpus {uri: $corpus_uri}) -[rel:hasFile]-> (f:_File)
-                            DETACH DELETE f
-                        ''', {'corpus_uri': corpus.uri})
-
-                        corpus.files = {}
-                        corpus.save()
-
-                        os.makedirs(files_dir)
-                    else:
-                        files_to_delete = files_to_delete.split(',')
-                        for file_to_delete in files_to_delete:
-                            if file_to_delete in corpus.files:
-                                file = corpus.files[file_to_delete]
-                                if os.path.exists(file.path):
-                                    os.remove(file.path)
-                                    file._unlink(corpus.uri)
-                                    del corpus.files[file_to_delete]
-                        corpus.save()
-
-                    response['messages'].append("Corpus file(s) deleted successfully.")
-
-            # HANDLE NEW REPO SUBMISSION
-            if _contains(request.POST, ['new-repo-name', 'new-repo-url', 'new-repo-branch']):
-                repo = GitRepo()
-                repo.name = _clean(request.POST, 'new-repo-name')
-                repo.remote_url = _clean(request.POST, 'new-repo-url')
-                repo.remote_branch = _clean(request.POST, 'new-repo-branch')
-
-                if repo.name and repo.remote_url and repo.remote_branch:
-                    repo.path = "{0}/{1}/{2}".format(corpus.path, 'repos', repo.name)
-
-                    if repo.name not in corpus.repos and not os.path.exists(repo.path):
-                        corpus.repos[repo.name] = repo
-                        corpus.save()
-
-                        clone_job_params = { 'repo_name': repo.name }
-                        if 'new-repo-auth' in request.POST:
-                            repo_user = _clean(request.POST, 'new-repo-user')
-                            repo_pwd = _clean(request.POST, 'new-repo-pwd')
-                            if repo_user and repo_pwd:
-                                clone_job_params['repo_user'] = repo_user
-                                clone_job_params['repo_pwd'] = repo_pwd
-
-                        run_job(corpus.queue_local_job(task_name="Pull Repo", parameters=clone_job_params))
-                        response['messages'].append('Repository "{0}" successfully added to this corpus.'.format(repo.name))
-                    else:
-                        response['errors'].append('A repository with that name already exists in this corpus!')
-                else:
-                    response['errors'].append("Please provide values for the repository's name, URL, and branch.")
+        # POST REQUESTS - only scholars with Contributor or higher privileges
+        if request.method == 'POST' and scholar_has_privilege('Contributor', role):
 
             # HANDLE CONTENT DELETION
-            elif _contains(request.POST, ['deletion-confirmed', 'content-type', 'content-ids']):
+            if _contains(request.POST, ['deletion-confirmed', 'content-type', 'content-ids']):
                 deletion_ct = _clean(request.POST, 'content-type')
                 deletion_ids = _clean(request.POST, 'content-ids')
-                deletion_ids = [d_id for d_id in deletion_ids.split(',') if d_id]
 
                 if deletion_ct in corpus.content_types:
-                    deleted = []
-                    for deletion_id in deletion_ids:
-                        try:
-                            to_delete = corpus.get_content(deletion_ct, deletion_id)
-                            to_delete.delete()
-                            deleted.append(deletion_id)
-                        except:
-                            response['errors'].append("An error occurred when attempting to delete {0} with ID {1}!".format(deletion_ct, deletion_id))
-                            print(traceback.format_exc())
-
-                    if deleted:
-                        response['messages'].append("The following {0} were successfully deleted:<br><br>{1}".format(
-                            corpus.content_types[deletion_ct].plural_name,
-                            '<br>'.join(deleted)
+                    if deletion_ids == 'all':
+                        corpus.delete_content_type(deletion_ct, content_only=True)
+                        response['messages'].append("All instances of {0} were successfully deleted.".format(
+                            corpus.content_types[deletion_ct].plural_name
                         ))
-
-            # HANDLE CONTENT VIEW DELETION
-            elif _contains(request.POST, ['deletion-confirmed', 'content-view']):
-                cv_id = _clean(request.POST, 'content-view')
-                cv = ContentView.objects.get(id=cv_id)
-                cv_name = cv.name
-                cv.set_status('deleting')
-                cv.save()
-
-                run_job(corpus.queue_local_job(task_name="Content View Lifecycle", parameters={
-                    'cv_id': cv_id,
-                    'stage': 'delete',
-                }))
-
-                content_views = ContentView.objects(corpus=corpus, status='populated').order_by('name')
-                response['messages'].append('The "{0}" Content View is being deleted.'.format(cv_name))
-
-            # HANDLE REPO DELETION
-            elif _contains(request.POST, ['deletion-confirmed', 'repo']):
-                repo_name = _clean(request.POST, 'repo')
-                if repo_name in corpus.repos:
-                    corpus.repos[repo_name].clear()
-                    del corpus.repos[repo_name]
-                    corpus.save()
-
-                    response['messages'].append('The "{0}" repository has been deleted.'.format(repo_name))
-                else:
-                    response['errors'].append('An error occurred when attempting to delete the "{0}" repository!'.format(repo_name))
-
-            # HANDLE CONTENT TYPE SCHEMA SUBMISSION
-            elif 'schema' in request.POST:
-                schema = json.loads(request.POST['schema'])
-
-                # reorder schema according to dependencies
-                ordered_schema = order_content_schema(schema)
-
-                # if no problems with dependencies, save the content types in correct order
-                if len(ordered_schema) == len(schema):
-
-                    run_job(corpus.queue_local_job(task_name="Save Content Type Schema", parameters={
-                        'schema': json.dumps(ordered_schema),
-                    }))
-
-                    response['messages'].append('''
-                        The content type schema for this corpus is being saved, and once this task is completed, you'll need to refresh this page to see those changes. Due to the setting/unsetting of fields as being in lists, or the 
-                        changing of label templates, <strong>reindexing of existing content may occur</strong>, which can 
-                        result in the temporary unavailability of content in lists or searches. All existing content will be 
-                        made available once reindexing completes.  
-                    ''')
-                else:
-                    response['errors'].append('''
-                        Unable to save content type schema! There may be an issue with circular dependencies.
-                    ''')
-
-            # HANDLE CONTENT_TYPE/FIELD ACTIONS THAT REQUIRE CONFIRMATION
-            elif _contains(request.POST, [
-                'content_type',
-                'field',
-                'action'
-            ]):
-                action_content_type = _clean(request.POST, 'content_type')
-                action_field_name = _clean(request.POST, 'field')
-                action = _clean(request.POST, 'action')
-
-                if action_content_type in corpus.content_types:
-
-                    # content type actions
-                    if not action_field_name:
-
-                        # delete content type
-                        if action == 'delete':
-                            run_job(corpus.queue_local_job(task_name="Delete Content Type", parameters={
-                                'content_type': action_content_type,
-                            }))
-
-                            response['messages'].append("Content type {0} successfully deleted.".format(action_content_type))
-                            sleep(4)
-
-                        # re-index content type
-                        elif action == 'reindex':
-                            run_job(corpus.queue_local_job(task_name="Adjust Content", parameters={
-                                'content_type': action_content_type,
-                                'reindex': True,
-                                'relabel': False,
-                                'resave': False
-                            }))
-
-                            response['messages'].append(
-                                "Content type {0} re-indexing successfully commenced.".format(action_content_type))
-
-                        # re-label content type
-                        elif action == 'relabel':
-                            run_job(corpus.queue_local_job(task_name="Adjust Content", parameters={
-                                'content_type': action_content_type,
-                                'reindex': True,
-                                'relabel': True,
-                                'relink': True
-                            }))
-
-                            response['messages'].append(
-                                "Content type {0} re-labeling successfully commenced.".format(action_content_type))
-
-                    # field actions
                     else:
-                        if action == 'delete':
-                            run_job(corpus.queue_local_job(task_name="Delete Content Type Field", parameters={
-                                'content_type': action_content_type,
-                                'field_name': action_field_name
-                            }))
+                        deletion_ids = [d_id for d_id in deletion_ids.split(',') if d_id]
+                        deleted = []
+                        for deletion_id in deletion_ids:
+                            try:
+                                to_delete = corpus.get_content(deletion_ct, deletion_id)
+                                to_delete.delete()
+                                deleted.append(deletion_id)
+                            except:
+                                response['errors'].append(
+                                    "An error occurred when attempting to delete {0} with ID {1}!".format(deletion_ct,
+                                                                                                          deletion_id))
+                                print(traceback.format_exc())
 
-                            response['messages'].append("Field {0} successfully deleted from {1}.".format(
-                                action_field_name,
-                                action_content_type
+                        if deleted:
+                            response['messages'].append("The following {0} were successfully deleted:<br><br>{1}".format(
+                                corpus.content_types[deletion_ct].plural_name,
+                                '<br>'.join(deleted)
                             ))
 
-            # HANDLE NOTEBOOK LAUNCH
-            elif 'launch-notebook' in request.POST:
-                if corpus.path:
-                    running_notebooks = subprocess.check_output("jupyter notebook list".split()).decode('utf-8')
-                    if '0.0.0.0:9999' in running_notebooks:
-                        subprocess.Popen("jupyter notebook stop 9999".split())
-                        sleep(2)
+            # EDITOR OR HIGHER POST REQUESTS
+            if scholar_has_privilege('Editor', role):
 
-                    notebook_path = "{0}/corpus_notebook.ipynb".format(corpus.path)
-                    jupyter_token = "{0}{1}".format(corpus_id, ObjectId())
-                    notebook_url = "/notebook/notebooks/corpus_notebook.ipynb?token={0}".format(jupyter_token)
+                # HANDLE IMPORT CORPUS FILES FORM SUBMISSION
+                if 'import-corpus-files' in request.POST:
+                    import_files = json.loads(request.POST['import-corpus-files'])
+                    upload_path = corpus.path + '/files'
 
-                    if not os.path.exists(notebook_path):
-                        notebook_contents = {
-                            "cells": [
-                                {
-                                    "cell_type": "code",
-                                    "execution_count": None,
-                                    "metadata": {
-                                        "scrolled": True
+                    for import_file in import_files:
+                        import_file_path = "{0}{1}".format(upload_path, import_file)
+                        fixed_basename = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', os.path.basename(import_file_path))
+                        import_file_path = "{0}/{1}".format(os.path.dirname(import_file_path), fixed_basename)
+
+                        if os.path.exists(import_file_path):
+                            extension = import_file.split('.')[-1]
+                            corpus.save_file(File.process(
+                                import_file_path,
+                                desc=extension.upper() + " File",
+                                prov_type="User Import",
+                                prov_id=response['scholar']['username'],
+                                primary=False
+                            ))
+
+                # HANDLE CORPUS FILE DELETION - only scholars with Admin or higher
+                elif 'corpus-files-to-delete' in request.POST and scholar_has_privilege('Admin', role):
+                    files_to_delete = _clean(request.POST, 'corpus-files-to-delete')
+                    files_dir = "{0}/files".format(corpus.path)
+
+                    if corpus.files and os.path.exists(files_dir):
+                        if files_to_delete == 'ALL':
+                            shutil.rmtree(files_dir)
+
+                            run_neo('''
+                                MATCH (c:Corpus {uri: $corpus_uri}) -[rel:hasFile]-> (f:_File)
+                                DETACH DELETE f
+                            ''', {'corpus_uri': corpus.uri})
+
+                            corpus.files = {}
+                            corpus.save()
+
+                            os.makedirs(files_dir)
+                        else:
+                            files_to_delete = files_to_delete.split(',')
+                            for file_to_delete in files_to_delete:
+                                if file_to_delete in corpus.files:
+                                    file = corpus.files[file_to_delete]
+                                    if os.path.exists(file.path):
+                                        os.remove(file.path)
+                                        file._unlink(corpus.uri)
+                                        del corpus.files[file_to_delete]
+                            corpus.save()
+
+                        response['messages'].append("Corpus file(s) deleted successfully.")
+
+                # HANDLE REPO CREATION
+                elif _contains(request.POST, ['new-repo-name', 'new-repo-url', 'new-repo-branch']):
+                    repo = GitRepo()
+                    repo.name = _clean(request.POST, 'new-repo-name')
+                    repo.remote_url = _clean(request.POST, 'new-repo-url')
+                    repo.remote_branch = _clean(request.POST, 'new-repo-branch')
+
+                    if repo.name and repo.remote_url and repo.remote_branch:
+                        repo.path = "{0}/{1}/{2}".format(corpus.path, 'repos', repo.name)
+
+                        if repo.name not in corpus.repos and not os.path.exists(repo.path):
+                            corpus.repos[repo.name] = repo
+                            corpus.save()
+
+                            clone_job_params = { 'repo_name': repo.name }
+                            if 'new-repo-auth' in request.POST:
+                                repo_user = _clean(request.POST, 'new-repo-user')
+                                repo_pwd = _clean(request.POST, 'new-repo-pwd')
+                                if repo_user and repo_pwd:
+                                    clone_job_params['repo_user'] = repo_user
+                                    clone_job_params['repo_pwd'] = repo_pwd
+
+                            run_job(corpus.queue_local_job(task_name="Pull Repo", parameters=clone_job_params))
+                            response['messages'].append('Repository "{0}" successfully added to this corpus.'.format(repo.name))
+                        else:
+                            response['errors'].append('A repository with that name already exists in this corpus!')
+                    else:
+                        response['errors'].append("Please provide values for the repository's name, URL, and branch.")
+
+                # HANDLE REPO DELETION
+                elif _contains(request.POST, ['deletion-confirmed', 'repo']):
+                    repo_name = _clean(request.POST, 'repo')
+                    if repo_name in corpus.repos:
+                        corpus.repos[repo_name].clear()
+                        del corpus.repos[repo_name]
+                        corpus.save()
+
+                        response['messages'].append('The "{0}" repository has been deleted.'.format(repo_name))
+                    else:
+                        response['errors'].append(
+                            'An error occurred when attempting to delete the "{0}" repository!'.format(
+                                repo_name))
+
+                # HANDLE CONTENT VIEW DELETION
+                elif _contains(request.POST, ['deletion-confirmed', 'content-view']):
+                    cv_id = _clean(request.POST, 'content-view')
+                    cv = ContentView.objects.get(id=cv_id)
+                    cv_name = cv.name
+                    cv.set_status('deleting')
+                    cv.save()
+
+                    run_job(corpus.queue_local_job(task_name="Content View Lifecycle", parameters={
+                        'cv_id': cv_id,
+                        'stage': 'delete',
+                    }))
+
+                    content_views = ContentView.objects(corpus=corpus, status='populated').order_by('name')
+                    response['messages'].append('The "{0}" Content View is being deleted.'.format(cv_name))
+
+                # HANDLE CONTENT TYPE SCHEMA SUBMISSION
+                elif 'schema' in request.POST:
+                    schema = json.loads(request.POST['schema'])
+
+                    # reorder schema according to dependencies
+                    ordered_schema = order_content_schema(schema)
+
+                    # if no problems with dependencies, save the content types in correct order
+                    if len(ordered_schema) == len(schema):
+
+                        run_job(corpus.queue_local_job(task_name="Save Content Type Schema", parameters={
+                            'schema': json.dumps(ordered_schema),
+                        }))
+
+                        response['messages'].append('''
+                            The content type schema for this corpus is being saved, and once this task is completed, you'll need to refresh this page to see those changes. Due to the setting/unsetting of fields as being in lists, or the 
+                            changing of label templates, <strong>reindexing of existing content may occur</strong>, which can 
+                            result in the temporary unavailability of content in lists or searches. All existing content will be 
+                            made available once reindexing completes.  
+                        ''')
+                    else:
+                        response['errors'].append('''
+                            Unable to save content type schema! There may be an issue with circular dependencies.
+                        ''')
+
+                # HANDLE CONTENT_TYPE/FIELD ACTIONS THAT REQUIRE CONFIRMATION
+                elif _contains(request.POST, [
+                    'content_type',
+                    'field',
+                    'action'
+                ]):
+                    action_content_type = _clean(request.POST, 'content_type')
+                    action_field_name = _clean(request.POST, 'field')
+                    action = _clean(request.POST, 'action')
+
+                    if action_content_type in corpus.content_types:
+
+                        # content type actions
+                        if not action_field_name:
+
+                            # delete content type
+                            if action == 'delete':
+                                run_job(corpus.queue_local_job(task_name="Delete Content Type", parameters={
+                                    'content_type': action_content_type,
+                                }))
+
+                                response['messages'].append("Content type {0} successfully deleted.".format(action_content_type))
+                                sleep(4)
+
+                            # re-index content type
+                            elif action == 'reindex':
+                                run_job(corpus.queue_local_job(task_name="Adjust Content", parameters={
+                                    'content_type': action_content_type,
+                                    'reindex': True,
+                                    'relabel': False,
+                                    'resave': False
+                                }))
+
+                                response['messages'].append(
+                                    "Content type {0} re-indexing successfully commenced.".format(action_content_type))
+
+                            # re-label content type
+                            elif action == 'relabel':
+                                run_job(corpus.queue_local_job(task_name="Adjust Content", parameters={
+                                    'content_type': action_content_type,
+                                    'reindex': True,
+                                    'relabel': True,
+                                    'relink': True
+                                }))
+
+                                response['messages'].append(
+                                    "Content type {0} re-labeling successfully commenced.".format(action_content_type))
+
+                        # field actions
+                        else:
+                            if action == 'delete':
+                                run_job(corpus.queue_local_job(task_name="Delete Content Type Field", parameters={
+                                    'content_type': action_content_type,
+                                    'field_name': action_field_name
+                                }))
+
+                                response['messages'].append("Field {0} successfully deleted from {1}.".format(
+                                    action_field_name,
+                                    action_content_type
+                                ))
+
+            # CORPORA ADMIN POST REQUESTS
+            if scholar_has_privilege('Admin', role):
+
+                # LAUNCH CORPUS NOTEBOOK
+                if 'launch-notebook' in request.POST:
+                    if corpus.path:
+                        # running_notebooks = subprocess.check_output("jupyter notebook list", shell=True).decode('utf-8')
+                        running_notebooks = list(list_running_servers())
+                        if running_notebooks and '0.0.0.0:9999' in running_notebooks[0]['url']:
+                            subprocess.Popen("/usr/local/bin/jupyter notebook stop 9999".split())
+                            sleep(2)
+
+                        notebook_path = "{0}/corpus_notebook.ipynb".format(corpus.path)
+                        jupyter_token = "{0}{1}".format(corpus_id, ObjectId())
+                        notebook_url = "/notebook/notebooks/corpus_notebook.ipynb?token={0}".format(jupyter_token)
+
+                        if not os.path.exists(notebook_path):
+                            notebook_contents = {
+                                "cells": [
+                                    {
+                                        "cell_type": "code",
+                                        "execution_count": None,
+                                        "metadata": {
+                                            "scrolled": True
+                                        },
+                                        "outputs": [],
+                                        "source": [
+                                            "import os, sys\n",
+                                            "sys.path.insert(0, '/apps/corpora')\n",
+                                            "os.environ.setdefault('DJANGO_SETTINGS_MODULE', \"settings.py\")\n",
+                                            "import django\n",
+                                            "django.setup()\n",
+                                            "from corpus import *\n",
+                                            "my_corpus = get_corpus('{0}')\n".format(corpus_id),
+                                            "\n",
+                                            "# ~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~\n",
+                                            "# ~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~\n",
+                                            "# \n",
+                                            "# WELCOME to Corpora's experimental iPython notebook shell!\n",
+                                            "# \n",
+                                            "# This cell must be executed in order to use Corpora's built-in\n",
+                                            "# \"corpus\" module, which allows you to interact programmatically\n",
+                                            "# with the content in your corpus.\n",
+                                            "# \n",
+                                            "# For your convenience, a variable named 'my_corpus' will be\n",
+                                            "# instantiated by this cell, allowing you to dive right in :)\n",
+                                            "# \n",
+                                            "# NOTE: With great power comes great responsibility. While Corpora\n",
+                                            "# itself runs under a non-privileged user, direct access to the \n",
+                                            "# corpus module via Python shell currently grants you write access\n",
+                                            "# to every corpus in Corpora. As such, access to this notebook\n",
+                                            "# functionality should only given to the most trusted users!\n",
+                                            "# \n",
+                                            "# ~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~\n",
+                                            "# ~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~\n",
+                                        ]
+                                    }
+                                ],
+                                "metadata": {
+                                    "kernelspec": {
+                                        "display_name": "Corpora",
+                                        "language": "python",
+                                        "name": "corpora"
                                     },
-                                    "outputs": [],
-                                    "source": [
-                                        "import os, sys\n",
-                                        "sys.path.insert(0, '/apps/corpora')\n",
-                                        "os.environ.setdefault('DJANGO_SETTINGS_MODULE', \"settings.py\")\n",
-                                        "import django\n",
-                                        "django.setup()\n",
-                                        "from corpus import *\n",
-                                        "my_corpus = get_corpus('{0}')\n".format(corpus_id),
-                                        "\n",
-                                        "# ~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~\n",
-                                        "# ~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~\n",
-                                        "# \n",
-                                        "# WELCOME to Corpora's experimental iPython notebook shell!\n",
-                                        "# \n",
-                                        "# This cell must be executed in order to use Corpora's built-in\n",
-                                        "# \"corpus\" module, which allows you to interact programmatically\n",
-                                        "# with the content in your corpus.\n",
-                                        "# \n",
-                                        "# For your convenience, a variable named 'my_corpus' will be\n",
-                                        "# instantiated by this cell, allowing you to dive right in :)\n",
-                                        "# \n",
-                                        "# NOTE: With great power comes great responsibility. While Corpora\n",
-                                        "# itself runs under a non-privileged user, direct access to the \n",
-                                        "# corpus module via Python shell currently grants you write access\n",
-                                        "# to every corpus in Corpora. As such, access to this notebook\n",
-                                        "# functionality should only given to the most trusted users!\n",
-                                        "# \n",
-                                        "# ~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~\n",
-                                        "# ~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~@~~~\n",
-                                    ]
-                                }
-                            ],
-                            "metadata": {
-                                "kernelspec": {
-                                    "display_name": "Corpora",
-                                    "language": "python",
-                                    "name": "corpora"
+                                    "language_info": {
+                                        "codemirror_mode": {
+                                            "name": "ipython",
+                                            "version": 3
+                                        },
+                                        "file_extension": ".py",
+                                        "mimetype": "text/x-python",
+                                        "name": "python",
+                                        "nbconvert_exporter": "python",
+                                        "pygments_lexer": "ipython3",
+                                        "version": "3.7.5"
+                                    }
                                 },
-                                "language_info": {
-                                    "codemirror_mode": {
-                                        "name": "ipython",
-                                        "version": 3
-                                    },
-                                    "file_extension": ".py",
-                                    "mimetype": "text/x-python",
-                                    "name": "python",
-                                    "nbconvert_exporter": "python",
-                                    "pygments_lexer": "ipython3",
-                                    "version": "3.7.5"
-                                }
-                            },
-                            "nbformat": 4,
-                            "nbformat_minor": 2
-                        }
+                                "nbformat": 4,
+                                "nbformat_minor": 2
+                            }
 
-                        with open(notebook_path, 'w') as notebook_out:
-                            json.dump(notebook_contents, notebook_out, indent=2)
+                            with open(notebook_path, 'w') as notebook_out:
+                                json.dump(notebook_contents, notebook_out, indent=2)
 
-                    pid = subprocess.Popen([
-                        'jupyter', 'notebook',
-                        notebook_path,
-                        '--ip', '0.0.0.0',
-                        '--port', '9999',
-                        '--no-browser',
-                        '--NotebookApp.base_url="/notebook/"',
-                        '--NotebookApp.token="{0}"'.format(jupyter_token),
-                        '--NotebookApp.notebook_dir="/corpora/{0}"'.format(corpus_id),
-                        '--NotebookApp.allow_origin="*"'
-                    ])
+                        pid = subprocess.Popen([
+                            #'/usr/local/bin/jupyter', 'notebook',
+                            'jupyter', 'notebook',
+                            notebook_path,
+                            '--ip', '0.0.0.0',
+                            '--port', '9999',
+                            '--no-browser',
+                            '--NotebookApp.base_url="/notebook/"',
+                            '--NotebookApp.token="{0}"'.format(jupyter_token),
+                            '--NotebookApp.notebook_dir="/corpora/{0}"'.format(corpus_id),
+                            '--NotebookApp.shutdown_no_activity_timeout=3600',
+                            '--NotebookApp.allow_origin="*"'
+                        ])
 
-                    response['messages'].append("Notebook server successfully launched! Access your notebook <a href='{0}' target='_blank'>here</a>.".format(notebook_url))
+                        #notebook = NotebookApp()
+                        #notebook.initialize()
 
-            # HANDLE CORPUS DELETION
-            elif 'corpus-deletion-name' in request.POST:
-                if corpus.name == request.POST['corpus-deletion-name']:
-                    run_job(corpus.queue_local_job(task_name="Delete Corpus", parameters={}))
+                        response['messages'].append("Notebook server successfully launched! Access your notebook <a href='{0}' target='_blank'>here</a>.".format(notebook_url))
 
-                    return redirect("/?msg=Corpus {0} is being deleted.".format(
-                        corpus.name
-                    ))
+                # HANDLE CORPUS DELETION
+                elif 'corpus-deletion-name' in request.POST:
+                    if corpus.name == request.POST['corpus-deletion-name']:
+                        run_job(corpus.queue_local_job(task_name="Delete Corpus", parameters={}))
 
-            # HANDLE OPEN ACCESS TOGGLE
-            elif 'corpus-open-access-toggle' in request.POST:
-                if corpus.open_access:
-                    corpus.open_access = False
-                    response['messages'].append('This corpus is no longer open access.')
-                else:
-                    corpus.open_access = True
-                    response['messages'].append('This corpus is now open access.')
-                get_open_access_corpora(False)  # to refresh redis cache
-                corpus.save()
+                        return redirect("/?msg=Corpus {0} is being deleted.".format(
+                            corpus.name
+                        ))
+
+                # HANDLE OPEN ACCESS TOGGLE
+                elif 'corpus-open-access-toggle' in request.POST:
+                    if corpus.open_access:
+                        corpus.open_access = False
+                        response['messages'].append('This corpus is no longer open access.')
+                    else:
+                        corpus.open_access = True
+                        response['messages'].append('This corpus is now open access.')
+                    get_open_access_corpora(False)  # to refresh redis cache
+                    corpus.save()
 
     return render(
         request,
@@ -481,7 +508,7 @@ def edit_content(request, corpus_id, content_type, content_id=None):
     javascript_functions = None
     css_styles = None
 
-    if (context['scholar'].is_admin or role == 'Editor') and corpus and content_type in corpus.content_types:
+    if scholar_has_privilege('Contributor', role) and corpus and content_type in corpus.content_types:
         inclusions, javascript_functions, css_styles = corpus.content_types[content_type].get_render_requirements('edit')
 
         if content_id:
@@ -731,7 +758,7 @@ def merge_content(request, corpus_id, content_type):
     merge_ids = request.POST.get('content-ids', '')
     merge_ids = [merge_id for merge_id in merge_ids.split(',') if merge_id]
 
-    if (merge_ids and context['scholar'].is_admin or role == 'Editor') and corpus and content_type in corpus.content_types:
+    if scholar_has_privilege('Contributor', role) and corpus and content_type in corpus.content_types:
         merge_contents = corpus.get_content(content_type, {'id__in': merge_ids})
 
         target_id = request.POST.get('target-id', '')
@@ -1188,7 +1215,7 @@ def scholars(request):
                 new_perm_corpus_name = request.POST['corpus-name']
                 new_perm_corpus_role = request.POST['corpus-permission']
 
-                if new_perm_corpus_name and new_perm_corpus_role in ['Viewer', 'Editor']:
+                if new_perm_corpus_name and new_perm_corpus_role in ['Viewer', 'Contributor', 'Editor']:
                     try:
                         corpus = Corpus.objects(name=new_perm_corpus_name)[0]
                         if str(corpus.id) not in target_scholar.available_corpora:
@@ -1470,7 +1497,7 @@ def get_corpus_file(request, corpus_id):
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
     path = request.GET.get('path', None)
 
-    if corpus and path and (context['scholar'].is_admin or role == 'Editor'):
+    if corpus:
         file_path = "{0}/files/{1}".format(corpus.path, path)
         path_exists = False
         if os.path.exists(file_path):
@@ -1753,7 +1780,7 @@ def api_content_view(request, corpus_id, content_view_id=None):
             cv = ContentView.objects.get(id=content_view_id)
             cv_dict = cv.to_dict()
 
-        if request.method == 'POST' and (context['scholar'].is_admin or role == 'Editor'):
+        if request.method == 'POST' and scholar_has_privilege('Editor', role):
             if _contains(request.POST, ['cv-name', 'cv-target-ct', 'cv-search-json', 'cv-patass']):
                 cv_search_params = json.loads(unescape(_clean(request.POST, 'cv-search-json')))
                 cv_search_params = build_search_params_from_dict(cv_search_params)
@@ -2307,7 +2334,7 @@ def api_submit_jobs(request, corpus_id):
     context = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
 
-    if corpus and role in ['Admin', 'Editor']:
+    if corpus and scholar_has_privilege('Editor', role):
         if 'job-submissions' in request.POST:
             job_submissions = json.loads(request.POST['job-submissions'])
             for job_submission in job_submissions:

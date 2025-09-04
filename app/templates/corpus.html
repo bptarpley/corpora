@@ -379,13 +379,15 @@
             <li class="nav-item" role="presentation">
                 <a class="nav-link active" id="content-tab" data-toggle="tab" href="#content-tab-contents" role="tab" aria-controls="content-tab-contents" aria-selected="true">Content</a>
             </li>
+            {% if role|has_privilege:"Contributor" %}
             <li class="nav-item" role="presentation">
                 <a class="nav-link" id="views-tab" data-toggle="tab" href="#views-tab-contents" role="tab" aria-controls="views-tab-contents" aria-selected="false">Views</a>
             </li>
+            {% endif %}
             <li class="nav-item" role="presentation">
                 <a class="nav-link" id="metadata-tab" data-toggle="tab" href="#metadata-tab-contents" role="tab" aria-controls="metadata-tab-contents" aria-selected="false">Metadata</a>
             </li>
-            {% if response.scholar.is_admin or role == 'Editor' %}
+            {% if role|has_privilege:"Editor" %}
             <li class="nav-item" role="presentation">
                 <a class="nav-link" id="admin-tab" data-toggle="tab" href="#admin-tab-contents" role="tab" aria-controls="admin-tab-contents" aria-selected="false">Admin</a>
             </li>
@@ -398,10 +400,10 @@
                 <!-- sticky nav -->
                 <div class="sticky-nav py-2">
                     <div class="alert alert-info m-0 row">
-                        <div id="content-types-nav" class="{% if response.scholar.is_admin or role == 'Editor' %}col-md-11{% else %}col-sm-12{% endif %}">
+                        <div id="content-types-nav" class="{% if role|has_privilege:'Editor' %}col-md-11{% else %}col-sm-12{% endif %}">
                             <a href="#breadcrumb"><i class="fas fa-sort-up"></i> Top</a>
                         </div>
-                        {% if response.scholar.is_admin or role == 'Editor' %}
+                        {% if role|has_privilege:"Editor" %}
                         <div class="col-md-1">
                             <button type="button" id="new-ct-group-button" class="btn btn-primary btn-sm rounded" data-toggle="modal" data-target="#new-ct-group-modal">New Group</button>
                         </div>
@@ -442,7 +444,7 @@
                             <div class="card-header">
                                 <div class="d-flex w-100 justify-content-between align-items-center">
                                     <h4>Content Views</h4>
-                                    {% if response.scholar.is_admin or role == 'Editor' %}
+                                    {% if role|has_privilege:"Editor" %}
                                         <button id="new-content-view-button" class="btn btn-primary rounded" type="button">Create</button>
                                     {% else %}
                                         <span>&nbsp;</span>
@@ -506,7 +508,7 @@
                     <div class="card-header">
                         <div class="d-flex w-100 justify-content-between align-items-center">
                             <h4>Corpus Files</h4>
-                            {% if response.scholar.is_admin or role == 'Editor' %}
+                            {% if role|has_privilege:"Editor" %}
                                 <button id="import-corpus-files-button" class="btn btn-primary rounded" type="button">Import</button>
                             {% else %}
                                 <span>&nbsp;</span>
@@ -518,7 +520,7 @@
                             There are currently no files for this corpus.
                         </div>
                     </div>
-                    {% if response.scholar.is_admin or role == 'Editor' %}
+                    {% if role|has_privilege:"Editor" %}
                     <div id="corpus-files-footer" class="card-footer justify-content-between d-none">
                         <button type="button" class="btn btn-sm btn-danger" id="corpus-files-delete-button" disabled>Delete Selected</button>
                         <form id="corpus-files-delete-form" method="post">
@@ -534,7 +536,7 @@
                     <div class="card-header">
                         <div class="d-flex w-100 justify-content-between align-items-center">
                             <h4>Corpus Repos</h4>
-                            {% if response.scholar.is_admin or role == 'Editor' %}
+                            {% if role|has_privilege:"Editor" %}
                                 <button id="add-corpus-repo-button" class="btn btn-primary rounded" type="button">Add</button>
                             {% else %}
                                 <span>&nbsp;</span>
@@ -551,7 +553,7 @@
             <div class="tab-pane fade" id="admin-tab-contents" role="tabpanel" aria-labelledby="admin-tab">
                 <!-- ADMIN TAB CONTENTS -->
 
-                {% if response.scholar.is_admin or role == 'Editor' %}
+                {% if role|has_privilege:"Editor" %}
                     <!-- JOBS -->
                     <div class="card mb-3">
                         <div class="card-header">
@@ -559,11 +561,13 @@
                                 <h4>Running Jobs</h4>
                                 <span>
                                     <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
+                                    {% if role|has_privilege:"Admin" %}
                                     <button id="launch-notebook-button" class="btn btn-primary rounded ml-1" type="button">Launch Notebook</button>
                                     <form id="launch-notebook-form" method="post">
                                         {% csrf_token %}
                                         <input type="hidden" name="launch-notebook" value="y" />
                                     </form>
+                                    {% endif %}
                                 </span>
                             </div>
                         </div>
@@ -613,7 +617,7 @@
                     </div>
                 {% endif %}
 
-                {% if response.scholar.is_admin %}
+                {% if role|has_privilege:"Editor" %}
                     <div id="corpus-manager-div" class="card mt-4">
                         <div class="card-header">
                             <h4>Corpus Management</h4>
@@ -622,9 +626,12 @@
                             <div id="download-corpus-export-div" class="alert alert-info d-none">
                                 <a href="/export/download/{{ corpus_id }}">Download Exported Corpus Data</a>
                             </div>
+                            {% if response.scholar.is_admin %}
                             <button type="button" class="btn btn-danger" id="corpus-show-delete-confirmation-button">Delete Corpus</button>
                             <button type="button" class="btn btn-secondary ml-1" id="open-access-button">Make Open Access</button>
+                            {% endif %}
                             <button type="button" class="btn btn-secondary ml-1" id="create-export-button">Export Corpus Data</button>
+                            {% if response.scholar.is_admin %}
                             <div id="corpus-deletion-confirmation-div" class="alert alert-danger mt-3 d-none">
                                 <strong>Warning:</strong> Should you delete this corpus, all data and linkages comprising it
                                 will be deleted, and it will only be recoverable via backups. Depending on the size of your corpus,
@@ -645,6 +652,7 @@
                                 {% csrf_token %}
                                 <input type="hidden" name="corpus-open-access-toggle" value="y" />
                             </form>
+                            {% endif %}
                         </div>
                     </div>
                 {% endif %}
@@ -966,7 +974,7 @@
                 }
 
                 // setup content type manager
-                if (role === 'Editor' || role === 'Admin') {
+                if (corpora.scholar_has_privilege('Editor', role)) {
                     // setup the editor for importing a content type schema
                     import_editor = ace.edit("import-editor")
                     import_editor.setTheme("ace/theme/monokai")
@@ -1277,7 +1285,7 @@
 
 
                 // SETUP JOBS
-                if (role === 'Editor' || role === 'Admin') {
+                if (corpora.scholar_has_privilege('Editor', role)) {
                     job_manager = new JobManager({
                         jobs_container: 'jobs-container',
                         provenance_container: 'provenance-div',
@@ -1328,7 +1336,7 @@
                         }
                     })
 
-                    if (role === 'Editor' || role === 'Admin') {
+                    if (corpora.scholar_has_privilege('Editor', role)) {
                         manage_content_type(ct_name);
                     }
                 }
@@ -1385,7 +1393,7 @@
                 });
 
                 // LAUNCH NOTEBOOK EVENT
-                if (role === 'Editor' || role === 'Admin') {
+                if (corpora.scholar_has_privilege('Admin', role)) {
                     $('#launch-notebook-button').click(function () {
                         $('#launch-notebook-form').submit();
                     })
