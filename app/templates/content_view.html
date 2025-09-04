@@ -150,7 +150,7 @@
 
                 if (!popup) {
 
-                    if (['Admin', 'Editor'].includes(role)) {
+                    if (corpora.scholar_has_privilege('Contributor', role)) {
                         let page_title = document.getElementById('page-title')
                         page_title.innerHTML += `
                           <a href="${content_uri}/edit/">

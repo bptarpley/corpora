@@ -60,6 +60,12 @@ def get_scholar_corpus(corpus_id, scholar, only=[]):
     return corpus, role
 
 
+def scholar_has_privilege(privilege, role):
+    return role == privilege or role == 'Admin' or \
+        (role == 'Editor' and privilege in ['Editor', 'Contributor', 'Viewer']) or \
+        (role == 'Contributor' and privilege in ['Contributor', 'Viewer'])
+
+
 def parse_uri(uri):
     uri_dict = {}
     uri_parts = [part for part in uri.split('/') if part]

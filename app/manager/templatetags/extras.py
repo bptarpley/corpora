@@ -1,8 +1,18 @@
 import json
 from django import template
 from corpus import get_field_value_from_path
+from manager.utilities import scholar_has_privilege
+from django.conf import settings
+
 
 register = template.Library()
+
+
+@register.filter(name='has_privilege')
+def has_privilege(role, privilege):
+    print(privilege)
+    print(role)
+    return scholar_has_privilege(privilege, role)
 
 
 @register.filter(name='jsonify')
@@ -46,3 +56,8 @@ def to_int(obj):
 @register.simple_tag
 def call_method(obj, method, param):
     return getattr(obj, method)(param)
+
+
+@register.simple_tag
+def no_cache_suffix():
+    return settings.STATIC_NO_CACHE_SUFFIX

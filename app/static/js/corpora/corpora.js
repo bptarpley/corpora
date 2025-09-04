@@ -88,6 +88,13 @@ class Corpora {
         )
     }
 
+    scholar_has_privilege(privilege, role) {
+        return role === privilege ||
+            role === 'Admin' ||
+            (role === 'Editor' && ['Editor', 'Contributor', 'Viewer'].includes(privilege)) ||
+            (role === 'Contributor' && ['Contributor', 'Viewer'].includes(privilege))
+    }
+
     get_corpora(search={}, callback) {
         this.make_request(
             "/api/corpus/",
@@ -771,7 +778,7 @@ class Corpora {
         else if (granularity === 'Month')
             return date.toLocaleString('default', { month: 'long', year: 'numeric' })
         else if (granularity === 'Time')
-            return this.time_string(timestamp, false, false, adjust_for_timezone)
+            return this.time_string(timestamp, from_mongo, false, adjust_for_timezone)
     }
 
     timespan_string(timespan) {
