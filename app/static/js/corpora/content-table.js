@@ -94,13 +94,15 @@ class ContentTable {
             }
 
             let edit_action = ``
-            if (sender.mode === 'edit' && (role === 'Editor' || role === 'Admin')) {
+            if (sender.mode === 'edit') {
                 if (sender.content_view) {
-                    edit_action = `
-                        <button role="button" id="ct-${ct.name}${sender.id_suffix}-refresh-view-button" class="btn btn-primary rounded mr-2">Refresh View</button>
-                        <button role="button" id="ct-${ct.name}${sender.id_suffix}-delete-view-button" class="btn btn-primary rounded">Delete View</button>
-                    `
-                } else {
+                    if (sender.corpora.scholar_has_privilege('Editor', role)) {
+                        edit_action = `
+                            <button role="button" id="ct-${ct.name}${sender.id_suffix}-refresh-view-button" class="btn btn-primary rounded mr-2">Refresh View</button>
+                            <button role="button" id="ct-${ct.name}${sender.id_suffix}-delete-view-button" class="btn btn-primary rounded">Delete View</button>
+                        `
+                    }
+                } else if (sender.corpora.scholar_has_privilege('Contributor', role)) {
                     edit_action = `<a role="button" id="ct-${ct.name}${sender.id_suffix}-new-button" href="/corpus/${corpus_id}/${ct.name}/" class="btn btn-primary rounded">Create</a>`
                 }
             }

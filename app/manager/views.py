@@ -440,7 +440,8 @@ def corpus(request, corpus_id):
                                 json.dump(notebook_contents, notebook_out, indent=2)
 
                         pid = subprocess.Popen([
-                            '/usr/local/bin/jupyter', 'notebook',
+                            #'/usr/local/bin/jupyter', 'notebook',
+                            'jupyter', 'notebook',
                             notebook_path,
                             '--ip', '0.0.0.0',
                             '--port', '9999',
