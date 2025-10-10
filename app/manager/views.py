@@ -364,7 +364,7 @@ def corpus(request, corpus_id):
                         # running_notebooks = subprocess.check_output("jupyter notebook list", shell=True).decode('utf-8')
                         running_notebooks = list(list_running_servers())
                         if running_notebooks and '0.0.0.0:9999' in running_notebooks[0]['url']:
-                            subprocess.Popen("/usr/local/bin/jupyter notebook stop 9999".split())
+                            subprocess.Popen("jupyter notebook stop 9999".split())
                             sleep(2)
 
                         notebook_path = "{0}/corpus_notebook.ipynb".format(corpus.path)
