@@ -744,11 +744,6 @@
                                     doc_files_div.append(`
                                         <a href="${document_uri}/tei-skeleton" class="btn btn-primary ml-1" download>Download TEI XML Skeleton</a>
                                     `)
-                                    if (role === 'Admin' || role === 'Editor') {
-                                        doc_files_div.append(`
-                                            <a href="${document_uri}/edit-xml/?use_tei_skeleton=y" class="btn btn-primary ml-1">Create TEI XML</a>
-                                        `)
-                                    }
                                 }
                             }
 
@@ -792,9 +787,6 @@
                                         tei_buttons = `
                                             <a href="${document_uri}/tei-skeleton?pageset=${ps_key}" class="btn btn-primary ml-1" download>Download TEI XML Skeleton</a>
                                         `
-                                        if (role === 'Admin' || role === 'Editor') {
-                                            tei_buttons += `<a href="${document_uri}/edit-xml/?pageset=${ps_key}" target="_blank" class="btn btn-primary ml-1">Create TEI XML</a>`
-                                        }
                                     }
 
                                     doc_pageset_tbody.append(`
@@ -935,9 +927,6 @@
                                         let actions = ''
                                         if (label.includes('HOCR') || label.includes('GCV TextAnnotation')) {
                                             actions = `<a href="${document_uri}/draw-page-regions/${ref_no}/?ocrfile=${file.path}" target="_blank" class="btn btn-primary ml-1">Fix OCR Regions</a>`
-                                        }
-                                        if ((label.includes('XML')) && (role === 'Editor' || role === 'Admin')) {
-                                            actions += `<a href="${document_uri}/edit-xml/?path=${corpora.file_url(file.uri)}" class="btn btn-primary ml-1">Edit XML</a>`
                                         }
 
                                         doc_pfc_tbody.append(`

@@ -310,35 +310,6 @@ def process_document_file_upload(document, upload_id, username):
 
 
 @login_required
-def edit_xml(request, corpus_id, document_id):
-    response = _get_context(request)
-    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
-    xml_file = None
-
-    if corpus and role in ['Editor', 'Admin']:
-        if 'path' in request.GET:
-            xml_file = _clean(request.GET, 'path')
-
-        elif 'use_tei_skeleton' in request.GET:
-            xml_file = "/corpus/{0}/Document/{1}/tei-skeleton".format(corpus_id, document_id)
-
-        elif 'pageset' in request.GET:
-            pageset = _clean(request.GET, 'pageset')
-            xml_file = "/corpus/{0}/Document/{1}/tei-skeleton?pageset={2}".format(corpus_id, document_id, pageset)
-
-        return render(
-            request,
-            'edit_xml.html',
-            {
-                'response': response,
-                'xml_file': xml_file,
-            }
-        )
-    else:
-        raise Http404("You are not authorized to view this page.")
-
-
-@login_required
 def tei_skeleton(request, corpus_id, document_id):
     response = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
