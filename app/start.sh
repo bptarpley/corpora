@@ -17,6 +17,7 @@ python3 manage.py migrate
 python3 manage.py collectstatic --no-input
 python3 manage.py initialize_corpora
 touch /apps/initialized
+touch /corpora/.last_started
 
 if [ "$CRP_DEVELOPMENT" = "yes" ]; then
     # DEVELOPMENT
