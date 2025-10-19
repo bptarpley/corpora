@@ -59,6 +59,30 @@
 
             <div class="card mt-4">
                 <div class="card-header">
+                    <h4>Automatic Backups</h4>
+                </div>
+                <div class="card-body h-100">
+                    <p class="card-text">
+                        When automatic backups are enabled for a corpus, Corpora runs a task at midnight every night
+                        to determine whether the data for this corpus is newer than the last automated backup, and if
+                        so (or if no automated backups exist yet), it fires off a corpus backup task for the corpus.
+                        If the number of automated backups exceeds how many backups you specify to retain, the oldest
+                        automated backup is then deleted.
+                    </p>
+                    <table class="table">
+                        <thead class="thead-dark">
+                            <th scope="col"><h5>Corpus</h5></th>
+                            <th scope="col"><h5>Last Run</h5></th>
+                            <th scope="col"><h5>Status</h5></th>
+                        </thead>
+                        <tbody id="automated-backups-table">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
                     <h4>Existing Backups</h4>
                 </div>
                 <div class="card-body h-100">
@@ -144,11 +168,16 @@
 {% endblock %}
 
 {% block js %}
+    {{ backup_automations|json_script:"automated-backups-data" }}
     <script src="{% static 'js/filepond.js' %}"></script>
     <script type="application/javascript">
-        let new_backup_name = $('#new-backup-name');
-        let new_backup_corpus_selector = $('#new-backup-corpus-id');
-        let corpus_ids = [];
+        let new_backup_name = $('#new-backup-name')
+        let new_backup_corpus_selector = $('#new-backup-corpus-id')
+        let automatedBackupsTable = $('#automated-backups-table')
+        let automatedBackupsData = $('#automated-backups-data')
+        let corpus_ids = []
+        let automatedBackups = []
+
         const import_backup_file_pond = FilePond.create(document.querySelector('#import-backup-filepond'), {
             allowMultiple: false,
             allowRevert: false,
@@ -177,11 +206,6 @@
         });
 
         $(document).ready(function() {
-            $('.backup-time-string').each(function() {
-                let cell = $(this)
-                cell.html(corpora.time_string(cell.html()))
-            })
-
             let corpus_search = {
                 q: '*',
                 page: 1,
@@ -190,11 +214,50 @@
             }
             corpora.get_corpora(corpus_search, function(corpora_data) {
                 if (corpora_data.hasOwnProperty('records')) {
+                    automatedBackups = JSON.parse(automatedBackupsData.text())
+
                     corpora_data.records.forEach(corpus => {
+                        // add corpus to "Create Backup" selector
                         new_backup_corpus_selector.append(`
                             <option value="${corpus.id}">${corpus.name} (${corpus.id})</option>
                         `);
-                        corpus_ids.push(corpus.id);
+
+                        // determine whether corpus has automated backups and render accordingly
+                        let backupAutomationStatus = 'disabled'
+                        let lastAutomatedRun = 'Never'
+
+                        automatedBackups.forEach(auto => {
+                            if (auto.corpus_id === corpus.id) {
+                                backupAutomationStatus = auto.number_to_retain.toString()
+                                if (auto.automated_backups.length) {
+                                    let lastIndex = auto.automated_backups.length - 1
+                                    lastAutomatedRun = auto.automated_backups[lastIndex].created
+                                }
+                            }
+                        })
+
+                        automatedBackupsTable.append(`
+                            <tr>
+                                <td>${corpus.name}</td>
+                                <td class="backup-time-string">${lastAutomatedRun}</td>
+                                <td>
+                                    <select id="automated-backup-${corpus.id}-status"
+                                            class="form-control automated-backup-status-selector ${backupAutomationStatus === 'disabled' ? 'btn-secondary' : 'btn-primary'}"
+                                            data-corpus_id="${corpus.id}"
+                                            data-current_status=${backupAutomationStatus}>
+                                        <option value="disabled" ${backupAutomationStatus === 'disabled' ? 'selected' : ''}>Disabled</option>
+                                        <option value="1" ${backupAutomationStatus === '1' ? 'selected' : ''}>Retain 1</option>
+                                        <option value="2" ${backupAutomationStatus === '2' ? 'selected' : ''}>Retain 2</option>
+                                        <option value="3" ${backupAutomationStatus === '3' ? 'selected' : ''}>Retain 3</option>
+                                        <option value="4" ${backupAutomationStatus === '4' ? 'selected' : ''}>Retain 4</option>
+                                        <option value="5" ${backupAutomationStatus === '5' ? 'selected' : ''}>Retain 5</option>
+                                        <option value="6" ${backupAutomationStatus === '6' ? 'selected' : ''}>Retain 6</option>
+                                        <option value="7" ${backupAutomationStatus === '7' ? 'selected' : ''}>Retain 7</option>
+                                    </select>
+                                </td>
+                        `)
+
+                        corpus_ids.push(corpus.id)
                     });
 
                     $('#backup_create_button').click(function() {
@@ -209,9 +272,43 @@
                         );
                     });
 
+                    $('.automated-backup-status-selector').change(function() {
+                        let selector = $(this)
+                        let corpusID = selector.data('corpus_id')
+                        let previousStatus = selector.data('current_status')
+                        let newStatus = selector.val()
+                        let alertLevel = 'warning'
+                        let confirmationMessage = `
+                            Enabling or changing the number of automatic backups for a corpus may result in the creation
+                            of nightly backup files that will consume storage space.
+                        `
+                        if (newStatus === 'disabled' || (!isNaN(previousStatus) && !isNaN(newStatus) && parseInt(newStatus) < parseInt(previousStatus))) {
+                            confirmationMessage = `
+                                Any automated backups created are managed by the system. Upon disabling automated backups
+                                for a corpus or lowering the number of backups retained, <b>some backups may be deleted</b>.
+                                If you'd like to retain automated backups before disabling or lowering the number of backups
+                                retained, please download them before proceeding.
+                            `
+                            alertLevel = 'danger'
+                        }
+
+                        confirm(
+                            'Automated Backups',
+                            confirmationMessage,
+                            {
+                                'automated-backup-form-submission': 'y',
+                                'automated-backup-corpus-id': corpusID,
+                                'automated-backup-status': newStatus
+                            },
+                            alertLevel
+                        )
+
+                        selector.val(previousStatus)
+                    })
+
                     $('.restore-button').click(function() {
-                        let backup_id = $(this).data('backup-id');
-                        let backup_corpus_id = $(this).data('backup-corpus-id');
+                        let backup_id = $(this).data('backup-id')
+                        let backup_corpus_id = $(this).data('backup-corpus-id')
                         if (corpus_ids.includes(backup_corpus_id)) {
                             alert("A corpus with this ID already exists, and must be deleted before attempting this restore.")
                         } else {
@@ -222,13 +319,13 @@
                                     'backup-action': 'restore',
                                     'backup-id': backup_id
                                 }
-                            );
+                            )
                         }
-                    });
+                    })
 
                     $('.cancel-restore-button').click(function() {
-                        let backup_id = $(this).data('backup-id');
-                        let backup_corpus_id = $(this).data('backup-corpus-id');
+                        let backup_id = $(this).data('backup-id')
+                        let backup_corpus_id = $(this).data('backup-corpus-id')
 
                         confirm(
                             'Cancel Corpus Restore?',
@@ -237,8 +334,8 @@
                                 'backup-action': 'cancel-restore',
                                 'backup-id': backup_id
                             }
-                        );
-                    });
+                        )
+                    })
 
                     $('.delete-button').click(function() {
                         let backup_id = $(this).data('backup-id');
@@ -250,10 +347,16 @@
                                 'backup-id': backup_id
                             },
                             'danger'
-                        );
-                    });
+                        )
+                    })
                 }
-            });
+
+                $('.backup-time-string').each(function() {
+                    let cell = $(this)
+                    if (cell.html() !== 'Never')
+                        cell.html(corpora.time_string(cell.html()))
+                })
+            })
 
             let today = new Date()
             new_backup_name.val(today.getFullYear() + '_' + pad(today.getMonth()+1, 2) + '_'+ pad(today.getDate(), 2))

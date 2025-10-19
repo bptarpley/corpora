@@ -6,7 +6,7 @@ import traceback
 import mongoengine
 import redis
 from math import ceil
-from datetime import datetime
+from datetime import datetime, timedelta
 from copy import deepcopy
 from typing import TYPE_CHECKING
 from bson import ObjectId, DBRef
@@ -1942,7 +1942,7 @@ class Corpus(mongoengine.Document):
 
         return queued_job_ids
 
-    def delete_content_type(self, content_type):
+    def delete_content_type(self, content_type, content_only=False):
         if content_type in self.content_types:
             # Delete Neo4J nodes
             nodes_deleted = 1
@@ -1971,10 +1971,13 @@ class Corpus(mongoengine.Document):
             if os.path.exists(ct_path):
                 shutil.rmtree(ct_path)
 
-            # Remove from content_types
-            del self.content_types[content_type]
+            if content_only:
+                self.build_content_type_elastic_index(content_type)
+            else:
+                # Remove from content_types
+                del self.content_types[content_type]
 
-            self.save()
+                self.save()
 
     def clear_content_type_field(self, content_type, field_name):
         if content_type in self.content_types:
@@ -2504,4 +2507,71 @@ class CorpusBackup(mongoengine.Document):
             'path': self.path,
             'status': self.status,
             'created': int(self.created.timestamp())
+        }
+
+
+class CorpusBackupAutomation(mongoengine.Document):
+    corpus_id = mongoengine.StringField()
+    number_to_retain = mongoengine.IntField(default=3)
+    automated_backups = mongoengine.ListField(mongoengine.ReferenceField(CorpusBackup))
+
+    def automate(self):
+        corpus = Corpus.objects.get(id=self.corpus_id)
+        last_updated = None
+        backup_needed = False
+
+        for ct_name in corpus.content_types.keys():
+            latest_content = corpus.get_content(ct_name, all=True).order_by('-last_updated').limit(1)
+            if latest_content:
+                if last_updated is None or last_updated < latest_content[0].last_updated:
+                    last_updated = latest_content[0].last_updated
+
+        if self.automated_backups:
+            newest = self.automated_backups[-1]
+            if newest.created < last_updated and last_updated - newest.created >= timedelta(hours=12):
+                backup_needed = True
+        else:
+            backup_needed = True
+
+        if backup_needed:
+            now = datetime.now()
+            backup_name = f"{now.year}_{now.month:02d}_{now.day:02d}_auto"
+            corpus.queue_local_job(
+                task_name="Backup Corpus",
+                parameters={'backup_name': backup_name, 'is_automated': True}
+            )
+
+        return backup_needed
+
+    def add_backup(self, backup):
+        if len(self.automated_backups) == self.number_to_retain:
+            oldest_backup = self.automated_backups.pop(0)
+            try:
+                os.remove(oldest_backup.path)
+                oldest_backup.delete()
+            except:
+                print(traceback.format_exc())
+
+        self.automated_backups.append(backup.id)
+        self.save()
+
+    @classmethod
+    def run_next(cls):
+        backup_automations = CorpusBackupAutomation.objects.all()
+        for backup_automation in backup_automations:
+            if backup_automation.automate():
+                break
+
+    @classmethod
+    def remove_backup(cls, backup_id):
+        backup_automations = CorpusBackupAutomation.objects.filter(automated_backups=backup_id)
+        for backup_automation in backup_automations:
+            backup_automation.automated_backups = [ab for ab in backup_automation.automated_backups if str(ab.id) != str(backup_id)]
+            backup_automation.save()
+
+    def to_dict(self):
+        return {
+            'corpus_id': self.corpus_id,
+            'number_to_retain': self.number_to_retain,
+            'automated_backups': [b.to_dict() for b in self.automated_backups],
         }

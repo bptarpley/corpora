@@ -261,6 +261,7 @@ REST_FRAMEWORK = {
 
 # CORS config
 CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_URLS_REGEX = r'^/api/.*$'
 CORS_ALLOW_HEADERS = [
     'accept',
@@ -323,7 +324,7 @@ USE_L10N = True
 USE_TZ = True
 
 
-# Static files config
+# STATIC FILES CONFIG
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
 ]
@@ -331,11 +332,15 @@ STATICFILES_DIRS = [
 STATIC_URL = '/static/'
 STATIC_ROOT = '/static'
 
+# create date/time based string to append
+# to references to corpora's custom javascript files
 # to prevent stale browser caching
 STATIC_NO_CACHE_SUFFIX = 'nocache'
 if os.path.exists('/corpora/.last_started'):
     STATIC_NO_CACHE_SUFFIX = str(int(os.path.getmtime('/corpora/.last_started')))
 
+
+# FILE UPLOAD CONFIG
 DJANGO_DRF_FILEPOND_UPLOAD_TMP = '/corpora/uploads/temp'
 DJANGO_DRF_FILEPOND_FILE_STORE_PATH = '/corpora/uploads/files'
 DJANGO_DRF_FILEPOND_ALLOW_EXTERNAL_UPLOAD_DIR = True

@@ -61,7 +61,7 @@ from .language_settings import REGISTRY as lang_settings
 # Here is where the proper import statements commence:
 import logging
 from .scholar import Scholar
-from .corpus import Corpus, CorpusBackup
+from .corpus import Corpus, CorpusBackup, CorpusBackupAutomation
 from .content_type import ContentType, ContentTemplate, ContentTypeGroupMember, ContentTypeGroup
 from .field import Field, FieldRenderer, FIELD_LANGUAGES, FIELD_TYPES
 from .field_types.file import File

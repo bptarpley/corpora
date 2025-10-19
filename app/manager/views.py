@@ -1080,7 +1080,47 @@ def backups(request):
     if response['scholar'].is_admin:
 
         if request.method == 'POST':
-            if _contains(request.POST, ['backup-file-import', 'backup-upload-id']):
+            if _contains(request.POST, ['automated-backup-form-submission', 'automated-backup-corpus-id', 'automated-backup-status']):
+                cba_corpus_id = _clean(request.POST, 'automated-backup-corpus-id')
+                cba_status = _clean(request.POST, 'automated-backup-status')
+
+                # make sure this is a valid corpus
+                cba_corpus = get_corpus(cba_corpus_id, only=['name'])
+                if cba_corpus:
+                    # see if backup automation exists for this corpus
+                    cba = None
+                    try:
+                        cba = CorpusBackupAutomation.objects.get(corpus_id=cba_corpus_id)
+                    except:
+                        cba = None
+
+                    if cba:
+                        if cba_status == 'disabled':
+                            if cba.automated_backups:
+                                delete_backups([ab.id for ab in cba.automated_backups])
+                            cba.delete()
+                            response['messages'].append(f'Automated backups for {cba_corpus.name} disabled.')
+
+                        elif cba_status.isdigit():
+                            num_to_retain = int(cba_status)
+                            backups_to_delete = []
+                            while len(cba.automated_backups) > num_to_retain:
+                                backups_to_delete.append(cba.automated_backups.pop(0))
+                            if backups_to_delete:
+                                delete_backups([b.id for b in backups_to_delete])
+
+                            cba.number_to_retain = num_to_retain
+                            cba.save()
+                            response['messages'].append(f'Will now retain {num_to_retain} automated backups for {cba_corpus.name}.')
+
+                    elif cba_status.isdigit():
+                        cba = CorpusBackupAutomation()
+                        cba.corpus_id = cba_corpus_id
+                        cba.number_to_retain = int(cba_status)
+                        cba.save()
+                        response['messages'].append(f'Will now retain {cba_status} automated backups for {cba_corpus.name}.')
+
+            elif _contains(request.POST, ['backup-file-import', 'backup-upload-id']):
                 upload_id = _clean(request.POST, 'backup-upload-id')
                 temp_upload = TemporaryUpload.objects.get(upload_id=upload_id)
                 temp_path = temp_upload.file.path
@@ -1142,19 +1182,28 @@ def backups(request):
                         response['messages'].append('Corpus restore cancelled.')
 
                     elif backup_action == 'delete':
-                        os.remove(backup.path)
-                        backup.delete()
-                        response['messages'].append('Backup successfully deleted.')
+                        try:
+                            CorpusBackupAutomation.remove_backup(backup.id)
+                            os.remove(backup.path)
+                            backup.delete()
+                            response['messages'].append('Backup successfully deleted.')
+                        except:
+                            print(traceback.format_exc())
+                            response['errors'].append('An error occurred while deleting this backup file!')
 
         backups = CorpusBackup.objects.order_by('corpus_name', 'created')
         backups = [b.to_dict() for b in backups]
+
+        backup_automations = CorpusBackupAutomation.objects.all()
+        backup_automations = [ba.to_dict() for ba in backup_automations]
 
         return render(
             request,
             'backups.html',
             {
                 'response': response,
-                'backups': backups
+                'backups': backups,
+                'backup_automations': backup_automations,
             }
         )
     else:
