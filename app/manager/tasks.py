@@ -12,7 +12,8 @@ import re
 from corpus import (
     Corpus, Job, get_corpus, File,
     ContentView, ContentTypeGroup, ContentDeletion,
-    CorpusBackup, JobSite, GitRepo, CompletedTask
+    CorpusBackup, CorpusBackupAutomation,
+    JobSite, GitRepo, CompletedTask
 )
 from huey.contrib.djhuey import db_task, db_periodic_task
 from huey import crontab
@@ -28,7 +29,8 @@ from manager.utilities import (
     order_content_schema,
     process_content_bundle,
     delimit_content_json,
-    create_content_csv_rows
+    create_content_csv_rows,
+    get_open_access_corpora
 )
 from django.conf import settings
 from django.template.loader import get_template
@@ -360,7 +362,7 @@ REGISTRY = {
         "functions": ['content_view_lifecycle']
     },
     "Backup Corpus": {
-        "version": "0.2",
+        "version": "0.3",
         "jobsite_type": "HUEY",
         "track_provenance": True,
         "create_report": True,
@@ -371,6 +373,11 @@ REGISTRY = {
                     "value": "",
                     "type": "pep8_text",
                     "label": "Backup Name",
+                },
+                "is_automated": {
+                    "value": False,
+                    "type": "boolean",
+                    "label": "Automated Backup?"
                 }
             }
         },
@@ -1279,10 +1286,37 @@ def backup_corpus(job_id):
         backup.status = "created"
         backup.save()
         job.complete(status='complete')
+        
+        # handle automated backup by adding it to CorpusBackupAutomation instance
+        # and firing off the next automated backup if necessary
+        if job.get_param_value('is_automated'):
+            backup_automations = CorpusBackupAutomation.objects.all()
+            for backup_automation in backup_automations:
+                if backup_automation.corpus_id == job.corpus_id:
+                    backup_automation.add_backup(backup)
+
+                elif backup_automation.automate():
+                    break
+        
     except:
         print(traceback.format_exc())
         job.complete(status='error')
 
+@db_periodic_task(crontab(minute='0', hour='0'), priority=4)
+def run_automated_backups():
+    CorpusBackupAutomation.run_next()
+
+@db_task(priority=3)
+def delete_backups(backup_ids):
+    for backup_id in backup_ids:
+        try:
+            backup = CorpusBackup.objects.get(id=backup_id)
+            if os.path.exists(backup.path):
+                os.remove(backup.path)
+            backup.delete()
+        except:
+            print(f"Unable to delete backup with ID {backup_id}:")
+            print(traceback.format_exc())
 
 @db_task(priority=3)
 def restore_corpus(backup_id):
@@ -1351,6 +1385,8 @@ def restore_corpus(backup_id):
                                             corpus.provenance.append(prov)
 
                                 corpus.save()
+                                if corpus.open_access:
+                                    get_open_access_corpora(False)
 
                                 backup_directory = '/corpora/backups/' + os.path.basename(backup.path).split('.')[0]
 
@@ -1418,7 +1454,6 @@ def restore_corpus(backup_id):
 
     else:
         print("Error retrieving backup object for restore!")
-
 
 @db_task(priority=3)
 def export_corpus(job_id):
