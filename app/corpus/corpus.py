@@ -7,6 +7,7 @@ import mongoengine
 import redis
 from math import ceil
 from datetime import datetime
+from datetime import datetime, timedelta
 from copy import deepcopy
 from typing import TYPE_CHECKING
 from bson import ObjectId, DBRef
@@ -1942,7 +1943,6 @@ class Corpus(mongoengine.Document):
 
         return queued_job_ids
 
-    def delete_content_type(self, content_type):
         if content_type in self.content_types:
             # Delete Neo4J nodes
             nodes_deleted = 1
@@ -1971,10 +1971,8 @@ class Corpus(mongoengine.Document):
             if os.path.exists(ct_path):
                 shutil.rmtree(ct_path)
 
-            # Remove from content_types
             del self.content_types[content_type]
 
-            self.save()
 
     def clear_content_type_field(self, content_type, field_name):
         if content_type in self.content_types:
@@ -2504,4 +2502,3 @@ class CorpusBackup(mongoengine.Document):
             'path': self.path,
             'status': self.status,
             'created': int(self.created.timestamp())
-        }
