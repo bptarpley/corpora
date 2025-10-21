@@ -974,12 +974,7 @@
                             )
 
                             // SETUP PAGE TASK BUTTONS
-                            if(doc.pages && (role === 'Editor' || role === 'Admin')) {
-                                $('#page-action-buttons-span').append(`
-                                    <button id="create-pageset-button" class="btn btn-primary rounded ml-1" type="button">Create Page Set</button>
-                                    <button id="transcribe-button" class="btn btn-primary rounded ml-1" type="button">Transcribe</button>
-                                `)
-
+                            if(corpora.scholar_has_privilege('Contributor', corpus.scholar_role)) {
                                 let custom_job_parameter_types = {
                                     document_transcription_project: function(param_name, param) {
                                         let select_options = ''
@@ -1081,6 +1076,24 @@
                                         })
                                     })
                                 }, 3000)
+
+                                if (corpora.scholar_has_privilege('Editor', corpus.scholar_role)) {
+                                    $('#page-action-buttons-span').append(`
+                                        <button id="create-pageset-button" class="btn btn-primary rounded ml-1" type="button">Create Page Set</button>
+                                    `)
+
+                                    $("#create-pageset-button").click(function() {
+                                        $("#pageset-modal").modal()
+                                    })
+
+                                    $("#run-job-button").click(function() {
+                                        job_manager.new_job('Document', document_id)
+                                    })
+                                }
+
+                                $('#page-action-buttons-span').append(`
+                                    <button id="transcribe-button" class="btn btn-primary rounded ml-1" type="button">Transcribe</button>
+                                `)
 
                                 // -------------------
                                 // SETUP TRANSCRIBE MODAL
