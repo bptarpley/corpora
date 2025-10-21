@@ -7,6 +7,7 @@ from django.template import Template, Context
 from django.contrib.auth.decorators import login_required
 from django.utils.text import slugify
 from .content import PageSet
+from manager.utilities import _get_context, get_scholar_corpus, _contains, _clean, scholar_has_privilege
 from manager.tasks import run_job
 from manager.views import view_content
 from natsort import natsorted
