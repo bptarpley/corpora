@@ -237,7 +237,7 @@
                         <div id="trans-project-group" class="form-group">
                             <label for="trans-project-selector">Transcription Project</label>
                             <select id="trans-project-selector" class="form-control" name="trans-project">
-                                <option value="new">New project...</option>
+                                {% if response.scholar.is_admin or role == 'Editor' %}<option value="new">New project...</option>{% endif %}
                             </select>
                         </div>
 
@@ -633,7 +633,7 @@
 
                             let page_title = $('#page-title')
                             page_title.html(doc.label)
-                            if (['Editor', 'Admin'].includes(corpus.scholar_role)) {
+                            if (corpora.scholar_has_privilege('Contributor', corpus.scholar_role)) {
                                 page_title.append(`
                                     <a href="/corpus/${corpus_id}/Document/${doc.id}/edit/">
                                         <span class="fas fa-edit"></span>
@@ -974,18 +974,78 @@
                             )
 
                             // SETUP PAGE TASK BUTTONS
-                            if(doc.pages && (role === 'Editor' || role === 'Admin')) {
-                                $('#page-action-buttons-span').append(`
-                                    <button id="create-pageset-button" class="btn btn-primary rounded ml-1" type="button">Create Page Set</button>
-                                    <button id="transcribe-button" class="btn btn-primary rounded ml-1" type="button">Transcribe</button>
-                                `)
+                            if(corpora.scholar_has_privilege('Contributor', corpus.scholar_role)) {
+                                let custom_job_parameter_types = {
+                                    document_transcription_project: function(param_name, param) {
+                                        let select_options = ''
+                                        $('option.transcription-project').each(function() {
+                                            let trans_project = $(this)
+                                            select_options += `<option value="${trans_project.attr('value')}">${trans_project.html()}</option>`
+                                        })
 
-                                // ---------------------
-                                // SETUP PAGE SET MODAL
-                                // ---------------------
-                                $("#create-pageset-button").click(function() {
-                                    $("#pageset-modal").modal()
-                                })
+                                        return `
+                                            <div class="form-group">
+                                                <label for="${param_name}-trans-project-selector">${param.label}</label>
+                                                <select id="${param_name}-trans-project-selector" class="form-control job-parameter-value" name="${param_name}">
+                                                    ${select_options}
+                                                </select>
+                                                ${param.note ? `<span class='text-muted'>${param.note}</span>` : ''}
+                                            </div>
+                                        `
+                                    }
+                                }
+
+                                if (corpora.scholar_has_privilege('Editor', corpus.scholar_role)) {
+                                    custom_job_parameter_types.page_file_collection = function(param_name, param) {
+                                        let select_options = ''
+                                        for (let slug in doc.page_file_collections) {
+                                            select_options += `<option value="${slug}">${doc.page_file_collections[slug].label}</option>\n`
+                                        }
+
+                                        return `
+                                            <div class="form-group">
+                                                <label for="${param_name}-collection-selector">${param.label}</label>
+                                                <select id="${param_name}-collection-selector" class="form-control job-parameter-value" name="${param_name}">
+                                                    ${select_options}
+                                                </select>
+                                                ${param.note ? `<span class='text-muted'>${param.note}</span>` : ''}
+                                            </div>
+                                        `
+                                    }
+                                    custom_job_parameter_types.document_pageset = function(param_name, param) {
+                                        let select_options = ''
+                                        Object.keys(doc.page_sets).forEach(ps_key => {
+                                            select_options += `<option value="${ps_key}">${doc.page_sets[ps_key].label}</option>`
+                                        })
+
+                                        return `
+                                            <div class="form-group">
+                                                <label for="${param_name}-ps-selector">${param.label}</label>
+                                                <select id="${param_name}-ps-selector" class="form-control job-parameter-value" name="${param_name}">
+                                                    <option value="none">All Pages</option>
+                                                    ${select_options}
+                                                </select>
+                                                ${param.note ? `<span class='text-muted'>${param.note}</span>` : ''}
+                                            </div>
+                                        `
+                                    }
+                                    custom_job_parameter_types.document_file = function(param_name, param) {
+                                        let select_options = ''
+                                        Object.keys(doc.files).forEach(file_key => {
+                                            select_options += `<option value="${file_key}">${doc.files[file_key].basename}</option>`
+                                        })
+
+                                        return `
+                                            <div class="form-group">
+                                                <label for="${param_name}-file-selector">${param.label}</label>
+                                                <select id="${param_name}-file-selector" class="form-control job-parameter-value" name="${param_name}">
+                                                    ${select_options}
+                                                </select>
+                                                ${param.note ? `<span class='text-muted'>${param.note}</span>` : ''}
+                                            </div>
+                                        `
+                                    }
+                                }
 
                                 // -----------------
                                 // SETUP JOB MANAGER
@@ -999,78 +1059,7 @@
                                     content_type: 'Document',
                                     content_id: document_id,
                                     scholar_id: scholar_id,
-                                    custom_parameter_types: {
-                                        page_file_collection: function(param_name, param) {
-                                            let select_options = ''
-                                            for (let slug in doc.page_file_collections) {
-                                                select_options += `<option value="${slug}">${doc.page_file_collections[slug].label}</option>\n`
-                                            }
-
-                                            return `
-                                                <div class="form-group">
-                                                    <label for="${param_name}-collection-selector">${param.label}</label>
-                                                    <select id="${param_name}-collection-selector" class="form-control job-parameter-value" name="${param_name}">
-                                                        ${select_options}
-                                                    </select>
-                                                    ${param.note ? `<span class='text-muted'>${param.note}</span>` : ''}
-                                                </div>
-                                            `
-                                        },
-                                        document_pageset: function(param_name, param) {
-                                            let select_options = ''
-                                            Object.keys(doc.page_sets).forEach(ps_key => {
-                                                select_options += `<option value="${ps_key}">${doc.page_sets[ps_key].label}</option>`
-                                            })
-
-                                            return `
-                                                <div class="form-group">
-                                                    <label for="${param_name}-ps-selector">${param.label}</label>
-                                                    <select id="${param_name}-ps-selector" class="form-control job-parameter-value" name="${param_name}">
-                                                        <option value="none">All Pages</option>
-                                                        ${select_options}
-                                                    </select>
-                                                    ${param.note ? `<span class='text-muted'>${param.note}</span>` : ''}
-                                                </div>
-                                            `
-                                        },
-                                        document_file: function(param_name, param) {
-                                            let select_options = ''
-                                            Object.keys(doc.files).forEach(file_key => {
-                                                select_options += `<option value="${file_key}">${doc.files[file_key].basename}</option>`
-                                            })
-
-                                            return `
-                                                <div class="form-group">
-                                                    <label for="${param_name}-file-selector">${param.label}</label>
-                                                    <select id="${param_name}-file-selector" class="form-control job-parameter-value" name="${param_name}">
-                                                        ${select_options}
-                                                    </select>
-                                                    ${param.note ? `<span class='text-muted'>${param.note}</span>` : ''}
-                                                </div>
-                                            `
-                                        },
-                                        document_transcription_project: function(param_name, param) {
-                                            let select_options = ''
-                                            $('option.transcription-project').each(function() {
-                                                let trans_project = $(this)
-                                                select_options += `<option value="${trans_project.attr('value')}">${trans_project.html()}</option>`
-                                            })
-
-                                            return `
-                                                <div class="form-group">
-                                                    <label for="${param_name}-trans-project-selector">${param.label}</label>
-                                                    <select id="${param_name}-trans-project-selector" class="form-control job-parameter-value" name="${param_name}">
-                                                        ${select_options}
-                                                    </select>
-                                                    ${param.note ? `<span class='text-muted'>${param.note}</span>` : ''}
-                                                </div>
-                                            `
-                                        }
-                                    }
-                                })
-
-                                $("#run-job-button").click(function() {
-                                    job_manager.new_job('Document', document_id)
+                                    custom_parameter_types: custom_job_parameter_types
                                 })
 
                                 setTimeout(function() {
@@ -1087,6 +1076,24 @@
                                         })
                                     })
                                 }, 3000)
+
+                                if (corpora.scholar_has_privilege('Editor', corpus.scholar_role)) {
+                                    $('#page-action-buttons-span').append(`
+                                        <button id="create-pageset-button" class="btn btn-primary rounded ml-1" type="button">Create Page Set</button>
+                                    `)
+
+                                    $("#create-pageset-button").click(function() {
+                                        $("#pageset-modal").modal()
+                                    })
+
+                                    $("#run-job-button").click(function() {
+                                        job_manager.new_job('Document', document_id)
+                                    })
+                                }
+
+                                $('#page-action-buttons-span').append(`
+                                    <button id="transcribe-button" class="btn btn-primary rounded ml-1" type="button">Transcribe</button>
+                                `)
 
                                 // -------------------
                                 // SETUP TRANSCRIBE MODAL

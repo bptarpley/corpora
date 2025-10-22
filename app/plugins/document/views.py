@@ -7,7 +7,7 @@ from django.template import Template, Context
 from django.contrib.auth.decorators import login_required
 from django.utils.text import slugify
 from .content import PageSet
-from manager.utilities import _get_context, get_scholar_corpus, _contains, _clean
+from manager.utilities import _get_context, get_scholar_corpus, _contains, _clean, scholar_has_privilege
 from manager.tasks import run_job
 from manager.views import view_content
 from natsort import natsorted
@@ -29,175 +29,34 @@ def document(request, corpus_id, document_id):
     corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
 
     if corpus:
-        if (response['scholar'].is_admin or role == 'Editor') and request.method == 'POST':
-            document = corpus.get_content('Document', document_id)
-
-            # HANDLE IMPORT PAGES FORM SUBMISSION
-            if _contains(request.POST, ['import-pages-type', 'import-pages-files']):
-                import_type = _clean(request.POST, 'import-pages-type')
-                import_source = _clean(request.POST, 'import-pages-pdf-source')
-                existing_file_key = _clean(request.POST, 'import-pages-pdf-existing-file', None)
-                import_files = json.loads(request.POST['import-pages-files'])
-
-                image_split = _clean(request.POST, 'import-pages-split')
-                primary_witness = _clean(request.POST, 'import-pages-primary')
-
-                if import_type == 'iiif' and 'import-pages-iiif-ids' in request.POST:
-                    iiif_ids = _clean(request.POST, 'import-pages-iiif-ids')
-                    iiif_ids = [iiif_id.strip() for iiif_id in iiif_ids.split('\n')]
-
-                    # queue and run job
-                    job_id = corpus.queue_local_job(
-                        content_type='Document',
-                        content_id=document_id,
-                        task_name='Import Document Pages from Images',
-                        scholar_id=response['scholar'].id,
-                        parameters={
-                            'import_files_json': json.dumps(iiif_ids),
-                            'split_images': image_split,
-                            'primary_witness': primary_witness,
-                            'images_type': 'iiif'
-                        }
-                    )
-                    run_job(job_id)
-
-                    response['messages'].append('Pages imported via IIIF')
-
-                elif import_source == 'upload':
-                    if import_files:
-
-                        if import_type == 'pdf':
-                            image_dpi = _clean(request.POST, 'import-pages-image-dpi')
-                            extract_text = _clean(request.POST, 'import-pages-extract-text')
-
-                            pdf_file_path = process_document_file_upload(document, import_files[0], response['scholar']['username'])
-
-                            if pdf_file_path and '.pdf' in pdf_file_path.lower():
-
-                                # Get Local JobSite, PDF Import Task, and setup Job
-                                job_id = corpus.queue_local_job(
-                                    content_type='Document',
-                                    content_id=document_id,
-                                    task_name='Import Document Pages from PDF',
-                                    scholar_id=response['scholar'].id,
-                                    parameters={
-                                        'pdf_file': pdf_file_path,
-                                        'image_dpi': image_dpi,
-                                        'split_images': image_split,
-                                        'extract_text': extract_text,
-                                        'primary_witness': primary_witness
-                                    }
-                                )
-                                run_job(job_id)
-
-                        elif import_type in ['images', 'zip']:
-                            # build job params
-                            job_params = {
-                                'import_files_json': request.POST['import-pages-files'],
-                                'split_images': image_split,
-                                'primary_witness': primary_witness,
-                                'images_type': 'file'
-                            }
-                            if import_type == 'zip':
-                                job_params['images_type'] = 'zip'
-
-                            # queue and run job
-                            job_id = corpus.queue_local_job(
-                                content_type='Document',
-                                content_id=document_id,
-                                task_name='Import Document Pages from Images',
-                                scholar_id=response['scholar'].id,
-                                parameters=job_params
-                            )
-                            run_job(job_id)
-                    else:
-                        response['errors'].append("Error locating files to import.")
-
-                elif import_source == 'existing' and existing_file_key:
-                    image_dpi = _clean(request.POST, 'import-pages-image-dpi')
-                    extract_text = _clean(request.POST, 'import-pages-extract-text')
-
-                    # Get Local JobSite, PDF Import Task, and setup Job
-                    job_id = corpus.queue_local_job(
-                        content_type='Document',
-                        content_id=document_id,
-                        task_name='Import Document Pages from PDF',
-                        scholar_id=response['scholar'].id,
-                        parameters={
-                            'pdf_file': document.files[existing_file_key].path,
-                            'image_dpi': image_dpi,
-                            'split_images': image_split,
-                            'extract_text': extract_text,
-                            'primary_witness': primary_witness
-                        }
-                    )
-                    run_job(job_id)
-
-            # HANDLE IMPORT DOCUMENT FILES FORM SUBMISSION
-            elif 'import-document-files' in request.POST:
-                import_files = json.loads(request.POST['import-document-files'])
-
-                for import_file in import_files:
-                    if not process_document_file_upload(document, import_file, response['scholar']['username']):
-                        response['errors'].append("A file with this name already exists for this document.")
-
-            # HANDLE JOB RETRIES
-            elif _contains(request.POST, ['retry-job-id']):
-                retry_job_id = _clean(request.POST, 'retry-job-id')
-                for completed_task in document.provenance:
-                    if completed_task.job_id == retry_job_id:
-                        job = Job.setup_retry_for_completed_task(corpus_id, 'Document', document_id, completed_task)
-                        document.modify(pull__provenance=completed_task)
-                        run_job(job.id)
-
-            # HANDLE PAGESET CREATION
-            elif _contains(request.POST, ['pageset-name', 'pageset-start', 'pageset-end']):
-                ps_label = _clean(request.POST, 'pageset-name')
-                ps_key = slugify(ps_label).replace('__', '_')
-                ps_start = _clean(request.POST, 'pageset-start')
-                ps_end = _clean(request.POST, 'pageset-end')
-
-                if ps_key not in document.page_sets:
-                    if ps_start in document.pages and ps_end in document.pages:
-                        page_ref_nos = natsorted(document.pages.keys())
-                        ps = PageSet()
-                        ps.label = ps_label
-                        start_found = False
-                        for ref_no in page_ref_nos:
-                            if ref_no == ps_start:
-                                start_found = True
-                            if start_found:
-                                ps.ref_nos.append(ref_no)
-                                if ref_no == ps_end:
-                                    break
-                        document.modify(**{'set__page_sets__{0}'.format(ps_key): ps})
-                    else:
-                        response['errors'].append("Start and end pages must be existing page numbers!")
-                else:
-                    response['errors'].append("A page set with that name already exists!")
+        if scholar_has_privilege('Contributor', role) and request.method == 'POST':
 
             # HANDLE TRANSCRIPTION FORM
-            elif _contains(request.POST, ['trans-project',
-                                          'trans-name',
-                                          'trans-pageset',
-                                          'trans-image-pfc',
-                                          'trans-ocr-pfc',
-                                          'trans-level',
-                                          'trans-plain-text']):
+            if _contains(request.POST, ['trans-project',
+                                        'trans-name',
+                                        'trans-pageset',
+                                        'trans-image-pfc',
+                                        'trans-ocr-pfc',
+                                        'trans-level',
+                                        'trans-plain-text']):
 
                 trans_project_id = _clean(request.POST, 'trans-project')
                 trans_plain_text = _clean(request.POST, 'trans-plain-text')
-                if trans_plain_text == 'none':
-                    trans_plain_text = None
-                transcription_lines = []
-                if trans_plain_text:
-                    pt_file_path = document.files[trans_plain_text].path
-                    if os.path.exists(pt_file_path):
-                        with open(pt_file_path, 'r', encoding='utf-8') as pt_in:
-                            pt_lines = pt_in.readlines()
-                            transcription_lines = [pt_line.strip() for pt_line in pt_lines]
 
-                if trans_project_id == 'new':
+                if scholar_has_privilege('Editor', role) and trans_project_id == 'new':
+                    document = corpus.get_content('Document', document_id)
+
+                    # handle plain text transcription lines
+                    if trans_plain_text == 'none':
+                        trans_plain_text = None
+                    transcription_lines = []
+                    if trans_plain_text:
+                        pt_file_path = document.files[trans_plain_text].path
+                        if os.path.exists(pt_file_path):
+                            with open(pt_file_path, 'r', encoding='utf-8') as pt_in:
+                                pt_lines = pt_in.readlines()
+                                transcription_lines = [pt_line.strip() for pt_line in pt_lines]
+
                     trans_project = corpus.get_content('TranscriptionProject')
                     trans_project.name = _clean(request.POST, 'trans-name')
                     trans_project.document = document.id
@@ -217,54 +76,201 @@ def document(request, corpus_id, document_id):
                     trans_project_id
                 ))
 
-            # HANDLE TASK FORM SUBMISSION
-            elif _contains(request.POST, ['jobsite', 'task']):
-                jobsite = JobSite.objects(id=_clean(request.POST, 'jobsite'))[0]
-                task = Task.objects(id=_clean(request.POST, 'task'))[0]
-                task_parameters = [key for key in task.configuration['parameters'].keys()]
-                if _contains(request.POST, task_parameters):
-                    job = Job()
-                    job.corpus = corpus.id
-                    job.content_type = 'Document'
-                    job.content_id = document_id
-                    job.task_id = str(task.id)
-                    job.scholar = response['scholar'].id
-                    job.jobsite = jobsite.id
-                    job.configuration = task.configuration
-                    for parameter in task_parameters:
-                        job.configuration['parameters'][parameter]['value'] = _clean(request.POST, parameter)
-                    job.save()
-                    run_job(job.id)
-                    response['messages'].append("Job successfully submitted.")
-                else:
-                    response['errors'].append("Please provide values for all task parameters.")
+            if scholar_has_privilege('Editor', role):
+                document = corpus.get_content('Document', document_id)
 
-            # HANDLE FILE CONSOLIDATION SUBMISSION
-            elif _contains(request.POST, ['consolidate-files', 'collection']):
-                collection_key = _clean(request.POST, 'collection')
-                consolidated_file = "{0}/files/{1}_consolidated.txt".format(
-                    document.path,
-                    slugify(collection_key)
-                )
+                # HANDLE IMPORT PAGES FORM SUBMISSION
+                if _contains(request.POST, ['import-pages-type', 'import-pages-files']):
+                    import_type = _clean(request.POST, 'import-pages-type')
+                    import_source = _clean(request.POST, 'import-pages-pdf-source')
+                    existing_file_key = _clean(request.POST, 'import-pages-pdf-existing-file', None)
+                    import_files = json.loads(request.POST['import-pages-files'])
 
-                consolidated_text = ''
-                for ref_no, file in document.page_file_collections[collection_key]['page_files']:
-                    if os.path.exists(file['path']):
-                        with open(file['path'], 'r', encoding="utf-8") as fin:
-                            consolidated_text += fin.read() + '\n'
+                    image_split = _clean(request.POST, 'import-pages-split')
+                    primary_witness = _clean(request.POST, 'import-pages-primary')
 
-                with open(consolidated_file, 'w', encoding='utf-8') as fout:
-                    fout.write(consolidated_text)
+                    if import_type == 'iiif' and 'import-pages-iiif-ids' in request.POST:
+                        iiif_ids = _clean(request.POST, 'import-pages-iiif-ids')
+                        iiif_ids = [iiif_id.strip() for iiif_id in iiif_ids.split('\n')]
 
-                document.save_file(File.process(
-                    consolidated_file,
-                    "Plain Text File",
-                    "User Created",
-                    response['scholar']['username'],
-                    False
-                ))
+                        # queue and run job
+                        job_id = corpus.queue_local_job(
+                            content_type='Document',
+                            content_id=document_id,
+                            task_name='Import Document Pages from Images',
+                            scholar_id=response['scholar'].id,
+                            parameters={
+                                'import_files_json': json.dumps(iiif_ids),
+                                'split_images': image_split,
+                                'primary_witness': primary_witness,
+                                'images_type': 'iiif'
+                            }
+                        )
+                        run_job(job_id)
 
-                response['messages'].append("Consolidated file created.")
+                        response['messages'].append('Pages imported via IIIF')
+
+                    elif import_source == 'upload':
+                        if import_files:
+
+                            if import_type == 'pdf':
+                                image_dpi = _clean(request.POST, 'import-pages-image-dpi')
+                                extract_text = _clean(request.POST, 'import-pages-extract-text')
+
+                                pdf_file_path = process_document_file_upload(document, import_files[0], response['scholar']['username'])
+
+                                if pdf_file_path and '.pdf' in pdf_file_path.lower():
+
+                                    # Get Local JobSite, PDF Import Task, and setup Job
+                                    job_id = corpus.queue_local_job(
+                                        content_type='Document',
+                                        content_id=document_id,
+                                        task_name='Import Document Pages from PDF',
+                                        scholar_id=response['scholar'].id,
+                                        parameters={
+                                            'pdf_file': pdf_file_path,
+                                            'image_dpi': image_dpi,
+                                            'split_images': image_split,
+                                            'extract_text': extract_text,
+                                            'primary_witness': primary_witness
+                                        }
+                                    )
+                                    run_job(job_id)
+
+                            elif import_type in ['images', 'zip']:
+                                # build job params
+                                job_params = {
+                                    'import_files_json': request.POST['import-pages-files'],
+                                    'split_images': image_split,
+                                    'primary_witness': primary_witness,
+                                    'images_type': 'file'
+                                }
+                                if import_type == 'zip':
+                                    job_params['images_type'] = 'zip'
+
+                                # queue and run job
+                                job_id = corpus.queue_local_job(
+                                    content_type='Document',
+                                    content_id=document_id,
+                                    task_name='Import Document Pages from Images',
+                                    scholar_id=response['scholar'].id,
+                                    parameters=job_params
+                                )
+                                run_job(job_id)
+                        else:
+                            response['errors'].append("Error locating files to import.")
+
+                    elif import_source == 'existing' and existing_file_key:
+                        image_dpi = _clean(request.POST, 'import-pages-image-dpi')
+                        extract_text = _clean(request.POST, 'import-pages-extract-text')
+
+                        # Get Local JobSite, PDF Import Task, and setup Job
+                        job_id = corpus.queue_local_job(
+                            content_type='Document',
+                            content_id=document_id,
+                            task_name='Import Document Pages from PDF',
+                            scholar_id=response['scholar'].id,
+                            parameters={
+                                'pdf_file': document.files[existing_file_key].path,
+                                'image_dpi': image_dpi,
+                                'split_images': image_split,
+                                'extract_text': extract_text,
+                                'primary_witness': primary_witness
+                            }
+                        )
+                        run_job(job_id)
+
+                # HANDLE IMPORT DOCUMENT FILES FORM SUBMISSION
+                elif 'import-document-files' in request.POST:
+                    import_files = json.loads(request.POST['import-document-files'])
+
+                    for import_file in import_files:
+                        if not process_document_file_upload(document, import_file, response['scholar']['username']):
+                            response['errors'].append("A file with this name already exists for this document.")
+
+                # HANDLE JOB RETRIES
+                elif _contains(request.POST, ['retry-job-id']):
+                    retry_job_id = _clean(request.POST, 'retry-job-id')
+                    for completed_task in document.provenance:
+                        if completed_task.job_id == retry_job_id:
+                            job = Job.setup_retry_for_completed_task(corpus_id, 'Document', document_id, completed_task)
+                            document.modify(pull__provenance=completed_task)
+                            run_job(job.id)
+
+                # HANDLE PAGESET CREATION
+                elif _contains(request.POST, ['pageset-name', 'pageset-start', 'pageset-end']):
+                    ps_label = _clean(request.POST, 'pageset-name')
+                    ps_key = slugify(ps_label).replace('__', '_')
+                    ps_start = _clean(request.POST, 'pageset-start')
+                    ps_end = _clean(request.POST, 'pageset-end')
+
+                    if ps_key not in document.page_sets:
+                        if ps_start in document.pages and ps_end in document.pages:
+                            page_ref_nos = natsorted(document.pages.keys())
+                            ps = PageSet()
+                            ps.label = ps_label
+                            start_found = False
+                            for ref_no in page_ref_nos:
+                                if ref_no == ps_start:
+                                    start_found = True
+                                if start_found:
+                                    ps.ref_nos.append(ref_no)
+                                    if ref_no == ps_end:
+                                        break
+                            document.modify(**{'set__page_sets__{0}'.format(ps_key): ps})
+                        else:
+                            response['errors'].append("Start and end pages must be existing page numbers!")
+                    else:
+                        response['errors'].append("A page set with that name already exists!")
+
+                # HANDLE TASK FORM SUBMISSION
+                elif _contains(request.POST, ['jobsite', 'task']):
+                    jobsite = JobSite.objects(id=_clean(request.POST, 'jobsite'))[0]
+                    task = Task.objects(id=_clean(request.POST, 'task'))[0]
+                    task_parameters = [key for key in task.configuration['parameters'].keys()]
+                    if _contains(request.POST, task_parameters):
+                        job = Job()
+                        job.corpus = corpus.id
+                        job.content_type = 'Document'
+                        job.content_id = document_id
+                        job.task_id = str(task.id)
+                        job.scholar = response['scholar'].id
+                        job.jobsite = jobsite.id
+                        job.configuration = task.configuration
+                        for parameter in task_parameters:
+                            job.configuration['parameters'][parameter]['value'] = _clean(request.POST, parameter)
+                        job.save()
+                        run_job(job.id)
+                        response['messages'].append("Job successfully submitted.")
+                    else:
+                        response['errors'].append("Please provide values for all task parameters.")
+
+                # HANDLE FILE CONSOLIDATION SUBMISSION
+                elif _contains(request.POST, ['consolidate-files', 'collection']):
+                    collection_key = _clean(request.POST, 'collection')
+                    consolidated_file = "{0}/files/{1}_consolidated.txt".format(
+                        document.path,
+                        slugify(collection_key)
+                    )
+
+                    consolidated_text = ''
+                    for ref_no, file in document.page_file_collections[collection_key]['page_files']:
+                        if os.path.exists(file['path']):
+                            with open(file['path'], 'r', encoding="utf-8") as fin:
+                                consolidated_text += fin.read() + '\n'
+
+                    with open(consolidated_file, 'w', encoding='utf-8') as fout:
+                        fout.write(consolidated_text)
+
+                    document.save_file(File.process(
+                        consolidated_file,
+                        "Plain Text File",
+                        "User Created",
+                        response['scholar']['username'],
+                        False
+                    ))
+
+                    response['messages'].append("Consolidated file created.")
     else:
         raise Http404("Corpus does not exist, or you are not authorized to view it.")
 
@@ -344,7 +350,7 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
     response = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
 
-    if corpus and (response['scholar'].is_admin or role == 'Editor'):
+    if corpus and scholar_has_privilege('Contributor', role):
         document = corpus.get_content('Document', document_id)
         project = corpus.get_content('TranscriptionProject', project_id)
         pageset = None
