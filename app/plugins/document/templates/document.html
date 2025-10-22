@@ -1122,7 +1122,10 @@
                                         trans_go_button.html('Continue')
                                     } else {
                                         $('#trans-project-group').addClass('d-none')
-                                        $('#trans-new-project-div').removeClass('d-none')
+                                        if (corpora.scholar_has_privilege('Editor', corpus.scholar_role))
+                                            $('#trans-new-project-div').removeClass('d-none')
+                                        else
+                                            $('#transcribe-button').prop('disabled', true)
                                     }
                                 }, true)
                                 trans_project_selector.change(function() {
