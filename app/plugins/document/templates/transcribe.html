@@ -126,6 +126,7 @@
             text-align-last: justify;
             text-justify: inter-word;
             border: solid 1px #17BEBB;
+            padding: 5px;
         }
 
         .control-panel {
@@ -1138,10 +1139,10 @@
                 let current_line = canvas.element('foreignObject');
                 current_line.attr({
                     id: `region-${region_id}-text-obj`,
-                    x: region_x,
+                    x: region_x - 5,
                     y: region_y,
-                    width: region_width,
-                    height: region_height
+                    width: region_width + 10,
+                    height: region_height + 10
                 });
                 $(`#${current_line.node.id}`).append(`
                     <div id="region-${region_id}-text" class="w-100 h-100 text-region" contentEditable></div>
