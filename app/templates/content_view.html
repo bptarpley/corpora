@@ -34,7 +34,7 @@
                 </li>
                 {% if not popup %}
                 <li class="nav-item" role="presentation">
-                    <a class="nav-link disabled" id="explore-tab" data-toggle="tab" href="#explore" role="tab" aria-controls="explore" aria-selected="false">Explore</a>
+                    <a class="nav-link" id="explore-tab" data-toggle="tab" href="#explore" role="tab" aria-controls="explore" aria-selected="false">Explore</a>
                 </li>
                 <li class="nav-item" role="presentation">
                     <a class="nav-link" id="associated-tab" data-toggle="tab" href="#associated" role="tab" aria-controls="associated" aria-selected="false">Associated Content</a>
@@ -95,7 +95,6 @@
     <script src="{% static 'js/filepond.js' %}"></script>
     <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
     <script src="{% static 'js/vis-network.js' %}"></script>
-    <script src="{% static 'js/interact.min.js' %}"></script>
     {% for inclusion in inclusions.js %}
     <script src="{% static inclusion %}"></script>
     {% endfor %}
@@ -112,7 +111,6 @@
         let popup = {% if popup %}true{% else %}false{% endif %}
         let has_widget = {% if view_widget_url %}true{% else %}false{% endif %}
         let network = null
-        let last_table = null
 
         $(document).ready(function() {
             $('[data-events]').each(function() {
@@ -136,7 +134,24 @@
 
             $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
                 if (e.target.id === 'explore-tab') {
-                    network.network.fit({nodes: [content_uri]})
+                    let explore_container_width = $('#content-nav-tabs').innerWidth()
+                    $('#explore-div').css("width", `${explore_container_width}px`)
+                    $('#explore-div').css("height", `80vh`)
+                    network = new ContentGraph(
+                        corpora,
+                        corpus,
+                        "explore-div",
+                        "explore-legend",
+                        {
+                            'seeds': [content_uri],
+                            'per_type_limit': 5,
+                            'width': explore_container_width,
+                            'height': '90vh'
+                        }
+                    )
+
+                        'associated-div'
+                    )
                 }
             })
 
@@ -161,59 +176,6 @@
 
                     add_breadcrumb(corpus.name, `/corpus/${corpus_id}/`)
                     add_breadcrumb(content_label, `${content_uri}/`)
-
-                    // LOAD ASSOCIATED CONTENT TABLES
-                    let associated_cts = {}
-                    for (let ct_name in corpus.content_types) {
-                        let ct = corpus.content_types[ct_name]
-                        ct.fields.map(field => {
-                            if (field.type === 'cross_reference' && field.cross_reference_type === content_type_name) {
-                                if (!(ct_name in associated_cts)) {
-                                    associated_cts[ct_name] = []
-                                }
-                                associated_cts[ct_name].push({
-                                    name: field.name,
-                                    label: field.label
-                                })
-                            }
-                        })
-                    }
-
-                    for (let ct_name in associated_cts) {
-                        associated_cts[ct_name].forEach(xref_field => {
-                            let associated_search = {
-                                page: 1,
-                                'page-size': 5,
-                            }
-                            associated_search[`f_${xref_field.name}.id`] = content_id
-                            last_table = new ContentTable({
-                                label: `${corpus.content_types[ct_name].plural_name} (${xref_field.label})`,
-                                container_id: 'associated-div',
-                                corpora: corpora,
-                                corpus: corpus,
-                                content_type: ct_name,
-                                search: associated_search
-                            })
-                        })
-                    }
-
-                    // INITIAL EXPLORE VIZ LOAD
-                    let explore_container_width = $('#content-nav-tabs').innerWidth()
-                    $('#explore-div').css("width", `${explore_container_width}px`)
-                    $('#explore-div').css("height", `80vh`)
-                    network = new ContentGraph(
-                        corpora,
-                        corpus,
-                        "explore-div",
-                        "explore-legend",
-                        {
-                            'seeds': [content_uri],
-                            'per_type_limit': 5,
-                            'width': explore_container_width,
-                            'height': '90vh'
-                        }
-                    )
-                    $('#explore-tab').removeClass('disabled')
                 }
             }, true)
 

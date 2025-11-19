@@ -323,7 +323,7 @@
             </li>
             {% if not popup %}
                 <li class="nav-item" role="presentation">
-                    <a class="nav-link disabled" id="explore-tab" data-toggle="tab" href="#explore" role="tab" aria-controls="explore" aria-selected="false">Explore</a>
+                    <a class="nav-link" id="explore-tab" data-toggle="tab" href="#explore" role="tab" aria-controls="explore" aria-selected="false">Explore</a>
                 </li>
                 <li class="nav-item" role="presentation">
                     <a class="nav-link" id="associated-tab" data-toggle="tab" href="#associated" role="tab" aria-controls="associated" aria-selected="false">Associated Content</a>
@@ -479,6 +479,8 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+
                     </div>
 
                 </div>
@@ -1127,6 +1129,8 @@
                                         else
                                             $('#transcribe-button').prop('disabled', true)
                                     }
+                                        )
+                                    })
                                 }, true)
                                 trans_project_selector.change(function() {
                                     if (trans_project_selector.val() === 'new') {
@@ -1171,58 +1175,35 @@
                             }
 
                             if (!popup) {
-                                // INITIAL EXPLORE VIZ LOAD
-                                let explore_container_width = $('#content-nav-tabs').innerWidth()
-                                $('#explore-div').css("width", `${explore_container_width}px`)
-                                network = new ContentGraph(
-                                    corpora,
                                     corpus_data,
                                     "explore-div",
                                     "explore-legend",
                                     {
-                                        'seeds': [document_uri],
-                                        'per_type_limit': 5,
-                                        'width': explore_container_width,
-                                        'height': 800
-                                    }
-                                )
-                                $('#explore-tab').removeClass('disabled')
-
                                 $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
                                     if (e.target.id === 'explore-tab') {
-                                        network.network.fit({nodes: [document_uri]})
+                                        // LOAD EXPLORE NETWORK GRAPH
+                                        let explore_container_width = $('#content-nav-tabs').innerWidth()
+                                        // $('#explore-div').css("width", `${explore_container_width}px`)
+                                        network = new ContentGraph(
+                                            corpora,
+                                            corpus_data,
+                                            "explore-div",
+                                            "explore-legend",
+                                            {
+                                                'seeds': [document_uri],
+                                                'per_type_limit': 5,
+                                                'width': explore_container_width,
+                                        )
+                                    } else if (e.target.id === 'associated-tab') {
+                                        // LOAD ASSOCIATED CONTENT TABLES
+                                        corpora.build_associated_content_tables(
+                                            corpus,
+                                            'Document',
+                                            document_id,
+                                            'associated-content-div'
+                                        )
                                     }
                                 })
-
-                                // ASSOCIATED CONTENT
-                                let associated_cts = {}
-                                for (let content_type in corpus.content_types) {
-                                    let ct = corpus.content_types[content_type]
-                                    ct.fields.map(field => {
-                                        if (field.type === 'cross_reference' && field.cross_reference_type === 'Document') {
-                                            associated_cts[ct.name] = field.name
-                                        }
-                                    })
-                                }
-
-                                if (associated_cts) {
-                                    $('#associated-content-div').html('')
-                                    for (let ct_name in associated_cts) {
-                                        let associated_search = {
-                                            page: 1,
-                                            'page-size': 5,
-                                        }
-                                        associated_search[`f_${associated_cts[ct_name]}.id`] = document_id
-
-                                        let ct_table = new ContentTable({
-                                            container_id: 'associated-content-div',
-                                            corpora: corpora,
-                                            corpus: corpus,
-                                            content_type: ct_name,
-                                            search: associated_search
-                                        })
-                                    }
-                                }
                             }
 
                             hide_loading_overlay()
