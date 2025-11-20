@@ -150,6 +150,13 @@
                         }
                     )
 
+                    // network.network.fit({nodes: [content_uri]})
+                } else if (e.target.id === 'associated-tab') {
+                    // LOAD ASSOCIATED CONTENT TABLES
+                    corpora.build_associated_content_tables(
+                        corpus,
+                        content_type_name,
+                        content_id,
                         'associated-div'
                     )
                 }
