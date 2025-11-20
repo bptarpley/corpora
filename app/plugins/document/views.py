@@ -197,7 +197,7 @@ def document(request, corpus_id, document_id):
                             document.modify(pull__provenance=completed_task)
                             run_job(job.id)
 
-                # HANDLE PAGESET CREATION
+                # HANDLE PAGE SET CREATION
                 elif _contains(request.POST, ['pageset-name', 'pageset-start', 'pageset-end']):
                     ps_label = _clean(request.POST, 'pageset-name')
                     ps_key = slugify(ps_label).replace('__', '_')
@@ -218,10 +218,27 @@ def document(request, corpus_id, document_id):
                                     if ref_no == ps_end:
                                         break
                             document.modify(**{'set__page_sets__{0}'.format(ps_key): ps})
+                            response['messages'].append(f"Page set {ps_label} successfully created.")
                         else:
                             response['errors'].append("Start and end pages must be existing page numbers!")
                     else:
                         response['errors'].append("A page set with that name already exists!")
+
+                # HANDLE PAGE SET DELETION
+                elif _contains(request.POST, ['ps-slug', 'ps-action']):
+                    ps_slug = _clean(request.POST, 'ps-slug')
+                    ps_action = _clean(request.POST, 'ps-action')
+
+                    if ps_action == 'delete' and ps_slug in document.page_sets:
+                        # check for transcription projects using this page set
+                        trans_projects = corpus.get_content('TranscriptionProject', {'pageset': ps_slug})
+                        if trans_projects.count() > 0:
+                            trans_project_names = [tp.name for tp in trans_projects]
+                            response['errors'].append("Page set cannot be deleted, as the following transcription projects still refer to it: <b>{0}</b>".format("</b>, <b>".join(trans_project_names)))
+                        else:
+                            del document.page_sets[ps_slug]
+                            document.save()
+                            response['messages'].append("Page set successfully deleted.")
 
                 # HANDLE TASK FORM SUBMISSION
                 elif _contains(request.POST, ['jobsite', 'task']):
@@ -271,6 +288,22 @@ def document(request, corpus_id, document_id):
                     ))
 
                     response['messages'].append("Consolidated file created.")
+
+                # HANDLE TRANSCRIPTION PROJECT DELETIONS
+                elif _contains(request.POST, ['tp-action', 'tp-id']):
+                    tp_id = _clean(request.POST, 'tp-id')
+                    tp_action = _clean(request.POST, 'tp-action')
+
+                    if tp_action == 'delete':
+                        trans_proj = corpus.get_content('TranscriptionProject', tp_id)
+                        if trans_proj:
+                            trans_pages = corpus.get_content('Transcription', {'project': trans_proj.id})
+                            for trans_page in trans_pages:
+                                trans_page.delete()
+                            trans_proj.delete()
+                            response['messages'].append("Transcription project deleted successfully.")
+                        else:
+                            response['errors'].append("Unable to find Transcription Project for deletion!")
     else:
         raise Http404("Corpus does not exist, or you are not authorized to view it.")
 
