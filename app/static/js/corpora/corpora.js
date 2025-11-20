@@ -687,6 +687,44 @@ class Corpora {
         })
     }
 
+    build_associated_content_tables(corpus, content_type, content_id, container_id) {
+        let associated_cts = {}
+        for (let ct_name in corpus.content_types) {
+            let ct = corpus.content_types[ct_name]
+            ct.fields.map(field => {
+                if (field.type === 'cross_reference' && field.cross_reference_type === content_type && field.in_lists) {
+                    if (!(ct_name in associated_cts)) {
+                        associated_cts[ct_name] = []
+                    }
+                    associated_cts[ct_name].push({
+                        name: field.name,
+                        label: field.label
+                    })
+                }
+            })
+        }
+
+        if (Object.keys(associated_cts).length) $(`#${container_id}`).html('')
+
+        for (let ct_name in associated_cts) {
+            associated_cts[ct_name].forEach(xref_field => {
+                let associated_search = {
+                    page: 1,
+                    'page-size': 5,
+                }
+                associated_search[`f_${xref_field.name}.id`] = content_id
+                let associated_table = new ContentTable({
+                    label: `${corpus.content_types[ct_name].plural_name} (${xref_field.label})`,
+                    container_id: container_id,
+                    corpora: this,
+                    corpus: corpus,
+                    content_type: ct_name,
+                    search: associated_search
+                })
+            })
+        }
+    }
+
     confirm_action(callback, title='Confirm', message='Are you Sure?', actionButton='Confirm', dangerous=false) {
         let corporaConfirmModal = $('#corpora-confirm-modal')
 

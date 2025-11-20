@@ -350,7 +350,9 @@
                         if (control.val() === '') value = null
                         else value = control.val()
 
-                    if (multi_map[field_name] && value !== null) bundle[field_name].push({value: value})
+                    if (multi_map[field_name]) {
+                        if(value !== null) bundle[field_name].push({value: value})
+                    }
                     else bundle[field_name] = {value: value}
                 }
             })

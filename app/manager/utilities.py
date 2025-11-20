@@ -675,7 +675,7 @@ def _replace_all(target, replacement_pairs):
 def _clean(obj, key, default_value=''):
     val = obj.get(key, False)
     if val:
-        return escape(val)
+        return escape(val).strip()
     else:
         return default_value
 

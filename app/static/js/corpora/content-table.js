@@ -802,8 +802,8 @@ class ContentTable {
                 if (height > half_window_height) height = half_window_height
                 if (height < sender.min_height) height = sender.min_height
 
-                if (table_container.parent().height() < 0) table_container.css('height', '50vh')
-                else if (content.meta.total >= 5) table_container.css('height', `${height}px`)
+                table_container.css('height', `${height}px`)
+
                 interact(table_container[0])
                     .resizable({
                         // resize from bottom only
