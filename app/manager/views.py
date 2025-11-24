@@ -1261,12 +1261,12 @@ def scholars(request):
 
             elif 'corpus-perms' in request.POST:
                 target_scholar = Scholar.objects(id=request.POST['corpus-perms'])[0]
-                new_perm_corpus_name = request.POST['corpus-name']
+                new_perm_corpus_id = request.POST['corpus-id']
                 new_perm_corpus_role = request.POST['corpus-permission']
 
-                if new_perm_corpus_name and new_perm_corpus_role in ['Viewer', 'Contributor', 'Editor']:
+                if new_perm_corpus_id != 'none' and new_perm_corpus_role in ['Viewer', 'Contributor', 'Editor']:
                     try:
-                        corpus = Corpus.objects(name=new_perm_corpus_name)[0]
+                        corpus = Corpus.objects(id=new_perm_corpus_id)[0]
                         if str(corpus.id) not in target_scholar.available_corpora:
                             target_scholar.available_corpora[str(corpus.id)] = new_perm_corpus_role
                             target_scholar.save()
@@ -1274,7 +1274,7 @@ def scholars(request):
                         response['errors'].append("No corpus was found with the name provided.")
 
                 for post_param in request.POST.keys():
-                    if post_param not in ['corpus-perms', 'corpus-name', 'corpus-permission'] and post_param.startswith('corpus-'):
+                    if post_param not in ['corpus-perms', 'corpus-id', 'corpus-permission'] and post_param.startswith('corpus-'):
                         corpus_id = post_param.replace('corpus-', '').replace('-permission', '')
                         corpus_role = request.POST[post_param]
 
@@ -1679,7 +1679,7 @@ def api_corpora(request):
         context['search'] = {
             'general_query': "*",
             'page': 1,
-            'page_size': 50
+            'page_size': 100,
         }
 
     if context['scholar'] and context['scholar'].is_admin:
