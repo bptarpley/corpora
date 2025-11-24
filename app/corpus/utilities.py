@@ -67,9 +67,7 @@ def search_corpora(
     if should or must:
         search_query = Q('bool', should=should, must=must)
         search_cmd = Search(using=get_connection(), index=index, extra={'track_total_hits': True}).query(search_query)
-
-        if 'fields_sort' in search_dict and search_dict['fields_sort']:
-            search_cmd = search_cmd.sort(*search_dict['fields_sort'])
+        search_cmd = search_cmd.sort({'name.raw': 'asc'})
 
         search_cmd = search_cmd[start_index:end_index]
         search_results = search_cmd.execute().to_dict()
