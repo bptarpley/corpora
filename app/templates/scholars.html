@@ -351,37 +351,45 @@
                 $('#scholar-username-span').html(scholar_data.username)
                 $('.scholar-id').val(scholar_id)
 
+                let scholarAdminPrivsButton = $('#scholar-admin-privs-button')
+                let corpusPermissionsContainer = $('#corpus-permissions-container')
+                let jobPermissionsContainer = $('#job-permissions-container')
                 let corpus_permissions_div = $('#current-corpus-permissions-div')
                 corpus_permissions_div.html('')
-                Object.keys(scholar_data.available_corpora).forEach((corpus_id, index) => {
-                    let border_style = ""
-                    if (index + 1 < Object.keys(scholar_data.available_corpora).length)
-                        border_style = "border-bottom: solid 1px #BFBFBF;"
-
-                    corpus_permissions_div.append(`
-                        <div class="row py-3 mx-1" style="${border_style}">
-                            <div class="col-6">
-                                <strong>${scholar_data.available_corpora[corpus_id].name}</strong>
-                            </div>
-                            <div class="col-6">
-                                <label for="corpus-${corpus_id}-permission-selector" class="sr-only">Permission</label>
-                                <select class="form-control" id="corpus-${corpus_id}-permission-selector" name="corpus-${corpus_id}-permission">
-                                    <option>Viewer</option>
-                                    <option>Contributor</option>
-                                    <option>Editor</option>
-                                    <option>None</option>
-                                </select>
-                            </div>
-                        </div>
-                    `)
-
-                    $(`#corpus-${corpus_id}-permission-selector`).val(scholar_data.available_corpora[corpus_id].role)
-                })
 
                 if (scholar_data.is_admin) {
-                    $('#scholar-admin-privs-button').html('Revoke Admin Privileges')
+                    scholarAdminPrivsButton.html('Revoke Admin Privileges')
+                    corpusPermissionsContainer.addClass('d-none')
+                    jobPermissionsContainer.addClass('d-none')
                 } else {
-                    $('#scholar-admin-privs-button').html('Grant Admin Privileges')
+                    scholarAdminPrivsButton.html('Grant Admin Privileges')
+                    corpusPermissionsContainer.removeClass('d-none')
+                    jobPermissionsContainer.removeClass('d-none')
+
+                    Object.keys(scholar_data.available_corpora).forEach((corpus_id, index) => {
+                        let border_style = ""
+                        if (index + 1 < Object.keys(scholar_data.available_corpora).length)
+                            border_style = "border-bottom: solid 1px #BFBFBF;"
+
+                        corpus_permissions_div.append(`
+                            <div class="row py-3 mx-1" style="${border_style}">
+                                <div class="col-6">
+                                    <strong>${scholar_data.available_corpora[corpus_id].name}</strong>
+                                </div>
+                                <div class="col-6">
+                                    <label for="corpus-${corpus_id}-permission-selector" class="sr-only">Permission</label>
+                                    <select class="form-control" id="corpus-${corpus_id}-permission-selector" name="corpus-${corpus_id}-permission">
+                                        <option>Viewer</option>
+                                        <option>Contributor</option>
+                                        <option>Editor</option>
+                                        <option>None</option>
+                                    </select>
+                                </div>
+                            </div>
+                        `)
+
+                        $(`#corpus-${corpus_id}-permission-selector`).val(scholar_data.available_corpora[corpus_id].role)
+                    })
                 }
 
                 $('.job-perm').attr('checked', false)
@@ -393,6 +401,16 @@
                 scholar_data.available_tasks.map(task_id => {
                     $(`#task-${task_id}`).attr('checked', true)
                 })
+
+                let scholarDeletionGroup = $('#delete-scholar-container')
+                if (scholar_data.username === 'corpora') {
+                    scholarDeletionGroup.addClass('d-none')
+                    scholarAdminPrivsButton.prop('disabled', true)
+                }
+                else {
+                    scholarDeletionGroup.removeClass('d-none')
+                    scholarAdminPrivsButton.prop('disabled', false)
+                }
 
                 $('#scholar-modal').modal()
             });
