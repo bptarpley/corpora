@@ -1,15 +1,19 @@
 import secrets
+import traceback
+
 import mongoengine
 from typing import TYPE_CHECKING
 from elasticsearch_dsl import Search
 from elasticsearch_dsl.connections import get_connection
+from django.contrib.auth.models import User
 from .utilities import run_neo
-from .job import Task, JobSite
+from .job import Task, JobSite, JobTracker
 
 
 # to avoid circular dependency between Scholar and Corpus classes:
 if TYPE_CHECKING:
     from .corpus import Corpus
+    from .content import ContentView
 
 
 class Scholar(mongoengine.Document):
@@ -136,6 +140,42 @@ class Scholar(mongoengine.Document):
 
     @classmethod
     def _post_delete(cls, sender, document, **kwargs):
+        # ---------------------------------------------------- #
+        # Handle any content that might reference this scholar #
+        # ---------------------------------------------------- #
+        from .content import ContentView # importing here to prevent circular dependencies
+        corpora_scholar = None
+        def get_corpora_scholar(corpora_scholar):
+            if corpora_scholar:
+                return corpora_scholar
+            else:
+                corpora_scholar = Scholar.objects.filter(username='corpora')
+                if corpora_scholar.count():
+                    return corpora_scholar[0]
+            return None
+
+        # JobTrackers
+        jobs = JobTracker.objects.filter(scholar=document.id)
+        if jobs.count():
+            # Reassign to Corpora scholar
+            corpora_scholar = get_corpora_scholar(corpora_scholar)
+            if corpora_scholar:
+                for job in jobs:
+                    job.scholar = corpora_scholar.id
+                    job.save()
+
+        # ContentViews
+        content_views = ContentView.objects.filter(created_by=document.id)
+        if content_views.count():
+            corpora_scholar = get_corpora_scholar(corpora_scholar)
+            if corpora_scholar:
+                for content_view in content_views:
+                    content_view.created_by = corpora_scholar.id
+
+        # ------------------------------------ #
+        # Remove from Neo4J graph and ES index #
+        # ------------------------------------ #
+
         # Delete Neo4J nodes
         run_neo('''
                 MATCH (s:_Scholar { uri: $scholar_uri })
@@ -149,6 +189,17 @@ class Scholar(mongoengine.Document):
         # Remove scholar from ES index
         es_scholar = Search(index='scholar').query("match", _id=str(document.id))
         es_scholar.delete()
+
+        # ---------------------------------------------- #
+        # Delete corresponding user from Django Admin DB #
+        # ---------------------------------------------- #
+        try:
+            user_to_delete = User.objects.get(username=document.username)
+            if user_to_delete:
+                user_to_delete.delete()
+        except:
+            print(f'Unable to delete user {document.username} from Django Admin DB:')
+            print(traceback.format_exc())
 
 
 # rig up post delete signal for Scholar

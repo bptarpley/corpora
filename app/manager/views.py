@@ -106,8 +106,8 @@ def corpus(request, corpus_id):
     content_views = []
 
     if corpus:
-        # ADMIN REQUESTS
-        if scholar_has_privilege('Admin', role):
+        # EDITOR REQUESTS
+        if scholar_has_privilege('Editor', role):
             # get content views
             content_views = ContentView.objects(corpus=corpus, status__in=['populated', 'needs_refresh']).order_by('name')
 
@@ -1317,6 +1317,17 @@ def scholars(request):
                     response['messages'].append("Password for {0} successfully changed!".format(target_scholar.username))
                 else:
                     response['errors'].append("Passwords must match!")
+
+            elif 'delete-scholar' in request.POST:
+                scholar_id = _clean(request.POST, 'delete-scholar')
+                try:
+                    target_scholar = Scholar.objects.get(id=scholar_id)
+                    target_scholar.delete()
+                    response['messages'].append(f"Scholar {target_scholar.username} successfully deleted.")
+                except:
+                    print(f"Error deleting scholar with ID {scholar_id}:")
+                    print(traceback.format_exc())
+                    response['errors'].append("Scholar not found for deletion!")
 
         return render(
             request,

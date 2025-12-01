@@ -106,6 +106,23 @@
                                 </form>
                             </div>
                         </div>
+
+                        <div id="delete-scholar-container" class="list-group-item">
+                            <button class="btn btn-link" data-toggle="collapse" data-target="#delete-scholar-collapsible" aria-expanded="false" aria-controls="delete-scholar-collapsible">
+                                <span id="delete-scholar-collapse-indicator" class="fas fa-caret-right"></span>
+                                Delete Account
+                            </button>
+                            <div id="delete-scholar-collapsible" class="alert alert-info collapse" aria-labelledby="delete-scholar-container" data-parent="#scholar-list-group">
+                                <form method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="delete-scholar" class="scholar-id" />
+                                    <div class="alert alert-danger">
+                                        Upon deleting an account, any references to this scholar will be assigned to the <b>Corpora</b> account instead.
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Delete Account</button>
+                                </form>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
