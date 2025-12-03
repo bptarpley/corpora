@@ -10,8 +10,6 @@ register = template.Library()
 
 @register.filter(name='has_privilege')
 def has_privilege(role, privilege):
-    print(privilege)
-    print(role)
     return scholar_has_privilege(privilege, role)
 
 

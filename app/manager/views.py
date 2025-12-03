@@ -106,8 +106,8 @@ def corpus(request, corpus_id):
     content_views = []
 
     if corpus:
-        # ADMIN REQUESTS
-        if scholar_has_privilege('Admin', role):
+        # EDITOR REQUESTS
+        if scholar_has_privilege('Editor', role):
             # get content views
             content_views = ContentView.objects(corpus=corpus, status__in=['populated', 'needs_refresh']).order_by('name')
 
@@ -1261,12 +1261,12 @@ def scholars(request):
 
             elif 'corpus-perms' in request.POST:
                 target_scholar = Scholar.objects(id=request.POST['corpus-perms'])[0]
-                new_perm_corpus_name = request.POST['corpus-name']
+                new_perm_corpus_id = request.POST['corpus-id']
                 new_perm_corpus_role = request.POST['corpus-permission']
 
-                if new_perm_corpus_name and new_perm_corpus_role in ['Viewer', 'Contributor', 'Editor']:
+                if new_perm_corpus_id != 'none' and new_perm_corpus_role in ['Viewer', 'Contributor', 'Editor']:
                     try:
-                        corpus = Corpus.objects(name=new_perm_corpus_name)[0]
+                        corpus = Corpus.objects(id=new_perm_corpus_id)[0]
                         if str(corpus.id) not in target_scholar.available_corpora:
                             target_scholar.available_corpora[str(corpus.id)] = new_perm_corpus_role
                             target_scholar.save()
@@ -1274,7 +1274,7 @@ def scholars(request):
                         response['errors'].append("No corpus was found with the name provided.")
 
                 for post_param in request.POST.keys():
-                    if post_param not in ['corpus-perms', 'corpus-name', 'corpus-permission'] and post_param.startswith('corpus-'):
+                    if post_param not in ['corpus-perms', 'corpus-id', 'corpus-permission'] and post_param.startswith('corpus-'):
                         corpus_id = post_param.replace('corpus-', '').replace('-permission', '')
                         corpus_role = request.POST[post_param]
 
@@ -1317,6 +1317,17 @@ def scholars(request):
                     response['messages'].append("Password for {0} successfully changed!".format(target_scholar.username))
                 else:
                     response['errors'].append("Passwords must match!")
+
+            elif 'delete-scholar' in request.POST:
+                scholar_id = _clean(request.POST, 'delete-scholar')
+                try:
+                    target_scholar = Scholar.objects.get(id=scholar_id)
+                    target_scholar.delete()
+                    response['messages'].append(f"Scholar {target_scholar.username} successfully deleted.")
+                except:
+                    print(f"Error deleting scholar with ID {scholar_id}:")
+                    print(traceback.format_exc())
+                    response['errors'].append("Scholar not found for deletion!")
 
         return render(
             request,
@@ -1679,7 +1690,7 @@ def api_corpora(request):
         context['search'] = {
             'general_query': "*",
             'page': 1,
-            'page_size': 50
+            'page_size': 100,
         }
 
     if context['scholar'] and context['scholar'].is_admin:

@@ -44,8 +44,10 @@
                                     <div class="alert alert-info">
                                         <h4 class="mb-2">New Permission</h4>
                                         <div class="form-group">
-                                            <label for="corpus-name-box">Corpus Name</label>
-                                            <input type="text" class="form-control" id="corpus-name-box" name="corpus-name" placeholder="Corpus name">
+                                            <label for="corpus-name-box">Corpus</label>
+                                            <select class="form-control" id="corpus-id-box" name="corpus-id">
+                                                <option value="none">Select a corpus...</option>
+                                            </select>
                                         </div>
                                         <div class="form-group">
                                             <label for="corpus-permission-selector">Permission</label>
@@ -104,6 +106,23 @@
                                 </form>
                             </div>
                         </div>
+
+                        <div id="delete-scholar-container" class="list-group-item">
+                            <button class="btn btn-link" data-toggle="collapse" data-target="#delete-scholar-collapsible" aria-expanded="false" aria-controls="delete-scholar-collapsible">
+                                <span id="delete-scholar-collapse-indicator" class="fas fa-caret-right"></span>
+                                Delete Account
+                            </button>
+                            <div id="delete-scholar-collapsible" class="alert alert-info collapse" aria-labelledby="delete-scholar-container" data-parent="#scholar-list-group">
+                                <form method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="delete-scholar" class="scholar-id" />
+                                    <div class="alert alert-danger">
+                                        Upon deleting an account, any references to this scholar will be assigned to the <b>Corpora</b> account instead.
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Delete Account</button>
+                                </form>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -116,30 +135,31 @@
 {% endblock %}
 
 {% block main %}
-        <div class="row mt-4">
+        <div class="row corpora-content-table">
             <div class="col-12">
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <div class="d-flex w-100 justify-content-between align-items-center">
-                            <h4>Scholars</h4>
-                            <div class="form-inline">
-                                <input type="text" class="form-control" id="search-box" placeholder="Search" />
-                                <select id="page-selector" class="form-control btn-primary ml-2"></select>
-                            </div>
+                <div class="alert alert-info mt-4">
+                    <h4>Scholars</h4>
+                    <div class="d-flex w-100 justify-content-between align-items-center text-nowrap my-2">
+                        <span id="scholar-total-badge" class="badge badge-secondary p-2 mr-2">Total: 1</span>
+                        <div class="input-group mr-2">
+                            <input type="text" class="form-control" id="scholar-search-box" placeholder="Search" style="border: solid 1px #091540;">
                         </div>
                     </div>
-                    <div class="card-body">
-                        <table class="table">
+
+                    <div id="scholar-table-container" class="card-body p-0 content-table-container" style="height: calc(100vh - 300px);">
+                        <table class="table table-striped mb-0">
                             <thead class="thead-dark">
-                                <th scope="col"><a href="#" class="sort-link" data-field="username"><h5>Username</h5></a></th>
-                                <th scope="col"><a href="#" class="sort-link" data-field="fname"><h5>First Name</h5></a></th>
-                                <th scope="col"><a href="#" class="sort-link" data-field="lname"><h5>Last Name</h5></a></th>
-                                <th scope="col"><a href="#" class="sort-link" data-field="email"><h5>Email</h5></a></th>
-                                <th scope="col"><a href="#" class="sort-link" data-field="is_admin"><h5>Admin</h5></a></th>
+                                <tr id="scholar-table-header-row">
+                                    <th scope="col"><a href="#" class="sort-link" data-field="username"><h5>Username</h5></a></th>
+                                    <th scope="col"><a href="#" class="sort-link" data-field="fname"><h5>First Name</h5></a></th>
+                                    <th scope="col"><a href="#" class="sort-link" data-field="lname"><h5>Last Name</h5></a></th>
+                                    <th scope="col"><a href="#" class="sort-link" data-field="email"><h5>Email</h5></a></th>
+                                    <th scope="col"><a href="#" class="sort-link" data-field="is_admin"><h5>Admin</h5></a></th>
+                                </tr>
                             </thead>
                             <tbody id="scholar-table">
                                 <tr>
-                                    <td colspan="2">
+                                    <td colspan="5">
                                         <div class="alert alert-info">
                                             Loading scholars...
                                         </div>
@@ -148,6 +168,9 @@
                             </tbody>
                         </table>
                     </div>
+                    <div class="progress" style="height: 5px;">
+                        <div id="scholar-scroll-progress" class="progress-bar bg-secondary" role="progressbar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -155,100 +178,135 @@
 
 {% block js %}
     <script type="application/javascript">
-        let scholars = [];
-        let jobsites = [];
+        let scholars = []
+        let jobsites = []
         let scholar_search = {
             q: '*',
             page: 1,
             'page-size': 50,
             's_username': 'asc'
-        };
+        }
+        let pages_loaded = new Set()
+        let total_scholars = 0
+        let scholarObserver = null
 
         $(document).ready(function() {
             corpora.get_jobsites(function(jobsite_data) {
-                jobsites = jobsite_data;
-                let jobsite_div = $('#jobsite-permissions-div');
+                jobsites = jobsite_data
+                let jobsite_div = $('#jobsite-permissions-div')
                 jobsites.map(jobsite => {
                     jobsite_div.append(`
                         <div class="form-check">
                             <input class="form-check-input job-perm" type="checkbox" id="jobsite-${jobsite.id}" name="jobsite-${jobsite.id}">
                             <label class="form-check-label" for="jobsite-${jobsite.id}">${jobsite.name} (${jobsite.type})</label>
                         </div>
-                    `);
+                    `)
 
                     Object.keys(jobsite.task_registry).map(task_name => {
-                        let task = jobsite.task_registry[task_name];
+                        let task = jobsite.task_registry[task_name]
                         let task_id = task.task_id
                         jobsite_div.append(`
                             <div class="form-check ml-3">
                                 <input class="form-check-input job-perm" type="checkbox" id="task-${task_id}" name="task-${task_id}">
                                 <label class="form-check-label" for="task-${task_id}">${task_name}</label>
                             </div>
-                        `);
-                    });
-                });
-            });
+                        `)
+                    })
+                })
 
-            load_scholars();
-
-            $('#corpus-new-button').click(function() {
-                $('#new-corpus-modal').modal();
-            });
-
-            $("#search-box").keypress(function(e){
-                let key = e.which;
-                if (key === 13) {
-                    let query = $("#search-box").val();
-                    if (query) {
-                        scholar_search.q = query + '*';
-                    } else {
-                        scholar_search.q = '*';
+                corpora.get_corpora({}, corpus_info => {
+                    if (corpus_info.records) {
+                        let corpus_selector = $('#corpus-id-box')
+                        corpus_info.records.forEach(corp => {
+                            corpus_selector.append(`
+                                <option value="${corp.id}">${corp.name}</option>
+                            `)
+                        })
                     }
-                    scholar_search.page = 1;
-                    load_scholars();
+                })
+
+                scholarObserver = new IntersectionObserver(entries => {
+                    entries.forEach((entry, index) => {
+                        if (entry.isIntersecting) {
+                            let page_breaker = $(entry.target)
+                            let scroll_progress_bar = $(`#scholar-scroll-progress`)
+                            let rec_num = page_breaker.data('record_num')
+                            let scroll_progress = Math.round((rec_num / total_scholars) * 100)
+                            let next_page = page_breaker.data('next_page')
+
+                            scroll_progress_bar.css('width', `${scroll_progress}%`)
+                            scroll_progress_bar.attr('aria-valuenow', scroll_progress)
+
+                            if (next_page) {
+                                next_page = parseInt(next_page)
+
+                                if (!pages_loaded.has(next_page)) {
+                                    pages_loaded.add(next_page)
+                                    scholar_search.page = next_page
+                                    load_scholars()
+                                }
+                            }
+                        }
+                    })
+                })
+            })
+
+            load_scholars()
+
+            $("#scholar-search-box").keypress(function(e){
+                let key = e.which
+                if (key === 13) {
+                    let query = $("#scholar-search-box").val()
+                    if (query) {
+                        scholar_search.q = query + '*'
+                    } else {
+                        scholar_search.q = '*'
+                    }
+                    scholar_search.page = 1
+                    pages_loaded.clear()
+                    load_scholars()
                 }
-            });
+            })
 
             $('.sort-link').click(function() {
-                let field = $(this).data('field');
-                let setting = `s_${field}`;
-                let settings = Object.keys(scholar_search);
+                let field = $(this).data('field')
+                let setting = `s_${field}`
+                let settings = Object.keys(scholar_search)
                 settings.map(old_setting => {
-                    if (old_setting !== setting && old_setting.startsWith('s_')) delete scholar_search[old_setting];
-                });
+                    if (old_setting !== setting && old_setting.startsWith('s_')) delete scholar_search[old_setting]
+                })
 
                 if (scholar_search.hasOwnProperty(setting)) {
-                    if (scholar_search[setting] === 'asc') scholar_search[setting] = 'desc';
-                    else scholar_search[setting] = 'asc';
-                } else scholar_search[setting] = 'asc';
-                scholar_search.page = 1;
-                load_scholars();
-            });
-
-            $('#page-selector').change(function() {
-                scholar_search.page = parseInt($('#page-selector').val());
-                load_scholars();
-            });
-        });
+                    if (scholar_search[setting] === 'asc') scholar_search[setting] = 'desc'
+                    else scholar_search[setting] = 'asc'
+                } else scholar_search[setting] = 'asc'
+                scholar_search.page = 1
+                pages_loaded.clear()
+                load_scholars()
+            })
+        })
 
         function load_scholars() {
-            corpora.get_scholars(scholar_search, build_scholars);
+            corpora.get_scholars(scholar_search, build_scholars)
         }
 
         function build_scholars(scholar_data) {
-            scholars = scholar_data.records;
-            let scholar_table = $("#scholar-table");
-            if (scholar_data.meta.total > 0) {
-                let page_selector = $('#page-selector');
-                page_selector.html('');
-                for (let p = 0; p < scholar_data.meta.num_pages; p++) {
-                    page_selector.append(`<option value="${p + 1}" ${p + 1 === scholar_search.page ? 'selected': ''}>Page ${p + 1}</option>`);
-                }
+            scholars = scholar_data.records
+            total_scholars = scholar_data.meta.total
+            $('#scholar-total-badge').html(`Total: ${total_scholars}`)
 
-                scholar_table.html('');
-                scholars.forEach(scholar => {
+            let scholar_table = $("#scholar-table")
+            if (total_scholars > 0) {
+                if (scholar_data.meta.page === 1) scholar_table.html('')
+
+                scholars.forEach((scholar, scholar_index) => {
+                    let rec_num = (scholar_index + 1) + ((scholar_data.meta.page - 1) * scholar_data.meta.page_size)
+                    let pageBreakAttributes = `data-record_num="${rec_num}"`
+                    if (scholar_index + 1 >= scholars.length && scholar_data.meta.has_next_page)
+                        pageBreakAttributes += ` data-next_page="${scholar_data.meta.page + 1}"`
+
                     scholar_table.append(`
-                        <tr>
+                        <tr class="scholar-content-row" ${pageBreakAttributes}>
                             <td>
                                 <a href="javascript:show_scholar('${scholar.id}');">${scholar.username}</a>
                             </td>
@@ -265,68 +323,96 @@
                                 ${scholar.is_admin ? 'Y' : 'N'}
                             </td>
                         </tr>
-                    `);
-                });
-            } else {
+                    `)
+                })
+
+                $('.scholar-content-row:not([data-observed])').each(function() {
+                    this.setAttribute('data-observed', 'true')
+                    scholarObserver.observe(this)
+                })
+
+            } else if (scholar_search.q !== '*') {
                 scholar_table.html(`
                     <tr>
                         <td colspan="5">
                             <div class="alert alert-info">
-                                There are no scholars available to view at this time.
+                                There are no scholars matching your search criteria.
                             </div>
                         </td>
                     </tr>
-                `);
+                `)
             }
 
-            hide_loading_overlay();
+            hide_loading_overlay()
         }
         
         function show_scholar(scholar_id) {
             corpora.get_scholar(scholar_id, function(scholar_data) {
-                $('#scholar-username-span').html(scholar_data.username);
-                $('.scholar-id').val(scholar_id);
+                $('#scholar-username-span').html(scholar_data.username)
+                $('.scholar-id').val(scholar_id)
 
-                let corpus_permissions_div = $('#current-corpus-permissions-div');
-                corpus_permissions_div.html('');
-                for (let corpus_id in scholar_data.available_corpora) {
-                    corpus_permissions_div.append(`
-                        <div class="row">
-                            <div class="col-6">
-                                <strong>${scholar_data.available_corpora[corpus_id].name}</strong>
-                            </div>
-                            <div class="col-6">
-                                <label for="corpus-${corpus_id}-permission-selector" class="sr-only">Permission</label>
-                                <select class="form-control" id="corpus-${corpus_id}-permission-selector" name="corpus-${corpus_id}-permission">
-                                    <option>Viewer</option>
-                                    <option>Contributor</option>
-                                    <option>Editor</option>
-                                    <option>None</option>
-                                </select>
-                            </div>
-                        </div>
-                    `);
-
-                    $(`#corpus-${corpus_id}-permission-selector`).val(scholar_data.available_corpora[corpus_id].role);
-                }
+                let scholarAdminPrivsButton = $('#scholar-admin-privs-button')
+                let corpusPermissionsContainer = $('#corpus-permissions-container')
+                let jobPermissionsContainer = $('#job-permissions-container')
+                let corpus_permissions_div = $('#current-corpus-permissions-div')
+                corpus_permissions_div.html('')
 
                 if (scholar_data.is_admin) {
-                    $('#scholar-admin-privs-button').html('Revoke Admin Privileges');
+                    scholarAdminPrivsButton.html('Revoke Admin Privileges')
+                    corpusPermissionsContainer.addClass('d-none')
+                    jobPermissionsContainer.addClass('d-none')
                 } else {
-                    $('#scholar-admin-privs-button').html('Grant Admin Privileges');
+                    scholarAdminPrivsButton.html('Grant Admin Privileges')
+                    corpusPermissionsContainer.removeClass('d-none')
+                    jobPermissionsContainer.removeClass('d-none')
+
+                    Object.keys(scholar_data.available_corpora).forEach((corpus_id, index) => {
+                        let border_style = ""
+                        if (index + 1 < Object.keys(scholar_data.available_corpora).length)
+                            border_style = "border-bottom: solid 1px #BFBFBF;"
+
+                        corpus_permissions_div.append(`
+                            <div class="row py-3 mx-1" style="${border_style}">
+                                <div class="col-6">
+                                    <strong>${scholar_data.available_corpora[corpus_id].name}</strong>
+                                </div>
+                                <div class="col-6">
+                                    <label for="corpus-${corpus_id}-permission-selector" class="sr-only">Permission</label>
+                                    <select class="form-control" id="corpus-${corpus_id}-permission-selector" name="corpus-${corpus_id}-permission">
+                                        <option>Viewer</option>
+                                        <option>Contributor</option>
+                                        <option>Editor</option>
+                                        <option>None</option>
+                                    </select>
+                                </div>
+                            </div>
+                        `)
+
+                        $(`#corpus-${corpus_id}-permission-selector`).val(scholar_data.available_corpora[corpus_id].role)
+                    })
                 }
 
-                $('.job-perm').attr('checked', false);
+                $('.job-perm').attr('checked', false)
 
                 scholar_data.available_jobsites.map(js_id => {
-                    $(`#jobsite-${js_id}`).attr('checked', true);
-                });
+                    $(`#jobsite-${js_id}`).attr('checked', true)
+                })
 
                 scholar_data.available_tasks.map(task_id => {
-                    $(`#task-${task_id}`).attr('checked', true);
-                });
+                    $(`#task-${task_id}`).attr('checked', true)
+                })
 
-                $('#scholar-modal').modal();
+                let scholarDeletionGroup = $('#delete-scholar-container')
+                if (scholar_data.username === 'corpora') {
+                    scholarDeletionGroup.addClass('d-none')
+                    scholarAdminPrivsButton.prop('disabled', true)
+                }
+                else {
+                    scholarDeletionGroup.removeClass('d-none')
+                    scholarAdminPrivsButton.prop('disabled', false)
+                }
+
+                $('#scholar-modal').modal()
             });
 
         }
