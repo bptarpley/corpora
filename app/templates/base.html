@@ -19,7 +19,7 @@
         <link href="{% static 'css/regular.min.css' %}" rel="stylesheet">
         <link href="{% static 'css/solid.min.css' %}" rel="stylesheet">
         <link href="{% static 'css/toastify.min.css' %}" rel="stylesheet">
-        <link href="{% static 'css/corpora.css' %}" rel="stylesheet">
+        <link href="{% static 'css/corpora.css' %}?no-cache={% no_cache_suffix %}" rel="stylesheet">
         {% block css %}
         {% endblock %}
 
