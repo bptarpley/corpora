@@ -518,7 +518,9 @@
                                 <h4>Page File Collections</h4>
                             </div>
                             <div class="card-body" id="doc-pfc-div">
-
+                                <div class="alert alert-info">
+                                    No page files have been imported for this document.
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -552,6 +554,7 @@
     <script src="{% static 'js/ace/ace.js' %}"></script>
     <script src="{% static 'js/vis-network.js' %}"></script>
     <!--<script src="//cdn.jsdelivr.net/npm/3d-force-graph"></script>-->
+
     <script type="application/javascript">
         let corpus_id = '{{ corpus_id }}'
         let corpus = null
@@ -1134,187 +1137,192 @@
                                 }, 3000)
 
                                 if (corpora.scholar_has_privilege('Editor', corpus.scholar_role)) {
-                                    $('#page-action-buttons-span').append(`
-                                        <button id="create-pageset-button" class="btn btn-primary rounded ml-1" type="button">Create Page Set</button>
-                                    `)
+                                    if (Object.keys(doc.pages).length) {
+                                        $('#page-action-buttons-span').append(`
+                                            <button id="create-pageset-button" class="btn btn-primary rounded ml-1" type="button">Create Page Set</button>
+                                        `)
 
-                                    $("#create-pageset-button").click(function() {
-                                        $("#pageset-modal").modal()
-                                    })
+                                        $("#create-pageset-button").click(function () {
+                                            $("#pageset-modal").modal()
+                                        })
+                                    }
 
                                     $("#run-job-button").click(function() {
                                         job_manager.new_job('Document', document_id)
                                     })
                                 }
 
-                                $('#page-action-buttons-span').append(`
-                                    <button id="transcribe-button" class="btn btn-primary rounded ml-1" type="button">Transcribe</button>
-                                `)
-
                                 // -------------------
                                 // SETUP TRANSCRIPTIONS
                                 // -------------------
-                                let trans_project_selector = $('#trans-project-selector')
-                                let trans_pageset_selector = $('#trans-pageset-selector')
-                                let trans_image_pfc_selector = $('#trans-image-pfc-selector')
-                                let trans_ocr_pfc_selector = $('#trans-ocr-pfc-selector')
-                                let trans_plain_text_selector = $('#trans-plain-text-selector')
-                                let trans_go_button = $('#trans-go-button')
-                                let trans_proj_div = $('#doc-trans-projects-div')
+                                if (Object.keys(doc.pages).length) {
+                                    let trans_project_selector = $('#trans-project-selector')
+                                    let trans_pageset_selector = $('#trans-pageset-selector')
+                                    let trans_image_pfc_selector = $('#trans-image-pfc-selector')
+                                    let trans_ocr_pfc_selector = $('#trans-ocr-pfc-selector')
+                                    let trans_plain_text_selector = $('#trans-plain-text-selector')
+                                    let trans_go_button = $('#trans-go-button')
+                                    let trans_proj_div = $('#doc-trans-projects-div')
 
-                                // project selector
-                                let trans_project_search = {
-                                    'f_document.id': document_id,
-                                    's_name': 'asc'
-                                }
-                                corpora.list_content(corpus_id, 'TranscriptionProject', trans_project_search, function(data) {
-                                    if (data && data.hasOwnProperty('meta') && data.hasOwnProperty('records') && data.records.length) {
-                                        let trans_projects = ''
-                                        trans_proj_div.html('')
-                                        trans_proj_div.append(`
-                                            <table class="table table-striped">
-                                                <thead class="thead-dark">
-                                                    <th scope="col">
-                                                        Name
-                                                    </th>
-                                                    <th scope="col">
-                                                        Page Set
-                                                    </th>
-                                                    <th scope="col">
-                                                        Image Page File Collection
-                                                    </th>
-                                                    <th scope="col">
-                                                        OCR Page File Collection
-                                                    </th>
-                                                    ${corpora.scholar_has_privilege('Contributor', corpus.scholar_role) ? `
-                                                        <th scope="col">
-                                                            Actions
-                                                        </th>
-                                                    ` : ''}
-                                                </thead>
-                                                <tbody id="doc-trans-projects-tbody"></tbody>
-                                            </table>
-                                        `)
-                                        let trans_proj_tbody = jQuery('#doc-trans-projects-tbody')
-
-                                        data.records.map(trans_project => {
-                                            trans_projects += `
-                                                <option class='transcription-project' value='${trans_project.id}' ${trans_projects ? '' : 'selected'}>${trans_project.name}</option>
-                                            `
-
-                                            let tp_pageset_label = 'All'
-                                            let tp_ocrset_label = 'None'
-
-                                            if (trans_project.pageset !== 'all' && (trans_project.pageset in doc.page_sets)) {
-                                                tp_pageset_label = doc.page_sets[trans_project.pageset].label
-                                            }
-                                            if (trans_project.ocr_pfc !== 'none' && (trans_project.ocr_pfc in doc.page_file_collections)) {
-                                                tp_ocrset_label = doc.page_file_collections[trans_project.ocr_pfc].label
-                                            }
-
-                                            trans_proj_tbody.append(`
-                                                <tr>
-                                                    <td>
-                                                        ${trans_project.label}
-                                                    </td>
-                                                    <td>
-                                                        ${tp_pageset_label}
-                                                    </td>
-                                                    <td>
-                                                        ${doc.page_file_collections[trans_project.image_pfc].label}
-                                                    </td>
-                                                    <td>
-                                                        ${tp_ocrset_label}
-                                                    </td>
-                                                    ${corpora.scholar_has_privilege('Contributor', corpus.scholar_role) ? `
-                                                        <td style="white-space: nowrap;">
-                                                            <a href="/corpus/${corpus_id}/Document/${doc.id}/transcribe/${trans_project.id}/" target="_blank" class="btn btn-sm btn-primary">
-                                                                Transcribe
-                                                            </a>
-                                                            ${corpora.scholar_has_privilege('Editor', corpus.scholar_role) ? `
-                                                                <button id="tp-${trans_project.id}-delete-button"
-                                                                        class="btn btn-sm btn-danger tp-delete-button"
-                                                                        data-tp_id="${trans_project.id}" data-tp_label="${trans_project.label}" data-toggle="tooltip"
-                                                                        data-placement="top" title="" data-original-title="Delete">
-                                                                    <span class="fas fa-trash-alt"></span>
-                                                                </button>
-                                                            ` : ''}
-                                                        </td>
-                                                    ` : ''}
-                                                </tr>
-                                            `)
-                                        })
-                                        trans_project_selector.prepend(trans_projects)
-                                        trans_go_button.html('Continue')
-                                    } else {
-                                        $('#trans-project-group').addClass('d-none')
-                                        if (corpora.scholar_has_privilege('Editor', corpus.scholar_role))
-                                            $('#trans-new-project-div').removeClass('d-none')
-                                        else
-                                            $('#transcribe-button').prop('disabled', true)
-                                    }
-
-                                    $('.tp-delete-button').click(function() {
-                                        let deleteButton = $(this)
-                                        let tpID = deleteButton.data('tp_id')
-                                        let tpLabel = deleteButton.data('tp_label')
-
-                                        corpora.confirm_action(
-                                            function() {
-                                                $('#tp-action').val('delete')
-                                                $('#tp-id').val(tpID)
-                                                $('#tp-action-form').submit()
-                                            },
-                                            "Confirm Transcription Project Deletion",
-                                            `
-                                                Are you sure you want to delete the <b>${tpLabel}</b> transcription project?
-                                                All transcriptions associated with this project will also be deleted.
-                                            `,
-                                            'Delete',
-                                            true
-                                        )
-                                    })
-                                }, true)
-                                trans_project_selector.change(function() {
-                                    if (trans_project_selector.val() === 'new') {
-                                        $('#trans-new-project-div').removeClass('d-none')
-                                        trans_go_button.html('Start')
-                                    } else {
-                                        $('#trans-new-project-div').addClass('d-none')
-                                        trans_go_button.html('Continue')
-                                    }
-                                })
-
-                                // page set selector
-                                for (let ps_key in doc.page_sets) {
-                                    trans_pageset_selector.append(`
-                                        <option value="${ps_key}">${doc.page_sets[ps_key].label}</option>
+                                    // set up transcribe button
+                                    $('#page-action-buttons-span').append(`
+                                        <button id="transcribe-button" class="btn btn-primary rounded ml-1" type="button">Transcribe</button>
                                     `)
-                                }
 
-                                // image/ocr collection selector
-                                for (let pfc_key in doc.page_file_collections) {
-                                    if (pfc_key.includes('image')) {
-                                        trans_image_pfc_selector.append(`
-                                            <option value="${pfc_key}">${doc.page_file_collections[pfc_key].label}</option>
-                                        `)
-                                    } else if (pfc_key.includes('hocr') || pfc_key.includes('json')) {
-                                        trans_ocr_pfc_selector.append(`
-                                            <option value="${pfc_key}">${doc.page_file_collections[pfc_key].label}</option>
+                                    // project selector
+                                    let trans_project_search = {
+                                        'f_document.id': document_id,
+                                        's_name': 'asc'
+                                    }
+                                    corpora.list_content(corpus_id, 'TranscriptionProject', trans_project_search, function (data) {
+                                        if (data && data.hasOwnProperty('meta') && data.hasOwnProperty('records') && data.records.length) {
+                                            let trans_projects = ''
+                                            trans_proj_div.html('')
+                                            trans_proj_div.append(`
+                                                <table class="table table-striped">
+                                                    <thead class="thead-dark">
+                                                        <th scope="col">
+                                                            Name
+                                                        </th>
+                                                        <th scope="col">
+                                                            Page Set
+                                                        </th>
+                                                        <th scope="col">
+                                                            Image Page File Collection
+                                                        </th>
+                                                        <th scope="col">
+                                                            OCR Page File Collection
+                                                        </th>
+                                                        ${corpora.scholar_has_privilege('Contributor', corpus.scholar_role) ? `
+                                                            <th scope="col">
+                                                                Actions
+                                                            </th>
+                                                        ` : ''}
+                                                    </thead>
+                                                    <tbody id="doc-trans-projects-tbody"></tbody>
+                                                </table>
+                                            `)
+                                            let trans_proj_tbody = jQuery('#doc-trans-projects-tbody')
+
+                                            data.records.map(trans_project => {
+                                                trans_projects += `
+                                                    <option class='transcription-project' value='${trans_project.id}' ${trans_projects ? '' : 'selected'}>${trans_project.name}</option>
+                                                `
+
+                                                let tp_pageset_label = 'All'
+                                                let tp_ocrset_label = 'None'
+
+                                                if (trans_project.pageset !== 'all' && (trans_project.pageset in doc.page_sets)) {
+                                                    tp_pageset_label = doc.page_sets[trans_project.pageset].label
+                                                }
+                                                if (trans_project.ocr_pfc !== 'none' && (trans_project.ocr_pfc in doc.page_file_collections)) {
+                                                    tp_ocrset_label = doc.page_file_collections[trans_project.ocr_pfc].label
+                                                }
+
+                                                trans_proj_tbody.append(`
+                                                    <tr>
+                                                        <td>
+                                                            ${trans_project.label}
+                                                        </td>
+                                                        <td>
+                                                            ${tp_pageset_label}
+                                                        </td>
+                                                        <td>
+                                                            ${doc.page_file_collections[trans_project.image_pfc].label}
+                                                        </td>
+                                                        <td>
+                                                            ${tp_ocrset_label}
+                                                        </td>
+                                                        ${corpora.scholar_has_privilege('Contributor', corpus.scholar_role) ? `
+                                                            <td style="white-space: nowrap;">
+                                                                <a href="/corpus/${corpus_id}/Document/${doc.id}/transcribe/${trans_project.id}/" target="_blank" class="btn btn-sm btn-primary">
+                                                                    Transcribe
+                                                                </a>
+                                                                ${corpora.scholar_has_privilege('Editor', corpus.scholar_role) ? `
+                                                                    <button id="tp-${trans_project.id}-delete-button"
+                                                                            class="btn btn-sm btn-danger tp-delete-button"
+                                                                            data-tp_id="${trans_project.id}" data-tp_label="${trans_project.label}" data-toggle="tooltip"
+                                                                            data-placement="top" title="" data-original-title="Delete">
+                                                                        <span class="fas fa-trash-alt"></span>
+                                                                    </button>
+                                                                ` : ''}
+                                                            </td>
+                                                        ` : ''}
+                                                    </tr>
+                                                `)
+                                            })
+                                            trans_project_selector.prepend(trans_projects)
+                                            trans_go_button.html('Continue')
+                                        } else {
+                                            $('#trans-project-group').addClass('d-none')
+                                            if (corpora.scholar_has_privilege('Editor', corpus.scholar_role))
+                                                $('#trans-new-project-div').removeClass('d-none')
+                                            else
+                                                $('#transcribe-button').prop('disabled', true)
+                                        }
+
+                                        $('.tp-delete-button').click(function () {
+                                            let deleteButton = $(this)
+                                            let tpID = deleteButton.data('tp_id')
+                                            let tpLabel = deleteButton.data('tp_label')
+
+                                            corpora.confirm_action(
+                                                function () {
+                                                    $('#tp-action').val('delete')
+                                                    $('#tp-id').val(tpID)
+                                                    $('#tp-action-form').submit()
+                                                },
+                                                "Confirm Transcription Project Deletion",
+                                                `
+                                                    Are you sure you want to delete the <b>${tpLabel}</b> transcription project?
+                                                    All transcriptions associated with this project will also be deleted.
+                                                `,
+                                                'Delete',
+                                                true
+                                            )
+                                        })
+                                    }, true)
+                                    trans_project_selector.change(function () {
+                                        if (trans_project_selector.val() === 'new') {
+                                            $('#trans-new-project-div').removeClass('d-none')
+                                            trans_go_button.html('Start')
+                                        } else {
+                                            $('#trans-new-project-div').addClass('d-none')
+                                            trans_go_button.html('Continue')
+                                        }
+                                    })
+
+                                    // page set selector
+                                    for (let ps_key in doc.page_sets) {
+                                        trans_pageset_selector.append(`
+                                            <option value="${ps_key}">${doc.page_sets[ps_key].label}</option>
                                         `)
                                     }
+
+                                    // image/ocr collection selector
+                                    for (let pfc_key in doc.page_file_collections) {
+                                        if (pfc_key.includes('image')) {
+                                            trans_image_pfc_selector.append(`
+                                                <option value="${pfc_key}">${doc.page_file_collections[pfc_key].label}</option>
+                                            `)
+                                        } else if (pfc_key.includes('hocr') || pfc_key.includes('json')) {
+                                            trans_ocr_pfc_selector.append(`
+                                                <option value="${pfc_key}">${doc.page_file_collections[pfc_key].label}</option>
+                                            `)
+                                        }
+                                    }
+                                    trans_ocr_pfc_selector.append(`<option value="none">None</option>`)
+
+                                    // plain text selector
+                                    Object.keys(doc.files).forEach(file_key => {
+                                        if (doc.files[file_key].extension === 'txt')
+                                            trans_plain_text_selector.append(`<option value="${file_key}">${doc.files[file_key].basename}</option>`)
+                                    })
+
+                                    $('#transcribe-button').click(function () {
+                                        $('#trans-modal').modal()
+                                    })
                                 }
-                                trans_ocr_pfc_selector.append(`<option value="none">None</option>`)
-
-                                // plain text selector
-                                Object.keys(doc.files).forEach(file_key => {
-                                    if (doc.files[file_key].extension === 'txt')
-                                        trans_plain_text_selector.append(`<option value="${file_key}">${doc.files[file_key].basename}</option>`)
-                                })
-
-                                $('#transcribe-button').click(function() {
-                                    $('#trans-modal').modal()
-                                })
                             }
 
                             if (!popup) {

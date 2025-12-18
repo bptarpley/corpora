@@ -1,1 +1,5 @@
-<a href="{{ value }}">{{ field.label }}</a>
+<div id="{{ field.name }}{{ suffix }}-link-viewer"
+     data-value="{{ value }}"
+     data-label="{{ field.label }}"
+     data-events="load:renderLink">
+</div>

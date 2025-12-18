@@ -833,6 +833,11 @@ class ContentTable {
                         table_container.css('user-select', 'unset')
                     })
             }
+
+            // handle smart link rendering
+            $('.corpora-content-link-cell:not([data-link_rendered])').each(function() {
+                sender.renderLink(this)
+            })
         }
 
         // handle checking/unchecking content selection boxes
@@ -916,6 +921,11 @@ class ContentTable {
                 delimiter = '<br />'
             } else if (field_type === 'timespan') {
                 value = this.corpora.timespan_string(value)
+            } else if (field_type === 'link') {
+                value = `<div class="corpora-content-link-cell"
+                    data-value="${value}"
+                    data-label="${value}">    
+                </div>`
             } else if (field_type === 'iiif-image') {
                 value = `<img loading="lazy" src='${value}/full/,100/0/default.png' />`
                 delimiter = '<br />'
@@ -932,5 +942,41 @@ class ContentTable {
 
         return formatted_values.join(delimiter)
     }
+
+    async renderLink(target) {
+        target.setAttribute('data-link_rendered', 'y')
+
+        let url = target.getAttribute('data-value')
+        let label = target.getAttribute('data-label')
+
+        const link = document.createElement('a')
+        link.href = url
+        link.textContent = label
+        link.target = '_blank'
+        target.appendChild(link)
+
+        try {
+            const response = await fetch(url, {
+                method: 'HEAD',
+                mode: 'cors'
+            })
+            const contentType = response.headers.get('Content-Type')
+
+            if (contentType && contentType.startsWith('image/')) {
+                const thumbnail = document.createElement('img')
+
+                thumbnail.src = url
+                thumbnail.alt = label
+                thumbnail.classList.add('p-md-1')
+                thumbnail.style.maxWidth = '200px'
+                thumbnail.style.maxHeight = '100px'
+                thumbnail.style.cursor = 'pointer'
+                thumbnail.onclick = () => window.open(url, '_blank')
+
+                target.replaceChild(thumbnail, link)
+            }
+        } catch (error) {}
+    }
+
 }
 

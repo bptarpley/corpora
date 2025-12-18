@@ -95,6 +95,7 @@
     <script src="{% static 'js/filepond.js' %}"></script>
     <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
     <script src="{% static 'js/vis-network.js' %}"></script>
+    <!--<script src="//cdn.jsdelivr.net/npm/3d-force-graph"></script>-->
     {% for inclusion in inclusions.js %}
     <script src="{% static inclusion %}"></script>
     {% endfor %}
@@ -108,6 +109,8 @@
         let content_label = `{{ content_label|safe }}`
         let content_uri = '{{ content_uri }}'
         let content_type = null
+        let exploreGraphLoaded = false
+        let associatedContentLoaded = false
         let popup = {% if popup %}true{% else %}false{% endif %}
         let has_widget = {% if view_widget_url %}true{% else %}false{% endif %}
         let network = null
@@ -133,7 +136,8 @@
             }
 
             $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
-                if (e.target.id === 'explore-tab') {
+                if (e.target.id === 'explore-tab' && !exploreGraphLoaded) {
+                    // LOAD EXPLORE GRAPH
                     let explore_container_width = $('#content-nav-tabs').innerWidth()
                     $('#explore-div').css("width", `${explore_container_width}px`)
                     $('#explore-div').css("height", `80vh`)
@@ -149,9 +153,8 @@
                             'height': '90vh'
                         }
                     )
-
-                    // network.network.fit({nodes: [content_uri]})
-                } else if (e.target.id === 'associated-tab') {
+                    exploreGraphLoaded = true
+                } else if (e.target.id === 'associated-tab' && !associatedContentLoaded) {
                     // LOAD ASSOCIATED CONTENT TABLES
                     corpora.build_associated_content_tables(
                         corpus,
@@ -159,6 +162,7 @@
                         content_id,
                         'associated-div'
                     )
+                    associatedContentLoaded = true
                 }
             })
 

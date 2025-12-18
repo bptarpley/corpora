@@ -10192,6 +10192,11 @@ table.table {
   -ms-overflow-style: -ms-autohiding-scrollbar;
 }
 
+.corpora-content-link-cell {
+    max-width: 200px;
+    word-break: break-all;
+}
+
 .content-selection-item {
   cursor: pointer;
 }
