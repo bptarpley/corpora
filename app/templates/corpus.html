@@ -667,6 +667,8 @@
     <script src={% static 'js/beautify/beautify-css.js' %}></script>
     <script src={% static 'js/beautify/beautify-html.js' %}></script>
     <script src="{% static 'js/vis-network.js' %}"></script>
+    <!--<script src="{% static 'js/sigma-with-curves.js' %}"></script>-->
+    <!--<script src="//cdn.jsdelivr.net/npm/3d-force-graph"></script>-->
     <script src="{% static 'js/sortable.js' %}"></script>
     <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
     <script type="application/javascript">
@@ -930,25 +932,32 @@
                 }
 
                 // load content views
-                let cv_sticky_nav = $('#views-nav')
-                $('.content-view-table').each(function() {
-                    let table_div = $(this)
-                    let table = new ContentTable({
-                        container_id: table_div[0].id,
-                        corpora: corpora,
-                        corpus: corpus,
-                        content_type: table_div.data('ct'),
-                        content_view: table_div.data('es-doc-id'),
-                        content_view_id: table_div.data('id'),
-                        label: table_div.data('name')
-                    })
-                    cv_sticky_nav.append(` | <a href="#${table_div[0].id}">${table_div.data('name')}</a>`);
+                $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+                    if (e.target.id === 'views-tab') {
+                        let cv_sticky_nav = $('#views-nav')
+                        $('.content-view-table').each(function () {
+                            let table_div = $(this)
+                            let table = new ContentTable({
+                                container_id: table_div[0].id,
+                                corpora: corpora,
+                                corpus: corpus,
+                                content_type: table_div.data('ct'),
+                                content_view: table_div.data('es-doc-id'),
+                                content_view_id: table_div.data('id'),
+                                label: table_div.data('name')
+                            })
+                            cv_sticky_nav.append(` | <a href="#${table_div[0].id}">${table_div.data('name')}</a>`);
+                        })
+                    }
                 })
 
-                if (is_admin) {
+                if (corpora.scholar_has_privilege('Editor', role)) {
                     $('#new-content-view-button').click(function() {
                         corpora.create_content_view(corpus, function(data) {
-                            $('#content-views-body').append(`
+                            let ctBody = $('#content-views-body')
+                            if ($('.content-view-table').length === 0) ctBody.html('')
+
+                            ctBody.append(`
                                 <div
                                     id="content-view-table-${data.id}"
                                     class="content-view-table"
@@ -958,6 +967,7 @@
                                     data-id="${data.id}">
                                 </div>
                             `)
+
                             let table = new ContentTable({
                                 container_id: `content-view-table-${data.id}`,
                                 corpora: corpora,
