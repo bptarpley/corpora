@@ -1989,36 +1989,61 @@ class Corpus(mongoengine.Document):
         if content_type in self.content_types:
             ct = self.content_types[content_type]
 
-            if field_name in [field.name for field in ct.fields]:
+            # ensure the field exists for this content type and determine its index in the list of fields
+            field_index = -1
+            for x in range(0, len(ct.fields)):
+                if ct.fields[x].name == field_name and not ct.fields[x].inherited:
+                    field_index = x
 
-                # find and delete field or references to field
-                field_index = -1
+            if field_index > -1:
+                relink = ct.fields[field_index].type == 'cross_reference'
+
+                # find any other fields whose indexes might reference this field and delete those indexes
                 for x in range(0, len(ct.fields)):
-                    if ct.fields[x].name == field_name and not ct.fields[x].inherited:
-                        field_index = x
-                    else:
+                    if x != field_index:
                         if field_name in ct.fields[x].unique_with:
                             self.content_types[content_type].fields[x].unique_with.remove(field_name)
                         if field_name in ct.fields[x].indexed_with:
                             self.content_types[content_type].fields[x].indexed_with.remove(field_name)
-                if field_index > -1:
-                    self.content_types[content_type].fields.pop(field_index)
-                    self.save()
 
-                    # delete any indexes referencing field, then drop field from collection
-                    print('field cleared. now attemtpting to drop indexes...')
-                    collection_name = "corpus_{0}_{1}".format(self.id, content_type)
-                    db = self._get_db()
-                    index_info = db[collection_name].index_information()
-                    for index_name in index_info.keys():
-                        delete_index = False
-                        for key in index_info[index_name]['key']:
-                            if key[0] == field_name:
-                                delete_index = True
-                        if delete_index:
-                            db[collection_name].drop_index(index_name)
-                    print('indexes cleared. now attemtpting to unset fields...')
-                    db[collection_name].update_many({}, {'$unset': {field_name: 1}})
+                # actually remove the field from the content type field registry
+                self.content_types[content_type].fields.pop(field_index)
+                self.save()
+
+                # delete any indexes referencing field, then drop field from collection
+                print('field cleared. now attemtpting to drop indexes...')
+                collection_name = "corpus_{0}_{1}".format(self.id, content_type)
+                db = self._get_db()
+                index_info = db[collection_name].index_information()
+                for index_name in index_info.keys():
+                    delete_index = False
+                    for key in index_info[index_name]['key']:
+                        if key[0] == field_name:
+                            delete_index = True
+                    if delete_index:
+                        db[collection_name].drop_index(index_name)
+                print('indexes cleared. now attemtpting to unset fields...')
+                db[collection_name].update_many({}, {'$unset': {field_name: 1}})
+
+                # find any other content types that reference the one we're modifying so we can rebuild their es indices
+                related_content_types = []
+                for related_ct in self.content_types.keys():
+                    if related_ct != content_type:
+                        for related_field in self.content_types[related_ct].fields:
+                            if related_field.type == 'cross_reference' and related_field.cross_reference_type == content_type:
+                                if related_ct not in related_content_types:
+                                    self.build_content_type_elastic_index(related_ct)
+                                    related_content_types.append(related_ct)
+
+                # reindex across elasticsearch and possibly neo4j for this content type and any related ones
+                return self.queue_local_job(task_name="Adjust Content", parameters={
+                    'content_type': content_type,
+                    'reindex': True,
+                    'relink': relink,
+                    'related_content_types': ','.join(related_content_types)
+                })
+
+        return None
 
     def build_content_type_elastic_index(self, content_type):
         """

@@ -773,7 +773,9 @@ def delete_content_type_field(job_id):
     content_type = job.configuration['parameters']['content_type']['value']
     field_name = job.configuration['parameters']['field_name']['value']
     if content_type in job.corpus.content_types:
-        job.corpus.delete_content_type_field(content_type, field_name)
+        content_adjustment_job_id = job.corpus.delete_content_type_field(content_type, field_name)
+        if content_adjustment_job_id:
+            run_job(content_adjustment_job_id)
 
     job.complete(status='complete')
 
