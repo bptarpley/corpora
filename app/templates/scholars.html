@@ -224,31 +224,6 @@
                         })
                     }
                 })
-
-                scholarObserver = new IntersectionObserver(entries => {
-                    entries.forEach((entry, index) => {
-                        if (entry.isIntersecting) {
-                            let page_breaker = $(entry.target)
-                            let scroll_progress_bar = $(`#scholar-scroll-progress`)
-                            let rec_num = page_breaker.data('record_num')
-                            let scroll_progress = Math.round((rec_num / total_scholars) * 100)
-                            let next_page = page_breaker.data('next_page')
-
-                            scroll_progress_bar.css('width', `${scroll_progress}%`)
-                            scroll_progress_bar.attr('aria-valuenow', scroll_progress)
-
-                            if (next_page) {
-                                next_page = parseInt(next_page)
-
-                                if (!pages_loaded.has(next_page)) {
-                                    pages_loaded.add(next_page)
-                                    scholar_search.page = next_page
-                                    load_scholars()
-                                }
-                            }
-                        }
-                    })
-                })
             })
 
             load_scholars()
@@ -287,6 +262,33 @@
         })
 
         function load_scholars() {
+            if (scholarObserver === null) {
+                scholarObserver = new IntersectionObserver(entries => {
+                    entries.forEach((entry, index) => {
+                        if (entry.isIntersecting) {
+                            let page_breaker = $(entry.target)
+                            let scroll_progress_bar = $(`#scholar-scroll-progress`)
+                            let rec_num = page_breaker.data('record_num')
+                            let scroll_progress = Math.round((rec_num / total_scholars) * 100)
+                            let next_page = page_breaker.data('next_page')
+
+                            scroll_progress_bar.css('width', `${scroll_progress}%`)
+                            scroll_progress_bar.attr('aria-valuenow', scroll_progress)
+
+                            if (next_page) {
+                                next_page = parseInt(next_page)
+
+                                if (!pages_loaded.has(next_page)) {
+                                    pages_loaded.add(next_page)
+                                    scholar_search.page = next_page
+                                    load_scholars()
+                                }
+                            }
+                        }
+                    })
+                })
+            }
+
             corpora.get_scholars(scholar_search, build_scholars)
         }
 
