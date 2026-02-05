@@ -549,7 +549,7 @@ class ContentTable {
             this.search['page'] = page_info.page
             if ('page-token' in page_info) this.search['page-token'] = page_info['page-token']
 
-            await this.corpora.list_content(corpus_id, this.content_type, this.search, function(content){
+            await this.corpora.list_content(sender.corpus.id, this.content_type, this.search, function(content){
                 sender.total_pages = content.meta.num_pages
                 sender.load_content(content, add_to_existing_rows)
             })
@@ -863,16 +863,19 @@ class ContentTable {
 
         // handle content selection in select mode
         if (sender.mode === 'select') {
-            $(`.${ct.name}${sender.id_suffix}-content-selection-link`).click(function(e) {
-                e.preventDefault()
+            $(`.${ct.name}${sender.id_suffix}-content-selection-link:not([data-click_rigged])`).each(function() {
                 let link = $(this)
-                if (sender.selection_callback != null) {
-                    sender.selection_callback({
-                        id: link.data('id'),
-                        uri: link.data('uri'),
-                        label: link.data('label')
-                    })
-                }
+                link.attr('data-click_rigged', 'y')
+                link.click(function(e) {
+                    e.preventDefault()
+                    if (sender.selection_callback != null) {
+                        sender.selection_callback({
+                            id: link.data('id'),
+                            uri: link.data('uri'),
+                            label: link.data('label')
+                        })
+                    }
+                })
             })
         }
 
