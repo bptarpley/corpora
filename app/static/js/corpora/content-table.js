@@ -631,9 +631,9 @@ class ContentTable {
                     }
 
                     current_search_div.append(`
-                        <span class="badge badge-primary p-2 me-2" style="font-size: 12px;">
+                        <span class="badge bg-primary text-white p-2 me-2" style="font-size: 12px;">
                             ${setting_type} ${field_name} "${search_value}"
-                            <a class="text-white ml-1 ${ct.name}${sender.id_suffix}-remove-search-param" data-search-param="${search_setting}"><i class="far fa-times-circle"></i></a>
+                            <a class="text-white ms-1 ${ct.name}${sender.id_suffix}-remove-search-param" data-search-param="${search_setting}"><i class="far fa-times-circle"></i></a>
                         </span>
                     `)
                     has_search_indicators = true
