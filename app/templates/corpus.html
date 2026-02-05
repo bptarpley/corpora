@@ -1623,16 +1623,19 @@
                                 <tr><td colspan="8">No fields have been defined.</td></tr>
                             </tbody>
                         </table>
-                        <button type="button" class="btn btn-primary" id="${ct_div_prefix}-new-f-button">New Field</button>
-                        <span class="ms-2">
-                            Edit Template: <select id="${ct_div_prefix}-edit-template-selector" class="form-select"></select>
-                            <button type="button" class="btn btn-sm btn-secondary ms-2" id="${ct_div_prefix}-edit-template-button">Go</button>
-                            <button type="button" class="btn btn-sm btn-secondary ms-2" id="${ct_div_prefix}-new-template-button">New Template</button>
-                        </span>
-                        <span class="float-end">
+                        <div class="d-flex w-100 align-items-center text-nowrap mt-2">
+                            <button type="button" class="btn btn-primary" id="${ct_div_prefix}-new-f-button">New Field</button>
+                            <div class="ms-2 d-flex align-items-center text-nowrap">
+                                Edit Template:
+                                <select id="${ct_div_prefix}-edit-template-selector" class="form-select"></select>
+                                <button type="button" class="btn btn-sm btn-secondary ms-2" id="${ct_div_prefix}-edit-template-button">Go</button>
+                                <button type="button" class="btn btn-sm btn-secondary ms-2" id="${ct_div_prefix}-new-template-button">New Template</button>
+                            </div>
+                            <div class="text-end flex-fill">
                                 <b>*</b> Denotes field indexed for autocompletion<br/>
-                                <b>+</b> Denotes cross reference field has intensity
-                        </span>
+                                <b>+</b> Denotes cross-reference field has intensity
+                            </div>
+                        </div>
                     </div>
                 </div>
             `);

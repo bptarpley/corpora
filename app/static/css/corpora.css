@@ -12140,6 +12140,12 @@ h4, .h4, h5, .h5, h6, .h6 {
   color: #636464;
 }
 
+.alert-warning, .alert-success {
+  color: #0c6361;
+  background-color: #d1f2f1;
+  border-color: #beedec;
+}
+
 .btn-link h5, .btn-link .h5 {
   color: #EF3E36;
 }

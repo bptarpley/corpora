@@ -330,6 +330,12 @@ h4, .h4, h5, .h5, h6, .h6 {
 .alert-info h1, .alert-info .h1, .alert-info h2, .alert-info .h2, .alert-info h3, .alert-info .h3,
 .alert-info h4, .alert-info .h4, .alert-info h5, .alert-info .h5, .alert-info h6, .alert-info .h6 { color: #636464; }
 
+.alert-warning, .alert-success {
+    color: #0c6361;
+    background-color: #d1f2f1;
+    border-color: #beedec;
+}
+
 .btn-link h5 { color: $orange; }
 
 .carousel-control-next-icon, .carousel-control-prev-icon {
