@@ -193,8 +193,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="confirm-modal-label"></h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
+                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                     </button>
                 </div>
                 <div id="confirm-content" class="modal-body">
@@ -245,23 +244,23 @@
             <span id="page-location-span"></span>
             <button id="next-page-button" type="button" class="btn btn-sm btn-primary rounded"><span class="fas fa-caret-right"></span></button>
             of <span id="page-length-span"></span>
-            <button id="reset-regions" type="button" class="btn btn-sm btn-secondary ml-1">Reset Page</button>
-            <button id="rotate-page-button" type="button" class="btn btn-sm btn-secondary ml-1 d-none" data-toggle="modal" data-target="#rotate-modal">Rotate Page</button>
-            <button id="complete-page-button" type="button" class="btn btn-sm btn-secondary ml-1">Mark Page Complete</button>
+            <button id="reset-regions" type="button" class="btn btn-sm btn-secondary ms-1">Reset Page</button>
+            <button id="rotate-page-button" type="button" class="btn btn-sm btn-secondary ms-1 d-none" data-toggle="modal" data-target="#rotate-modal">Rotate Page</button>
+            <button id="complete-page-button" type="button" class="btn btn-sm btn-secondary ms-1">Mark Page Complete</button>
         </span>
         <span id="region-controls" class="control-group">
             <b>Regions</b>
-            <button id="draw-region" type="button" class="btn btn-sm btn-primary ml-3"><u>D</u>raw</button>
-            <button id="select-region" type="button" class="btn btn-sm btn-primary ml-1">Select</button>
-            <button id="clear-regions" type="button" class="btn btn-sm btn-secondary ml-1">Clear</button>
-            <button id="split-regions" type="button" class="btn btn-sm btn-secondary ml-1">Split</button>
-            <button id="delete-region" type="button" class="btn btn-sm btn-secondary ml-1 d-none">Delete Selected</button>
+            <button id="draw-region" type="button" class="btn btn-sm btn-primary ms-3"><u>D</u>raw</button>
+            <button id="select-region" type="button" class="btn btn-sm btn-primary ms-1">Select</button>
+            <button id="clear-regions" type="button" class="btn btn-sm btn-secondary ms-1">Clear</button>
+            <button id="split-regions" type="button" class="btn btn-sm btn-secondary ms-1">Split</button>
+            <button id="delete-region" type="button" class="btn btn-sm btn-secondary ms-1 d-none">Delete Selected</button>
         </span>
         <span id="selection-controls" class="control-group d-none">
-            <button id="selection-more" type="button" class="btn btn-sm btn-primary ml-3">Select More</button>
-            <button id="selection-delete" type="button" class="btn btn-sm btn-primary ml-1">Delete Selected</button>
-            <button id="selection-reorder" type="button" class="btn btn-sm btn-primary ml-1">Reorder Top to Bottom</button>
-            <button id="selection-cancel" type="button" class="btn btn-sm btn-secondary ml-1">Cancel</button>
+            <button id="selection-more" type="button" class="btn btn-sm btn-primary ms-3">Select More</button>
+            <button id="selection-delete" type="button" class="btn btn-sm btn-primary ms-1">Delete Selected</button>
+            <button id="selection-reorder" type="button" class="btn btn-sm btn-primary ms-1">Reorder Top to Bottom</button>
+            <button id="selection-cancel" type="button" class="btn btn-sm btn-secondary ms-1">Cancel</button>
         </span>
         <span id="reorder-controls" class="control-group d-none">
             Click on the line immediately preceding this one,
@@ -270,20 +269,19 @@
         </span>
         <span id="nav-controls" class="control-group">
             <button id="save-button" type="button" class="btn btn-sm btn-primary" disabled>Progress Saved</button>
-            <button id="exit-button" type="button" class="btn btn-sm btn-secondary ml-1">Exit</button>
+            <button id="exit-button" type="button" class="btn btn-sm btn-secondary ms-1">Exit</button>
         </span>
     </div>
     <div id="mode-status-div" class="d-none rounded-bottom p-2">
-        <span id="mode-status-indicator" class="mr-1"></span>
+        <span id="mode-status-indicator" class="me-1"></span>
         <button id="mode-status-exit-button" type="button" onclick="reset_mode();" class="close" aria-label="Exit Mode">
-            <span aria-hidden="true">&times;</span>
         </button>
     </div>
     <div id="trans-text-modal" aria-labelledby="Transcription Text Modal" class="d-none rounded">
         <div id="trans-text-header" class="w-100 p-1 rounded d-flex align-content-center justify-content-between draggable-touch">
             <h5 class="m-0 d-flex align-items-center">Place {{ project.transcription_level|title }}s</h5>
             <span class="d-flex align-content-center">
-                <input type="number" id="trans-text-identifier" class="form-control-sm align-self-center btn-secondary mr-2" />
+                <input type="number" id="trans-text-identifier" class="form-control-sm align-self-center btn-secondary me-2" />
                 <div class="form-check-inline align-content-center">
                     <input type="checkbox" id="trans-text-auto-box" class="form-check-input" checked>
                     <label for="trans-text-auto-box" class="p-0 m-0 align-content-center">Auto</label>
@@ -1169,25 +1167,25 @@
                         field_value = page_regions[region_id].metadata[f];
                     }
                     metadata_fields += `
-                        <input type="text" class="form-control mr-1 h-100 region-metadata" data-metadata_field="${f}" placeholder="${f}" value="${field_value}">
+                        <input type="text" class="form-control me-1 h-100 region-metadata" data-metadata_field="${f}" placeholder="${f}" value="${field_value}">
                     `;
                 });
 
                 // currently, only plain text is saved to region data; leaving uninitialized for now
                 /*for (let tag in markup) {
                     markup_buttons += `
-                        <button type="button" class="btn btn-sm btn-primary rounded region-control mr-1 markup-button" data-tag="${tag}" style="width: ${control_height}px; height: ${control_height}px;"><span class="${markup[tag]}"></span></button>
+                        <button type="button" class="btn btn-sm btn-primary rounded region-control me-1 markup-button" data-tag="${tag}" style="width: ${control_height}px; height: ${control_height}px;"><span class="${markup[tag]}"></span></button>
                     `;
                 }*/
 
                 $(`#region-${region_id}-control-obj`).append(`
                     <div id="region-${region_id}-control" class="alert-info control-panel h-100 w-100">
                         <div class="row"><div class="col-12 d-flex justify-content-between align-items-center">
-                            <button id="prev-region-button" type="button" class="btn btn-sm btn-primary rounded region-control mr-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-caret-up"></span></button>
-                            <button id="next-region-button" type="button" class="btn btn-sm btn-primary rounded region-control mr-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-caret-down"></span></button>
-                            <button id="reset-region-button" type="button" class="btn btn-sm btn-primary rounded region-control mr-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-sync-alt"></span></button>
-                            <button id="reorder-region-button" type="button" class="btn btn-sm btn-primary rounded region-control mr-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-sort-numeric-up"></span></button>
-                            <button id="delete-region-button" type="button" class="btn btn-sm btn-primary rounded region-control mr-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-trash"></span></button>
+                            <button id="prev-region-button" type="button" class="btn btn-sm btn-primary rounded region-control me-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-caret-up"></span></button>
+                            <button id="next-region-button" type="button" class="btn btn-sm btn-primary rounded region-control me-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-caret-down"></span></button>
+                            <button id="reset-region-button" type="button" class="btn btn-sm btn-primary rounded region-control me-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-sync-alt"></span></button>
+                            <button id="reorder-region-button" type="button" class="btn btn-sm btn-primary rounded region-control me-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-sort-numeric-up"></span></button>
+                            <button id="delete-region-button" type="button" class="btn btn-sm btn-primary rounded region-control me-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-trash"></span></button>
                         </div></div>
                         <div class="row"><div class="col-12 pt-2 d-flex justify-content-between align-items-center">
                             ${metadata_fields}

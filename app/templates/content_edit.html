@@ -40,8 +40,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="deletion-confirmation-modal-label">Confirm Deletion</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
+          <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
           </button>
         </div>
         <div class="modal-body">
@@ -76,16 +75,16 @@
                     <div id="{{ field.name }}-edit-div" class="form-group">
                         {% if bulk_editing %}
                             <input type="checkbox"
-                                    class="bulk-editing-checkbox mr-2"
+                                    class="bulk-editing-checkbox me-2"
                                     data-field_name="{{ field.name }}" />
                         {% endif %}
-                        <label for="{{ field.name }}-editor">{{ field.label }}</label>
+                        <label for="{{ field.name }}-editor" class="form-label h3">{{ field.label }}</label>
                         {% if bulk_editing %}<div id="{{ field.name }}-bulk-editing-row" class="bulk-editing-row">{% endif %}
                         {% if field.multiple %}
                             {% for value in field.value %}
                                 <div id="{{ field.name }}-editor-row-{{ forloop.counter0 }}" class="row no-gutters p-2 multi-value-row">
                                     <div class="col-sm-11 col-12 multi-{{ field.type }}-col">{% include field.edit_html with value=value suffix=forloop.counter0 parent_uri=field.parent_uri %}</div>
-                                    <div class="col-sm-1 pl-sm-2 mt-sm-0 col-12 mt-2">
+                                    <div class="col-sm-1 ps-sm-2 mt-sm-0 col-12 mt-2">
                                         <button role="button"
                                             class="btn btn-sm btn-danger w-100"
                                             onclick="console.log('stuff was deleted'); $('#{{ field.name }}-editor-row-{{ forloop.counter0 }}').empty().remove()"
@@ -182,7 +181,7 @@
                     multi_value_add_row.before(`
                         <div id="${new_value_id}" class="row no-gutters p-2 multi-value-row">
                             <div id="${new_field_container_id}" class="col-sm-11 col-12 multi-${field_type}-col"></div>
-                            <div class="col-sm-1 pl-sm-2 mt-sm-0 col-12 mt-2">
+                            <div class="col-sm-1 ps-sm-2 mt-sm-0 col-12 mt-2">
                                 <button role="button"
                                     class="btn btn-sm btn-danger w-100"
                                     onclick="$('#${new_value_id}').empty().remove()"

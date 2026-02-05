@@ -33,18 +33,17 @@
                     {% csrf_token %}
                     <div class="modal-header">
                         <h5 class="modal-title" id="new-corpus-modal-label">New Corpus</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
+                        <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                         </button>
                     </div>
                     <div class="modal-body">
                         <div id="new-corpus-name-required-msg" class="alert alert-danger d-none">Please provide a name for this corpus.</div>
                         <div class="form-group">
-                            <label for="new-corpus-name-box">Name</label>
+                            <label for="new-corpus-name-box" class="form-label">Name</label>
                             <input type="text" class="form-control" id="new-corpus-name-box" name="new-corpus-name" />
                         </div>
                         <div class="form-group">
-                            <label for="new-corpus-desc-box">Description</label>
+                            <label for="new-corpus-desc-box" class="form-label">Description</label>
                             <input type="text" class="form-control" id="new-corpus-desc-box" name="new-corpus-desc" />
                         </div>
                         <div class="form-check">
@@ -78,8 +77,7 @@
               <div class="modal-content">
                   <div class="modal-header">
                       <h5 class="modal-title" id="confirmation-modal-label">Confirm</h5>
-                      <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                      <span aria-hidden="true">&times;</span>
+                      <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                       </button>
                   </div>
                   <div class="modal-body">
@@ -104,13 +102,13 @@
                         <div class="corpus-grid">
                             {% for corpus in corpora %}
                                 <div class="corpus-div alert alert-info d-flex flex-row">
-                                    <div style="width: 50px;" class="mr-2">
-                                        <a href="/corpus/{{ corpus.id }}/"><span class="badge badge-warning open-badge">Open</span></a>
+                                    <div style="width: 50px;" class="me-2">
+                                        <a href="/corpus/{{ corpus.id }}/"><span class="badge text-bg-warning text-white open-badge">Open</span></a>
                                     </div>
                                     <div style="width: 200px;">
                                         <h4>{{ corpus.name }}</h4>
                                         {{ corpus.description }}
-                                        {% if corpus.open_access %}<div><span class="badge badge-secondary">Open Access</span></div>{% endif %}
+                                        {% if corpus.open_access %}<div><span class="badge text-bg-secondary">Open Access</span></div>{% endif %}
                                     </div>
                                 </div>
                             {% endfor %}
@@ -132,7 +130,7 @@
                       <a class="btn btn-sm btn-secondary" href="/backups">Corpus Backups</a>
                     </span>
                     <span>
-                      <select class="form-control-sm btn-primary ml-1 mr-1" id="admin-action-selector">
+                      <select class="form-select-sm bg-primary mx-1" id="admin-action-selector">
                           <option value="" selected>Admin Actions...</option>
                           <option value="scrub-provenance">Scrub all provenance</option>
                       </select>

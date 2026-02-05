@@ -374,8 +374,7 @@ class Corpora {
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 id="cv-creation-modal-label" class="modal-title">Content View</h5>
-                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                <span aria-hidden="true">&times;</span>
+                                <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                                 </button>
                             </div>
                             <div class="modal-body" style="max-height: 70vh; overflow-y: scroll;">
@@ -388,13 +387,13 @@ class Corpora {
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="cv-name-box">Name</label>
+                                    <label for="cv-name-box" class="form-label">Name</label>
                                     <input id="cv-name-box" type="text" class="form-control">
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="cv-target-ct">Content Type</label>
-                                    <select id="cv-target-ct" class="form-control btn-primary"><option value="None">--select--</option></select>
+                                    <label for="cv-target-ct" class="form-label">Content Type</label>
+                                    <select id="cv-target-ct" class="form-select bg-primary"><option value="None">--select--</option></select>
                                 </div>
                                 
                                 <div id="cv-target-table-div"></div>
@@ -465,7 +464,7 @@ class Corpora {
                             }
                         }
 
-                        let next_selector = `<select class="patass-next-selector form-control-sm btn-secondary d-flex align-self-center" data-step="${step}"><option value="--">Select...</option>${next_ct_options}</select>`
+                        let next_selector = `<select class="patass-next-selector form-select-sm bg-secondary d-flex align-self-center" data-step="${step}"><option value="--">Select...</option>${next_ct_options}</select>`
 
                         canvas.append(`
                             ${ step > 0 ? ` <div class="patass-pipe patass-step-${step} d-flex align-self-center">&nbsp;</div>` : '' }
@@ -598,8 +597,7 @@ class Corpora {
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="content-selection-modal-label">Select ContentType</h5>
-                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                <span aria-hidden="true">&times;</span>
+                                <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                                 </button>
                             </div>
                             <div class="modal-body">
@@ -609,7 +607,7 @@ class Corpora {
                                     </div>
                                     <table class="table table-striped">
                                         <thead class="thead-dark">
-                                            <th scope="col" id="content-selection-modal-table-header">ContentType</th>
+                                            <th scope="col" id="content-selection-modal-table-header" class="text-white">ContentType</th>
                                         </thead>
                                         <tbody id="content-selection-modal-table-body">
                                             <tr><td>Loading...</td></tr>
@@ -735,8 +733,7 @@ class Corpora {
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="corpora-confirm-modal-label">${title}</h5>
-                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                <span aria-hidden="true">&times;</span>
+                                <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                                 </button>
                             </div>
                             <div class="modal-body">

@@ -7,6 +7,7 @@ $input-btn-padding-y: .25rem;
 $input-btn-padding-x: .7rem;
 $font-size-base: 0.8rem;
 
+
 $theme-colors: (
   "primary": #EF3E36,
   "secondary": #091540,
@@ -17,6 +18,32 @@ $theme-colors: (
   "light": #BFC0C0,
   "dark": #091540
 );
+$gray-300: #BFC0C0;
+$orange: #EF3E36;
+$primary: $orange;
+$blue: #091540;
+$secondary: $blue;
+$cyan: #17BEBB;
+$success: $cyan;
+$info: $gray-300;
+$warning: $cyan;
+$danger: $orange;
+$light: $gray-300;
+$dark: $blue;
+$border-color: rgba(0, 0, 0, 0.125);
+
+$alert-padding-y: .75rem;
+$link-decoration: none;
+$link-hover-decoration: underline;
+$table-color: $blue;
+
+$theme-colors-text: (
+  "primary": #FFFFFF,
+  "secondary": #FFFFFF,
+  "warning": #FFFFFF,
+  "danger": #FFFFFF
+)!default;
+
 
 // Bootstrap and its default variables
 @import "scss/bootstrap";
@@ -115,6 +142,9 @@ h5 {
     background-color: white;
 }
 
+.form-group { margin-bottom: 1rem; }
+.form-group label { margin-bottom: .5rem; }
+
 .card {
   border: none !important;
 }
@@ -197,8 +227,13 @@ h5 {
   cursor: pointer;
 }
 
+.table thead {
+  background-color: $cyan;
+}
+
 .table thead th {
   vertical-align: middle;
+  border-bottom: solid 2px $blue;
 }
 
 .table .thead-dark th {
@@ -218,6 +253,13 @@ h5 {
 
 table.table {
   border-bottom: solid 4px #17BEBB;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table > :not(caption) > * > * {
+  box-shadow: none!important;
+  color: $blue;
 }
 
 .content-table-container {
@@ -245,6 +287,7 @@ table.table {
 .content-table-container th {
   position: sticky;
   top: 0;
+  z-index: 5;
 }
 
 .table .thead-dark th:first-child {
@@ -278,13 +321,26 @@ table.table {
   cursor: pointer;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1, .h1, h2, .h2, h3, .h3,
+h4, .h4, h5, .h5, h6, .h6 {
+  color: $blue;
   margin-top: 0px;
   margin-bottom: 0px;
 }
+.alert-info h1, .alert-info .h1, .alert-info h2, .alert-info .h2, .alert-info h3, .alert-info .h3,
+.alert-info h4, .alert-info .h4, .alert-info h5, .alert-info .h5, .alert-info h6, .alert-info .h6 { color: #636464; }
+
+.btn-link h5 { color: $orange; }
 
 .carousel-control-next-icon, .carousel-control-prev-icon {
   color: #17BEBB;
+}
+
+.btn-primary, .btn-danger, .btn-secondary, .btn-warning,
+.form-select.bg-primary, .form-select.bg-secondary,
+.form-select-sm.bg-primary, .form-select-sm.bg-secondary { color: #FFFFFF!important; }
+.form-select.bg-primary, .form-select.bg-secondary {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23FFFFFF' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
 }
 
 .btn-square {

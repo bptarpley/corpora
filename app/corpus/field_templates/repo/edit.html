@@ -1,5 +1,5 @@
 <div class="form-group">
-    <label for="{{ field.name }}{{ suffix }}-name">Name</label>
+    <label for="{{ field.name }}{{ suffix }}-name" class="form-label">Name</label>
     <input id="{{ field.name }}{{ suffix }}-name"
            type="text"
            class="form-control {{ field.type }}-control"
@@ -8,7 +8,7 @@
            data-events="load:renderRepoField;input:setRepoValueField">
 </div>
 <div class="form-group">
-    <label for="{{ field.name }}{{ suffix }}-url">URL</label>
+    <label for="{{ field.name }}{{ suffix }}-url" class="form-label">URL</label>
     <input id="{{ field.name }}{{ suffix }}-url"
            type="text"
            class="form-control {{ field.type }}-control edit-field-input"
@@ -24,11 +24,11 @@
            data-id_prefix="{{ field.name }}{{ suffix }}"
            data-events="change:toggleRepoAuthCheckbox"
            {% if value %}disabled{% endif %}>
-    <label for="{{ field.name }}{{ suffix }}-auth">Authentication Required</label>
+    <label for="{{ field.name }}{{ suffix }}-auth" class="form-label">Authentication Required</label>
 </div>
-<div id="{{ field.name }}{{ suffix }}-credentials-div" class="d-none pl-2">
+<div id="{{ field.name }}{{ suffix }}-credentials-div" class="d-none ps-2">
     <div class="form-group">
-        <label for="{{ field.name }}{{ suffix }}-user">Username</label>
+        <label for="{{ field.name }}{{ suffix }}-user" class="form-label">Username</label>
         <input id="{{ field.name }}{{ suffix }}-user"
                type="text"
                class="form-control {{ field.type }}-control"
@@ -36,7 +36,7 @@
                data-events="input:setRepoValueField">
     </div>
     <div class="form-group">
-        <label for="{{ field.name }}{{ suffix }}-pwd">Password/Token</label>
+        <label for="{{ field.name }}{{ suffix }}-pwd" class="form-label">Password/Token</label>
         <input id="{{ field.name }}{{ suffix }}-pwd"
                type="password"
                class="form-control {{ field.type }}-control"
@@ -45,7 +45,7 @@
     </div>
 </div>
 <div class="form-group">
-    <label for="{{ field.name }}{{ suffix }}-branch">Branch</label>
+    <label for="{{ field.name }}{{ suffix }}-branch" class="form-label">Branch</label>
     <input id="{{ field.name }}{{ suffix }}-branch"
            type="text"
            class="form-control {{ field.type }}-control"

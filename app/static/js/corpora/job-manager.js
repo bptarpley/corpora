@@ -138,20 +138,19 @@ class JobManager {
                                             <input type="hidden" id="job-content-id">
                                             <div class="modal-header">
                                                 <h5 class="modal-title" id="job-modal-label">Run a Job</h5>
-                                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                                <span aria-hidden="true">&times;</span>
+                                                <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                                                 </button>
                                             </div>
                                             <div class="modal-body">
                                                 <div class="form-group">
-                                                    <label for="jobsite-selector">Jobsite</label>
-                                                    <select id="jobsite-selector" class="form-control" name="jobsite">
+                                                    <label for="jobsite-selector" class="form-label">Jobsite</label>
+                                                    <select id="jobsite-selector" class="form-select" name="jobsite">
                                                         ${jobsite_selector_options}
                                                     </select>
                                                 </div>
                                                 <div id="task-selector-div" class="form-group">
-                                                    <label for="task-selector">Task</label>
-                                                    <select id="task-selector" class="form-control" name="task">
+                                                    <label for="task-selector" class="form-label">Task</label>
+                                                    <select id="task-selector" class="form-select" name="task">
                                                     </select>
                                                 </div>
                                                 <div id="task-parameters-div">
@@ -219,8 +218,7 @@ class JobManager {
                                     <div class="modal-content">
                                         <div class="modal-header">
                                             <h5 class="modal-title">Job Report</h5>
-                                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                            <span aria-hidden="true">&times;</span>
+                                            <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                                             </button>
                                         </div>
                                         <div class="modal-body">
@@ -307,8 +305,8 @@ class JobManager {
 
                         parameter_html = `
                             <div class="form-group">
-                                <label for="${parameter}-file-selector">${parameters[parameter]['label']}</label>
-                                <select id="${parameter}-file-selector" class="form-control job-parameter-value" name="${parameter}">
+                                <label for="${parameter}-file-selector" class="form-label">${parameters[parameter]['label']}</label>
+                                <select id="${parameter}-file-selector" class="form-select job-parameter-value" name="${parameter}">
                                     ${select_options}
                                 </select>
                                 ${note_html}
@@ -322,8 +320,8 @@ class JobManager {
 
                         parameter_html = `
                             <div class="form-group">
-                                <label for="${parameter}-repo-selector">${parameters[parameter]['label']}</label>
-                                <select id="${parameter}-repo-selector" class="form-control job-parameter-value" name="${parameter}">
+                                <label for="${parameter}-repo-selector" class="form-label">${parameters[parameter]['label']}</label>
+                                <select id="${parameter}-repo-selector" class="form-select job-parameter-value" name="${parameter}">
                                     ${select_options}
                                 </select>
                                 ${note_html}
@@ -337,8 +335,8 @@ class JobManager {
 
                         parameter_html = `
                             <div class="form-group">
-                                <label for="${parameter}-ct-selector">${parameters[parameter]['label']}</label>
-                                <select id="${parameter}-ct-selector" class="form-control job-parameter-value" name="${parameter}">
+                                <label for="${parameter}-ct-selector" class="form-label">${parameters[parameter]['label']}</label>
+                                <select id="${parameter}-ct-selector" class="form-select job-parameter-value" name="${parameter}">
                                     ${select_options}
                                 </select>
                                 ${note_html}
@@ -354,8 +352,8 @@ class JobManager {
 
                         parameter_html = `
                             <div class="form-group">
-                                <label for="${parameter}-ct-field-selector">${parameters[parameter]['label']}</label>
-                                <select id="${parameter}-ct-field-selector" class="form-control job-parameter-value" name="${parameter}">
+                                <label for="${parameter}-ct-field-selector" class="form-label">${parameters[parameter]['label']}</label>
+                                <select id="${parameter}-ct-field-selector" class="form-select job-parameter-value" name="${parameter}">
                                     ${select_options}
                                 </select>
                                 ${note_html}
@@ -364,7 +362,7 @@ class JobManager {
                     } else if (parameters[parameter]['type'] === 'xref') {
                         parameter_html = `
                           <div class="form-group">
-                            <label for="${parameter}-content-label">${parameters[parameter]['label']}</label>
+                            <label for="${parameter}-content-label" class="form-label">${parameters[parameter]['label']}</label>
                             <input id="${parameter}-content-label" type="text" readonly>
                             <button id="${parameter}-selection-button" class="btn btn-secondary">Select</button>
                             <input type="hidden" id="${parameter}-content-id" class="job-parameter-value" name="${parameter}">
@@ -388,8 +386,8 @@ class JobManager {
 
                         parameter_html = `
                             <div class="form-group">
-                                <label for="${parameter}-choice-selector">${parameters[parameter]['label']}</label>
-                                <select id="${parameter}-choice-selector" class="form-control job-parameter-value" name="${parameter}">
+                                <label for="${parameter}-choice-selector" class="form-label">${parameters[parameter]['label']}</label>
+                                <select id="${parameter}-choice-selector" class="form-select job-parameter-value" name="${parameter}">
                                     ${select_options}
                                 </select>
                                 ${note_html}
@@ -398,7 +396,7 @@ class JobManager {
                     } else if (parameters[parameter]['type'] === 'pep8_text') {
                         parameter_html = `
                             <div class="form-group">
-                                <label for="${parameter}-pep8-text-box">${parameters[parameter]['label']}</label>
+                                <label for="${parameter}-pep8-text-box" class="form-label">${parameters[parameter]['label']}</label>
                                 <input id="${parameter}-pep8-text-box" type="text" class="form-control job-parameter-value" name="${parameter}" />
                                 ${note_html}
                             </div>
@@ -406,7 +404,7 @@ class JobManager {
                     } else if (['text', 'password'].includes(parameters[parameter]['type'])) {
                         parameter_html = `
                             <div class="form-group">
-                                <label for="${parameter}-text-box">${parameters[parameter]['label']}</label>
+                                <label for="${parameter}-text-box" class="form-label">${parameters[parameter]['label']}</label>
                                 <input id="${parameter}-text-box" type="${parameters[parameter]['type']}" class="form-control job-parameter-value" name="${parameter}" />
                                 ${note_html}
                             </div>
@@ -603,7 +601,7 @@ class JobManager {
             if (['Admin', 'Editor'].includes(this.scholar.role)) {
                 if (report_path) {
                     report_button = `
-                        <button type="button" class="btn btn-sm btn-primary mr-1 mb-1 job-report-button" data-job-id="${job_id}">View Report</button>
+                        <button type="button" class="btn btn-sm btn-primary me-1 mb-1 job-report-button" data-job-id="${job_id}">View Report</button>
                     `
                 }
 
@@ -612,7 +610,7 @@ class JobManager {
                         <button
                           type="button"
                           role="button"
-                          class="btn btn-sm btn-danger mr-1 mb-1 job-retry-button"
+                          class="btn btn-sm btn-danger me-1 mb-1 job-retry-button"
                           data-job-id="${job_id}"
                           data-content-type="${this.content_type}"
                           data-content-id="${this.content_id}"
