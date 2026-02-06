@@ -12146,6 +12146,12 @@ h4, .h4, h5, .h5, h6, .h6 {
   border-color: #beedec;
 }
 
+.alert-danger {
+  color: #7c201c;
+  background-color: #fcd8d7;
+  border-color: #fbc9c7;
+}
+
 .btn-link h5, .btn-link .h5 {
   color: #EF3E36;
 }
