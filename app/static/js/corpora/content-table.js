@@ -719,7 +719,7 @@ class ContentTable {
                     if (sender.mode === 'select') {
                         action_controls = `
                             <a href="#"
-                                class="${ct.name}${sender.id_suffix}-content-selection-link badge badge-warning"
+                                class="${ct.name}${sender.id_suffix}-content-selection-link badge bg-warning"
                                 data-id="${item.id}"
                                 data-uri="${item.uri}"
                                 data-label="${sender.corpora.strip_html(item.label)}">
