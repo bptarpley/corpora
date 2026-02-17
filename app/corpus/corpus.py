@@ -2091,7 +2091,7 @@ class Corpus(mongoengine.Document):
             label_analyzer = analyzer(
                 'corpora_label_analyzer',
                 tokenizer='classic',
-                filter=['stop', 'lowercase', 'classic']
+                filter=['stop', 'lowercase', 'asciifolding', 'classic']
             )
             label_subfields = {
                 'raw': {'type': 'keyword'},
