@@ -32,18 +32,18 @@ class ContentGroup {
                 <h2 class="content-type-group-header d-flex justify-content-between">${this.title}${editButtonHTML}</h2>
                 <div id="ct-group-${this.index}-controls-div" class="d-none my-2 justify-content-between align-bottom">
                     <span>
-                        <button id="ct-group-${this.index}-delete-button" type="button" class="btn btn-danger mr-4" data-title="${this.title}" data-toggle="tooltip" title="Delete Group">
+                        <button id="ct-group-${this.index}-delete-button" type="button" class="btn btn-danger me-4" data-title="${this.title}" data-toggle="tooltip" title="Delete Group">
                             <span class="fas fa-trash-alt"></span>
                         </button>
-                        <button id="ct-group-${this.index}-cancel-button" type="button" class="btn btn-secondary mr-1">Cancel</button>
+                        <button id="ct-group-${this.index}-cancel-button" type="button" class="btn btn-secondary me-1">Cancel</button>
                         <button id="ct-group-${this.index}-save-button" type="button" class="btn btn-primary">Save Changes</button>
                     </span>
                     <span class="text-muted" style="align-self: flex-end;">Deleting a Content Type group will not delete its Content Types.</span>
                 </div>
                 <div id="ct-group-${this.index}-description" class="content-type-group-description ${this.description ? 'mt-2 alert alert-info' : ''}">${this.description ? this.description : ''}</div>
                 <div id="ct-group-${this.index}-ct-selector-div" class="d-none mt-2">
-                    <label for="ct-group-${this.index}-ct-selector">Select a Content Type to add to this group:</label>
-                    <select id="ct-group-${this.index}-ct-selector" class="form-control-sm btn-primary ml-1 mr-1"></select>
+                    <label for="ct-group-${this.index}-ct-selector" class="form-label">Select a Content Type to add to this group:</label>
+                    <select id="ct-group-${this.index}-ct-selector" class="form-select-sm bg-primary ms-1 me-1"></select>
                     <button type="button" class="btn btn-sm btn-secondary" id="ct-group-${this.index}-ct-add-button">Go</button>
                 </div>
                 <div id="ct-group-${this.index}-members-div"></div>

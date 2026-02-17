@@ -67,8 +67,7 @@ class ContentTable {
                             <div class="modal-content">
                                 <div class="modal-header">
                                     <h5 class="modal-title" id="deletion-confirmation-modal-label">Confirm Deletion</h5>
-                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                    <span aria-hidden="true">&times;</span>
+                                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                                     </button>
                                 </div>
                                 <div class="modal-body">
@@ -98,7 +97,7 @@ class ContentTable {
                 if (sender.content_view) {
                     if (sender.corpora.scholar_has_privilege('Editor', role)) {
                         edit_action = `
-                            <button role="button" id="ct-${ct.name}${sender.id_suffix}-refresh-view-button" class="btn btn-primary rounded mr-2">Refresh View</button>
+                            <button role="button" id="ct-${ct.name}${sender.id_suffix}-refresh-view-button" class="btn btn-primary rounded me-2">Refresh View</button>
                             <button role="button" id="ct-${ct.name}${sender.id_suffix}-delete-view-button" class="btn btn-primary rounded">Delete View</button>
                         `
                     }
@@ -114,12 +113,12 @@ class ContentTable {
                         <div class="alert alert-info mt-4">
                             <h4>${sender.label}</h4>
                             <div class="d-flex w-100 justify-content-between align-items-center text-nowrap my-2">
-                                <span id="ct-${ct.name}${sender.id_suffix}-total-badge" class="badge badge-secondary p-2 mr-2">
+                                <span id="ct-${ct.name}${sender.id_suffix}-total-badge" class="badge bg-secondary p-2 me-2">
                                     Total: 0
                                 </span>
-                                <div class="input-group mr-2">
+                                <div class="input-group me-2">
                                     <div class="input-group-prepend">
-                                        <button id="ct-${ct.name}${sender.id_suffix}-search-type-selection" class="btn btn-secondary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Text Search</button>
+                                        <button id="ct-${ct.name}${sender.id_suffix}-search-type-selection" class="btn btn-secondary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="border-top-right-radius: 0; border-bottom-right-radius: 0">Text Search</button>
                                         <div id="ct-${ct.name}${sender.id_suffix}-search-type-menu" class="dropdown-menu">
                                             <span class="p-2">Select a specific field from the dropdown to the right in order to choose a different search type.</span>
                                         </div>
@@ -127,7 +126,7 @@ class ContentTable {
                                     </div>
                                     <input type="text" class="form-control" id="ct-${ct.name}${sender.id_suffix}-search-box" placeholder="Search" style="border: solid 1px #091540;" />
                                     <div class="input-group-append">
-                                        <button id="ct-${ct.name}${sender.id_suffix}-search-setting-selection" class="btn btn-secondary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">All Fields</button>
+                                        <button id="ct-${ct.name}${sender.id_suffix}-search-setting-selection" class="btn btn-secondary dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="border-top-left-radius: 0; border-bottom-left-radius: 0;">All Fields</button>
                                         <div id="ct-${ct.name}${sender.id_suffix}-search-settings-menu" class="dropdown-menu">
                                             <a class="dropdown-item ct-${ct.name}${sender.id_suffix}-search-setting" data-field_name="default" data-field_type="all" id="ct-${ct.name}${sender.id_suffix}-search-setting-default" href="#">All Fields</a>
                                         </div>
@@ -135,14 +134,14 @@ class ContentTable {
                                     </div>
                                 </div>
 
-                                <button id="ct-${ct.name}${sender.id_suffix}-search-clear-button" class="btn btn-primary rounded mr-2 d-none" type="button">Clear Search</button>
+                                <button id="ct-${ct.name}${sender.id_suffix}-search-clear-button" class="btn btn-primary rounded me-2 d-none" type="button">Clear Search</button>
                                 ${edit_action}   
                             </div>
                             <div id="ct-${ct.name}${sender.id_suffix}-current-search-div" class="w-100 align-items-center my-2"></div>
                             ${ sender.mode === 'edit' ? `<div id="ct-${ct.name}${sender.id_suffix}-selection-action-div" class="w-100 justify-content-between align-items-center text-nowrap my-2">
                                 <div class="form-inline">
                                     With selected:
-                                    <select class="form-control-sm btn-primary ml-1 mr-1" id="ct-${ct.name}${sender.id_suffix}-selection-action-selector" data-ct="${ct.name}">
+                                    <select class="form-select-sm bg-primary mx-1" id="ct-${ct.name}${sender.id_suffix}-selection-action-selector" data-ct="${ct.name}">
                                         <option value="explore" selected>Explore</option>
                                         <option value="export">Export (JSON)</option>
                                         <option value="export-csv">Export (CSV)</option>
@@ -156,7 +155,7 @@ class ContentTable {
                             </div>` : ''}
 
                             <div id="ct-${ct.name}${sender.id_suffix}-table-container" class="card-body p-0 content-table-container">
-                                <table class="table table-striped mb-0">
+                                <table class="table table-striped table-borderless mb-0">
                                     <thead class="thead-dark">
                                         <tr id="ct-${ct.name}${sender.id_suffix}-table-header-row">
                                         </tr>
@@ -550,7 +549,7 @@ class ContentTable {
             this.search['page'] = page_info.page
             if ('page-token' in page_info) this.search['page-token'] = page_info['page-token']
 
-            await this.corpora.list_content(corpus_id, this.content_type, this.search, function(content){
+            await this.corpora.list_content(sender.corpus.id, this.content_type, this.search, function(content){
                 sender.total_pages = content.meta.num_pages
                 sender.load_content(content, add_to_existing_rows)
             })
@@ -632,9 +631,9 @@ class ContentTable {
                     }
 
                     current_search_div.append(`
-                        <span class="badge badge-primary p-2 mr-2" style="font-size: 12px;">
+                        <span class="badge bg-primary text-white p-2 me-2" style="font-size: 12px;">
                             ${setting_type} ${field_name} "${search_value}"
-                            <a class="text-white ml-1 ${ct.name}${sender.id_suffix}-remove-search-param" data-search-param="${search_setting}"><i class="far fa-times-circle"></i></a>
+                            <a class="text-white ms-1 ${ct.name}${sender.id_suffix}-remove-search-param" data-search-param="${search_setting}"><i class="far fa-times-circle"></i></a>
                         </span>
                     `)
                     has_search_indicators = true
@@ -709,18 +708,18 @@ class ContentTable {
                     let action_controls = `
                         <input id="ct_${ct.name}${sender.id_suffix}_${item.id}_selection-box"
                             type="checkbox"
-                            class="ct-${ct.name}${sender.id_suffix}-selection-box mr-2"
+                            class="ct-${ct.name}${sender.id_suffix}-selection-box me-2"
                             data-ct="${ct.name}"
                             data-id="${item.id}"
                             ${selected}>
                         <a href="${item.uri}" target="_blank">
-                            <span class="badge badge-warning">Open</span>
+                            <span class="badge bg-warning">Open</span>
                         </a>
                     `
                     if (sender.mode === 'select') {
                         action_controls = `
                             <a href="#"
-                                class="${ct.name}${sender.id_suffix}-content-selection-link badge badge-warning"
+                                class="${ct.name}${sender.id_suffix}-content-selection-link badge bg-warning"
                                 data-id="${item.id}"
                                 data-uri="${item.uri}"
                                 data-label="${sender.corpora.strip_html(item.label)}">
@@ -864,16 +863,19 @@ class ContentTable {
 
         // handle content selection in select mode
         if (sender.mode === 'select') {
-            $(`.${ct.name}${sender.id_suffix}-content-selection-link`).click(function(e) {
-                e.preventDefault()
+            $(`.${ct.name}${sender.id_suffix}-content-selection-link:not([data-click_rigged])`).each(function() {
                 let link = $(this)
-                if (sender.selection_callback != null) {
-                    sender.selection_callback({
-                        id: link.data('id'),
-                        uri: link.data('uri'),
-                        label: link.data('label')
-                    })
-                }
+                link.attr('data-click_rigged', 'y')
+                link.click(function(e) {
+                    e.preventDefault()
+                    if (sender.selection_callback != null) {
+                        sender.selection_callback({
+                            id: link.data('id'),
+                            uri: link.data('uri'),
+                            label: link.data('label')
+                        })
+                    }
+                })
             })
         }
 

@@ -44,8 +44,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="file-upload-modal-label">Import Corpus File(s)</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
+                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                     </button>
                 </div>
                 <div class="modal-body">
@@ -70,7 +69,7 @@
                         <div class="col-12">
                             <div class="input-group">
                                 <input type="text" class="form-control" id="file-upload-modal-new-folder-box" aria-placeholder="New Folder" placeholder="New Folder">
-                                <span class="input-group-btn ml-1"><a href="javascript:handle_folder_creation();" role="button" id="file-upload-modal-new-folder-button" class="btn btn-secondary">Go</a></span>
+                                <span class="input-group-btn ms-1"><a href="javascript:handle_folder_creation();" role="button" id="file-upload-modal-new-folder-button" class="btn btn-secondary">Go</a></span>
                             </div>
                         </div>
                     </div>
@@ -92,35 +91,34 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">Add a Git Repository</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
+                        <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                         </button>
                     </div>
                     <div class="modal-body">
                         <div class="form-group">
-                            <label for="new-repo-name-box">Name</label>
+                            <label for="new-repo-name-box" class="form-label">Name</label>
                             <input id="new-repo-name-box" type="text" class="form-control" name="new-repo-name">
                         </div>
                         <div class="form-group">
-                            <label for="new-repo-url-box">URL</label>
+                            <label for="new-repo-url-box" class="form-label">URL</label>
                             <input id="new-repo-url-box" type="text" class="form-control" name="new-repo-url">
                         </div>
                         <div class="form-check">
                             <input id="new-repo-auth-box" type="checkbox" class="form-check-input" name="new-repo-auth">
-                            <label for="new-repo-auth-box">Authentication Required</label>
+                            <label for="new-repo-auth-box" class="form-label">Authentication Required</label>
                         </div>
                         <div id="new-repo-credentials-div" class="d-none">
                             <div class="form-group">
-                                <label for="new-repo-user-box">Username</label>
+                                <label for="new-repo-user-box" class="form-label">Username</label>
                                 <input id="new-repo-user-box" type="text" class="form-control" name="new-repo-user">
                             </div>
                             <div class="form-group">
-                                <label for="new-repo-pwd-box">Password</label>
+                                <label for="new-repo-pwd-box" class="form-label">Password</label>
                                 <input id="new-repo-pwd-box" type="password" class="form-control" name="new-repo-pwd">
                             </div>
                         </div>
                         <div class="form-group">
-                            <label for="new-repo-branch-box">Branch</label>
+                            <label for="new-repo-branch-box" class="form-label">Branch</label>
                             <input id="new-repo-branch-box" type="text" class="form-control" name="new-repo-branch">
                         </div>
                     </div>
@@ -139,17 +137,16 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="new-ct-modal-label">Create New Content Type</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
+                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                     </button>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label for="new-ct-name-box">Name</label>
+                        <label for="new-ct-name-box" class="form-label">Name</label>
                         <input id="new-ct-name-box" type="text" class="form-control">
                     </div>
                     <div class="form-group">
-                        <label for="new-ct-plural-name-box">Plural Name</label>
+                        <label for="new-ct-plural-name-box" class="form-label">Plural Name</label>
                         <input id="new-ct-plural-name-box" type="text" class="form-control">
                     </div>
                     <div class="form-check">
@@ -162,7 +159,7 @@
                     </div>
                     <div id="new-ct-proxy-field-div" class="form-group d-none">
                         <label for="new-ct-proxy-field-selector">Proxy For</label>
-                        <select id="new-ct-proxy-field-selector" class="form-control"></select>
+                        <select id="new-ct-proxy-field-selector" class="form-select"></select>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -179,8 +176,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="new-f-modal-label">Create New Field</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
+                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                     </button>
                 </div>
                 <div id="new-f-modal-body" class="modal-body">
@@ -197,7 +193,7 @@
                     </div>
                     <div class="form-group">
                         <label for="new-f-type-box">Type</label>
-                        <select id="new-f-type-box" class="form-control">
+                        <select id="new-f-type-box" class="form-select">
                             <option value="keyword" selected>Keyword</option>
                             <option value="text">Text</option>
                             <option value="large_text">Large Text</option>
@@ -214,7 +210,7 @@
                             <option value="repo">Git Repository</option>
                             <option value="cross_reference">Cross Reference</option>
                         </select>
-                        <select id="new-f-cross-reference-box" class="form-control mt-2 d-none" disabled>
+                        <select id="new-f-cross-reference-box" class="form-select mt-2 d-none" disabled>
                             <option value="">No other content types exist</option>
                         </select>
                     </div>
@@ -224,7 +220,7 @@
                     </div>
                     <div class="form-group d-none" id="new-f-language-div">
                         <label for="new-f-language-box">Language</label>
-                        <select id="new-f-language-box" class="form-control">
+                        <select id="new-f-language-box" class="form-select">
                             {% for lang_value, lang_label in field_languages.items %}
                                 <option value="{{ lang_value }}">{{ lang_label }}</option>
                             {% endfor %}
@@ -236,7 +232,7 @@
                     </div>
                     <div class="form-group d-none" id="new-f-synonym-div">
                         <label for="new-f-synonym-box">Synonyms for Searching this Field</label>
-                        <select id="new-f-synonym-box" class="form-control">
+                        <select id="new-f-synonym-box" class="form-select">
                             <option value="None">None</option>
                         </select>
                     </div>
@@ -250,7 +246,7 @@
                     </div>
                     <div id="new-f-indexed-with-div" class="form-group align-items-start d-none">
                         <label for="new-f-indexed-with-box">with:&nbsp;</label>
-                        <select id="new-f-indexed-with-box" class="f-with w-50" multiple>
+                        <select id="new-f-indexed-with-box" class="f-with w-50 form-select" multiple>
                             <!-- Populated via Javascript /-->
                         </select>
                     </div>
@@ -260,7 +256,7 @@
                     </div>
                     <div id="new-f-unique-with-div" class="form-group align-items-start d-none">
                         <label for="new-f-unique-with-box">with:&nbsp;</label>
-                        <select id="new-f-unique-with-box" class="f-with w-50" multiple>
+                        <select id="new-f-unique-with-box" class="f-with w-50 form-select" multiple>
                             <!-- Populated via Javascript /-->
                         </select>
                     </div>
@@ -283,8 +279,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="new-ct-group-modal-label">Create New Content Type Group</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
+                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                     </button>
                 </div>
                 <div class="modal-body">
@@ -312,9 +307,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="template-modal-label">Edit Template</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                    </button>
+                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="template-ct-name" value="">
@@ -329,7 +322,7 @@
 
                     <div class="form-group">
                         <label for="template-mime-type">MIME Type</label>
-                        <select id="template-mime-type">
+                        <select id="template-mime-type" class="form-select">
                             <option value="text/html">text/html</option>
                             <option value="text/css">text/css</option>
                             <option value="text/turtle">text/turtle</option>
@@ -352,8 +345,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="import-modal-label">Import Schema</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
+                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                     </button>
                 </div>
                 <div class="modal-body">
@@ -361,7 +353,7 @@
                 </div>
                 <div class="modal-footer">
                     <div class="form-inline">
-                        <select class="form-control btn-primary" id="import-modal-ct-selector">
+                        <select class="form-select bg-primary" id="import-modal-ct-selector">
                             <option selected>Import plugin schema...</option>
                         </select>
                     </div>
@@ -404,7 +396,7 @@
                             <a href="#breadcrumb"><i class="fas fa-sort-up"></i> Top</a>
                         </div>
                         {% if role|has_privilege:"Editor" %}
-                        <div class="col-md-1">
+                        <div class="col-md-1 text-end">
                             <button type="button" id="new-ct-group-button" class="btn btn-primary btn-sm rounded" data-toggle="modal" data-target="#new-ct-group-modal">New Group</button>
                         </div>
                         {% endif %}
@@ -562,7 +554,7 @@
                                 <span>
                                     <button id="run-job-button" class="btn btn-primary rounded" type="button">Run Job</button>
                                     {% if role|has_privilege:"Admin" %}
-                                    <button id="launch-notebook-button" class="btn btn-primary rounded ml-1" type="button">Launch Notebook</button>
+                                    <button id="launch-notebook-button" class="btn btn-primary rounded ms-1" type="button">Launch Notebook</button>
                                     <form id="launch-notebook-form" method="post">
                                         {% csrf_token %}
                                         <input type="hidden" name="launch-notebook" value="y" />
@@ -602,7 +594,7 @@
                         </div>
                         <div class="card-footer d-flex justify-content-between">
                             <span>
-                                <button type="button" class="btn btn-primary mr-2" id="new-ct-button">New Content Type</button>
+                                <button type="button" class="btn btn-primary me-2" id="new-ct-button">New Content Type</button>
                                 <button type="button" title="Import Schema" class="btn btn-secondary" id="show-import-modal-button"><span class="fas fa-file-import"></span></button>
                                 <a role="button" title="Export Schema" class="btn btn-secondary" href="/corpus/{{ corpus_id }}/?export=schema" download="schema"><span class="fas fa-file-export"></span></a>
                             </span>
@@ -628,9 +620,9 @@
                             </div>
                             {% if response.scholar.is_admin %}
                             <button type="button" class="btn btn-danger" id="corpus-show-delete-confirmation-button">Delete Corpus</button>
-                            <button type="button" class="btn btn-secondary ml-1" id="open-access-button">Make Open Access</button>
+                            <button type="button" class="btn btn-secondary ms-1" id="open-access-button">Make Open Access</button>
                             {% endif %}
-                            <button type="button" class="btn btn-secondary ml-1" id="create-export-button">Export Corpus Data</button>
+                            <button type="button" class="btn btn-secondary ms-1" id="create-export-button">Export Corpus Data</button>
                             {% if response.scholar.is_admin %}
                             <div id="corpus-deletion-confirmation-div" class="alert alert-danger mt-3 d-none">
                                 <strong>Warning:</strong> Should you delete this corpus, all data and linkages comprising it
@@ -1608,7 +1600,7 @@
                         <span id="${ct_div_prefix}-indicator" class="fas fa-caret-right"></span>
                         <h5 id="${ct_div_prefix}-name" style="display: inline;">${ct_name}</h5>
                     </button>
-                    <span class="float-right">
+                    <span class="float-end">
                         <button id="${ct_div_prefix}-edit-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Edit"><span class="fas fa-edit"></span></button>
                         <button id="${ct_div_prefix}-reindex-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Re-Index"><span class="fas fa-sync"></span></button>
                         <button id="${ct_div_prefix}-relabel-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Re-Label"><span class="fas fa-tag"></span></button>
@@ -1616,31 +1608,34 @@
                     </span>
                     <div id="${ct_div_prefix}" class="alert alert-info collapse p-3 mt-2" aria-labelledby="${ct_div_prefix}-container" data-parent="#tm-ct-group">
                         <h5 class="mb-2">Fields</h5>
-                        <table class="table table-striped">
+                        <table class="table table-borderless corpora-content-table">
                             <thead class="thead-dark">
-                                <th scope="col">Name</th>
-                                <th scope="col">Label</th>
-                                <th scope="col">Type</th>
-                                <th scope="col">In Lists?</th>
-                                <th scope="col">Indexed?</th>
-                                <th scope="col">Unique?</th>
-                                <th scope="col">Multiple?</th>
+                                <th scope="col" class="text-white">Name</th>
+                                <th scope="col" class="text-white">Label</th>
+                                <th scope="col" class="text-white">Type</th>
+                                <th scope="col" class="text-white">In Lists?</th>
+                                <th scope="col" class="text-white">Indexed?</th>
+                                <th scope="col" class="text-white">Unique?</th>
+                                <th scope="col" class="text-white">Multiple?</th>
                                 <th scope="col"></th>
                             </thead>
                             <tbody id="${ct_div_prefix}-f-table">
                                 <tr><td colspan="8">No fields have been defined.</td></tr>
                             </tbody>
                         </table>
-                        <button type="button" class="btn btn-primary" id="${ct_div_prefix}-new-f-button">New Field</button>
-                        <span class="ml-2">
-                            Edit Template: <select id="${ct_div_prefix}-edit-template-selector"></select>
-                            <button type="button" class="btn btn-sm btn-secondary ml-2" id="${ct_div_prefix}-edit-template-button">Go</button>
-                            <button type="button" class="btn btn-sm btn-secondary ml-2" id="${ct_div_prefix}-new-template-button">New Template</button>
-                        </span>
-                        <span class="float-right">
+                        <div class="d-flex w-100 align-items-center text-nowrap mt-2">
+                            <button type="button" class="btn btn-primary" id="${ct_div_prefix}-new-f-button">New Field</button>
+                            <div class="ms-2 d-flex align-items-center text-nowrap">
+                                Edit Template:
+                                <select id="${ct_div_prefix}-edit-template-selector" class="form-select"></select>
+                                <button type="button" class="btn btn-sm btn-secondary ms-2" id="${ct_div_prefix}-edit-template-button">Go</button>
+                                <button type="button" class="btn btn-sm btn-secondary ms-2" id="${ct_div_prefix}-new-template-button">New Template</button>
+                            </div>
+                            <div class="text-end flex-fill">
                                 <b>*</b> Denotes field indexed for autocompletion<br/>
-                                <b>+</b> Denotes cross reference field has intensity
-                        </span>
+                                <b>+</b> Denotes cross-reference field has intensity
+                            </div>
+                        </div>
                     </div>
                 </div>
             `);
@@ -1976,7 +1971,7 @@
 
                 f_table.append(`
                     <tr id="${f_div_prefix}-row" class="tm-ct-field" data-field-name="${ct.fields[f_index].name}">
-                        <td id="${f_div_prefix}-name" class="font-weight-bold">${ct.fields[f_index].name}</td>
+                        <td id="${f_div_prefix}-name" class="fw-bold">${ct.fields[f_index].name}</td>
                         <td id="${f_div_prefix}-label">${ct.fields[f_index].label}</td>
                         <td id="${f_div_prefix}-type">${field_type_display}</td>
                         <td id="${f_div_prefix}-in-lists">${ct.fields[f_index].in_lists ? 'Y' : 'N'}</td>
@@ -2149,9 +2144,9 @@
                     let up_directory = '/' + path.split('/').slice(1, -1).join('/');
                     if (up_directory === '/') { up_directory = ''; }
                     if (select === 'file') {
-                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`);
+                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}');" style="color: white;"><span class="fas fa-level-up-alt float-end"></span></a>`);
                     } else {
-                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}', '', 'dir');" style="color: white;"><span class="fas fa-level-up-alt float-right"></span></a>`);
+                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}', '', 'dir');" style="color: white;"><span class="fas fa-level-up-alt float-end"></span></a>`);
                     }
                 }
                 for (let x = 0; x < data.length; x++) {
@@ -2162,13 +2157,13 @@
                             `);
                         } else {
                             $('#file-upload-modal-table-body').append(`
-                                <tr><td><span class="fas fa-folder-open"></span> ${data[x].filename} <a class="btn btn-sm btn-primary text-white float-right" role="button" href="javascript:upload_file('${data[x].path}');">Browse</a></td></tr>
+                                <tr><td><span class="fas fa-folder-open"></span> ${data[x].filename} <a class="btn btn-sm btn-primary text-white float-end" role="button" href="javascript:upload_file('${data[x].path}');">Browse</a></td></tr>
                             `);
                         }
                     } else {
                         if (data[x].type === 'dir') {
                             $('#file-upload-modal-table-body').append(`
-                                <tr><td><span class="fas fa-folder-open"></span> <a href="javascript:handle_file_upload('${data[x].path}', '');">${data[x].filename}</a> <a class="btn btn-sm btn-primary text-white float-right" role="button" href="javascript:upload_file(file_upload_input_id, '${data[x].path}', '', 'dir');">Browse</a></td></tr>
+                                <tr><td><span class="fas fa-folder-open"></span> <a href="javascript:handle_file_upload('${data[x].path}', '');">${data[x].filename}</a> <a class="btn btn-sm btn-primary text-white float-end" role="button" href="javascript:upload_file(file_upload_input_id, '${data[x].path}', '', 'dir');">Browse</a></td></tr>
                             `);
                         }
                     }

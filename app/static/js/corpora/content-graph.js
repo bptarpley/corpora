@@ -43,8 +43,7 @@ class ContentGraph {
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h4 class="modal-title" id="explore-ct-modal-label"><span class="modal-proxy-ct"></span> Options</h4>
-                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                <span aria-hidden="true">&times;</span>
+                                <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                                 </button>
                             </div>
                             <div class="modal-body">
@@ -68,18 +67,18 @@ class ContentGraph {
                                     </div>
                                     <div class="row">
                                         <div class="col">
-                                            <select class="form-control" id="from_ct_selector"></select>
+                                            <select class="form-select" id="from_ct_selector"></select>
                                         </div>
                                         <div class="col text-center">
                                             <i class="fas fa-arrow-left"></i> <span class="modal-proxy-ct"></span> <i class="fas fa-arrow-right"></i>
                                         </div>
                                         <div class="col">
-                                            <select class="form-control" id="to_ct_selector"></select>
+                                            <select class="form-select" id="to_ct_selector"></select>
                                         </div>
                                     </div>
                                     <div class="row">
                                         <div class="col mt-2 text-center">
-                                            <select class="form-control" id="addproxy_ct_selector">
+                                            <select class="form-select" id="addproxy_ct_selector">
                                                 <option value="None">Select Content Type to add another step to collapse...</option>
                                             </select>
                                             <button type="button" class="btn btn-primary" id="collapse-add-button">Collapse</button>
@@ -444,24 +443,24 @@ class ContentGraph {
 
             this.collapsed_relationships.map(col_rel => {
                 if (group_name === col_rel['proxy_ct']) {
-                    action_links += `<a href="#" class="uncollapse-link mr-2" data-collapse="${col_rel.proxy_ct}">uncollapse</a>`
+                    action_links += `<a href="#" class="uncollapse-link me-2" data-collapse="${col_rel.proxy_ct}">uncollapse</a>`
                 }
             })
 
             this.hidden_cts.map(hidden => {
                 if (group_name === hidden) {
-                    action_links += `<a href="#" class="unhide-link mr-2" data-hidden="${hidden}">unhide</a>`
+                    action_links += `<a href="#" class="unhide-link me-2" data-hidden="${hidden}">unhide</a>`
                 }
             })
 
             legend.append(`
-                <span class="badge mr-1 p-1 ct-legend-badge" style="background-color: ${this.groups[group_name].color}; color: #FFFFFF; cursor: pointer;">${group_name}</span>${action_links}
+                <span class="badge me-1 p-1 ct-legend-badge" style="background-color: ${this.groups[group_name].color}; color: #FFFFFF; cursor: pointer;">${group_name}</span>${action_links}
             `)
         }
 
         // LABEL OPTIONS
         legend.append(`
-            <select id="explore-label-opt" class="mr-2">
+            <select id="explore-label-opt" class="me-2 form-select-sm">
                 <option value="full" ${sender.label_display === 'full' ? 'selected' : ''}>Show full label</option>
                 <option value="trunc" ${sender.label_display === 'trunc' ? 'selected' : ''}>Show truncated label</option>
                 <option value="hover" ${sender.label_display === 'hover' ? 'selected' : ''}>Show label only on hover</option>
@@ -470,8 +469,8 @@ class ContentGraph {
 
         // SPRAWL OPTIONS
         legend.append(`
-            <label for="explore-sprawl-opt" class="mr-1 mb-0">Sprawl Size:</label>
-            <select id="explore-sprawl-opt" class="mr-2">
+            <label for="explore-sprawl-opt" class="me-1 mb-0">Sprawl Size:</label>
+            <select id="explore-sprawl-opt" class="me-2 form-select-sm">
                 <option value="5" ${sender.per_type_limit === 5 ? 'selected' : ''}>5</option>
                 <option value="10" ${sender.per_type_limit === 10 ? 'selected' : ''}>10</option>
                 <option value="20" ${sender.per_type_limit === 20 ? 'selected' : ''}>20</option>
@@ -482,7 +481,7 @@ class ContentGraph {
 
         // SINGLETON HIDING
         legend.append(`
-            <button id="explore-hide-singletons" class="btn btn-sm btn-primary mr-2">Hide Singletons</button>
+            <button id="explore-hide-singletons" class="btn btn-sm btn-primary me-2">Hide Singletons</button>
         `)
 
         // HIDE SINGLETONS CLICK
@@ -502,7 +501,7 @@ class ContentGraph {
         if (this.selected_uris.length) {
             legend.append(`
                 With selected: 
-                <select id="explore-selected-action" class="ml-1">
+                <select id="explore-selected-action" class="ms-1 form-select">
                     <option value="explore" ${sender.last_action === 'explore' ? 'selected' : ''}>Explore in new tab</option>
                     <option value="hide" ${sender.last_action === 'hide' ? 'selected' : ''}>Hide</option>
                     <option value="sprawl" ${sender.last_action === 'sprawl' ? 'selected' : ''}>Sprawl</option>
@@ -586,7 +585,7 @@ class ContentGraph {
                     let cv_div = $('#explore-ct-cv-div')
                     cv_div.html('')
                     if (Object.keys(sender.corpus.content_types[explore_ct]).includes('views')) {
-                        cv_div.append(`<select id="cv-selector" class="form-control" data-ct="${explore_ct}"><option value="--">None</option></select>`)
+                        cv_div.append(`<select id="cv-selector" class="form-select" data-ct="${explore_ct}"><option value="--">None</option></select>`)
                         let cv_selector = $('#cv-selector')
                         sender.corpus.content_types[explore_ct].views.map(cv => {
                             let selected_indicator = ''
@@ -854,7 +853,7 @@ class ContentGraph {
                     let plotted = ct_counts.hasOwnProperty(sprawl_ct) ? ct_counts[sprawl_ct] : 0
                     meta_div.append(`
                         <span
-                            class="badge mr-1 p-1 meta-badge"
+                            class="badge me-1 p-1 meta-badge"
                             style="background-color: ${this.groups[sprawl_ct].color}; color: #FFFFFF; cursor: pointer;"
                             data-uri="${uri}" data-sprawl_ct="${sprawl_ct}" data-skip="${plotted}"
                         >

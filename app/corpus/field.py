@@ -212,7 +212,7 @@ class Field(mongoengine.EmbeddedDocument):
             elasticsearch_dsl.analyzer instance or None for non-text fields.
         """
 
-        analyzer_filters = ['lowercase', 'classic', 'stop']
+        analyzer_filters = ['lowercase', 'asciifolding', 'classic', 'stop']
         tokenizer = "standard"
         if self.language in lang_settings:
             analyzer_filters = deepcopy(lang_settings[self.language]['filter'])

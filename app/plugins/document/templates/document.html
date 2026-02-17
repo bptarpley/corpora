@@ -63,8 +63,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="file-upload-modal-label">Import Document File(s)</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
+                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                     </button>
                 </div>
                 <div class="modal-body">
@@ -94,8 +93,7 @@
                     <input type="hidden" id="import-pages-files" name="import-pages-files" value="[]" />
                     <div class="modal-header">
                         <h5 class="modal-title" id="import-pages-modal-label">Import Pages</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
+                        <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                         </button>
                     </div>
                     <div class="modal-body">
@@ -117,30 +115,30 @@
                         </div>
                         <div id="import-pages-options" class="mt-1">
                             <div class="form-group pdf-option">
-                                <label for="import-pages-options-dpi">Image DPI</label>
-                                <select id="import-pages-options-dpi" class="form-control" name="import-pages-image-dpi">
+                                <label for="import-pages-options-dpi" class="form-label">Image DPI</label>
+                                <select id="import-pages-options-dpi" class="form-select" name="import-pages-image-dpi">
                                     <option value="300">300</option>
                                     <option value="150">150</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="import-pages-options-split">Split Images in Half Vertically?*</label>
-                                <select id="import-pages-options-split" class="form-control" name="import-pages-split">
+                                <label for="import-pages-options-split" class="form-label">Split Images in Half Vertically?*</label>
+                                <select id="import-pages-options-split" class="form-select" name="import-pages-split">
                                     <option value="No">No</option>
                                     <option value="Yes">Yes</option>
                                 </select>
                                 <div class="text-muted">* Useful for double-paged scans.</div>
                             </div>
                             <div class="form-group pdf-option">
-                                <label for="import-pages-options-extract-text">Extract Embedded Text?</label>
-                                <select id="import-pages-options-extract-text" class="form-control" name="import-pages-extract-text">
+                                <label for="import-pages-options-extract-text" class="form-label">Extract Embedded Text?</label>
+                                <select id="import-pages-options-extract-text" class="form-select" name="import-pages-extract-text">
                                     <option value="Yes">Yes</option>
                                     <option value="No">No</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="import-pages-options-primary">Make Primary Witness?*</label>
-                                <select id="import-pages-options-primary" class="form-control" name="import-pages-primary">
+                                <label for="import-pages-options-primary" class="form-label">Make Primary Witness?*</label>
+                                <select id="import-pages-options-primary" class="form-select" name="import-pages-primary">
                                     <option value="Yes">Yes</option>
                                     <option value="No">No</option>
                                 </select>
@@ -157,7 +155,7 @@
                             <input id="import-pages-filepond" class="filepond" type="file">
                         </div>
                         <div id="import-pages-iiif-ids-div" class="form-group d-none">
-                            <label for="import-pages-iiif-ids-box">IIIF Identifiers<br /><span class="text-muted">One per line in page order</span></label>
+                            <label for="import-pages-iiif-ids-box" class="form-label">IIIF Identifiers<br /><span class="text-muted">One per line in page order</span></label>
                             <textarea id="import-pages-iiif-ids-box" class="form-control" rows="5" name="import-pages-iiif-ids"></textarea>
                         </div>
                         <div class="form-group import-pages-pdf-source-options">
@@ -167,7 +165,7 @@
                             </div>
                         </div>
                         <div class="form-group import-pages-pdf-source-options">
-                            <select id="import-pages-pdf-existing-file" class="form-control" name="import-pages-pdf-existing-file">
+                            <select id="import-pages-pdf-existing-file" class="form-select" name="import-pages-pdf-existing-file">
                             </select>
                         </div>
                     </div>
@@ -188,25 +186,24 @@
                     {% csrf_token %}
                     <div class="modal-header">
                         <h5 class="modal-title" id="pageset-modal-label">New Page Set</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
+                        <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                         </button>
                     </div>
                     <div class="modal-body">
                         <div class="form-group">
-                            <label for="pageset-name-box">Name</label>
+                            <label for="pageset-name-box" class="form-label">Name</label>
                             <input type="text" class="form-control" id="pageset-name-box" name="pageset-name" />
                         </div>
                         <div class="row">
                             <div class="col-6">
                                 <div class="form-group">
-                                    <label for="pageset-start-box">Starting Page</label>
+                                    <label for="pageset-start-box" class="form-label">Starting Page</label>
                                     <input type="text" class="form-control" id="pageset-start-box" name="pageset-start" />
                                 </div>
                             </div>
                             <div class="col-6">
                                 <div class="form-group">
-                                    <label for="pageset-end-box">Ending Page</label>
+                                    <label for="pageset-end-box" class="form-label">Ending Page</label>
                                     <input type="text" class="form-control" id="pageset-end-box" name="pageset-end" />
                                 </div>
                             </div>
@@ -229,48 +226,47 @@
                     {% csrf_token %}
                     <div class="modal-header">
                         <h5 class="modal-title" id="trans-modal-label">Transcribe</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
+                        <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                         </button>
                     </div>
                     <div class="modal-body">
                         <div id="trans-project-group" class="form-group">
-                            <label for="trans-project-selector">Transcription Project</label>
-                            <select id="trans-project-selector" class="form-control" name="trans-project">
+                            <label for="trans-project-selector" class="form-label">Transcription Project</label>
+                            <select id="trans-project-selector" class="form-select" name="trans-project">
                                 {% if response.scholar.is_admin or role == 'Editor' %}<option value="new">New project...</option>{% endif %}
                             </select>
                         </div>
 
                         <div id="trans-new-project-div" class="d-none">
                             <div class="form-group">
-                                <label for="trans-name-box">Transcription Project Name</label>
+                                <label for="trans-name-box" class="form-label">Transcription Project Name</label>
                                 <input type="text" class="form-control" id="trans-name-box" name="trans-name" />
                             </div>
                             <div class="form-group">
-                                <label for="trans-pageset-selector">Page Set</label>
-                                <select id="trans-pageset-selector" class="form-control" name="trans-pageset">
+                                <label for="trans-pageset-selector" class="form-label">Page Set</label>
+                                <select id="trans-pageset-selector" class="form-select" name="trans-pageset">
                                     <option value="all">All Pages</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="trans-image-pfc-selector">Image Collection</label>
-                                <select id="trans-image-pfc-selector" class="form-control" name="trans-image-pfc">
+                                <label for="trans-image-pfc-selector" class="form-label">Image Collection</label>
+                                <select id="trans-image-pfc-selector" class="form-select" name="trans-image-pfc">
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="trans-ocr-pfc-selector">OCR Collection</label>
-                                <select id="trans-ocr-pfc-selector" class="form-control" name="trans-ocr-pfc">
+                                <label for="trans-ocr-pfc-selector" class="form-label">OCR Collection</label>
+                                <select id="trans-ocr-pfc-selector" class="form-select" name="trans-ocr-pfc">
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="trans-plain-text-selector">Plain Text Transcription</label>
-                                <select id="trans-plain-text-selector" class="form-control" name="trans-plain-text">
+                                <label for="trans-plain-text-selector" class="form-label">Plain Text Transcription</label>
+                                <select id="trans-plain-text-selector" class="form-select" name="trans-plain-text">
                                     <option value="none">None</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="trans-level-selector">Granularity</label>
-                                <select id="trans-level-selector" class="form-control" name="trans-level">
+                                <label for="trans-level-selector" class="form-label">Granularity</label>
+                                <select id="trans-level-selector" class="form-select" name="trans-level">
                                     <option value="line">Lines</option>
                                     <option value="paragraph">Paragraphs</option>
                                     <option value="arbitrary">Arbitrary</option>
@@ -297,8 +293,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="job-finished-modal-label">Job Completed</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
+                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                     </button>
                 </div>
                 <div class="modal-body">
@@ -411,10 +406,10 @@
                                 </div>
                             </div>
                             <div id="page-viewer-control-div" class="d-flex w-100 justify-content-between align-items-center p-2 control-div">
-                                <div class="form-inline">
-                                    <button id="go-prev-page-button" type="button" class="btn btn-primary rounded" disabled><span class="fas fa-caret-left"></span></button>
-                                    <input id="go-page-box" type="text" class="form-control" style="width: 60px;" value="1">
-                                    <button id="go-next-page-button" type="button" class="btn btn-primary rounded"><span class="fas fa-caret-right"></span></button>
+                                <div class="row g-0">
+                                    <div class="col"><button id="go-prev-page-button" type="button" class="btn btn-primary rounded" disabled><span class="fas fa-caret-left"></span></button></div>
+                                    <div class="col"><input id="go-page-box" type="text" class="form-control" style="width: 60px;" value="1"></div>
+                                    <div class="col"><button id="go-next-page-button" type="button" class="btn btn-primary rounded"><span class="fas fa-caret-right"></span></button></div>
                                 </div>
 
                                 <ul id="page-viewer-controls" class="nav nav-pills">
@@ -424,7 +419,7 @@
                                         </div>
                                     </li>
 
-                                    <li class="nav-item dropleft ml-2 d-none" style="padding-top: 5px; padding-bottom: 5px;">
+                                    <li class="nav-item dropleft ms-2 d-none" style="padding-top: 5px; padding-bottom: 5px;">
                                         <a class="nav-link dropdown-toggle active" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false" style="padding-top: 5px; padding-bottom: 5px;">Witness</a>
                                         <div class="dropdown-menu" id="page-viewer-right-options">
                                             <a class="dropdown-item" href="javascript: set_collection('right', '');">None</a>
@@ -773,7 +768,7 @@
 
                                 if (doc.has_primary_text) {
                                     doc_files_div.append(`
-                                        <a href="${document_uri}/tei-skeleton" class="btn btn-sm btn-primary ml-1" download>Download TEI</a>
+                                        <a href="${document_uri}/tei-skeleton" class="btn btn-sm btn-primary ms-1" download>Download TEI</a>
                                     `)
                                 }
                             }
@@ -816,7 +811,7 @@
                                 for (let ps_key in doc.page_sets) {
                                     if (doc.has_primary_text) {
                                         action_buttons = `
-                                            <a href="${document_uri}/tei-skeleton?pageset=${ps_key}" class="btn btn-sm btn-primary ml-1" download>Download TEI</a>
+                                            <a href="${document_uri}/tei-skeleton?pageset=${ps_key}" class="btn btn-sm btn-primary ms-1" download>Download TEI</a>
                                         `
                                     }
                                     if (corpora.scholar_has_privilege('Editor', corpus.scholar_role)) {
@@ -892,7 +887,7 @@
                                                 <input type="hidden" name="csrfmiddlewaretoken" value="${corpora.csrf_token}">
                                                 <input type="hidden" name="collection" value="${slug}"/>
                                                 <input type="hidden" name="consolidate-files" value="y"/>
-                                                <button type="submit" class="btn btn-primary mr-2">Create a Consolidated Text File</button>
+                                                <button type="submit" class="btn btn-primary me-2">Create a Consolidated Text File</button>
                                             </form>
                                         `
                                         page_viewer_right_options.append(`
@@ -985,7 +980,7 @@
 
                                         let actions = ''
                                         if (label.includes('HOCR') || label.includes('GCV TextAnnotation')) {
-                                            actions = `<a href="${document_uri}/draw-page-regions/${ref_no}/?ocrfile=${file.path}" target="_blank" class="btn btn-primary ml-1">Fix OCR Regions</a>`
+                                            actions = `<a href="${document_uri}/draw-page-regions/${ref_no}/?ocrfile=${file.path}" target="_blank" class="btn btn-primary ms-1">Fix OCR Regions</a>`
                                         }
 
                                         doc_pfc_tbody.append(`
@@ -1044,8 +1039,8 @@
 
                                         return `
                                             <div class="form-group">
-                                                <label for="${param_name}-trans-project-selector">${param.label}</label>
-                                                <select id="${param_name}-trans-project-selector" class="form-control job-parameter-value" name="${param_name}">
+                                                <label for="${param_name}-trans-project-selector" class="form-label">${param.label}</label>
+                                                <select id="${param_name}-trans-project-selector" class="form-select job-parameter-value" name="${param_name}">
                                                     ${select_options}
                                                 </select>
                                                 ${param.note ? `<span class='text-muted'>${param.note}</span>` : ''}
@@ -1064,7 +1059,7 @@
                                         return `
                                             <div class="form-group">
                                                 <label for="${param_name}-collection-selector">${param.label}</label>
-                                                <select id="${param_name}-collection-selector" class="form-control job-parameter-value" name="${param_name}">
+                                                <select id="${param_name}-collection-selector" class="form-select job-parameter-value" name="${param_name}">
                                                     ${select_options}
                                                 </select>
                                                 ${param.note ? `<span class='text-muted'>${param.note}</span>` : ''}
@@ -1080,7 +1075,7 @@
                                         return `
                                             <div class="form-group">
                                                 <label for="${param_name}-ps-selector">${param.label}</label>
-                                                <select id="${param_name}-ps-selector" class="form-control job-parameter-value" name="${param_name}">
+                                                <select id="${param_name}-ps-selector" class="form-select job-parameter-value" name="${param_name}">
                                                     <option value="none">All Pages</option>
                                                     ${select_options}
                                                 </select>
@@ -1097,7 +1092,7 @@
                                         return `
                                             <div class="form-group">
                                                 <label for="${param_name}-file-selector">${param.label}</label>
-                                                <select id="${param_name}-file-selector" class="form-control job-parameter-value" name="${param_name}">
+                                                <select id="${param_name}-file-selector" class="form-select job-parameter-value" name="${param_name}">
                                                     ${select_options}
                                                 </select>
                                                 ${param.note ? `<span class='text-muted'>${param.note}</span>` : ''}
@@ -1139,7 +1134,7 @@
                                 if (corpora.scholar_has_privilege('Editor', corpus.scholar_role)) {
                                     if (Object.keys(doc.pages).length) {
                                         $('#page-action-buttons-span').append(`
-                                            <button id="create-pageset-button" class="btn btn-primary rounded ml-1" type="button">Create Page Set</button>
+                                            <button id="create-pageset-button" class="btn btn-primary rounded ms-1" type="button">Create Page Set</button>
                                         `)
 
                                         $("#create-pageset-button").click(function () {
@@ -1166,7 +1161,7 @@
 
                                     // set up transcribe button
                                     $('#page-action-buttons-span').append(`
-                                        <button id="transcribe-button" class="btn btn-primary rounded ml-1" type="button">Transcribe</button>
+                                        <button id="transcribe-button" class="btn btn-primary rounded ms-1" type="button">Transcribe</button>
                                     `)
 
                                     // project selector

@@ -64,12 +64,12 @@
                                     <h4>Login</h4>
                                 </div>
                                 <div class="card-body">
-                                    <div class="form-group">
-                                        <label for="username-box">Username</label>
+                                    <div class="form-group mb-3">
+                                        <label for="username-box" class="form-label">Username</label>
                                         <input type="text" class="form-control" id="username-box" name="username">
                                     </div>
-                                    <div class="form-group">
-                                        <label for="password-box">Password</label>
+                                    <div class="form-group mb3">
+                                        <label for="password-box" class="form-label">Password</label>
                                         <input type="password" class="form-control" id="password-box" name="password">
                                     </div>
                                 </div>
@@ -87,35 +87,35 @@
                                 </div>
                                 <div class="card-body">
                                     <div class="form-group">
-                                        <label for="username-box">Username</label>
+                                        <label for="username-box" class="form-label">Username</label>
                                         <input type="text" class="form-control" id="username-box" name="username" value="{{ response.scholar.username }}" {% if response.scholar %}readonly{% endif %}>
                                         {% if response.scholar %}
                                             <small class="form-text text-muted">Once created, a username cannot be changed.</small>
                                         {% endif %}
                                     </div>
                                     <div class="form-group">
-                                        <label for="password-box">Password</label>
+                                        <label for="password-box" class="form-label">Password</label>
                                         <input type="password" class="form-control" id="password-box" name="password">
                                     </div>
                                     <div class="form-group">
-                                        <label for="password-box2">Confirm Password</label>
+                                        <label for="password-box2" class="form-label">Confirm Password</label>
                                         <input type="password" class="form-control" id="password-box2" name="password2">
                                     </div>
                                     <div class="form-group">
-                                        <label for="fname-box">First Name</label>
+                                        <label for="fname-box" class="form-label">First Name</label>
                                         <input type="text" class="form-control" id="fname-box" name="fname" value="{{ response.scholar.fname }}">
                                     </div>
                                     <div class="form-group">
-                                        <label for="lname-box">Last Name</label>
+                                        <label for="lname-box" class="form-label">Last Name</label>
                                         <input type="text" class="form-control" id="lname-box" name="lname" value="{{ response.scholar.lname }}">
                                     </div>
                                     <div class="form-group">
-                                        <label for="email-box">Email</label>
+                                        <label for="email-box" class="form-label">Email</label>
                                         <input type="email" class="form-control" id="email-box" name="email" value="{{ response.scholar.email }}">
                                     </div>
                                     {% if response.scholar %}
                                         <div class="form-group">
-                                            <label for="token-box">API Token</label>
+                                            <label for="token-box" class="form-label">API Token</label>
                                             <input type="text" class="form-control" id="token-box" value="{{ response.scholar.auth_token }}" {% if response.scholar %}readonly{% endif %}>
                                             <small class="form-text text-muted mb-1">
                                                 API tokens allow you to access Corpora data from third-party software. Keep it secret! Keep it safe!
@@ -124,7 +124,7 @@
                                             <a href="?gen_token=y" class="btn btn-secondary">Generate New Token</a>
                                         </div>
                                         <div class="form-group">
-                                            <label for="auth-token-ips-div">API IP Addresses</label>
+                                            <label for="auth-token-ips-div" class="form-label">API IP Addresses</label>
                                             <small class="form-text text-muted mb-2">
                                                 API tokens will only work for non-open access Corpora if API requests originate from the following
                                                 IP addresses.
@@ -154,7 +154,7 @@
                                     </div>
                                 </div>
                                 <div class="card-footer">
-                                    <button type="submit" class="btn btn-primary mr-1">{% if register %}Register{% else %}Update{% endif %}</button>
+                                    <button type="submit" class="btn btn-primary me-1">{% if register %}Register{% else %}Update{% endif %}</button>
                                     {% if response.scholar %}
                                         <a href="?logout=y" class="btn btn-secondary">Logout</a>
                                     {% endif %}

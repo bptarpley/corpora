@@ -24,8 +24,7 @@ class ContentSelector {
                             <div class="modal-content">
                                 <div class="modal-header">
                                     <h5 class="modal-title" id="content-selection-modal-label">Select ContentType</h5>
-                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                    <span aria-hidden="true">&times;</span>
+                                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                                     </button>
                                 </div>
                                 <div class="modal-body">
@@ -37,7 +36,7 @@ class ContentSelector {
                                         </div>
                                         <table class="table table-striped">
                                             <thead class="thead-dark">
-                                                <th scope="col" id="content-selection-modal-table-header">ContentType</th>
+                                                <th scope="col" id="content-selection-modal-table-header" class="text-white">ContentType</th>
                                             </thead>
                                             <tbody id="content-selection-modal-table-body">
                                                 <tr><td>Loading...</td></tr>

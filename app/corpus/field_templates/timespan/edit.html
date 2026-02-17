@@ -1,6 +1,6 @@
 <div class="row">
   <div class="col-sm-6 form-group">
-    <label for="{{ field.name }}{{ suffix }}-editor-start">Start Date</label>
+    <label for="{{ field.name }}{{ suffix }}-editor-start" class="form-label">Start Date</label>
     <input id="{{ field.name }}{{ suffix }}-editor-start"
            type="date"
            class="form-control edit-field-input {{ field.type }}-control"
@@ -9,7 +9,7 @@
            value="{% if value and value.start %}{{ value.start|date:"Y-m-d" }}{% endif %}">
   </div>
   <div class="col-sm-6 form-group">
-    <label for="{{ field.name }}{{ suffix }}-editor-end">End Date</label>
+    <label for="{{ field.name }}{{ suffix }}-editor-end" class="form-label">End Date</label>
     <input id="{{ field.name }}{{ suffix }}-editor-end"
            type="date"
            class="form-control {{ field.type }}-control"
@@ -20,7 +20,7 @@
 </div>
 <div id="{{ field.name }}{{ suffix }}-editor-time-row" class="row{% if not value or value.granularity != 'Time' %} d-none{% endif %}">
   <div class="col-sm-6 form-group">
-    <label for="{{ field.name }}{{ suffix }}-editor-start-time">Start Time</label>
+    <label for="{{ field.name }}{{ suffix }}-editor-start-time" class="form-label">Start Time</label>
     <input id="{{ field.name }}{{ suffix }}-editor-start-time"
            type="time"
            class="form-control {{ field.type }}-control"
@@ -29,7 +29,7 @@
            value="{% if value and value.start %}{{ value.start|date:"H:i" }}{% endif %}">
   </div>
   <div class="col-sm-6 form-group">
-    <label for="{{ field.name }}{{ suffix }}-editor-end-time">End Time</label>
+    <label for="{{ field.name }}{{ suffix }}-editor-end-time" class="form-label">End Time</label>
     <input id="{{ field.name }}{{ suffix }}-editor-end-time"
            type="time"
            class="form-control {{ field.type }}-control"
@@ -51,9 +51,9 @@
     </div>
   </div>
   <div class="col-sm-6 form-group">
-    <label for="{{ field.name }}{{ suffix }}-editor-granularity">Granularity</label>
+    <label for="{{ field.name }}{{ suffix }}-editor-granularity" class="form-label">Granularity</label>
     <select id="{{ field.name }}{{ suffix }}-editor-granularity"
-            class="form-control {{ field.type }}-control"
+            class="form-select {{ field.type }}-control"
             data-id_prefix="{{ field.name }}{{ suffix }}"
             data-events="change:setTimespanValue"
             data-id-prefix="{{ field.name }}-value{{ field.suffix }}">
