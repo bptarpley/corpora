@@ -320,7 +320,7 @@ class ContentGraph {
                                 <span id="${pane_id}-pin" title="Pin" data-uri="${clicked_uri}" class="popup-button fas fa-thumbtack"></span>
                                 <span id="${pane_id}-sprawl" title="Sprawl" data-uri="${clicked_uri}" class="popup-button fas fa-expand-arrows-alt"></span>
                                 <span id="${pane_id}-extrude" title="Hide" data-uri="${clicked_uri}" class="popup-button far fa-eye-slash"></span>
-                                <a href="${clicked_uri}/" target="_blank"><span title="Open" class="popup-button float-right fas fa-external-link-square-alt"></span></a>
+                                <a href="${clicked_uri}/" target="_blank"><span title="Open" class="popup-button float-end fas fa-external-link-square-alt"></span></a>
                             </div>
                             <div id="${pane_id}-meta">
                             </div>
