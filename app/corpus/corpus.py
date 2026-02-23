@@ -1265,27 +1265,24 @@ class Corpus(mongoengine.Document):
                             results['meta']['aggregations'][agg_name] = {}
 
                             if agg_type_map[agg_name].startswith('nested'):
-                                if agg_type_map[agg_name].endswith('_terms') or agg_type_map[agg_name].endswith(
-                                        '_histogram') or agg_type_map[agg_name].endswith('_geotile_grid'):
+                                if agg_type_map[agg_name].endswith('_terms') or agg_type_map[agg_name].endswith('_histogram') or agg_type_map[agg_name].endswith('_geotile_grid'):
                                     for agg_result in search_results['aggregations'][agg_name]['names']['buckets']:
-                                        results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result[
-                                            'doc_count']
+                                        results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
                                 elif agg_type_map[agg_name].endswith('_max') or agg_type_map[agg_name].endswith('_min'):
-                                    results['meta']['aggregations'][agg_name] = \
-                                    search_results['aggregations'][agg_name]['names']['value']
+                                    results['meta']['aggregations'][agg_name] = search_results['aggregations'][agg_name]['names']['value']
                                 elif agg_type_map[agg_name].endswith('_geo_bounds'):
-                                    results['meta']['aggregations'][agg_name] = \
-                                    search_results['aggregations'][agg_name]['names']['bounds']
-
+                                    results['meta']['aggregations'][agg_name] = search_results['aggregations'][agg_name]['names']['bounds']
 
                             elif agg_type_map[agg_name] in ['max', 'min']:
                                 results['meta']['aggregations'][agg_name] = search_results['aggregations'][agg_name][
                                     'value']
 
-                            elif agg_type_map[agg_name] in ['terms', 'histogram']:
+                            elif agg_type_map[agg_name] in ['terms', 'histogram', 'geotile_grid']:
                                 for agg_result in search_results['aggregations'][agg_name]['buckets']:
-                                    results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result[
-                                        'doc_count']
+                                    results['meta']['aggregations'][agg_name][agg_result['key']] = agg_result['doc_count']
+
+                            elif agg_type_map[agg_name] == 'geo_bounds':
+                                results['meta']['aggregations'][agg_name] = search_results['aggregations'][agg_name]['bounds']
 
                 except:
                     print('Error executing elasticsearch query in corpus.search_content:')
