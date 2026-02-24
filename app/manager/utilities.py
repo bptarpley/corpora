@@ -315,7 +315,8 @@ def build_search_params_from_dict(params):
                             'names': {'geotile_grid': {'field': field_name, 'precision': precision}}
                         }}
                     else:
-                        agg == {'geotile_grid': {'field': field_name, 'precision': precision}}
+                        agg = {'geotile_grid': {'field': field_name, 'precision': precision}}
+
                     search['aggregations'][agg_name] = agg
 
         elif param == 'operator':
