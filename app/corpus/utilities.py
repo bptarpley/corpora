@@ -249,6 +249,67 @@ def parse_date_string(date_string):
 
     return date_obj
 
+def parse_graph_steps(corpus, graph_path):
+    graph_steps = {}
+
+    # check graph path string for any database write keywords
+    # which would immediately invalidate the graph path
+    write_keywords = [r'\bCREATE\b', r'\bMERGE\b', r'\bDELETE\b', r'\bDETACH\b', r'\bSET\b', r'\bREMOVE\b', r'\bDROP\b', r'\bCALL\b', r'\bLOAD\s+CSV\b', r'\bFOREACH\b']
+    test_string = graph_path.upper()
+    is_read_only = not any(re.search(pattern, test_string, re.IGNORECASE) for pattern in write_keywords)
+
+    if is_read_only:
+        ct_pattern = re.compile(r'\(([a-zA-Z]*)')
+        ids_pattern = re.compile(r'\[([^\]]*)\]')
+
+        graph_step_specs = [step for step in graph_path.split(' ') if step]
+
+        for step_index in range(0, len(graph_step_specs)):
+            step_spec = graph_step_specs[step_index]
+            step_direction = '-->'
+            step_ct = None
+            step_ids = []
+
+            if '<--' in step_spec:
+                step_direction = '<--'
+
+            ct_match = re.search(ct_pattern, step_spec)
+            if ct_match:
+                step_ct = ct_match.group(1)
+
+            ids_match = re.search(ids_pattern, step_spec)
+            if ids_match:
+                step_ids = [ct_id for ct_id in ids_match.group(1).split(',') if ct_id]
+
+            if step_ct and step_ct in corpus.content_types:
+                graph_steps[step_index] = {
+                    'direction': step_direction,
+                    'ct': step_ct,
+                    'ids': step_ids
+                }
+            else:
+                return {}
+
+    return graph_steps
+
+def build_cypher_from_graph_steps(corpus_id, target_ct, graph_steps):
+    cypher = "MATCH (target:{0})".format(target_ct)
+    where_clauses = []
+
+    for step_index, step_info in graph_steps.items():
+        cypher += " {0} (ct{1}:{2})".format(step_info['direction'], step_index, step_info['ct'])
+        if step_info['ids']:
+            step_uris = ['/corpus/{0}/{1}/{2}'.format(corpus_id, step_info['ct'], ct_id) for ct_id in
+                         step_info['ids']]
+            where_clauses.append("ct{0}.uri in ['{1}']".format(
+                step_index,
+                "','".join(step_uris)
+            ))
+
+    if where_clauses:
+        cypher += "\nWHERE {0}".format(" AND ".join(where_clauses))
+
+    return cypher
 
 def is_valid_long_lat(longitude, latitude):
     if longitude < -180 or longitude > 180:

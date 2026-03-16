@@ -24,6 +24,7 @@ from corpus import (
     run_neo, get_network_json, search_corpora, search_scholars,
     FIELD_LANGUAGES
 )
+from corpus.utilities import parse_graph_steps, build_cypher_from_graph_steps
 from .captcha import generate_captcha, validate_captcha
 from .tasks import *
 from .utilities import (
@@ -2198,6 +2199,43 @@ def api_network_json(request, corpus_id, content_type, content_id):
         content_type='application/json'
     )
 
+@api_view(['GET'])
+def api_pattern_count(request, corpus_id, content_type):
+    context = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+    perform_terms_aggregation = False
+    response_data = { 'count': 0 }
+
+    if 'terms-aggregation' in request.GET:
+        perform_terms_aggregation = True
+        response_data = {}
+
+    if corpus and 'pattern' in request.GET:
+        pattern = request.GET['pattern']
+        graph_steps = parse_graph_steps(corpus, pattern)
+        if graph_steps:
+            cypher = build_cypher_from_graph_steps(corpus_id, content_type, graph_steps)
+
+            if perform_terms_aggregation:
+                last_ct = list(graph_steps.keys())[-1]
+                cypher += f"\nRETURN target.id AS targetID, count(distinct ct{last_ct}.uri) as termCount\nORDER BY termCount DESC"
+            else:
+                cypher += "\nRETURN count(distinct target)"
+
+            count_results = run_neo(cypher, {})
+
+            if perform_terms_aggregation:
+                for result in count_results:
+                    response_data[result['targetID']] = result['termCount']
+            else:
+                response_data['count'] = count_results[0].value()
+
+            print(cypher)
+
+    return HttpResponse(
+        json.dumps(response_data),
+        content_type='application/json'
+    )
 
 @api_view(['GET', 'POST'])
 def api_content_files(request, corpus_id, content_type=None, content_id=None):
