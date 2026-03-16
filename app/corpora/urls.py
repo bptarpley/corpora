@@ -71,6 +71,7 @@ urlpatterns += [
     path('api/corpus/<str:corpus_id>/content-view/', manager_views.api_content_view),
     path('api/corpus/<str:corpus_id>/content-view/<str:content_view_id>/', manager_views.api_content_view),
     path('api/corpus/<str:corpus_id>/content-group/', manager_views.api_content_group),
+    path('api/corpus/<str:corpus_id>/<str:content_type>/pattern-count/', manager_views.api_pattern_count),
 
     path('api/corpus/<str:corpus_id>/<str:content_type>/', manager_views.api_content),
     path('api/corpus/<str:corpus_id>/<str:content_type>/files/', manager_views.api_content_files),

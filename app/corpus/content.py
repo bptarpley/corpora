@@ -12,7 +12,7 @@ from django.template import Template, Context
 from django.utils.text import slugify
 from elasticsearch_dsl import Search, Index
 from elasticsearch_dsl.connections import get_connection
-from .utilities import run_neo
+from .utilities import run_neo, parse_graph_steps, build_cypher_from_graph_steps
 from .field_types.file import File
 from .job import CompletedTask
 from .scholar import Scholar
@@ -640,7 +640,6 @@ class ContentView(mongoengine.Document):
                 self.target_ct in self.corpus.content_types:
 
             ids = []
-            graph_steps = {}
 
             if not self.es_document_id or not self.neo_super_node_uri:
                 name_slug = slugify(self.name).replace('-', '_')
@@ -655,55 +654,14 @@ class ContentView(mongoengine.Document):
             self.save()
 
             if self.graph_path:
-                ct_pattern = re.compile(r'\(([a-zA-Z]*)')
-                ids_pattern = re.compile(r'\[([^\]]*)\]')
+                graph_steps = parse_graph_steps(self.corpus, self.graph_path)
 
-                graph_step_specs = [step for step in self.graph_path.split(' ') if step]
+                if graph_steps:
+                    for step_index in graph_steps.keys():
+                        if graph_steps[step_index]['ct'] not in self.relevant_cts:
+                            self.relevant_cts.append(graph_steps[step_index]['ct'])
 
-                for step_index in range(0, len(graph_step_specs)):
-                    step_spec = graph_step_specs[step_index]
-                    step_direction = '-->'
-                    step_ct = None
-                    step_ids = []
-
-                    if '<--' in step_spec:
-                        step_direction = '<--'
-
-                    ct_match = re.search(ct_pattern, step_spec)
-                    if ct_match:
-                        step_ct = ct_match.group(1)
-
-                    ids_match = re.search(ids_pattern, step_spec)
-                    if ids_match:
-                        step_ids = [ct_id for ct_id in ids_match.group(1).split(',') if ct_id]
-
-                    if step_ct and step_ct in self.corpus.content_types:
-                        graph_steps[step_index] = {
-                            'direction': step_direction,
-                            'ct': step_ct,
-                            'ids': step_ids
-                        }
-                        self.relevant_cts.append(step_ct)
-                    else:
-                        valid_spec = False
-                        break
-
-                if graph_steps and valid_spec:
-                    cypher = "MATCH (target:{0})".format(self.target_ct)
-                    where_clauses = []
-
-                    for step_index, step_info in graph_steps.items():
-                        cypher += " {0} (ct{1}:{2})".format(step_info['direction'], step_index, step_info['ct'])
-                        if step_info['ids']:
-                            step_uris = ['/corpus/{0}/{1}/{2}'.format(self.corpus.id, step_info['ct'], ct_id) for ct_id in step_info['ids']]
-                            where_clauses.append("ct{0}.uri in ['{1}']".format(
-                                step_index,
-                                "','".join(step_uris)
-                            ))
-
-                    if where_clauses:
-                        cypher += "\nWHERE {0}".format(" AND ".join(where_clauses))
-
+                    cypher = build_cypher_from_graph_steps(self.corpus.id, self.target_ct, graph_steps)
                     count_cypher = cypher + "\nRETURN count(distinct target)"
                     data_cypher = cypher + "\nRETURN distinct target.uri"
 
@@ -738,6 +696,7 @@ class ContentView(mongoengine.Document):
                         self.save()
 
                 else:
+                    valid_spec = False
                     print("Invalid pattern of association for content view!")
 
             if self.search_filter and valid_spec and self.status == 'populating':
