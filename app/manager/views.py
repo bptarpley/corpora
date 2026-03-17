@@ -2218,7 +2218,12 @@ def api_pattern_count(request, corpus_id, content_type):
 
             if perform_terms_aggregation:
                 last_ct = list(graph_steps.keys())[-1]
-                cypher += f"\nRETURN target.id AS targetID, count(distinct ct{last_ct}.uri) as termCount\nORDER BY termCount DESC"
+                cypher += f'''
+                    RETURN target.id AS rootID,
+                    COUNT(DISTINCT ct{last_ct}.id) as leafCount,
+                    COLLECT(DISTINCT ct{last_ct}.id) AS leafIDs
+                    ORDER BY leafCount DESC
+                '''
             else:
                 cypher += "\nRETURN count(distinct target)"
 
@@ -2226,7 +2231,7 @@ def api_pattern_count(request, corpus_id, content_type):
 
             if perform_terms_aggregation:
                 for result in count_results:
-                    response_data[result['targetID']] = result['termCount']
+                    response_data[result['rootID']] = result['leafIDs']
             else:
                 response_data['count'] = count_results[0].value()
 
