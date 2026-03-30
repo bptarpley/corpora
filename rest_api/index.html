@@ -61,6 +61,22 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#the-detail-endpoint">The Detail Endpoint</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#the-last-updated-endpoint">The Last Updated Endpoint</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#the-network-json-endpoint">The Network JSON Endpoint</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#get-parameters">GET Parameters</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#the-pattern-count-endpoint">The Pattern Count Endpoint</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#the-pattern-convention">The Pattern Convention</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#pattern-count-parameters">Pattern Count Parameters</a>
+    </li>
+        </ul>
+    </li>
     </ul>
                 </li>
               </ul>
@@ -258,6 +274,169 @@ see the values for <em>every</em> field for a given, individual piece of content
 ID "5f734833741449002ba9907e," you could access that data at the following URL:</p>
 <p><code>https://[ your.corpora.domain ]/api/corpus/5f60bf2cc879ea00329af449/Document/5f734833741449002ba9907e/</code></p>
 <p>Results are returned in JSON format, as a hash where keys are field names and values are the data stored in those fields.</p>
+<h3 id="the-last-updated-endpoint">The Last Updated Endpoint</h3>
+<p>This goal of this endpoint is to provide a timestamp indicating the last time any content of this type was modified. This is useful for when content 
+is being cached somewhere and the client needs to know if the data is now stale. To access this endpoint, use the following URL pattern:</p>
+<p><code>https://[ your.corpora.domain ]/api/corpus/[ corpus ID ]/[ content type name ]/last-updated/</code></p>
+<p>Results are returned in JSON with a single key (<code>last_updated</code>) with the value being either zero (no content) or a timestamp in the form of an integer.</p>
+<h3 id="the-network-json-endpoint">The Network JSON Endpoint</h3>
+<p>The Network JSON Endpoint is useful for creating graph visualizations on the fly using tools like the <a href="https://visjs.github.io/vis-network/docs/network/">viz.js Network package for JavaScript</a> used by Corpora's UI. You can access this endpoint using the following URL pattern:</p>
+<p><code>https://[ your.corpora.domain ]/api/corpus/[ corpus ID ]/[ content type name ]/[ content ID ]/network-json/</code></p>
+<p>This endpoint queries the Neo4J graph database for the relationships surrounding a single piece of content and returns the results as nodes and edges. That single piece of content can be considered the focal node, and it's specified via the URL parameters in the endpoint URL.</p>
+<p>According to the logic of this endpoint, the focal node can have various "relationship types." These relationships consist of other pieces of content associated with the focal node via cross reference relationships. Let's assume, for instance, that you have a simple content type called <code>Book</code> with the fields <code>author</code> and <code>printer</code>, each of which are cross references to the <code>Person</code> content type. In that case, 
+a single focal node of the type <code>Book</code> could have two relationship types, described as <code>hasauthor</code> and <code>hasarinter</code>.</p>
+<p>Here is an example response based on the simple dataset described above:</p>
+<pre><code class="language-JSON">{
+    &quot;nodes&quot;: [
+        {
+            &quot;id&quot;: &quot;/corpus/68f79a692f2c5bbb2ccc600a/Book/69c419f71e0f29727c369573&quot;,
+            &quot;group&quot;: &quot;Book&quot;,
+            &quot;label&quot;: &quot;NW&quot;
+        },
+        {
+            &quot;id&quot;: &quot;/corpus/68f79a692f2c5bbb2ccc600a/Person/69c419f31e0f29727c369572&quot;,
+            &quot;group&quot;: &quot;Person&quot;,
+            &quot;label&quot;: &quot;Penguin&quot;
+        },
+        {
+            &quot;id&quot;: &quot;/corpus/68f79a692f2c5bbb2ccc600a/Person/69c419e71e0f29727c369571&quot;,
+            &quot;group&quot;: &quot;Person&quot;,
+            &quot;label&quot;: &quot;Zadie Smith&quot;
+        }
+    ],
+    &quot;edges&quot;: [
+        {
+            &quot;id&quot;: &quot;1580615&quot;,
+            &quot;title&quot;: &quot;hasprinter&quot;,
+            &quot;from&quot;: &quot;/corpus/68f79a692f2c5bbb2ccc600a/Book/69c419f71e0f29727c369573&quot;,
+            &quot;to&quot;: &quot;/corpus/68f79a692f2c5bbb2ccc600a/Person/69c419f31e0f29727c369572&quot;
+        },
+        {
+            &quot;id&quot;: &quot;1580614&quot;,
+            &quot;title&quot;: &quot;hasauthor&quot;,
+            &quot;from&quot;: &quot;/corpus/68f79a692f2c5bbb2ccc600a/Book/69c419f71e0f29727c369573&quot;,
+            &quot;to&quot;: &quot;/corpus/68f79a692f2c5bbb2ccc600a/Person/69c419e71e0f29727c369571&quot;
+        }
+    ],
+    &quot;meta&quot;: {
+        &quot;hasprinter-Person&quot;: {
+            &quot;count&quot;: 1,
+            &quot;skip&quot;: 0,
+            &quot;limit&quot;: 20,
+            &quot;collapsed&quot;: false
+        },
+        &quot;hasauthor-Person&quot;: {
+            &quot;count&quot;: 1,
+            &quot;skip&quot;: 0,
+            &quot;limit&quot;: 20,
+            &quot;collapsed&quot;: false
+        }
+    }
+}
+</code></pre>
+<p>Note the <code>meta</code> part of the response above. It has two keys corresponding to the two relationship types described above (hasprinter-Person and hasauthor-Person). The <code>count</code> field for each of those relationship types represents how many nodes (or pieces of content) have that specific relationship type.</p>
+<h4 id="get-parameters">GET Parameters</h4>
+<p>The following GET parameters allow you to page through nodes and edges, restrict the types of results, and even collapse certain indirect relationships.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Purpose</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>per_type_limit</code></td>
+<td>Max number of connected nodes to return per relationship type (default: 20)</td>
+<td><code>?per_type_limit=50</code></td>
+</tr>
+<tr>
+<td><code>per_type_skip</code></td>
+<td>Number of connected nodes to skip per relationship type — useful for pagination (default: 0)</td>
+<td><code>?per_type_skip=20</code></td>
+</tr>
+<tr>
+<td><code>meta-only</code></td>
+<td>If present (no value needed), suppresses nodes/edges from the response and only returns the <code>meta</code> section with counts</td>
+<td><code>?meta-only</code></td>
+</tr>
+<tr>
+<td><code>is-seed</code></td>
+<td>If present, ensures the focal content node itself is included in the <code>nodes</code> list even if it has no connections in this result set</td>
+<td><code>?is-seed</code></td>
+</tr>
+<tr>
+<td><code>target-ct</code></td>
+<td>Restricts results to a single related content type</td>
+<td><code>?target-ct=Person</code></td>
+</tr>
+<tr>
+<td><code>filters</code></td>
+<td>Comma-separated list of <code>ContentType:ContentViewURI</code> pairs. Only nodes belonging to the specified Content View for that type are included.</td>
+<td><code>?filters=Person:/corpus/.../cv/abc</code></td>
+</tr>
+<tr>
+<td><code>hidden</code></td>
+<td>Comma-separated list of content type names to exclude entirely from results</td>
+<td><code>?hidden=Tag,Category</code></td>
+</tr>
+<tr>
+<td><code>collapses</code></td>
+<td>Comma-separated "collapse" specs in the form <code>FromCT-ProxyCT-ToCT</code>. This suppresses the intermediate proxy nodes and instead creates direct edges between <code>FromCT</code> and <code>ToCT</code>, annotated with a <code>freq</code> count indicating how many paths passed through the proxy. Multiple proxy types can be chained using <code>.</code> as a separator (e.g. <code>Author-Book.Chapter-Verse</code>).</td>
+<td><code>?collapses=Author-Book-Chapter</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-pattern-count-endpoint">The Pattern Count Endpoint</h3>
+<p>This endpoint counts how many times a user-specified graph traversal pattern is present in the Neo4J graph. This is useful for answering questions like, "How many Documents are connected to a specific Person through a specified pattern of association?"</p>
+<p>The URL pattern looks like this:</p>
+<p><code>https://[ your.corpora.domain ]/api/corpus/[ corpus ID ]/[ content type name ]/pattern-count/</code></p>
+<p>Since you're specifying a content type with a URL parameter in the URL, that content type becomes the first "node" of your pattern. The rest of the pattern is specified using the <code>pattern</code> get parameter. The value for that parameter is dictated by the pattern convention explained below.</p>
+<h4 id="the-pattern-convention">The Pattern Convention</h4>
+<p>The pattern convention used by Corpora is a stripped down riff on <a href="https://neo4j.com/product/cypher-graph-query-language/">Neo4J's Cypher</a> conventions for notating nodes and edges. Imagine you want to know how many books are published by authors from New York, and you have three content types: Book, Author, and City. These three content types are wired up by virtue of Book having an "author" field of type cross-reference referring to the Author content type, and Author having a "city" field of type cross-reference referring to the City content type.</p>
+<p>To build this pattern, we need to determine our starting point. In this case we'll start with Book, and so we're going to query the Pattern Count endpoint using <code>Book</code> as the content type in our URL parameter.</p>
+<p>Our next step in the pattern is <code>Author</code>, so we're going to need to provide that in our <code>pattern</code> GET parameter. To make the query most effecient, we should also specify the "direction" of the relationship from Book to Author. Since Book has a field that points to Author, we'll prefix our next step of the pattern with a direction like so:</p>
+<p><code>--&gt;(Author)</code></p>
+<p>Since the next step is from Author to City, and since Author has a field that points to city, we should provide the next step in our pattern:</p>
+<p><code>--&gt;(Author) --&gt;(City)</code></p>
+<p><strong>Note:</strong> steps in the pattern are delimited by a space! Since we want to count how many books are published by authors from New York, not just any city will do. We need to be more specific. Let's assume "New York" exists as a piece of content of type City and its ID is <code>62f554a9837071d8c49109de</code>. We can specify that ID in our pattern using square brackets like so:</p>
+<p><code>--&gt;(Author) --&gt;(City[62f554a9837071d8c49109de])</code></p>
+<p>Now that we have our pattern, let's put it all together:</p>
+<p><code>https://[ your.corpora.domain ]/api/corpus/[ corpus ID ]/Book/pattern-count/?pattern=--&gt;(Author) --&gt;(City[62f554a9837071d8c49109de])</code></p>
+<p>Assuming there are around 40 books published by authors from New York in our dataset, the response would look like this:</p>
+<pre><code class="language-JSON">{ &quot;count&quot;: 42 }
+</code></pre>
+<h4 id="pattern-count-parameters">Pattern Count Parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Purpose</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pattern</code></td>
+<td><strong>(Required)</strong> A space-delimited graph traversal pattern string describing the path to match in Neo4J. Each step is a content type name in parentheses, with optional <code>--&gt;</code> or <code>&lt;--</code> direction arrows. A comma-separated list of content IDs in square brackets can be appended within the parentheses to constrain a step to specific items.</td>
+<td><code>?pattern=(Person) --&gt; (Book)</code></td>
+</tr>
+<tr>
+<td><code>terms-aggregation</code></td>
+<td>If present (no value needed), changes the response format to a per-item breakdown instead of a single count (see below).</td>
+<td><code>?terms-aggregation</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>With <code>terms-aggregation</code></strong> — returns a mapping from each matching root content ID to the list of leaf content IDs it is connected to through the pattern:</p>
+<pre><code class="language-JSON">{
+  &quot;rootID1&quot;: [&quot;leafID_a&quot;, &quot;leafID_b&quot;],
+  &quot;rootID2&quot;: [&quot;leafID_c&quot;],
+  ...
+}
+</code></pre>
+<p>Results are ordered by descending leaf count (the root with the most connections appears first).</p>
               
             </div>
           </div><footer>
