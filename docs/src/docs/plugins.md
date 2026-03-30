@@ -10,9 +10,9 @@ Here is a list of plugins currently developed for Corpora, which will hopefully 
 * [Maria Edgeworth Letters Project](https://github.com/corpora-plugins/melp)
 * [Tesseract](https://github.com/corpora-plugins/tesseract)
 * [Google Cloud Vision](https://github.com/corpora-plugins/google_cloud_vision)
-* [New Variorum Shakespeare](https://gitlab.dh.tamu.edu/corpora-plugins/nvs)
-* [Carlyle Letters Online](https://gitlab.dh.tamu.edu/corpora-plugins/clo)
-* [Advanced Research Consortium](https://gitlab.dh.tamu.edu/corpora-plugins/arc)
+* [New Variorum Shakespeare](https://github.com/newvariorumshakespeare/corpora-plugin)
+* [Carlyle Letters Online](https://github.com/carlylelettersonline/clo)
+* [Advanced Research Consortium](https://github.com/ARC-code/corpora-plugin)
 
 ## For Wordpress
 
@@ -20,5 +20,6 @@ These are custom Wordpress plugins that allow Wordpress sites to query Corpora i
 
 * [Generic Plugin for Corpora](https://github.com/bptarpley/wp_corpora)
 * [Maria Edgeworth Letters Project](https://github.com/bptarpley/wp_melp)
-* [Carlyle Letters Online](https://gitlab.dh.tamu.edu/clo/clo)
-* [Advanced Research Consortium](https://gitlab.dh.tamu.edu/corpora-plugins/collex)
+* [Carlyle Letters Online](https://github.com/carlylelettersonline/wp-clo)
+* [Advanced Research Consortium](https://github.com/ARC-code/wordpress)
+* [Texas Art Project](https://github.com/bptarpley/wp_tap)

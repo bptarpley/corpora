@@ -167,3 +167,18 @@ CRP_USE_SSL: "no"
 ````
 
 and change the "no" value to "yes".
+
+### Placing Corpora Behind a Load Balancer
+
+If you're needing to run Corpora behind a load balancer, it's important to note that the notebook and event functionality of Corpora rely on Websockets and Server Sent Events respectively. Improper load balancer configuration will cause the iPython notebook to never connect properly to its kernel, and will prevent the user interface from receiving job progress or content creation events. As such, the following NGiNX-style configurations are recommended:
+
+````
+proxy_http_version 1.1;
+proxy_buffering off;
+proxy_set_header Host $host;
+proxy_set_header X-Real-IP  $remote_addr;
+proxy_set_header X-Forwarded-For $remote_addr;
+proxy_set_header X-Forwarded-Proto $scheme;
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection "upgrade";
+````

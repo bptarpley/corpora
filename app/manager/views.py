@@ -2242,6 +2242,22 @@ def api_pattern_count(request, corpus_id, content_type):
         content_type='application/json'
     )
 
+@api_view(['GET'])
+def api_last_updated(request, corpus_id, content_type):
+    last_updated = 0
+    context = _get_context(request)
+    corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
+
+    if corpus and content_type in corpus.content_types:
+        latest_content = corpus.get_content(content_type, all=True).only('last_updated').order_by('-last_updated').limit(1)
+        if latest_content:
+            last_updated = int(latest_content[0].last_updated.timestamp())
+
+    return HttpResponse(
+        json.dumps({'last_updated': last_updated}),
+        content_type='application/json'
+    )
+
 @api_view(['GET', 'POST'])
 def api_content_files(request, corpus_id, content_type=None, content_id=None):
     context = _get_context(request)

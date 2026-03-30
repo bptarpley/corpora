@@ -85,3 +85,28 @@ pre code.hljs {
     width: 100%;
     height: auto;
 }
+
+h2 > code {
+    border: none !important;
+    background: none !important;
+    font-size: 20px !important;
+}
+
+h3.doc-heading {
+    border: 1px solid #e1e4e5;
+    padding: 1em;
+    border-bottom: solid 2px #17BEBB;
+}
+
+h3 > code {
+    background: none !important;
+    border: none !important;
+}
+
+.doc-function {
+    margin-bottom: 60px !important;
+}
+
+.doc-contents {
+    padding-left: 1em;
+}

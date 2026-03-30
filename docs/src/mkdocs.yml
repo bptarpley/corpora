@@ -6,6 +6,7 @@ nav:
   - Deploying: deploying.md
   - Managing: managing.md
   - Developing: developing.md
+#  - Corpus API: corpus_api.md
   - Plugins: plugins.md
 theme:
   name: readthedocs
@@ -19,5 +20,6 @@ plugins:
           paths: [../../app]
           options:
             parameter_headings: true
+            show_source: false
 extra_css:
   - style.css
