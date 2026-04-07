@@ -1301,7 +1301,7 @@ def backup_corpus(job_id):
                     break
         
     except:
-        print(traceback.format_exc())
+        job.report(f"\nERROR backing up corpus:\n\n{traceback.format_exc()}")
         job.complete(status='error')
 
 @db_periodic_task(crontab(minute='0', hour='0'), priority=4)

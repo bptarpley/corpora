@@ -465,6 +465,10 @@ class JobTracker(mongoengine.Document):
             ct.error = self.error
 
             self.content.provenance.append(ct)
+
+            while len(self.content.provenance) > settings.MAX_CONTENT_PROVENANCE:
+                self.content.provenance.pop(0)
+
             self.content.save()
 
         self.publish_status()
