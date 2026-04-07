@@ -447,24 +447,29 @@ class Corpora {
                     let canvas = $('#patass-canvas')
 
                     let patass_step = (step, direction, ct) => {
-                        let next_ct_options = []
+                        let next_ct_options = new Set()
                         ct.fields.map(field => {
                             if (field.type === 'cross_reference') {
                                 let next_ct = field.cross_reference_type
-                                next_ct_options.push(`<option value="--> ${next_ct}">--> ${next_ct}</option>`)
+                                next_ct_options.add(`<option value="--> ${next_ct}">--> ${next_ct}</option>`)
                             }
                         })
                         for (let ct_name in corpus.content_types) {
                             if (ct_name !== ct.name) {
                                 corpus.content_types[ct_name].fields.map(field => {
                                     if (field.type === 'cross_reference' && field.cross_reference_type === ct.name) {
-                                        next_ct_options.push(`<option value="<-- ${ct_name}"><-- ${ct_name}</option>`)
+                                        next_ct_options.add(`<option value="<-- ${ct_name}"><-- ${ct_name}</option>`)
                                     }
                                 })
                             }
                         }
 
-                        let next_selector = `<select class="patass-next-selector form-select-sm bg-secondary d-flex align-self-center" data-step="${step}"><option value="--">Select...</option>${next_ct_options}</select>`
+                        let next_selector = `
+                            <select class="patass-next-selector form-select-sm bg-secondary d-flex align-self-center" data-step="${step}">
+                                <option value="--">Select...</option>
+                                ${[...next_ct_options].join('\n')}
+                            </select>
+                        `
 
                         canvas.append(`
                             ${ step > 0 ? ` <div class="patass-pipe patass-step-${step} d-flex align-self-center">&nbsp;</div>` : '' }
