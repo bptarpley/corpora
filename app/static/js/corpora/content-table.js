@@ -726,7 +726,7 @@ class ContentTable {
                                 Select
                             </a>
                         `
-                    }
+                    } else if (sender.mode === 'read-only') action_controls = ''
 
                     // infinite scroll page break indicators
                     let page_break_indicators = ''

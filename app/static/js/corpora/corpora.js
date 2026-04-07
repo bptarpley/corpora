@@ -437,7 +437,7 @@ class Corpora {
                     corpora: sender,
                     corpus: corpus,
                     content_type: target_ct,
-                    mode: 'view'
+                    mode: 'read-only'
                 })
 
                 $('#cv-create-pattern-button').click(function() {
@@ -497,7 +497,7 @@ class Corpora {
                             if (ids[0] === '') ids = []
                             let ct_circle_span = $(`#patass-step-${step}-circle > span`)
 
-                            sender.select_content(corpus_id, ct.name, function(new_id, new_label) {
+                            sender.select_content(corpus, ct.name, function(new_id, new_label) {
                                 ids.push(new_id)
                                 ct_circle.data('ids', ids.join(','))
                                 let label = ct_circle_span.html()
@@ -586,14 +586,9 @@ class Corpora {
         )
     }
 
-    select_content(corpus_id, content_type, callback, new_selection=true) {
+    select_content(corpus, content_type, callback) {
         let sender = this
         let modal = $('#content-selection-modal')
-
-        if (new_selection) {
-            modal.remove()
-            modal = $('#content-selection-modal')
-        }
 
         if (!modal.length) {
             $('body').append(`
@@ -605,25 +600,10 @@ class Corpora {
                                 <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
                                 </button>
                             </div>
-                            <div class="modal-body">
-                                <div class="alert alert-light">
-                                    <div class="mb-2">
-                                        <input type="text" class="form-control" id="content-selection-modal-filter-box" aria-placeholder="Search" placeholder="Search">
-                                    </div>
-                                    <table class="table table-striped">
-                                        <thead class="thead-dark">
-                                            <th scope="col" id="content-selection-modal-table-header" class="text-white">ContentType</th>
-                                        </thead>
-                                        <tbody id="content-selection-modal-table-body">
-                                            <tr><td>Loading...</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                            <div id="content-selection-modal-body" class="modal-body">
+                                
                             </div>
                             <div class="modal-footer">
-                                <input type="hidden" id="content-selection-search-params" data-page-size="10" data-page="1" data-q="*" />
-                                <button type="button" id="content-selection-modal-prev-page-button" class="btn btn-secondary"><span class="fas fa-angle-left"></span></button>
-                                <button type="button" id="content-selection-modal-next-page-button" class="btn btn-secondary"><span class="fas fa-angle-right"></span></button>
                                 <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
                             </div>
                         </div>
@@ -631,63 +611,25 @@ class Corpora {
                 </div>
             `)
             modal = $('#content-selection-modal')
-
-            // HANDLE SEARCH BOX
-            $('#content-selection-modal-filter-box').keypress(function (e) {
-                let key = e.which
-                if (key === 13) {
-                    let search_param_input = $('#content-selection-search-params')
-                    search_param_input.data('q', $('#content-selection-modal-filter-box').val())
-                    sender.select_content(corpus_id, content_type, callback, false)
-                }
-            })
-
-            // previous select content page click event
-            $('#content-selection-modal-prev-page-button').click(function() {
-                let search_param_input = $('#content-selection-search-params')
-                search_param_input.data('page', parseInt(search_param_input.data('page')) - 1)
-                sender.select_content(corpus_id, content_type, callback, false)
-            })
-
-            // next select content page click event
-            $('#content-selection-modal-next-page-button').click(function() {
-                let search_param_input = $('#content-selection-search-params')
-                search_param_input.data('page', parseInt(search_param_input.data('page')) + 1)
-                sender.select_content(corpus_id, content_type, callback, false)
-            })
         }
 
-        let search_param_input = $('#content-selection-search-params')
-
-        let content_selection_params = {
-            q: search_param_input.data('q'),
-            only: 'label',
-            s_label: 'asc',
-            'page-size': search_param_input.data('page-size'),
-            page: search_param_input.data('page')
-        }
-
-        sender.list_content(corpus_id, content_type, content_selection_params, function(data){
-            $('#content-selection-modal-prev-page-button').prop('disabled', content_selection_params.page <= 1)
-            $('#content-selection-modal-next-page-button').prop('disabled', !data.meta.has_next_page)
-
-            $('#content-selection-modal-label').html(`Select ${content_type}`)
-            $('#content-selection-modal-table-header').html(content_type)
-            $('#content-selection-modal-table-body').empty()
-            for (let x = 0; x < data.records.length; x++) {
-                $('#content-selection-modal-table-body').append(`
-                    <tr><td><a class="content-selection-item" data-id="${data.records[x].id}" data-label="${data.records[x].label}">${data.records[x].label}</a></td></tr>
-                `)
-            }
-
-            // HANDLE ITEM CLICKING
-            $('.content-selection-item').click(function() {
+        $('#content-selection-modal-label').html(`Select ${content_type}`)
+        $('#content-selection-modal-body').empty()
+        let search_table = new ContentTable({
+            label: ``,
+            container_id: 'content-selection-modal-body',
+            corpora: sender,
+            corpus: corpus,
+            mode: 'select',
+            min_height: 300,
+            content_type: content_type,
+            selection_callback: (content) => {
+                callback(content.id, content.label)
                 modal.modal('hide')
-                callback($(this).data('id'), $(this).data('label'))
-            })
-
-            $('#content-selection-modal').modal()
+            }
         })
+
+        modal.modal()
     }
 
     build_associated_content_tables(corpus, content_type, content_id, container_id) {
