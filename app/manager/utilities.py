@@ -1,7 +1,6 @@
 import os
 import re
 import json
-import uuid
 import redis
 import traceback
 import tarfile
@@ -651,7 +650,7 @@ def process_corpus_backup_file(backup_file):
 
 
 def send_alert(corpus_id, alert_type, message):
-    send_event(corpus_id, 'event', {'event_id': uuid.uuid4().hex, 'event_type': 'alert', 'type': alert_type, 'message': message})
+    send_event(corpus_id, 'event', {'event_type': 'alert', 'type': alert_type, 'message': message})
 
 
 def _contains(obj, keys):

@@ -581,10 +581,8 @@ def check_jobs():
         # one stage has completed and the other needs to commence.
         jobs = Job.get_jobs(limit=settings.NUM_JOBS_PER_MINUTE)
         for job in jobs:
-            print(job.task.name)
             if job.jobsite.name == 'Local':
                 if job.status == 'running':
-                    print('running!')
                     if job.percent_complete == 100 or (job.total_subprocesses_launched and (job.total_subprocesses_launched == job.total_subprocesses_completed)):
                         if len(job.jobsite.task_registry[job.task.name]['functions']) > (job.stage + 1):
                             job.clear_processes()
@@ -606,11 +604,6 @@ def check_jobs():
                 elif job.status == 'queueing':
                     job.set_status('enqueued')
                     run_job(job.id)
-
-        # here we're checking to see if any content has been deleted and is in need of cleanup for referential
-        # integrity
-        if ContentDeletion.objects.count():
-            pass
 
 
 @db_task(priority=10)

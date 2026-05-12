@@ -1,3 +1,0 @@
-# Corpus API
-
-::: corpus

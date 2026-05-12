@@ -4,7 +4,6 @@ ENV TZ=America/Chicago
 
 # Necessary repositories and settings for python 3.11 and tesseract 5
 RUN apt-get update
-RUN apt upgrade -y
 RUN apt-get install -y software-properties-common curl
 RUN add-apt-repository -y ppa:deadsnakes/ppa -y
 RUN add-apt-repository -y ppa:alex-p/tesseract-ocr5
@@ -50,7 +49,7 @@ COPY . corpora/
 # Install python dependencies
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 10
 RUN python3 -m pip install --upgrade pip
-RUN python3 -m pip install --upgrade setuptools==78.1.1
+RUN python3 -m pip install --upgrade setuptools==70.0.0
 RUN python3 -m pip install --upgrade packaging==24.1
 RUN python3 -m pip install --upgrade numpy
 RUN python3 -m pip install --no-cache-dir -r /apps/corpora/requirements.txt

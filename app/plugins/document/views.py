@@ -712,8 +712,8 @@ def get_page_regions(image_file, ocr_file, ocr_type, granularity='line'):
 
                             for word in paragraph['words']:
                                 for symbol in word['symbols']:
-                                    x_vertices += [vertice['x'] for vertice in symbol['boundingBox']['vertices'] if 'x' in vertice]
-                                    y_vertices += [vertice['y'] for vertice in symbol['boundingBox']['vertices'] if 'y' in vertice]
+                                    x_vertices += [vertice['x'] for vertice in symbol['boundingBox']['vertices']]
+                                    y_vertices += [vertice['y'] for vertice in symbol['boundingBox']['vertices']]
 
                                     content += symbol['text']
 
