@@ -12055,12 +12055,12 @@ h5, .h5 {
   background-color: #12918F;
 }
 
-.table .thead-dark th a {
+.table .thead-dark th a, .table .thead-dark th h5, .table .thead-dark th .h5 {
   color: white;
 }
 
 table.table {
-  border-bottom: solid 4px #17BEBB;
+  /*border-bottom: solid 4px #17BEBB;*/
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -12137,6 +12137,10 @@ h4, .h4, h5, .h5, h6, .h6 {
 
 .alert-info h1, .alert-info .h1, .alert-info h2, .alert-info .h2, .alert-info h3, .alert-info .h3,
 .alert-info h4, .alert-info .h4, .alert-info h5, .alert-info .h5, .alert-info h6, .alert-info .h6 {
+  color: #636464;
+}
+
+.alert-info {
   color: #636464;
 }
 

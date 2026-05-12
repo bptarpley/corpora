@@ -52,7 +52,10 @@ class JobManager {
 
                     // start listening to job events
                     sender.corpus.event_callbacks['job'] = function (job) {
-                        sender.update_job(job)
+                        if (!sender.corpus.event_ids.has(job.event_id)) {
+                            sender.corpus.event_ids.add(job.event_id)
+                            sender.update_job(job)
+                        }
                     }
 
                     // load provenance if provided
@@ -74,21 +77,23 @@ class JobManager {
                         }
 
                         $('body').on('click', '.job-retry-button', function() {
+                            console.log('retry click registered')
+
                             let retry_button = $(this)
                             let job_id = retry_button.data('job-id')
 
                             if (sender.jobs_registered.has(job_id)) sender.jobs_registered.delete(job_id)
+                            $(`#job-${job_id}-container`).remove()
+                            if ($('.provenance-container').length === 0) {
+                                sender.report_no_jobs(true)
+                            }
+
                             sender.corpora.retry_job(
                                 sender.corpus.id,
                                 retry_button.data('content-type'),
                                 retry_button.data('content-id'),
                                 retry_button.data('job-id'),
-                                function(data) {
-                                    $(`#provenance-${job_id}-div`).remove()
-                                    if ($('.provenance-container').length === 0) {
-                                        sender.report_no_jobs(true)
-                                    }
-                                }
+                                function(data) {}
                             )
                         })
                     }
@@ -493,21 +498,17 @@ class JobManager {
                 if (stale_job_div.length) {
                     let sender = this
                     if (this.content_type === 'Corpus') {
-                        this.corpora.get_corpus(this.corpus.id, function(data) {
-                            if (data && data.provenance) {
-                                data.provenance.forEach(prov => {
-                                    if (prov.job_id === info.job_id) sender.register_job(
-                                        prov.job_id,
-                                        prov.task_name,
-                                        prov.status,
-                                        prov.task_configuration.parameters ? prov.task_configuration.parameters : null,
-                                        prov.report_path,
-                                        prov.submitted,
-                                        prov.completed,
-                                        null
-                                    )
-                                })
-                            }
+                        this.corpus.provenance.forEach(prov => {
+                            if (prov.job_id === info.job_id) sender.register_job(
+                                prov.job_id,
+                                prov.task_name,
+                                prov.status,
+                                prov.task_configuration.parameters ? prov.task_configuration.parameters : null,
+                                prov.report_path,
+                                prov.submitted,
+                                prov.completed,
+                                null
+                            )
                         })
                     } else {
                         this.corpora.get_content(this.corpus.id, this.content_type, this.content_id, function (data) {
