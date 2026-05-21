@@ -802,10 +802,12 @@ def get_page_region_content(ocr_file, ocr_type, x, y, width, height):
                         for paragraph in block['paragraphs']:
                             for word in paragraph['words']:
                                 for symbol in word['symbols']:
-                                    lowest_x = min([vertice['x'] for vertice in symbol['boundingBox']['vertices']])
-                                    lowest_y = min([vertice['y'] for vertice in symbol['boundingBox']['vertices']])
-                                    highest_x = max([vertice['x'] for vertice in symbol['boundingBox']['vertices']])
-                                    highest_y = max([vertice['y'] for vertice in symbol['boundingBox']['vertices']])
+                                    x_vertices = [vertice['x'] for vertice in symbol['boundingBox']['vertices'] if 'x' in vertice]
+                                    y_vertices = [vertice['y'] for vertice in symbol['boundingBox']['vertices'] if 'y' in vertice]
+                                    lowest_x = min(x_vertices)
+                                    lowest_y = min(y_vertices)
+                                    highest_x = max(x_vertices)
+                                    highest_y = max(y_vertices)
 
                                     if lowest_x >= x and \
                                             lowest_y >= y and \
