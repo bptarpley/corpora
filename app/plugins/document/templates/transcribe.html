@@ -272,9 +272,10 @@
             <button id="exit-button" type="button" class="btn btn-sm btn-secondary ms-1">Exit</button>
         </span>
     </div>
-    <div id="mode-status-div" class="d-none rounded-bottom p-2">
+    <div id="mode-status-div" class="d-none rounded-bottom d-flex align-items-center p-2">
         <span id="mode-status-indicator" class="me-1"></span>
-        <button id="mode-status-exit-button" type="button" onclick="reset_mode();" class="close" aria-label="Exit Mode">
+        <button id="mode-status-exit-button" type="button" onclick="reset_mode();" class="btn btn-sm btn-primary rounded" aria-label="Exit Mode">
+            <i class="fas fa-times"></i>
         </button>
     </div>
     <div id="trans-text-modal" aria-labelledby="Transcription Text Modal" class="d-none rounded">
@@ -806,12 +807,24 @@
             // ---------------------------------------
             // find first incomplete region and select it
             // ---------------------------------------
+            let incompleteRegionFound = false
             for (let region_id in page_regions) {
                 if (!page_regions[region_id].hasOwnProperty('transcription')) {
-                    zoom_to(region_id, page_regions[region_id].rect, 2);
-                    break;
+                    zoom_to(region_id, page_regions[region_id].rect, 2)
+                    incompleteRegionFound = true
+                    break
                 }
                 region_id_cursor = region_id;
+            }
+
+            // if no incomplete regions found, zoom to page bounds
+            if (!incompleteRegionFound) {
+                delineate.animate(1000).viewbox({
+                    x: -(viewer_width / 4),
+                    y: 0,
+                    width: viewer_width,
+                    height: viewer_height
+                })
             }
 
             // ---------------------------------------
@@ -1201,7 +1214,8 @@
                     traverse_region(region_id_cursor);
                 });
                 $('#reset-region-button').click(function() {
-                    $(`#region-${region_id}-text`).html(page_regions[region_id].ocr_content);
+                    delete page_regions[region_id].transcription;
+                    mark_unsaved();
                     select_region(currently_selected);
                 });
                 $('#reorder-region-button').click(function() {
