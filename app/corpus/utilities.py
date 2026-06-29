@@ -1,6 +1,8 @@
 import re
 import json
 import traceback
+import uuid
+
 import requests
 import mongoengine
 from math import ceil
@@ -249,6 +251,7 @@ def parse_date_string(date_string):
 
     return date_obj
 
+
 def parse_graph_steps(corpus, graph_path):
     graph_steps = {}
 
@@ -292,6 +295,7 @@ def parse_graph_steps(corpus, graph_path):
 
     return graph_steps
 
+
 def build_cypher_from_graph_steps(corpus_id, target_ct, graph_steps):
     cypher = "MATCH (target:{0})".format(target_ct)
     where_clauses = []
@@ -310,6 +314,7 @@ def build_cypher_from_graph_steps(corpus_id, target_ct, graph_steps):
         cypher += "\nWHERE {0}".format(" AND ".join(where_clauses))
 
     return cypher
+
 
 def is_valid_long_lat(longitude, latitude):
     if longitude < -180 or longitude > 180:
@@ -336,4 +341,5 @@ def get_field_value_from_path(obj, path):
 
 
 def publish_message(corpus_id, message_type, data={}):
+    data['event_id'] = uuid.uuid4().hex
     r = requests.get(f'http://nginx/api/publish/{corpus_id}/{message_type}/', params=data)

@@ -605,6 +605,12 @@ def check_jobs():
                     job.set_status('enqueued')
                     run_job(job.id)
 
+        # here we're checking to see if any content has been deleted and is in need of cleanup for referential
+        # integrity. we only want to do this if there haven't been any jobs to run so we aren't filling up and
+        # blocking the job queue
+        if jobs.count() == 0 and ContentDeletion.objects.count():
+            content_deletion_cleanup()
+
 
 @db_task(priority=10)
 def save_content_type_schema(job_id):
@@ -1304,9 +1310,11 @@ def backup_corpus(job_id):
         job.report(f"\nERROR backing up corpus:\n\n{traceback.format_exc()}")
         job.complete(status='error')
 
+
 @db_periodic_task(crontab(minute='0', hour='0'), priority=4)
 def run_automated_backups():
     CorpusBackupAutomation.run_next()
+
 
 @db_task(priority=3)
 def delete_backups(backup_ids):
@@ -1319,6 +1327,7 @@ def delete_backups(backup_ids):
         except:
             print(f"Unable to delete backup with ID {backup_id}:")
             print(traceback.format_exc())
+
 
 @db_task(priority=3)
 def restore_corpus(backup_id):
@@ -1456,6 +1465,7 @@ def restore_corpus(backup_id):
 
     else:
         print("Error retrieving backup object for restore!")
+
 
 @db_task(priority=3)
 def export_corpus(job_id):

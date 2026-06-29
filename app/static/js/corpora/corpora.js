@@ -116,25 +116,31 @@ class Corpora {
             params,
             function(corpus) {
                 corpus.events = new SharedWorker(`/corpus/${id}/event-dispatcher/`)
+                corpus.event_ids = new Set()
                 corpus.event_callbacks = {
                     alert: function (alert) {
-                        let alert_div = $(`
-                            <div class="alert alert-${alert.type === "success" ? 'success' : 'danger'}"
-                                style="width: 95%; float: left; margin: 0px;">
-                              ${alert.message}
-                            </div>
-                        `)
-                        Toastify({
-                            node: alert_div[0],
-                            duration: 10000,
-                            close: true,
-                            gravity: 'bottom',
-                            position: 'right',
-                            style: {
-                                background: 'unset',
-                                padding: '8px'
-                            }
-                        }).showToast()
+                        if (!corpus.event_ids.has(alert.event_id)) {
+                            // prevent duplicate alerts
+                            corpus.event_ids.add(alert.event_id)
+
+                            let alert_div = $(`
+                                <div class="alert alert-${alert.type === "success" ? 'success' : 'danger'}"
+                                    style="width: 95%; float: left; margin: 0px;">
+                                  ${alert.message}
+                                </div>
+                            `)
+                            Toastify({
+                                node: alert_div[0],
+                                duration: 10000,
+                                close: true,
+                                gravity: 'bottom',
+                                position: 'right',
+                                style: {
+                                    background: 'unset',
+                                    padding: '8px'
+                                }
+                            }).showToast()
+                        }
                     }
                 }
 
