@@ -1053,7 +1053,7 @@
                                     custom_job_parameter_types.page_file_collection = function(param_name, param) {
                                         let select_options = ''
                                         for (let slug in doc.page_file_collections) {
-                                            select_options += `<option value="${slug}">${doc.page_file_collections[slug].label}</option>\n`
+                                            select_options += `<option value="${slug}"${slug.includes('primary') ? ' selected' : ''}>${doc.page_file_collections[slug].label}</option>\n`
                                         }
 
                                         return `

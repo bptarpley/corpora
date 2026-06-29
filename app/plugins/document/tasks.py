@@ -272,8 +272,9 @@ def extract_pdf_pages(job_id):
 
         for page_num in range(0, num_pages):
             ref_no = str(page_num + 1)
-            job.content.pages[ref_no] = Page()
-            job.content.pages[ref_no].ref_no = ref_no
+            if ref_no not in job.content.pages:
+                job.content.pages[ref_no] = Page()
+                job.content.pages[ref_no].ref_no = ref_no
 
         ref_no = 1
         for pdf_page in pdf_obj:
@@ -413,8 +414,9 @@ def import_page_images(job_id):
 
         for page_num in range(0, num_pages):
             ref_no = str(page_num + 1)
-            job.content.pages[ref_no] = Page()
-            job.content.pages[ref_no].ref_no = ref_no
+            if ref_no not in job.content.pages:
+                job.content.pages[ref_no] = Page()
+                job.content.pages[ref_no].ref_no = ref_no
 
         if images_type in ['file', 'zip']:
             import_files = natsorted(import_files)
