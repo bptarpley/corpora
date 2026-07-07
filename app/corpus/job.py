@@ -278,6 +278,14 @@ class Job(object):
 
         return jobs
 
+    @staticmethod
+    def get_status(job_id):
+        try:
+            job = JobTracker.objects(id=job_id).only('status', 'percent_complete')[0]
+            return job.status, job.percent_complete
+        except:
+            return None, 0
+
 
 class JobTracker(mongoengine.Document):
     corpus = mongoengine.ReferenceField('Corpus')
