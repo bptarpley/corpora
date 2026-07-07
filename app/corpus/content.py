@@ -421,8 +421,11 @@ class Content(mongoengine.Document):
 
                         index_obj[field.name] = field_value
 
-                    elif field.type == 'file' and hasattr(field_value, 'path'):
-                        index_obj[field.name] = field_value.path
+                    elif field.type == 'file':
+                        if field.multiple:
+                            index_obj[field.name] = [f.path for f in field_value if hasattr(f, 'path')]
+                        elif hasattr(field_value, 'path'):
+                            index_obj[field.name] = field_value.path
 
                     elif field.type == 'geo_point' and field.multiple:
                         index_obj[field.name] = {
