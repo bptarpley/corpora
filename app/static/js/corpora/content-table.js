@@ -931,7 +931,7 @@ class ContentTable {
             } else if (field_type === 'iiif-image') {
                 value = `<img loading="lazy" src='${value}/full/,100/0/default.png' />`
                 delimiter = '<br />'
-            } else if (field_type === 'file' && ['.png', '.jpg', '.gif', 'jpeg'].includes(value.toLowerCase().substring(value.length - 4))) {
+            } else if (field_type === 'file' && ['.png', '.jpg', '.gif', 'jpeg', '.tif'].includes(value.toLowerCase().substring(value.length - 4))) {
                 value = `<img loading="lazy" src='/iiif/2/${value}/full/,100/0/default.png' />`
                 delimiter = '<br />'
             } else if (field_type === 'large_text') {
