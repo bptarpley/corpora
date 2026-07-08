@@ -929,7 +929,7 @@ class ContentTable {
                     data-label="${value}">    
                 </div>`
             } else if (field_type === 'iiif-image') {
-                value = `<img loading="lazy" src='${value}/full/,100/0/default.png' />`
+                value = `<img loading="lazy" src='${value}/full/,100/0/default.png' onerror="this.onerror=null; this.src=this.src.replace(/\\.png$/i, '.jpg');" />`
                 delimiter = '<br />'
             } else if (field_type === 'file' && ['.png', '.jpg', '.gif', 'jpeg', '.tif'].includes(value.toLowerCase().substring(value.length - 4))) {
                 value = `<img loading="lazy" src='/iiif/2/${value}/full/,100/0/default.png' />`
