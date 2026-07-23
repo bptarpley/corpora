@@ -103,6 +103,23 @@ REGISTRY = {
         "module": 'plugins.document.tasks',
         "functions": ['cache_page_file_collections']
     },
+    "Delete Page File Collection": {
+        "version": "0",
+        "jobsite_type": "HUEY",
+        "content_type": "Document",
+        "track_provenance": False,
+        "configuration": {
+            "parameters": {
+                "collection": {
+                    "value": "",
+                    "type": "page_file_collection",
+                    "label": "Page File Collection",
+                }
+            },
+        },
+        "module": 'plugins.document.tasks',
+        "functions": ['delete_page_file_collection']
+    }
 }
 
 
@@ -638,3 +655,49 @@ def cache_page_file_collections(job_id):
         run_neo(cypher, params)
 
     job.complete("complete")
+
+
+@db_task(priority=0)
+def delete_page_file_collection(job_id):
+    job = Job(job_id)
+    job.set_status('running')
+    page_file_collections = job.content.page_file_collections
+    pfc_slug = job.get_param_value('collection')
+
+    if pfc_slug in page_file_collections:
+        files_to_delete = []
+        for ref_no, file in page_file_collections[pfc_slug]['page_files']:
+            if ref_no in job.content.pages:
+                if file['key'] in job.content.pages[ref_no]['files']:
+                    if os.path.exists(file['path']):
+                        files_to_delete.append(file['path'])
+                    del job.content.pages[ref_no]['files'][file['key']]
+
+        job.content.save()
+
+        for file_to_delete in files_to_delete:
+            try:
+                os.remove(file_to_delete)
+            except:
+                print(traceback.format_exc())
+
+    job.complete(status='complete')
+
+
+def downscale_page_image_collection(doc, pfc_slug):
+    page_file_collections = doc.page_file_collections
+    if pfc_slug in page_file_collections:
+        for ref_no, file in doc.page_file_collections[pfc_slug]['page_files']:
+            iiif_identifier = None
+
+            if file['path'].startswith('http'):
+                iiif_identifier = file['path']
+            else:
+                corpora_host = 'http'
+                if settings.USE_SSL:
+                    corpora_host += 's'
+                corpora_host += f'://{settings.ALLOWED_HOSTS[0]}'
+                iiif_identifier = f"{corpora_host}/iiif/2{file['path']}"
+
+            downscaled_iiif_url = f"{iiif_identifier}/full/1000,/0/default.png"
+            print(downscaled_iiif_url)

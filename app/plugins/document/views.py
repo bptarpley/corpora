@@ -304,6 +304,38 @@ def document(request, corpus_id, document_id):
                             response['messages'].append("Transcription project deleted successfully.")
                         else:
                             response['errors'].append("Unable to find Transcription Project for deletion!")
+
+                # HANDLE PAGE FILE COLLECTION DELETIONS
+                elif _contains(request.POST, ['pfc-action', 'pfc-slug']):
+                    pfc_slug = _clean(request.POST, 'pfc-slug')
+                    pfc_action = _clean(request.POST, 'pfc-action')
+
+                    if pfc_action == 'delete':
+                        safe_to_delete = True
+
+                        if 'TranscriptionProject' in corpus.content_types:
+                            relevant_trans_projects = corpus.get_content('TranscriptionProject', {'document': document.id, 'image_pfc': pfc_slug})
+                            if relevant_trans_projects.count() > 0:
+                                safe_to_delete = False
+                            else:
+                                relevant_trans_projects = corpus.get_content('TranscriptionProject', {'document': document.id, 'ocr_pfc': pfc_slug})
+                                if relevant_trans_projects.count() > 0:
+                                    safe_to_delete = False
+
+                        if safe_to_delete:
+                            job_id = corpus.queue_local_job(
+                                content_type='Document',
+                                content_id=document_id,
+                                task_name='Delete Page File Collection',
+                                scholar_id=response['scholar'].id,
+                                parameters={
+                                    'collection': pfc_slug
+                                }
+                            )
+                            run_job(job_id)
+                            response['messages'].append("The specified page file collection is being deleted.")
+                        else:
+                            response['errors'].append("This page file collection is associated with an existing transcription project--please delete any relevant transcription projects before trying again.")
     else:
         raise Http404("Corpus does not exist, or you are not authorized to view it.")
 
