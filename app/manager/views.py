@@ -2243,15 +2243,19 @@ def api_pattern_count(request, corpus_id, content_type):
     )
 
 @api_view(['GET'])
-def api_last_updated(request, corpus_id, content_type):
+def api_last_updated(request, corpus_id, content_type=None):
     last_updated = 0
     context = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
 
-    if corpus and content_type in corpus.content_types:
-        latest_content = corpus.get_content(content_type, all=True).only('last_updated').order_by('-last_updated').limit(1)
-        if latest_content:
-            last_updated = int(latest_content[0].last_updated.timestamp())
+    if corpus:
+        if content_type and content_type in corpus.content_types:
+            latest_content = corpus.get_content(content_type, all=True).only('last_updated').order_by('-last_updated').limit(1)
+            if latest_content:
+                last_updated = int(latest_content[0].last_updated.timestamp())
+
+        else:
+            last_updated = corpus.last_schema_update.timestamp()
 
     return HttpResponse(
         json.dumps({'last_updated': last_updated}),

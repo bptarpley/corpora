@@ -83,6 +83,7 @@ class Corpus(mongoengine.Document):
     content_types = mongoengine.MapField(mongoengine.EmbeddedDocumentField(ContentType))
     content_type_groups = mongoengine.ListField(mongoengine.EmbeddedDocumentField(ContentTypeGroup))
     provenance = mongoengine.EmbeddedDocumentListField(CompletedTask)
+    last_schema_update = mongoengine.DateTimeField(default=datetime.now)
 
     def save_file(self, file):
         self.modify(**{'set__files__{0}'.format(file.key): file})
@@ -1935,6 +1936,7 @@ class Corpus(mongoengine.Document):
                     'related_content_types': ','.join(related_content_types)
                 }))
 
+            self.last_schema_update = datetime.now()
             self.save()
 
         return queued_job_ids
@@ -2426,6 +2428,7 @@ class Corpus(mongoengine.Document):
             'files': {},
             'repos': {},
             'content_types': {},
+            'last_schema_update': self.last_schema_update.timestamp(),
         }
 
         for file_key in self.files:

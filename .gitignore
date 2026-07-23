@@ -8,3 +8,4 @@ local.docker-compose.yml
 *.pyc
 docs/src/site
 docker-compose-docs.yml
+/investigations
