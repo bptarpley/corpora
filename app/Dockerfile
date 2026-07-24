@@ -1,72 +1,70 @@
-FROM ubuntu:jammy
-ENV PYTHONUNBUFFERED 1
-ENV TZ=America/Chicago
+# ============================================================
+# Build stage: installs/compiles all Python dependencies.
+# Dev headers and the compiler toolchain live only here, so
+# they (and their CVE surface, e.g. linux-libc-dev kernel
+# headers) never reach the runtime image.
+# ============================================================
+FROM ubuntu:noble AS builder
+ENV PYTHONUNBUFFERED=1
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+ARG DEBIAN_FRONTEND=noninteractive
 
-# Necessary repositories and settings for python 3.11 and tesseract 5
-RUN apt-get update
-RUN apt upgrade -y
-RUN apt-get install -y software-properties-common curl
-RUN add-apt-repository -y ppa:deadsnakes/ppa -y
-RUN add-apt-repository -y ppa:alex-p/tesseract-ocr5
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.12 python3.12-dev python3-pip build-essential ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m pip install --upgrade --ignore-installed pip setuptools wheel
+
+COPY requirements.txt /tmp/requirements.txt
+RUN python3 -m pip install --no-cache-dir -r /tmp/requirements.txt
+RUN python3 -m spacy download en_core_web_sm
+
+# Install the corpora package itself
+COPY . /tmp/corpora/
+RUN python3 -m pip install --no-cache-dir /tmp/corpora
+
+
+# ============================================================
+# Runtime stage
+# ============================================================
+FROM ubuntu:noble
+ENV PYTHONUNBUFFERED=1
+ENV TZ=America/Chicago
+# Required for start.sh's "pip3 install --user" of plugin
+# dependencies (PEP 668: noble's python is externally managed)
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Runtime debian packages, plus the MongoDB repository for
+# mongodb-database-tools (client tools only; works against 7.0 servers)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl ca-certificates gnupg tzdata \
+    && curl -fsSL https://pgp.mongodb.com/server-8.0.asc | \
+        gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor \
+    && echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] http://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" > /etc/apt/sources.list.d/mongodb-org-8.0.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        python3 git \
+        tesseract-ocr tesseract-ocr-eng mongodb-database-tools \
+    && update-ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-
-# Necessary repository for mongodb-database-tools
-RUN curl -fsSL https://pgp.mongodb.com/server-7.0.asc | \
-   gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg \
-   --dearmor
-
-RUN echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] http://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-
-
-# Remove old version of python3
-RUN apt-get remove -y --auto-remove python3 python3.10 python3.10-full python3.10-minimal python3.10-dev
-RUN apt-get purge -y python3 python3.10 python3.10-minimal python3.10-dev
-RUN rm -rf /usr/local/lib/python3.10
-RUN rm -f /usr/bin/python3
-
-
-# Install needed debian packages
-RUN apt-get update
-RUN apt-get install -y python3.11 python3.11-dev
-RUN apt-get install -y ca-certificates python3-pip git jupyter-notebook ghostscript mongodb-database-tools
-RUN apt-get install -y libgs-dev imagemagick tesseract-ocr tesseract-ocr-eng
-
-
-# Update CA Certificates
-RUN update-ca-certificates
-
-
-# Configure ImageMagick
-RUN sed -i "s^<policy domain=\"coder\" rights=\"none\" pattern=\"PDF\" />^<policy domain=\"coder\" rights=\"read|write\" pattern=\"PDF\" />^g" /etc/ImageMagick-6/policy.xml
-
+# Python packages (site-packages + entry points like daphne/jupyter/pip)
+COPY --from=builder /usr/local /usr/local
 
 # Build directory structure and copy files
 RUN mkdir /apps
 WORKDIR /apps
-RUN mkdir corpora
 COPY . corpora/
-
-# Install python dependencies
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 10
-RUN python3 -m pip install --upgrade pip
-RUN python3 -m pip install --upgrade setuptools==78.1.1
-RUN python3 -m pip install --upgrade packaging==24.1
-RUN python3 -m pip install --upgrade numpy
-RUN python3 -m pip install --no-cache-dir -r /apps/corpora/requirements.txt
-RUN python3 -m pip uninstall -y pyzmq
-RUN python3 -m pip install pyzmq
-RUN python3 -m spacy download en_core_web_sm
-
-WORKDIR /apps/corpora
-RUN python3 -m pip install .
 
 RUN python3 -m ipykernel install --name='Corpora' --display-name='Corpora'
 
-RUN adduser corpora
-RUN mkdir -p /conf/plugin_modules
-RUN chown -R corpora.corpora /conf
-RUN export PYTHONUSERBASE=/conf/plugin_modules
-RUN chown -R corpora.corpora /apps
+# Replace noble's default "ubuntu" user so corpora keeps UID 1000
+# (matches file ownership from previous jammy-based images)
+RUN userdel -r ubuntu \
+    && adduser --disabled-password --gecos "" --uid 1000 corpora \
+    && mkdir -p /conf/plugin_modules \
+    && chown -R corpora:corpora /conf /apps
 USER corpora
 WORKDIR /apps/corpora
