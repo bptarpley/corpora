@@ -517,6 +517,11 @@
                                     No page files have been imported for this document.
                                 </div>
                             </div>
+                            <form id="pfc-action-form" method="post">
+                                {% csrf_token %}
+                                <input id="pfc-action" name="pfc-action" type="hidden" />
+                                <input id="pfc-slug" name="pfc-slug" type="hidden" />
+                            </form>
                         </div>
                     </div>
 
@@ -900,6 +905,7 @@
                                     }
 
                                     let zip_file_form = ''
+                                    let delete_pfc_button = ''
                                     if (local_jobsite_id) {
                                         let zip_page_file_task_id = ''
                                         for (let x = 0; x < tasks.length; x++) {
@@ -918,6 +924,15 @@
                                                     <button type="submit" class="btn btn-primary">Create a .zip File</button>
                                                 </form>
                                             `
+
+                                            delete_pfc_button = `
+                                                <button class="btn btn-sm btn-danger ms-auto pfc-delete-button"
+                                                    data-pfc_slug="${slug}"
+                                                    data-pfc_label="${label}"
+                                                    data-toggle="tooltip" data-placement="top" title="" data-original-title="Delete Page Files">
+                                                        <span class="fas fa-trash-alt"></span>
+                                                </button>
+                                            `
                                         }
                                     }
 
@@ -930,9 +945,10 @@
                                             </button>
                                         </h5>
                                         <div id="page-file-collection-${pfc_counter}" class="alert alert-info collapse" aria-labelledby="page-file-collection-${pfc_counter}-container" data-parent="#page-file-collection-group">
-                                            <div class="mb-2 w-100 form-inline">
+                                            <div class="mb-2 w-100 d-flex">
                                                 ${text_consolidation_form}
                                                 ${zip_file_form}
+                                                ${delete_pfc_button}
                                             </div>
                                             <table class="table table-striped">
                                                 <thead class="thead-dark">
@@ -954,6 +970,29 @@
                                             </table>
                                         </div>
                                     `)
+
+                                    // rig up page file collection delete button click
+                                    if (role === 'Editor' || role === 'Admin') {
+                                        $('.pfc-delete-button').click(function () {
+                                            let deleteButton = $(this)
+                                            let pfcSlug = deleteButton.data('pfc_slug')
+                                            let pfcLabel = deleteButton.data('pfc_label')
+
+                                            corpora.confirm_action(
+                                                function () {
+                                                    $('#pfc-action').val('delete')
+                                                    $('#pfc-slug').val(pfcSlug)
+                                                    $('#pfc-action-form').submit()
+                                                },
+                                                "Confirm Page File Collection Deletion",
+                                                `
+                                                    Are you sure you want to delete all page files from the <b>${pfcLabel}</b> collection?
+                                                `,
+                                                'Delete',
+                                                true
+                                            )
+                                        })
+                                    }
 
                                     let doc_pfc_div = $(`#page-file-collection-${pfc_counter}`)
                                     let doc_pfc_indicator = $(`#page-file-collection-${pfc_counter}-indicator`)
@@ -1053,7 +1092,7 @@
                                     custom_job_parameter_types.page_file_collection = function(param_name, param) {
                                         let select_options = ''
                                         for (let slug in doc.page_file_collections) {
-                                            select_options += `<option value="${slug}"${slug.includes('primary') ? ' selected' : ''}>${doc.page_file_collections[slug].label}</option>\n`
+                                            select_options += `<option value="${slug}">${doc.page_file_collections[slug].label}</option>\n`
                                         }
 
                                         return `

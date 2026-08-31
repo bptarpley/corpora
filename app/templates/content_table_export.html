@@ -79,6 +79,7 @@
     let totalRecords = 0
     let avgByteSize = 7000
     let pageSize = 50
+    let bigGridPageSize = 500
     let grid = null
     let usingBigGrid = false
 
@@ -206,14 +207,18 @@
         })
     }
 
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
     async function getBigGridRecords(direction) {
+        await sleep(300)
+
         // Calculate byte range for this chunk
         if (direction === 'forward') {
             bg.startByte = Math.max(0, bg.startByte - avgByteSize)
-            bg.endByte = Math.min(bg.maxByte, bg.startByte + ((pageSize + 2) * avgByteSize))
+            bg.endByte = Math.min(bg.maxByte, bg.startByte + ((bigGridPageSize + 2) * avgByteSize))
         } else if (direction === 'backward') {
             bg.endByte = Math.min(bg.maxByte, bg.startByte + avgByteSize)
-            bg.startByte = Math.max(0, bg.endByte - ((pageSize + 2) * avgByteSize))
+            bg.startByte = Math.max(0, bg.endByte - ((bigGridPageSize + 2) * avgByteSize))
         } else  { // here we assume start and end bytes have already been set elsewhere
             bg.startByte = Math.max(0, bg.startByte - avgByteSize)
             bg.endByte = Math.min(bg.maxByte, bg.endByte + avgByteSize)
@@ -249,7 +254,7 @@
             let chunkTooLarge = false
 
             lines.forEach(line => {
-                if (bg.pageRecords.length < pageSize) {
+                if (bg.pageRecords.length < bigGridPageSize) {
                     estimatedBytesParsed += new Blob([line]).size
                     if (line.startsWith('{') && line.endsWith('}') && (bg.keyword.length === 0 || line.toLowerCase().includes(bg.keyword.toLowerCase()))) {
                         try {
@@ -282,8 +287,9 @@
             }
 
             if ((direction === 'forward' && bg.endByte < bg.maxByte) || (direction === 'backward' && bg.startByte > 0)) {
-                if (bg.pageRecords.length < pageSize && jsonParseErrors < 5)
+                if (bg.pageRecords.length < bigGridPageSize && jsonParseErrors < 5) {
                     await getBigGridRecords(direction)
+                }
             }
 
             if(bg.pageRecords.length) {
