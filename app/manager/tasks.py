@@ -1298,13 +1298,15 @@ def backup_corpus(job_id):
         # handle automated backup by adding it to CorpusBackupAutomation instance
         # and firing off the next automated backup if necessary
         if job.get_param_value('is_automated'):
+            next_backup_started = False
             backup_automations = CorpusBackupAutomation.objects.all()
             for backup_automation in backup_automations:
                 if backup_automation.corpus_id == job.corpus_id:
                     backup_automation.add_backup(backup)
 
-                elif backup_automation.automate():
-                    break
+                elif not next_backup_started:
+                    if backup_automation.automate():
+                        next_backup_started = True
         
     except:
         job.report(f"\nERROR backing up corpus:\n\n{traceback.format_exc()}")
