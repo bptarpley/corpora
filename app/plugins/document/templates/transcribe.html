@@ -752,7 +752,7 @@
                     lowest_index = ordered_region_ids.indexOf(selected_regions[0]);
 
                     // sort y_values and iterate over, moving selected_regions to top_to_bottom according to y value
-                    y_values.sort();
+                    y_values.sort((a, b) => a - b);
                     y_values.map(y_value => {
                         let matching_region_id = null;
                         selected_regions.map(region_id => {
