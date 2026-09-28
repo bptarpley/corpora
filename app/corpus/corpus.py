@@ -2553,8 +2553,19 @@ class CorpusBackupAutomation(mongoengine.Document):
 
         if self.automated_backups:
             newest = self.automated_backups[-1]
-            if newest.created < last_updated and last_updated - newest.created >= timedelta(hours=12):
-                backup_needed = True
+
+            # occasionally a backup will fail midstream and a malformed backup
+            # will get added to the automated_backups list. this try/except block
+            # is intended to mitigate that issue by removing any bad backups from
+            # the list.
+            try:
+                if newest.created < last_updated and last_updated - newest.created >= timedelta(hours=12):
+                    backup_needed = True
+            except:
+                self.automated_backups.pop()
+                self.save()
+                return self.automate()
+
         else:
             backup_needed = True
 

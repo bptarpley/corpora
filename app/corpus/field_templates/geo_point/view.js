@@ -8,7 +8,8 @@ function renderGeoPoint(target) {
 
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
-            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            referrerPolicy: 'strict-origin-when-cross-origin'
         }).addTo(map)
 
         let marker = L.marker(coords)
