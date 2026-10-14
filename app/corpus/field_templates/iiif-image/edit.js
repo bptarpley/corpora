@@ -1,20 +1,21 @@
 var IIIFViewers = {}
 
+function contentWidthOf(el) { return el ? el.clientWidth : 0 }
+
 async function renderIIIFImage(target) {
-    if (target.hasOwnProperty('target')) target = target.target
+    target = elFromEventOrEl(target)
     let editor_id = target.id
-    target = $(target)
 
     IIIFViewers[editor_id] = {
         editor: target,
-        image_uri: target.val(),
-        dragon_div: $(`#${target.data('image_viewer')}`),
+        image_uri: getVal(target),
+        dragon_div: getEl(target.dataset.image_viewer),
         dragon: null,
         image_width: 0,
         image_height: 0,
         currently_showcasing: false,
-        showcase_button: $(`#${target.data('showcase_button')}`),
-        showcase_button_icon: $(`#${target.data('showcase_button')}-icon`),
+        showcase_button: getEl(target.dataset.showcase_button),
+        showcase_button_icon: getEl(`${target.dataset.showcase_button}-icon`),
         resize_timer: null
     }
 
@@ -24,12 +25,12 @@ async function renderIIIFImage(target) {
             await fetch(iiif.image_uri + '/info.json')
                 .then(image_info => image_info.json())
                 .then(image_info => {
-                    let width = (3 * target.parent().width()) / 4
+                    let width = (3 * contentWidthOf(target.parentElement)) / 4
                     iiif.image_width = image_info.width
                     iiif.image_height = image_info.height
                     let ratio = iiif.image_width / iiif.image_height
                     let height = parseInt(width / ratio)
-                    let max_height = Math.round($(window).height() - 50)
+                    let max_height = Math.round(window.innerHeight - 50)
 
                     if (height > max_height) {
                         height = max_height
@@ -38,13 +39,13 @@ async function renderIIIFImage(target) {
                     }
 
                     // clear image viewer, add showcase button, and set height
-                    iiif.dragon_div.empty()
-                    iiif.showcase_button.removeClass('d-none')
-                    iiif.dragon_div.css('width', `${width}px`)
-                    iiif.dragon_div.css('height', `${height}px`)
+                    clearEl(iiif.dragon_div)
+                    showEl(iiif.showcase_button)
+                    iiif.dragon_div.style.width = `${width}px`
+                    iiif.dragon_div.style.height = `${height}px`
 
                     iiif.dragon = OpenSeadragon({
-                        id: iiif.dragon_div[0].id,
+                        id: iiif.dragon_div.id,
                         prefixUrl: "/static/img/openseadragon/",
                         preserveViewport: false,
                         visibilityRatio: 1,
@@ -67,7 +68,6 @@ async function renderIIIFImage(target) {
                     })
                 })
         } catch (error) {
-            iiif.dragon_div.empty()
             iiif.dragon_div.innerHTML = `
                 <div class="alert alert-danger">
                     Not a valid IIIF Image API URL (should be similar to <b>https://my-iiif-server.org/iiif/3/path-to-image.jpg</b>).
@@ -79,14 +79,21 @@ async function renderIIIFImage(target) {
     }
 }
 
+function refreshTooltip(el) {
+    if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return
+    let existing = bootstrap.Tooltip.getInstance(el)
+    if (existing) existing.dispose()
+    bootstrap.Tooltip.getOrCreateInstance(el)
+}
+
 function showcaseIIIFImage(target) {
-    if (target.hasOwnProperty('currentTarget')) target = target.currentTarget
-    let editor_id = $(target).data('editor')
+    target = elFromEventOrEl(target)
+    let editor_id = target.dataset.editor
     let iiif = IIIFViewers[editor_id]
     let already_showcasing = iiif.currently_showcasing
-    let widget_col = $('#edit-widget-col')
+    let widget_col = getEl('edit-widget-col')
 
-    widget_col.empty()
+    clearEl(widget_col)
 
     if (already_showcasing) {
         window.hide_widget_col(function() {
@@ -100,60 +107,58 @@ function showcaseIIIFImage(target) {
                 }
             })
 
-            iiif.dragon_div = iiif.dragon_div.detach()
-            iiif.dragon_div.appendTo(widget_col)
-            iiif.dragon_div.css('height', `100vh`)
-            iiif.dragon_div.css('width', '')
-            iiif.dragon_div.css('position', 'sticky')
-            iiif.dragon_div.css('top', 0)
+            // appendChild moves the node, so the detach/appendTo pair collapses into one call
+            widget_col.appendChild(iiif.dragon_div)
+            iiif.dragon_div.style.height = '100vh'
+            iiif.dragon_div.style.width = ''
+            iiif.dragon_div.style.position = 'sticky'
+            iiif.dragon_div.style.top = 0
             iiif.currently_showcasing = true
-            iiif.showcase_button.attr('title', 'Return image to below')
-            iiif.showcase_button.tooltip('dispose')
-            iiif.showcase_button.tooltip()
-            iiif.showcase_button_icon.removeClass('fa-angle-double-right')
-            iiif.showcase_button_icon.addClass('fa-angle-double-left')
+            iiif.showcase_button.setAttribute('title', 'Return image to below')
+            refreshTooltip(iiif.showcase_button)
+            iiif.showcase_button_icon.classList.remove('fa-angle-double-right')
+            iiif.showcase_button_icon.classList.add('fa-angle-double-left')
         })
     }
     Object.keys(IIIFViewers).forEach(editor_id => {
-        resizeIIIFViewer(IIIFViewers[editor_id].editor[0])
+        resizeIIIFViewer(IIIFViewers[editor_id].editor)
     })
 }
 
 function returnIIIFImage(iiif) {
-    iiif.dragon_div = iiif.dragon_div.detach()
-    iiif.editor.parent().after(iiif.dragon_div)
-    iiif.dragon_div.css('position', '')
-    iiif.dragon_div.css('top', '')
-    iiif.showcase_button.attr('title', 'Showcase image on right')
-    iiif.showcase_button.tooltip('dispose')
-    iiif.showcase_button.tooltip()
-    iiif.showcase_button_icon.removeClass('fa-angle-double-left')
-    iiif.showcase_button_icon.addClass('fa-angle-double-right')
-    renderIIIFImage(iiif.editor[0])
+    iiif.editor.parentElement.insertAdjacentElement('afterend', iiif.dragon_div)
+    iiif.dragon_div.style.position = ''
+    iiif.dragon_div.style.top = ''
+    iiif.showcase_button.setAttribute('title', 'Showcase image on right')
+    refreshTooltip(iiif.showcase_button)
+    iiif.showcase_button_icon.classList.remove('fa-angle-double-left')
+    iiif.showcase_button_icon.classList.add('fa-angle-double-right')
+    renderIIIFImage(iiif.editor)
 }
 
 function resizeIIIFViewer(target) {
-    if (target.hasOwnProperty('target')) target = target.target
+    target = elFromEventOrEl(target)
     let iiif = IIIFViewers[target.id]
+    if (!iiif) return
 
     clearTimeout(iiif.resize_timer)
     iiif.resize_timer = setTimeout(function() {
         if (!iiif.currently_showcasing) {
-            let width = (3 * iiif.editor.parent().width()) / 4
+            let width = (3 * contentWidthOf(iiif.editor.parentElement)) / 4
             let ratio = iiif.image_width / iiif.image_height
             let height = parseInt(width / ratio)
-            let max_height = Math.round($(window).height() - 50)
+            let max_height = Math.round(window.innerHeight - 50)
 
             if (height > max_height) {
                 height = max_height
                 ratio = iiif.image_height / iiif.image_width
                 width = parseInt(height / ratio)
             }
-            iiif.dragon_div.css('height', `${height}px`)
-            iiif.dragon_div.css('width', `${width}px`)
+            iiif.dragon_div.style.height = `${height}px`
+            iiif.dragon_div.style.width = `${width}px`
         }
         setTimeout(function() {
-            iiif.dragon.viewport.goHome()
+            if (iiif.dragon) iiif.dragon.viewport.goHome()
         }, 1000)
     }, 1000)
 }

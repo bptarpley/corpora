@@ -11,7 +11,7 @@ function renderIIIFImage(target) {
             let image_height = image_info.height
             let ratio = image_width / image_height
             let height = parseInt(width / ratio)
-            let max_height = Math.round($(window).height() - 50)
+            let max_height = Math.round(window.innerHeight - 50)
 
             if (height > max_height) {
                 height = max_height
