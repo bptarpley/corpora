@@ -410,6 +410,26 @@ REGISTRY = {
 }
 
 
+def _abandon_job(job, reason):
+    """
+    Mark a job as errored, and if it was a link in a chained maintenance run, hand
+    off to the next corpus so one dead job does not strand the rest of the chain.
+
+    A SIGKILL (an OOM, say) runs no except blocks, so the task itself cannot do this
+    -- it has to happen here, when the job is reaped.
+    """
+    if job.report_path:
+        job.report(f"ERROR: {reason}")
+
+    if job.task and job.task.name in CORPORA_MAINTENANCE_TASKS:
+        try:
+            _chain_corpora_maintenance(job, job.task.name)
+        except:
+            print(traceback.format_exc())
+
+    job.complete(status='error')
+
+
 @db_task(priority=3)
 def run_job(job_id):
     job = Job(job_id)
@@ -597,13 +617,16 @@ def check_jobs():
 
                     # clean up timed out (likely errored out) jobs
                     elif datetime.now().timestamp() - job.status_time.timestamp() > settings.JOB_TIMEOUT_SECS:
-                        if job.report_path:
-                            job.report("ERROR: Job timed out or experienced an unexpected failure.")
-                        job.complete(status='error')
+                        _abandon_job(job, "Job timed out or experienced an unexpected failure.")
 
                 elif job.status == 'queueing':
                     job.set_status('enqueued')
                     run_job(job.id)
+
+                # cleaning any jobs killed before it could mark itself running
+                elif job.status == 'enqueued':
+                    if datetime.now().timestamp() - job.status_time.timestamp() > settings.JOB_STARTUP_TIMEOUT_SECS:
+                        _abandon_job(job, "Job was never started by a worker and has been abandoned.")
 
         # here we're checking to see if any content has been deleted and is in need of cleanup for referential
         # integrity. we only want to do this if there haven't been any jobs to run so we aren't filling up and
