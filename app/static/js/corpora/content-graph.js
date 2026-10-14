@@ -22,28 +22,27 @@ class ContentGraph {
         this.per_type_limit = 'per_type_limit' in config ? config['per_type_limit'] : 20
         this.max_mass = 'max_node_mass' in config ? config['max_node_mass'] : 100
         this.vis_div_id = vis_div_id
-        this.vis_div = $(`#${vis_div_id}`)
+        this.vis_div = getEl(vis_div_id)
         this.vis_legend_id = vis_legend_id
-        this.width = 'width' in config ? config['width'] : this.vis_div.width()
-        this.height = 'height' in config ? config['height'] : this.vis_div.height()
+        this.width = 'width' in config ? config['width'] : this.vis_div.offsetWidth
+        this.height = 'height' in config ? config['height'] : this.vis_div.offsetHeight
         this.min_link_thickness = 'min_link_thickness' in config ? config['min_link_thickness'] : 1
         this.max_link_thickness = 'max_link_thickness' in config ? config['max_link_thickness'] : 15
         this.default_link_thickness = 'default_link_thickness' in config ? config['default_link_thickness'] : 1
         this.label_display = 'label_display' in config ? config['label_display'] : 'full'
         this.last_action = 'explore'
         this.first_start = true
-        let sender = this
 
         // SETUP CT OPTIONS MODAL
-        if (!$('#explore-ct-modal').length) {
-            $('body').prepend(`
+        if (!getEl('explore-ct-modal')) {
+            prependToEl(document.body, `
                 <!-- Explore CT Modal -->
                 <div class="modal fade" id="explore-ct-modal" tabindex="-1" role="dialog" aria-labelledby="explore-ct-modal-label" aria-hidden="true">
                     <div class="modal-dialog" role="document">
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h4 class="modal-title" id="explore-ct-modal-label"><span class="modal-proxy-ct"></span> Options</h4>
-                                <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
                                 </button>
                             </div>
                             <div class="modal-body">
@@ -91,7 +90,7 @@ class ContentGraph {
                                 </div>
                             </div>
                             <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                                 <button type="button" class="btn btn-primary" id="explore-ct-sprawl-button">Sprawl Every <span class="modal-proxy-ct"></span></button>
                                 <button type="button" class="btn btn-primary" id="explore-ct-hide-button">Hide Every <span class="modal-proxy-ct"></span></button>
                             </div>
@@ -101,59 +100,59 @@ class ContentGraph {
             `)
 
             // SETUP EXPLORE CT MODAL COLLAPSE SELECTORS AND EVENTS
-            let from_ct_selector = $('#from_ct_selector')
-            let to_ct_selector = $('#to_ct_selector')
-            let add_ct_selector = $('#addproxy_ct_selector')
+            let from_ct_selector = getEl('from_ct_selector')
+            let to_ct_selector = getEl('to_ct_selector')
+            let add_ct_selector = getEl('addproxy_ct_selector')
             for (let ct_name in this.corpus.content_types) {
                 let option = `<option value='${ct_name}'>${ct_name}</option>`
-                from_ct_selector.append(option)
-                to_ct_selector.append(option)
-                add_ct_selector.append(option)
+                appendToEl(from_ct_selector, option)
+                appendToEl(to_ct_selector, option)
+                appendToEl(add_ct_selector, option)
             }
 
-            add_ct_selector.change(function() {
-                let ct_to_add = add_ct_selector.val()
+            // there is only ever one .modal-proxy-ct, but it is written by several
+            // handlers, so it is read and written through these two helpers.
+            let proxy_ct_el = () => getElWithQuery('.modal-proxy-ct')
+
+            onEl(add_ct_selector, 'change', () => {
+                let ct_to_add = getVal(add_ct_selector)
                 if (ct_to_add !== 'None') {
-                    let cts_added = $('.modal-proxy-ct').html()
-                    $('.modal-proxy-ct').html(cts_added + '.' + ct_to_add)
+                    proxy_ct_el().innerHTML = proxy_ct_el().innerHTML + '.' + ct_to_add
                 }
             })
 
-            $('#collapse-add-button').click(function() {
-                let proxy_ct = $('.modal-proxy-ct').html()
-
-                sender.collapsed_relationships.push({
-                    from_ct: $('#from_ct_selector').val(),
-                    proxy_ct: proxy_ct,
-                    to_ct: $('#to_ct_selector').val()
+            onEl(getEl('collapse-add-button'), 'click', () => {
+                this.collapsed_relationships.push({
+                    from_ct: getVal(getEl('from_ct_selector')),
+                    proxy_ct: proxy_ct_el().innerHTML,
+                    to_ct: getVal(getEl('to_ct_selector'))
                 })
 
-                sender.reset_graph()
+                this.reset_graph()
 
-                $('#explore-ct-modal').modal('hide')
+                hideModal(getEl('explore-ct-modal'))
             })
 
-            $('#explore-ct-hide-button').click(function() {
-                let hide_ct = $('.modal-proxy-ct').html()
-                sender.hidden_cts.push(hide_ct)
-                sender.reset_graph()
-                $('#explore-ct-modal').modal('hide')
+            onEl(getEl('explore-ct-hide-button'), 'click', () => {
+                this.hidden_cts.push(proxy_ct_el().innerHTML)
+                this.reset_graph()
+                hideModal(getEl('explore-ct-modal'))
             })
 
-            $('#explore-ct-sprawl-button').click(function() {
-                let sprawl_ct = $('.modal-proxy-ct').html()
-                sender.nodes.map(n => {
+            onEl(getEl('explore-ct-sprawl-button'), 'click', () => {
+                let sprawl_ct = proxy_ct_el().innerHTML
+                this.nodes.forEach(n => {
                     if (n.id.includes(`/${sprawl_ct}/`)) {
-                        sender.sprawl_node(n.id)
+                        this.sprawl_node(n.id)
                     }
                 })
-                $('#explore-ct-modal').modal('hide')
+                hideModal(getEl('explore-ct-modal'))
             })
         }
 
         // ENSURE MULTISELECT FORM EXISTS
-        if (!$('#multiselect-form').length) {
-            $('body').append(`
+        if (!getEl('multiselect-form')) {
+            appendToEl(document.body, `
                 <form id="multiselect-form" method="post" action="/not/set">
                     <input type="hidden" name="csrfmiddlewaretoken" value="${this.corpora.csrf_token}">
                     <input id="multiselect-content-ids" name="content-ids" type="hidden" value="">
@@ -173,7 +172,7 @@ class ContentGraph {
 
         // SETUP VIS.JS NETWORK
         this.network = new vis.Network(
-            this.vis_div[0],
+            this.vis_div,
             {
                 nodes: this.nodes,
                 edges: this.edges
@@ -243,6 +242,9 @@ class ContentGraph {
         })
 
         // CUSTOM PHYSICS
+        // NOTE: must stay a plain function -- vis.js calls it with `this` bound to
+        // its own physics object, which the body below relies on. Do not convert to
+        // an arrow.
         this.network.physics._performStep = function(nodeId) {
             const node = this.body.nodes[nodeId]
             const force = this.physicsBody.forces[nodeId]
@@ -292,18 +294,20 @@ class ContentGraph {
             return totalVelocity
         }
 
-        this.network.on("click", function(params) {
-            sender.remove_unpinned_panes()
+        this.network.on("click", params => {
+            this.remove_unpinned_panes()
 
             if (params.nodes.length > 0) {
                 let clicked_uri = params.nodes[0]
                 let pane_id = `${clicked_uri.replace(/\//g, '-')}-pane`
-                let canvas_offset = sender.vis_div.offset()
-                let pane_x = params.pointer.DOM.x + canvas_offset.left
-                let pane_y = params.pointer.DOM.y + canvas_offset.top
+                // jQuery's .offset() is document-relative, so the scroll offsets are
+                // added back to the viewport-relative rect here.
+                let canvas_rect = this.vis_div.getBoundingClientRect()
+                let pane_x = params.pointer.DOM.x + canvas_rect.left + window.scrollX
+                let pane_y = params.pointer.DOM.y + canvas_rect.top + window.scrollY
 
-                if (!$(`#${pane_id}`).length) {
-                    $('body').append(`
+                if (!getEl(pane_id)) {
+                    appendToEl(document.body, `
                         <div id="${pane_id}"
                             class="content-pane"
                             style="background-color: rgba(255, 255, 255, .8);
@@ -316,7 +320,7 @@ class ContentGraph {
                             data-uri="${clicked_uri}">
     
                             <div style="height: 25px;">
-                                <span id="${pane_id}-select" title="Select" data-uri="${clicked_uri}" class="popup-button far fa-check-square" ${sender.selected_uris.includes(clicked_uri) ? "style='color: #EF3E36;'" : ''}></span>
+                                <span id="${pane_id}-select" title="Select" data-uri="${clicked_uri}" class="popup-button far fa-check-square" ${this.selected_uris.includes(clicked_uri) ? "style='color: #EF3E36;'" : ''}></span>
                                 <span id="${pane_id}-pin" title="Pin" data-uri="${clicked_uri}" class="popup-button fas fa-thumbtack"></span>
                                 <span id="${pane_id}-sprawl" title="Sprawl" data-uri="${clicked_uri}" class="popup-button fas fa-expand-arrows-alt"></span>
                                 <span id="${pane_id}-extrude" title="Hide" data-uri="${clicked_uri}" class="popup-button far fa-eye-slash"></span>
@@ -328,61 +332,59 @@ class ContentGraph {
                         </div>
                     `)
 
-                    sender.build_meta_controls(clicked_uri, pane_id)
+                    this.build_meta_controls(clicked_uri, pane_id)
 
-                    $(`#${pane_id}-select`).click(function() {
-                        let uri = $(this).data('uri')
-                        let node = sender.nodes.get(uri)
+                    let select_button = getEl(`${pane_id}-select`)
+                    onEl(select_button, 'click', () => {
+                        let uri = select_button.dataset.uri
+                        let node = this.nodes.get(uri)
 
-                        if (!sender.selected_uris.includes(uri)) {
-                            sender.selected_uris.push(uri)
-                            $(this).css('color', '#EF3E36')
+                        if (!this.selected_uris.includes(uri)) {
+                            this.selected_uris.push(uri)
+                            select_button.style.color = '#EF3E36'
                             node.font = {
                                 background: '#EF3E36',
                                 color: "white"
                             }
                         } else {
-                            sender.selected_uris = sender.selected_uris.filter(val => val !== uri)
-                            $(this).css('color', '#091540')
+                            this.selected_uris = this.selected_uris.filter(val => val !== uri)
+                            select_button.style.color = '#091540'
                             node.font = {
                                 background: 'white',
                                 color: "black"
                             }
                         }
-                        sender.nodes.update(node)
-                        sender.setup_legend()
+                        this.nodes.update(node)
+                        this.setup_legend()
                     })
 
-                    $(`#${pane_id}-pin`).click(function() {
-                        sender.pin_node($(this).data('uri'))
-                    })
+                    let pin_button = getEl(`${pane_id}-pin`)
+                    onEl(pin_button, 'click', () => this.pin_node(pin_button.dataset.uri))
 
-                    $(`#${pane_id}-sprawl`).click(function() {
-                        sender.sprawl_node($(this).data('uri'), {pane_id: pane_id})
-                    })
+                    let sprawl_button = getEl(`${pane_id}-sprawl`)
+                    onEl(sprawl_button, 'click', () => this.sprawl_node(sprawl_button.dataset.uri, {pane_id: pane_id}))
 
-                    $(`#${pane_id}-extrude`).click(function() {
-                        sender.extrude_node($(this).data('uri'), true)
-                    })
+                    let extrude_button = getEl(`${pane_id}-extrude`)
+                    onEl(extrude_button, 'click', () => this.extrude_node(extrude_button.dataset.uri, true))
 
-                    sender.panes_displayed[clicked_uri] = {pinned: false}
-                    sender.make_draggable(document.getElementById(pane_id))
+                    this.panes_displayed[clicked_uri] = {pinned: false}
+                    this.make_draggable(getEl(pane_id))
                 }
             }
         })
 
-        this.network.on("dragStart", function(params){
+        this.network.on("dragStart", params => {
             params.nodes.map(id => {
-                let n = sender.nodes.get(id)
+                let n = this.nodes.get(id)
                 n.fixed = false
                 //affix_node_label(n)
-                sender.nodes.update(n)
+                this.nodes.update(n)
             })
         })
 
-        this.network.on("dragEnd", function(params){
+        this.network.on("dragEnd", params => {
             params.nodes.map(id => {
-                sender.nodes.update([{ id: id, fixed: true }])
+                this.nodes.update([{ id: id, fixed: true }])
             })
         })
 
@@ -390,7 +392,6 @@ class ContentGraph {
     }
 
     setup_legend() {
-        let sender = this
         let group_colors = [
             '#EF3E36',
             '#091540',
@@ -436,8 +437,8 @@ class ContentGraph {
             }
         })
 
-        let legend = $(`#${this.vis_legend_id}`)
-        legend.html('')
+        let legend = getEl(this.vis_legend_id)
+        legend.innerHTML = ''
         for (let group_name in this.groups) {
             let action_links = ""
 
@@ -453,81 +454,80 @@ class ContentGraph {
                 }
             })
 
-            legend.append(`
+            appendToEl(legend, `
                 <span class="badge me-1 p-1 ct-legend-badge" style="background-color: ${this.groups[group_name].color}; color: #FFFFFF; cursor: pointer;">${group_name}</span>${action_links}
             `)
         }
 
         // LABEL OPTIONS
-        legend.append(`
+        appendToEl(legend, `
             <select id="explore-label-opt" class="me-2 form-select-sm">
-                <option value="full" ${sender.label_display === 'full' ? 'selected' : ''}>Show full label</option>
-                <option value="trunc" ${sender.label_display === 'trunc' ? 'selected' : ''}>Show truncated label</option>
-                <option value="hover" ${sender.label_display === 'hover' ? 'selected' : ''}>Show label only on hover</option>
+                <option value="full" ${this.label_display === 'full' ? 'selected' : ''}>Show full label</option>
+                <option value="trunc" ${this.label_display === 'trunc' ? 'selected' : ''}>Show truncated label</option>
+                <option value="hover" ${this.label_display === 'hover' ? 'selected' : ''}>Show label only on hover</option>
             </select>
         `)
 
         // SPRAWL OPTIONS
-        legend.append(`
+        appendToEl(legend, `
             <label for="explore-sprawl-opt" class="me-1 mb-0">Sprawl Size:</label>
             <select id="explore-sprawl-opt" class="me-2 form-select-sm">
-                <option value="5" ${sender.per_type_limit === 5 ? 'selected' : ''}>5</option>
-                <option value="10" ${sender.per_type_limit === 10 ? 'selected' : ''}>10</option>
-                <option value="20" ${sender.per_type_limit === 20 ? 'selected' : ''}>20</option>
-                <option value="40" ${sender.per_type_limit === 40 ? 'selected' : ''}>40</option>
-                <option value="80" ${sender.per_type_limit === 80 ? 'selected' : ''}>80</option>
+                <option value="5" ${this.per_type_limit === 5 ? 'selected' : ''}>5</option>
+                <option value="10" ${this.per_type_limit === 10 ? 'selected' : ''}>10</option>
+                <option value="20" ${this.per_type_limit === 20 ? 'selected' : ''}>20</option>
+                <option value="40" ${this.per_type_limit === 40 ? 'selected' : ''}>40</option>
+                <option value="80" ${this.per_type_limit === 80 ? 'selected' : ''}>80</option>
             </select>
         `)
 
         // SINGLETON HIDING
-        legend.append(`
+        appendToEl(legend, `
             <button id="explore-hide-singletons" class="btn btn-sm btn-primary me-2">Hide Singletons</button>
         `)
 
         // HIDE SINGLETONS CLICK
-        $('#explore-hide-singletons').click(function() {
+        onEl(getEl('explore-hide-singletons'), 'click', () => {
             let singletons = []
-            sender.nodes.map(n => {
-                if (sender.network.getConnectedNodes(n.id).length === 1) singletons.push(n.id)
+            this.nodes.forEach(n => {
+                if (this.network.getConnectedNodes(n.id).length === 1) singletons.push(n.id)
             })
-            singletons.map(uri => {
-                let edge_ids = sender.network.getConnectedEdges(uri)
-                edge_ids.map(edge_id => sender.edges.remove(edge_id))
-                sender.nodes.remove(uri)
+            singletons.forEach(uri => {
+                this.network.getConnectedEdges(uri).forEach(edge_id => this.edges.remove(edge_id))
+                this.nodes.remove(uri)
             })
         })
 
         // SELECTED OPTIONS
         if (this.selected_uris.length) {
-            legend.append(`
+            appendToEl(legend, `
                 With selected: 
                 <select id="explore-selected-action" class="ms-1 form-select">
-                    <option value="explore" ${sender.last_action === 'explore' ? 'selected' : ''}>Explore in new tab</option>
-                    <option value="hide" ${sender.last_action === 'hide' ? 'selected' : ''}>Hide</option>
-                    <option value="sprawl" ${sender.last_action === 'sprawl' ? 'selected' : ''}>Sprawl</option>
-                    <option value="merge" ${sender.last_action === 'merge' ? 'selected' : ''}>Merge...</option>
+                    <option value="explore" ${this.last_action === 'explore' ? 'selected' : ''}>Explore in new tab</option>
+                    <option value="hide" ${this.last_action === 'hide' ? 'selected' : ''}>Hide</option>
+                    <option value="sprawl" ${this.last_action === 'sprawl' ? 'selected' : ''}>Sprawl</option>
+                    <option value="merge" ${this.last_action === 'merge' ? 'selected' : ''}>Merge...</option>
                 </select>
                 <button type="button" class="btn btn-primary btn-sm" id="explore-selected-action-button">Go</button>
             `)
 
-            $('#explore-selected-action-button').click(function() {
-                let action = $('#explore-selected-action').val()
-                let ct_name = sender.selected_uris[0].split('/')[3]
-                let multi_form = $('#multiselect-form')
+            onEl(getEl('explore-selected-action-button'), 'click', () => {
+                let action = getVal(getEl('explore-selected-action'))
+                let ct_name = this.selected_uris[0].split('/')[3]
+                let multi_form = getEl('multiselect-form')
 
                 if (action === 'explore') {
-                    multi_form.append(`
-                        <input type='hidden' name='content-uris' value='${sender.selected_uris.join(',')}'/>
+                    appendToEl(multi_form, `
+                        <input type='hidden' name='content-uris' value='${this.selected_uris.join(',')}'/>
                     `)
-                    multi_form.attr('action', `/corpus/${sender.corpus_id}/${ct_name}/explore/?popup=y`)
-                    multi_form.attr('target', '_blank')
+                    multi_form.setAttribute('action', `/corpus/${this.corpus_id}/${ct_name}/explore/?popup=y`)
+                    multi_form.setAttribute('target', '_blank')
                     multi_form.submit()
-                    multi_form.removeAttr('target')
+                    multi_form.removeAttribute('target')
                 } else if (action === 'merge') {
                     let content_ids = []
                     let cts_valid = true
 
-                    sender.selected_uris.map(uri => {
+                    this.selected_uris.forEach(uri => {
                         let uri_parts = uri.split('/')
                         if (uri_parts[3] === ct_name) {
                             content_ids.push(uri_parts[4])
@@ -537,146 +537,143 @@ class ContentGraph {
                     })
 
                     if (cts_valid) {
-                        $('#multiselect-content-ids').val(content_ids.join(','))
-                        multi_form.attr('action', `/corpus/${corpus_id}/${ct_name}/merge/`)
+                        setVal(getEl('multiselect-content-ids'), content_ids.join(','))
+                        // was the page-global `corpus_id`, unlike the explore branch above
+                        multi_form.setAttribute('action', `/corpus/${this.corpus_id}/${ct_name}/merge/`)
                         multi_form.submit()
                     } else {
                         alert("In order to merge content, all selected nodes must be of the same content type!")
                     }
                 } else if (action === 'hide') {
-                    sender.selected_uris.map(uri => sender.extrude_node(uri, true))
-                    sender.selected_uris = []
-                    sender.setup_legend()
+                    this.selected_uris.forEach(uri => this.extrude_node(uri, true))
+                    this.selected_uris = []
+                    this.setup_legend()
                 } else if (action === 'sprawl') {
-                    sender.selected_uris.map(uri => sender.sprawl_node(uri))
+                    this.selected_uris.forEach(uri => this.sprawl_node(uri))
                 }
 
-                sender.last_action = action
+                this.last_action = action
             })
         }
 
         // LEGEND CLICK EVENTS
-        $('.ct-legend-badge').click(function() {
-            clearTimeout(sender.click_timer)
-            let click_target = this
+        forElsMatching('.ct-legend-badge', badge => {
+          onEl(badge, 'click', () => {
+            clearTimeout(this.click_timer)
+            let explore_ct = badge.innerHTML
 
             // DOUBLE CLICK
-            if (sender.click_registered) {
-                sender.click_registered = false
-                let explore_ct = $(click_target).html()
-                sender.nodes.map(n => {
+            if (this.click_registered) {
+                this.click_registered = false
+                this.nodes.forEach(n => {
                     if (n.id.includes(`/${explore_ct}/`)) {
-                        sender.sprawl_node(n.id)
+                        this.sprawl_node(n.id)
                     }
                 })
             // SINGLE CLICK
             } else {
-                sender.click_registered = true
-                sender.click_timer = setTimeout(function() {
-                    sender.click_registered = false
+                this.click_registered = true
+                this.click_timer = setTimeout(() => {
+                    this.click_registered = false
 
-                    let explore_ct = $(click_target).html()
-                    $('#explore-ct-modal-label').html(`${explore_ct} Options`)
-                    $('.modal-proxy-ct').html(explore_ct)
+                    getEl('explore-ct-modal-label').innerHTML = `${explore_ct} Options`
+                    getElWithQuery('.modal-proxy-ct').innerHTML = explore_ct
 
                     let collapsible = true
-                    let hideable = !sender.hidden_cts.includes(explore_ct)
+                    let hideable = !this.hidden_cts.includes(explore_ct)
 
-                    let cv_div = $('#explore-ct-cv-div')
-                    cv_div.html('')
-                    if (Object.keys(sender.corpus.content_types[explore_ct]).includes('views')) {
-                        cv_div.append(`<select id="cv-selector" class="form-select" data-ct="${explore_ct}"><option value="--">None</option></select>`)
-                        let cv_selector = $('#cv-selector')
-                        sender.corpus.content_types[explore_ct].views.map(cv => {
+                    let cv_div = getEl('explore-ct-cv-div')
+                    cv_div.innerHTML = ''
+                    if (Object.keys(this.corpus.content_types[explore_ct]).includes('views')) {
+                        appendToEl(cv_div, `<select id="cv-selector" class="form-select" data-ct="${explore_ct}"><option value="--">None</option></select>`)
+                        let cv_selector = getEl('cv-selector')
+                        this.corpus.content_types[explore_ct].views.forEach(cv => {
                             let selected_indicator = ''
-                            if (sender.filtering_views.hasOwnProperty(explore_ct) && sender.filtering_views[explore_ct] === cv.neo_super_node_uri) {
+                            if (this.filtering_views.hasOwnProperty(explore_ct) && this.filtering_views[explore_ct] === cv.neo_super_node_uri) {
                                 selected_indicator = ' selected'
                             }
-                            cv_selector.append(`<option value="${cv.neo_super_node_uri}"${selected_indicator}>${cv.name}</option>`)
+                            appendToEl(cv_selector, `<option value="${cv.neo_super_node_uri}"${selected_indicator}>${cv.name}</option>`)
                         })
 
-                        cv_selector.change(function() {
-                            let ct = cv_selector.data('ct')
-                            let cv_supernode = cv_selector.val()
-                            if (cv_supernode === '--' && Object.keys(sender.filtering_views).includes(ct)) {
-                                delete sender.filtering_views[ct]
+                        onEl(cv_selector, 'change', () => {
+                            let ct = cv_selector.dataset.ct
+                            let cv_supernode = getVal(cv_selector)
+                            if (cv_supernode === '--' && Object.keys(this.filtering_views).includes(ct)) {
+                                delete this.filtering_views[ct]
                             } else {
-                                sender.filtering_views[ct] = cv_supernode
+                                this.filtering_views[ct] = cv_supernode
                             }
 
-                            sender.reset_graph()
-                            $('#explore-ct-modal').modal('hide')
+                            this.reset_graph()
+                            hideModal(getEl('explore-ct-modal'))
                         })
                     } else {
-                        cv_div.append(`
+                        appendToEl(cv_div, `
                             <div class="alert alert-info">
                                 No Content Views exist for this content type. Click <a id="create-cv-button" role="button">here</a> to create one. 
                             </div>
                         `)
                     }
 
-                    sender.collapsed_relationships.map(col_rel => {
+                    this.collapsed_relationships.forEach(col_rel => {
                         if (col_rel.proxy_ct === explore_ct) {
                             collapsible = false
                         }
                     })
 
-                    if (collapsible) {
-                        $('#explore-ct-modal-already-collapsed-div').addClass('d-none')
-                        $('#explore-ct-modal-collapse-div').removeClass('d-none')
-                    } else {
-                        $('#explore-ct-modal-already-collapsed-div').removeClass('d-none')
-                        $('#explore-ct-modal-collapse-div').addClass('d-none')
-                    }
+                    getEl('explore-ct-modal-already-collapsed-div').classList.toggle('d-none', collapsible)
+                    getEl('explore-ct-modal-collapse-div').classList.toggle('d-none', !collapsible)
+                    setDisabled(getEl('explore-ct-hide-button'), !hideable)
 
-                    if (hideable) {
-                        $('#explore-ct-hide-button').attr('disabled', false)
-                    } else {
-                        $('#explore-ct-hide-button').attr('disabled', true)
-                    }
-
-                    $('#explore-ct-modal').modal()
+                    showModal(getEl('explore-ct-modal'))
 
                 }, 700)
             }
+          })
         })
 
-        $('.uncollapse-link').click(function(e) {
-            e.preventDefault()
-            let col_proxy = $(this).data('collapse')
-            for (let cl_index = 0; cl_index < sender.collapsed_relationships.length; cl_index++) {
-                if (sender.collapsed_relationships[cl_index].proxy_ct === col_proxy) {
-                    sender.collapsed_relationships.splice(cl_index, 1)
-                    break
+        forElsMatching('.uncollapse-link', link => {
+            onEl(link, 'click', e => {
+                e.preventDefault()
+                let col_proxy = link.dataset.collapse
+                for (let cl_index = 0; cl_index < this.collapsed_relationships.length; cl_index++) {
+                    if (this.collapsed_relationships[cl_index].proxy_ct === col_proxy) {
+                        this.collapsed_relationships.splice(cl_index, 1)
+                        break
+                    }
                 }
-            }
-            sender.reset_graph()
-        })
-
-        $('.unhide-link').click(function(e) {
-            e.preventDefault()
-            let hid_index = sender.hidden_cts.indexOf($(this).data('hidden'))
-            sender.hidden_cts.splice(hid_index, 1)
-            sender.reset_graph()
-        })
-
-        $('#explore-label-opt').change(function() {
-            let option = $('#explore-label-opt').val()
-            sender.label_display = option
-            if (option === 'full') {
-                sender.network.setOptions({interaction:{tooltipDelay:3600000}})
-            } else {
-                sender.network.setOptions({interaction:{tooltipDelay:100}})
-            }
-
-            sender.nodes.map(n => {
-                sender.format_label(n)
-                sender.nodes.update(n)
+                this.reset_graph()
             })
         })
 
-        $('#explore-sprawl-opt').change(function() {
-            sender.per_type_limit = parseInt($(this).val())
+        forElsMatching('.unhide-link', link => {
+            onEl(link, 'click', e => {
+                e.preventDefault()
+                let hid_index = this.hidden_cts.indexOf(link.dataset.hidden)
+                this.hidden_cts.splice(hid_index, 1)
+                this.reset_graph()
+            })
+        })
+
+        let label_opt = getEl('explore-label-opt')
+        onEl(label_opt, 'change', () => {
+            let option = getVal(label_opt)
+            this.label_display = option
+            if (option === 'full') {
+                this.network.setOptions({interaction:{tooltipDelay:3600000}})
+            } else {
+                this.network.setOptions({interaction:{tooltipDelay:100}})
+            }
+
+            this.nodes.forEach(n => {
+                this.format_label(n)
+                this.nodes.update(n)
+            })
+        })
+
+        let sprawl_opt = getEl('explore-sprawl-opt')
+        onEl(sprawl_opt, 'change', () => {
+            this.per_type_limit = parseInt(getVal(sprawl_opt))
         })
     }
 
@@ -707,7 +704,6 @@ class ContentGraph {
             options
         )
 
-        let sender = this
         let node_ct = uri.split('/').slice(-2)[0]
         let node_id = uri.split('/').slice(-1)[0]
         let sprawl_node = this.nodes.get(uri)
@@ -723,7 +719,7 @@ class ContentGraph {
             per_type_limit: this.per_type_limit
         }
 
-        let filter_param = Object.keys(this.filtering_views).map(ct => `${ct}:${sender.filtering_views[ct]}`).join(',')
+        let filter_param = Object.keys(this.filtering_views).map(ct => `${ct}:${this.filtering_views[ct]}`).join(',')
         if (filter_param) { net_json_params['filters'] = filter_param; }
 
         let collapse_param = this.collapsed_relationships.map(rel => `${rel.from_ct}-${rel.proxy_ct}-${rel.to_ct}`).join(',')
@@ -741,20 +737,20 @@ class ContentGraph {
         this.sprawl_timer = setTimeout(this.await_sprawls.bind(this), 2000)
         let sprawl_index = this.sprawls.length - 1
 
-        this.corpora.get_network_json(this.corpus_id, node_ct, node_id, net_json_params, function(net_json) {
+        this.corpora.get_network_json(this.corpus_id, node_ct, node_id, net_json_params, net_json => {
             let children = []
             let origin_plotted = false
             let nodes_added = 0
 
             net_json.nodes.map(n => {
-                if (n.id !== sender.corpus_uri && !sender.nodes.get(n.id) && !sender.extruded_nodes.includes(n.id)) {
-                    n.label_data = sender.corpora.unescape(n.label)
-                    sender.format_label(n)
+                if (n.id !== this.corpus_uri && !this.nodes.get(n.id) && !this.extruded_nodes.includes(n.id)) {
+                    n.label_data = this.corpora.unescape(n.label)
+                    this.format_label(n)
                     if (n.id === uri) {
                         n.meta = net_json.meta
                         origin_plotted = true
                     }
-                    sender.nodes.add(n)
+                    this.nodes.add(n)
                     nodes_added += 1
                     if (opts.sprawl_children) {
                         children.push(n.id)
@@ -764,21 +760,21 @@ class ContentGraph {
 
             net_json.edges.map(e => {
                 e.id = `${e.from}-${e.to}`
-                if (!sender.extruded_nodes.includes(e.from) && !sender.extruded_nodes.includes(e.to) && !sender.edges.get(e.id)) {
-                    sender.edges.add(e)
+                if (!this.extruded_nodes.includes(e.from) && !this.extruded_nodes.includes(e.to) && !this.edges.get(e.id)) {
+                    this.edges.add(e)
                 }
             })
 
             if (!origin_plotted) {
-                sender.nodes.update([{'id': uri, 'meta': net_json.meta}])
+                this.nodes.update([{'id': uri, 'meta': net_json.meta}])
             }
 
             if (opts.sprawl_children) {
-                children.map(child_uri => sender.sprawl_node(child_uri))
+                children.map(child_uri => this.sprawl_node(child_uri))
             }
 
             if (!opts.meta_only && !opts.sprawl_ct && sprawl_node && sprawl_node.hasOwnProperty('meta') && nodes_added === 0) {
-                let plotted = sender.network.getConnectedEdges(uri).length
+                let plotted = this.network.getConnectedEdges(uri).length
                 let total_count = 0
                 for (let path in sprawl_node.meta) {
                     if (!sprawl_node.meta[path].collapsed) {
@@ -787,20 +783,20 @@ class ContentGraph {
                 }
                 if (plotted < total_count && opts.resprawls < 10) {
                     opts.resprawls += 1
-                    sender.sprawl_node(uri, opts)
+                    this.sprawl_node(uri, opts)
                 }
             }
             if (opts.pane_id) {
-                sender.build_meta_controls(uri, opts.pane_id)
+                this.build_meta_controls(uri, opts.pane_id)
             }
         })
 
         if (sprawl_node && !opts.meta_only && !opts.sprawl_ct) {
             sprawl_node.skip = skip += this.per_type_limit
-            sender.nodes.update(sprawl_node)
+            this.nodes.update(sprawl_node)
         }
 
-        sender.sprawls[sprawl_index] = true
+        this.sprawls[sprawl_index] = true
     }
 
     await_sprawls() {
@@ -827,10 +823,9 @@ class ContentGraph {
     }
 
     build_meta_controls(uri, pane_id) {
-        let sender = this
         let node = this.nodes.get(uri)
-        let meta_div = $(`#${pane_id}-meta`)
-        meta_div.html('')
+        let meta_div = getEl(`${pane_id}-meta`)
+        meta_div.innerHTML = ''
         if (!node.hasOwnProperty('meta')) {
             this.sprawl_node(uri, {pane_id: pane_id, meta_only: true})
         } else {
@@ -851,7 +846,7 @@ class ContentGraph {
                 let sprawl_ct = path_parts[path_parts.length - 1]
                 if (this.groups.hasOwnProperty(sprawl_ct)) {
                     let plotted = ct_counts.hasOwnProperty(sprawl_ct) ? ct_counts[sprawl_ct] : 0
-                    meta_div.append(`
+                    appendToEl(meta_div, `
                         <span
                             class="badge me-1 p-1 meta-badge"
                             style="background-color: ${this.groups[sprawl_ct].color}; color: #FFFFFF; cursor: pointer;"
@@ -863,11 +858,13 @@ class ContentGraph {
                 }
             }
 
-            $('.meta-badge').off('click').on('click', function() {
-                sender.sprawl_node($(this).data('uri'), {
-                    pane_id: pane_id,
-                    sprawl_ct: $(this).data('sprawl_ct'),
-                    skip: parseInt($(this).data('skip'))
+            forElsMatching('.meta-badge', badge => {
+                onlyOnEl(badge, 'click', () => {
+                    this.sprawl_node(badge.dataset.uri, {
+                        pane_id: pane_id,
+                        sprawl_ct: badge.dataset.sprawl_ct,
+                        skip: parseInt(badge.dataset.skip)
+                    })
                 })
             })
         }
@@ -884,7 +881,6 @@ class ContentGraph {
     }
 
     extrude_node(uri, remove_isolated=false) {
-        let sender = this
         this.extruded_nodes.push(uri)
         let edge_ids = this.network.getConnectedEdges(uri)
         edge_ids.map(edge_id => this.edges.remove(edge_id))
@@ -892,12 +888,9 @@ class ContentGraph {
 
         if (remove_isolated) {
             let isolated_nodes = new vis.DataView(this.nodes, {
-                filter: function (node) {
-                    let connEdges = sender.edges.get({
-                        filter: function (edge) {
-                            return (
-                                (edge.to == node.id) || (edge.from == node.id))
-                        }
+                filter: node => {
+                    let connEdges = this.edges.get({
+                        filter: edge => (edge.to == node.id) || (edge.from == node.id)
                     })
                     return connEdges.length == 0
                 }
@@ -911,7 +904,7 @@ class ContentGraph {
         if (!this.panes_displayed[uri].pinned) {
             this.panes_displayed[uri].pinned = true
             let pin_id = `${uri.replace(/\//g, '-')}-pane-pin`
-            $(`#${pin_id}`).css('color', '#EF3E36')
+            getEl(pin_id).style.color = '#EF3E36'
         } else {
             this.panes_displayed[uri].pinned = false
             this.remove_unpinned_panes()
@@ -1008,7 +1001,7 @@ class ContentGraph {
         for (let pane_uri in this.panes_displayed) {
             if (!this.panes_displayed[pane_uri].pinned) {
                 let pane_id = `${pane_uri.replace(/\//g, '-')}-pane`
-                $(`#${pane_id}`).remove()
+                removeEl(getEl(pane_id))
                 delete this.panes_displayed[pane_uri]
             }
         }
