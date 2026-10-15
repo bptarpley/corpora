@@ -40,7 +40,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="deletion-confirmation-modal-label">Confirm Deletion</h5>
-          <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
           </button>
         </div>
         <div class="modal-body">
@@ -49,7 +49,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <form method="post">
             {% csrf_token %}
             <input type="hidden" name="delete-content" value="y" />
@@ -87,9 +87,9 @@
                                     <div class="col-sm-1 ps-sm-2 mt-sm-0 col-12 mt-2">
                                         <button role="button"
                                             class="btn btn-sm btn-danger w-100"
-                                            onclick="console.log('stuff was deleted'); $('#{{ field.name }}-editor-row-{{ forloop.counter0 }}').empty().remove()"
-                                            data-toggle="tooltip"
-                                            data-placement="top"
+                                            onclick="removeEl(getEl('{{ field.name }}-editor-row-{{ forloop.counter0 }}'))"
+                                            data-bs-toggle="tooltip"
+                                            data-bs-placement="top"
                                             title="Delete this value">
                                             <span class="fas fa-trash-alt"></span>
                                         </button>
@@ -121,14 +121,14 @@
                 {% if content_ids %}
                     <input type="hidden" id="content-ids-input" name="content-ids" value="{{ content_ids }}">
                 {% elif content_query %}
-                    <input type="hidden" id="content-query-input" name="content-query" value=''>
+                    <input type="hidden" id="content-query-input" name="content-query" value="{{ content_query }}">
                 {% endif %}
             </form>
             <div class="alert alert-info">
                 <button type="button" class="btn btn-primary" id="content-save-button">Save</button>
                 <button type="button" class="btn btn-primary {% if popup %}d-none{% endif %}" id="content-save-and-create-button">Save and Create New</button>
                 <a role="button" href="/corpus/{{ corpus_id }}/" class="btn btn-secondary {% if popup %}d-none{% endif %}">Cancel</a>
-                <button id="content-delete-button" class="btn btn-sm btn-danger float-end {% if popup %}d-none{% endif %}" title="Delete" data-toggle="modal" data-target="#deletion-confirmation-modal"><span class="fas fa-trash-alt"></span></button>
+                <button id="content-delete-button" class="btn btn-sm btn-danger float-end {% if popup %}d-none{% endif %}" title="Delete" data-bs-toggle="modal" data-bs-target="#deletion-confirmation-modal"><span class="fas fa-trash-alt"></span></button>
             </div>
 
         </div>
@@ -158,7 +158,7 @@
         let content_query = {{ content_query|safe }};
         {% endif %}
 
-        $(document).ready(function() {
+        document.addEventListener('DOMContentLoaded', function() {
             // The JavaScript for our form components sometimes expect for both 'corpora' and 'corpus' to exist first.
             // For this reason we'll not "mount" the components until we've fetched the data for our corpus.
             corpora.get_corpus(corpus_id, function(corpus_data) {
@@ -168,25 +168,25 @@
                 mount_components()
 
                 // Multivalued fields have an "add" button we need to respond to when clicked:
-                $('.multi-value-add-button').click(function() {
-                    let button = $(this)
-                    let field_type = button.data('field_type')
-                    let field_name = button.data('field_name')
-                    let value_index = button.data('value_index')
-                    let multi_value_add_row = $(`#${field_name}-multi-value-add-row`)
+                onElsMatching('.multi-value-add-button', 'click', event => {
+                    let button = event.currentTarget
+                    let field_type = button.dataset.field_type
+                    let field_name = button.dataset.field_name
+                    let value_index = button.dataset.value_index
+                    let multi_value_add_row = getEl(`${field_name}-multi-value-add-row`)
                     let new_value_id = `${field_name}-editor-row-${value_index}`
                     let new_field_container_id = `${field_name}-container-${value_index}`
 
                     // Here we're just adding the infrastructure for rendering our new field components
-                    multi_value_add_row.before(`
+                    multi_value_add_row.insertAdjacentHTML('beforebegin', `
                         <div id="${new_value_id}" class="row no-gutters p-2 multi-value-row">
                             <div id="${new_field_container_id}" class="col-sm-11 col-12 multi-${field_type}-col"></div>
                             <div class="col-sm-1 ps-sm-2 mt-sm-0 col-12 mt-2">
                                 <button role="button"
                                     class="btn btn-sm btn-danger w-100"
-                                    onclick="$('#${new_value_id}').empty().remove()"
-                                    data-toggle="tooltip"
-                                    data-placement="top"
+                                    onclick="removeEl(getEl('${new_value_id}'))"
+                                    data-bs-toggle="tooltip"
+                                    data-bs-placement="top"
                                     title="Delete this value">
                                     <span class="fas fa-trash-alt"></span>
                                 </button>
@@ -198,114 +198,87 @@
                     fetch(`/render/${field_type}/edit/html/${field_name}/${value_index}/`)
                         .then(template => template.text())
                         .then(template => {
-                            $(`#${new_field_container_id}`).html(template)
+                            getEl(new_field_container_id).innerHTML = template
                             mount_components()
-                            button.data('value_index', parseInt(button.data('value_index')) + 1)
+                            // dataset, not jQuery's .data() store: the original wrote to
+                            // jQuery's internal cache, so the attribute never changed
+                            button.dataset.value_index = parseInt(button.dataset.value_index) + 1
                         })
                 })
 
                 if (!is_popup) add_breadcrumb(corpus.name, `/corpus/${corpus_id}/`)
 
                 if (!content_id.length) {
-                    $('#content-delete-button').addClass('d-none')
+                    hideEl(getEl('content-delete-button'))
                 }
 
                 if (edit_widget_url.length) {
                     show_widget_col()
-                    let widget_iframe = $('#edit-widget-iframe')
-                    widget_iframe.removeClass('d-none')
-                    widget_iframe.attr('src', edit_widget_url)
+                    let widget_iframe = getEl('edit-widget-iframe')
+                    showEl(widget_iframe)
+                    widget_iframe.setAttribute('src', edit_widget_url)
                 }
 
                 if (bulk_editing) {
-                    $('#content-save-and-create-button').addClass('d-none')
-                    $('.bulk-editing-checkbox').change(function() {
-                        let checkbox = $(this)
-                        let field_name = checkbox.data('field_name')
-                        let bulk_edit_row = $(`#${field_name}-bulk-editing-row`)
+                    hideEl(getEl('content-save-and-create-button'))
+                    onElsMatching('.bulk-editing-checkbox', 'change', event => {
+                        let checkbox = event.currentTarget
+                        let field_name = checkbox.dataset.field_name
+                        let bulk_edit_row = getEl(`${field_name}-bulk-editing-row`)
 
-                        if (checkbox.is(':checked')) {
+                        if (checkbox.checked) {
                             bulk_edit_fields.push(field_name)
-                            bulk_edit_row.slideDown('slow')
+                            toggleDrawer(bulk_edit_row, true)
                         } else {
                             bulk_edit_fields = bulk_edit_fields.filter(e => e !== field_name)
-                            bulk_edit_row.slideUp('slow')
+                            toggleDrawer(bulk_edit_row, false)
                         }
                     })
                 }
 
-                $('#content-save-button').click(function() {
+                onEl(getEl('content-save-button'), 'click', () => {
                     if (bulk_editing) {
-                        $('.edit-field-div').each(function() {
-                            if (!bulk_edit_fields.includes($(this).data('field'))) {
-                                $(this).remove();
-                            }
-                        });
+                        forElsMatching('.edit-field-div', div => {
+                            if (!bulk_edit_fields.includes(div.dataset.field)) removeEl(div)
+                        })
                     }
 
-                    if (bundle_content()) {
-                        let content_form = $('#content-form');
-                        content_form.submit();
-                    }
-                });
+                    if (bundle_content()) getEl('content-form').requestSubmit()
+                })
 
-                $('#content-save-and-create-button').click(function() {
-                    let content_form = $('#content-form');
-                    content_form.append('<input type="hidden" name="save-and-create" value="y" />');
-                    if (bundle_content())
-                        content_form.submit()
-                });
+                onEl(getEl('content-save-and-create-button'), 'click', () => {
+                    let content_form = getEl('content-form')
+                    appendToEl(content_form, '<input type="hidden" name="save-and-create" value="y" />')
+                    if (bundle_content()) content_form.requestSubmit()
+                })
 
                 hide_loading_overlay()
             })
         })
 
         function mount_components() {
-            let hasResizeEvent = false
-
-            $('[data-csrf]').each(function() { $(this).data('csrf', '{{ csrf_token }}') })
-
-            $('[data-events]:not([data-mounted])').each(function() {
-                let events = this.getAttribute('data-events')
-                events = events.split(';')
-                events.forEach(event => {
-                    let [occasion, callback] = event.split(':')
-                    if (occasion === 'load') {
-                        window[callback](this)
-                    } else if (occasion === 'resize') {
-                        hasResizeEvent = true
-                    } else {
-                        $(this).on(occasion, window[callback])
-                    }
-                })
-                this.setAttribute('data-mounted', true)
-            })
-
-            if (hasResizeEvent) {
-                $(window).resize(function() {
-                    $('[data-events]').each(function() {
-                        let events = this.getAttribute('data-events')
-                        events = events.split(';')
-                        events.forEach(event => {
-                            let [occasion, callback] = event.split(':')
-                            if (occasion === 'resize') {
-                                window[callback](this)
-                            }
-                        })
-                    })
-                })
-            }
+            forElsMatching('[data-csrf]', el => { el.dataset.csrf = '{{ csrf_token }}' })
+            mountDataEvents()
+            initTooltips()
         }
 
         function show_widget_col(callback) {
-            $('#content-form-col').addClass('col-md-6')
-            $('#edit-widget-col').removeClass('d-none')
+            getEl('content-form-col').classList.add('col-md-6')
+            showEl(getEl('edit-widget-col'))
             setTimeout(callback, 1000)
         }
 
+        // Callable by a widget living in an iframe in the event widget chooses to hide itself.
+        // Must stay a top-level function declaration so window.hide_content_widget exists
+        // for the child to find.
+        function hide_content_widget() {
+            hideEl(getEl('edit-widget-iframe'))
+            hide_widget_col()
+        }
+
         function hide_widget_col(callback) {
-            $('#content-form-col').removeClass('col-md-6')
-            $('#edit-widget-col').addClass('d-none')
+            getEl('content-form-col').classList.remove('col-md-6')
+            hideEl(getEl('edit-widget-col'))
             setTimeout(callback, 1000)
         }
 
@@ -323,31 +296,30 @@
                 }
             })
 
-            $('.field-value').each(function() {
-                let control = $(this)
-                let field_name = control.data('field_name')
-                let value_format = control.data('value_format')
+            forElsMatching('.field-value', control => {
+                let field_name = control.dataset.field_name
+                let value_format = control.dataset.value_format
                 let value = null
 
                 if (!bulk_editing || (bulk_editing && bulk_edit_fields.includes(field_name))) {
                     if (value_format.startsWith('javascript') && value_format.includes(':')) {
                         let function_name = value_format.split(':')[1]
-                        value = window[function_name](control[0])
+                        value = window[function_name](control)
                         if (value === '') value = null
                     } else if (value_format === 'json') {
-                        try { value = JSON.parse(control.val()) }
+                        try { value = JSON.parse(getVal(control)) }
                         catch (error) { value = null }
                     } else if (value_format === 'boolean') {
-                        value = control.val() === 'true'
+                        value = getVal(control) === 'true'
                     } else if (value_format === 'integer') {
-                        if (control.val() === '') value = null
-                        else value = parseInt(control.val())
+                        if (getVal(control) === '') value = null
+                        else value = parseInt(getVal(control))
                     } else if (value_format === 'float') {
-                        if (control.val() === '') value = null
-                        else value = parseFloat(control.val())
+                        if (getVal(control) === '') value = null
+                        else value = parseFloat(getVal(control))
                     } else
-                        if (control.val() === '') value = null
-                        else value = control.val()
+                        if (getVal(control) === '') value = null
+                        else value = getVal(control)
 
                     if (multi_map[field_name]) {
                         if(value !== null) bundle[field_name].push({value: value})
@@ -359,10 +331,10 @@
             console.log(bundle);
 
             if (errors.length === 0) {
-                $('#content-form').append(`
+                appendToEl(getEl('content-form'), `
                     <input type="hidden" id="content-bundle" name="content-bundle">
-                `);
-                $('#content-bundle').val(JSON.stringify(bundle))
+                `)
+                setVal(getEl('content-bundle'), JSON.stringify(bundle))
                 return true
             } else {
                 alert(`One or more errors were encountered: ${errors.join(' ')}`)
