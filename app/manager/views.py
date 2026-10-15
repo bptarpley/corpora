@@ -97,9 +97,42 @@ def corpora(request):
 
         elif 'admin-action' in request.POST:
             action = _clean(request.POST, 'admin-action')
-            if action == 'scrub-provenance':
-                scrub_all_provenance()
-                context['messages'].append("Provenance scrubbing job launched!")
+
+            # Instance-wide maintenance. These are chained rather than launched in
+            # parallel -- the first corpus gets a job, and each job queues the next on
+            # completion -- so only one corpus is ever being reindexed/relinked at a
+            # time. See _chain_corpora_maintenance in manager.tasks.
+            CORPORA_MAINTENANCE_TASKS = {
+                'reindex-corpora': 'Reindex Corpora',
+                'relink-corpora': 'Relink Corpora',
+            }
+
+            if action in CORPORA_MAINTENANCE_TASKS:
+                task_name = CORPORA_MAINTENANCE_TASKS[action]
+                corpus_ids = [str(c.id) for c in Corpus.objects().order_by('name').only('id')]
+
+                if not corpus_ids:
+                    context['errors'].append("There are no corpora to process.")
+                else:
+                    first = get_corpus(corpus_ids[0])
+                    job_id = first.queue_local_job(
+                        task_name=task_name,
+                        scholar_id=context['scholar'].id,
+                        parameters={'remaining_corpus_ids': ','.join(corpus_ids[1:])}
+                    )
+
+                    if job_id:
+                        run_job(job_id)
+                        context['messages'].append(
+                            '{0} started for {1} corpus(es), beginning with "{2}". '
+                            'Each corpus is processed in turn -- track progress below.'.format(
+                                task_name, len(corpus_ids), first.name
+                            )
+                        )
+                    else:
+                        context['errors'].append(
+                            'Unable to queue the "{0}" task. Is it registered on the Local jobsite?'.format(task_name)
+                        )
 
     scholar_corpora = get_scholar_corpora(context['scholar'], page_size=1000)
     if scholar_corpora:
