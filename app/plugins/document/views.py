@@ -188,15 +188,6 @@ def document(request, corpus_id, document_id):
                         if not process_document_file_upload(document, import_file, response['scholar']['username']):
                             response['errors'].append("A file with this name already exists for this document.")
 
-                # HANDLE JOB RETRIES
-                elif _contains(request.POST, ['retry-job-id']):
-                    retry_job_id = _clean(request.POST, 'retry-job-id')
-                    for completed_task in document.provenance:
-                        if completed_task.job_id == retry_job_id:
-                            job = Job.setup_retry_for_completed_task(corpus_id, 'Document', document_id, completed_task)
-                            document.modify(pull__provenance=completed_task)
-                            run_job(job.id)
-
                 # HANDLE PAGE SET CREATION
                 elif _contains(request.POST, ['pageset-name', 'pageset-start', 'pageset-end']):
                     ps_label = _clean(request.POST, 'pageset-name')
