@@ -10,10 +10,10 @@ function renderFileField(target) {
         setVal(value_control, '/' + target.dataset.value.split('/').slice(7).join('/'))
         hideEl(target)
     } else {
-        let pond = FilePond.create(target[0], {
+        let pond = FilePond.create(target, {
             allowMultiple: false,
             chunkUploads: true,
-            chunkSize: 500000,
+            chunkSize: 5000000,
             credits: false,
             server: {
                 url: '/fp',
