@@ -1,5 +1,6 @@
 import os
 import json
+from copy import deepcopy
 from django.conf import settings
 from django.shortcuts import render, HttpResponse, redirect
 from django.http import Http404
@@ -244,7 +245,9 @@ def document(request, corpus_id, document_id):
                         job.task_id = str(task.id)
                         job.scholar = response['scholar'].id
                         job.jobsite = jobsite.id
-                        job.configuration = task.configuration
+                        # deepcopy, or setting parameter values below mutates the
+                        # Task document's own configuration dict
+                        job.configuration = deepcopy(task.configuration)
                         for parameter in task_parameters:
                             job.configuration['parameters'][parameter]['value'] = _clean(request.POST, parameter)
                         job.save()
