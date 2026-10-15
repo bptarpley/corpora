@@ -43,6 +43,7 @@ from .utilities import (
     order_content_schema,
     process_content_bundle,
     process_corpus_backup_file,
+    place_uploaded_file,
     fix_mongo_json,
     delimit_content_json,
     create_content_csv_rows,
@@ -161,24 +162,26 @@ def corpus(request, corpus_id):
             if scholar_has_privilege('Editor', role):
 
                 # HANDLE IMPORT CORPUS FILES FORM SUBMISSION
-                if 'import-corpus-files' in request.POST:
-                    import_files = json.loads(request.POST['import-corpus-files'])
+                if _contains(request.POST, ['corpus-file-import', 'corpus-file-upload-id']):
+                    upload_id = _clean(request.POST, 'corpus-file-upload-id')
                     upload_path = corpus.path + '/files'
+                    new_path = place_uploaded_file(upload_id, upload_path)
 
-                    for import_file in import_files:
-                        import_file_path = "{0}{1}".format(upload_path, import_file)
-                        fixed_basename = re.sub(r'[^a-zA-Z0-9\\.\\-]', '_', os.path.basename(import_file_path))
-                        import_file_path = "{0}/{1}".format(os.path.dirname(import_file_path), fixed_basename)
+                    if os.path.exists(new_path):
+                        extension = new_path.split('.')[-1]
+                        corpus.save_file(File.process(
+                            new_path,
+                            desc=extension.upper() + " File",
+                            prov_type="User Import",
+                            prov_id=response['scholar']['username'],
+                            primary=False
+                        ))
+                    else:
+                        response['errors'].append('''
+                            An error occurred while processing uploaded file.
+                        ''')
 
-                        if os.path.exists(import_file_path):
-                            extension = import_file.split('.')[-1]
-                            corpus.save_file(File.process(
-                                import_file_path,
-                                desc=extension.upper() + " File",
-                                prov_type="User Import",
-                                prov_id=response['scholar']['username'],
-                                primary=False
-                            ))
+                    nav_target = {'tab': 'metadata-tab', 'id': f'corpus-files-div'}
 
                 # HANDLE CORPUS FILE DELETION - only scholars with Admin or higher
                 elif 'corpus-files-to-delete' in request.POST and scholar_has_privilege('Admin', role):
