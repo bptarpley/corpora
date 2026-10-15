@@ -896,36 +896,6 @@ def merge_content(request, corpus_id, content_type):
     raise Http404("You are not authorized to view this page.")
 
 
-@login_required
-def job_widget(request, corpus_id=None, content_type=None, content_id=None):
-    context = _get_context(request)
-    role = None
-    if context['scholar'].is_admin:
-        role = 'Admin'
-    elif corpus_id:
-        corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
-
-    if role in ['Admin', 'Editor']:
-        if request.method == 'POST' and 'kill-job-id' in request.POST:
-            kill_job_id = _clean(request.POST, 'kill-job-id')
-            job = Job(kill_job_id)
-            job.kill()
-
-        return render(
-            request,
-            'JobsWidget.html',
-            {
-                'popup': True,
-                'role': role,
-                'corpus_id': corpus_id,
-                'content_type': content_type,
-                'content_id': content_id
-            }
-        )
-    else:
-        raise Http404("You are not authorized to view this page.")
-
-
 def iiif_widget(request, corpus_id, content_type, content_id, content_field):
     context = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, context['scholar'])
