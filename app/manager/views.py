@@ -176,17 +176,20 @@ def corpus(request, corpus_id):
         if request.method == 'POST' and scholar_has_privilege('Contributor', role):
 
             # HANDLE CONTENT DELETION
-            if _contains(request.POST, ['deletion-confirmed', 'content-type', 'content-ids']):
+            #
+            # An explicit list of ids is deleted here and now -- it is bounded by what a
+            # user could select by hand. A search is handed to the Bulk Delete Content job
+            # instead, because it can match far more content than a request should chew
+            # through, and because every matching id has to be gathered before anything is
+            # deleted (see the note in that task).
+            if _contains(request.POST, ['deletion-confirmed', 'content-type']):
                 deletion_ct = _clean(request.POST, 'content-type')
-                deletion_ids = _clean(request.POST, 'content-ids')
+                deletion_ids = _clean(request.POST, 'content-ids', '')
+                # not _clean: escape() would mangle the JSON's quotes
+                deletion_query = request.POST.get('content-query', None)
 
                 if deletion_ct in corpus.content_types:
-                    if deletion_ids == 'all':
-                        corpus.delete_content_type(deletion_ct, content_only=True)
-                        response['messages'].append("All instances of {0} were successfully deleted.".format(
-                            corpus.content_types[deletion_ct].plural_name
-                        ))
-                    else:
+                    if deletion_ids:
                         deletion_ids = [d_id for d_id in deletion_ids.split(',') if d_id]
                         deleted = []
                         for deletion_id in deletion_ids:
@@ -205,6 +208,32 @@ def corpus(request, corpus_id):
                                 corpus.content_types[deletion_ct].plural_name,
                                 '<br>'.join(deleted)
                             ))
+
+                    elif deletion_query:
+                        job_id = corpus.queue_local_job(
+                            task_name='Bulk Delete Content',
+                            scholar_id=response['scholar'].id,
+                            parameters={
+                                'content_type': deletion_ct,
+                                'content_query': deletion_query
+                            }
+                        )
+
+                        if job_id:
+                            run_job(job_id)
+                            response['messages'].append(
+                                "A job was launched to delete the {0} matching your search. "
+                                "Track its progress below.".format(
+                                    corpus.content_types[deletion_ct].plural_name
+                                )
+                            )
+                        else:
+                            response['errors'].append(
+                                'Unable to queue the "Bulk Delete Content" task. '
+                                'Is it registered on the Local jobsite?'
+                            )
+
+                    nav_target = {'tab': 'content-tab', 'id': f'content-tab-{deletion_ct}-table'}
 
             # EDITOR OR HIGHER POST REQUESTS
             if scholar_has_privilege('Editor', role):
