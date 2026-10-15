@@ -46,7 +46,7 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">Add a Git Repository</h5>
-                        <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
                         </button>
                     </div>
                     <div class="modal-body">
@@ -78,7 +78,7 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                         <input type="submit" class="btn btn-primary" id="new-repo-save-button" value="Save" />
                     </div>
                 </div>
@@ -92,7 +92,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="new-ct-modal-label">Create New Content Type</h5>
-                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
                     </button>
                 </div>
                 <div class="modal-body">
@@ -118,7 +118,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-primary" id="new-ct-create-button">Save</button>
                 </div>
             </div>
@@ -131,7 +131,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="new-f-modal-label">Create New Field</h5>
-                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
                     </button>
                 </div>
                 <div id="new-f-modal-body" class="modal-body">
@@ -221,7 +221,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-primary" id="new-f-create-button">Create</button>
                 </div>
             </div>
@@ -234,12 +234,12 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="new-ct-group-modal-label">Create New Content Type Group</h5>
-                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
                     </button>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label for="new-ct-name-box">Title</label>
+                        <label for="new-ct-group-title-box">Title</label>
                         <input id="new-ct-group-title-box" type="text" class="form-control">
                         <div class="text-muted mt-3">
                             A content type group allows you to put content types into containers that have a title
@@ -249,7 +249,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-primary" id="new-ct-group-create-button">Save</button>
                 </div>
             </div>
@@ -262,7 +262,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="template-modal-label">Edit Template</h5>
-                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="template-ct-name" value="">
@@ -287,7 +287,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-primary" id="template-save-button">Save</button>
                 </div>
             </div>
@@ -300,7 +300,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="import-modal-label">Import Schema</h5>
-                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
                     </button>
                 </div>
                 <div class="modal-body">
@@ -312,7 +312,7 @@
                             <option selected>Import plugin schema...</option>
                         </select>
                     </div>
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn btn-primary" id="import-button">Import</button>
                 </div>
             </div>
@@ -324,19 +324,19 @@
 {% block main %}
         <ul id="content-nav-tabs" class="nav nav-tabs mt-0" role="tablist">
             <li class="nav-item" role="presentation">
-                <a class="nav-link active" id="content-tab" data-toggle="tab" href="#content-tab-contents" role="tab" aria-controls="content-tab-contents" aria-selected="true">Content</a>
+                <a class="nav-link active" id="content-tab" data-bs-toggle="tab" href="#content-tab-contents" role="tab" aria-controls="content-tab-contents" aria-selected="true">Content</a>
             </li>
             {% if role|has_privilege:"Contributor" %}
             <li class="nav-item" role="presentation">
-                <a class="nav-link" id="views-tab" data-toggle="tab" href="#views-tab-contents" role="tab" aria-controls="views-tab-contents" aria-selected="false">Views</a>
+                <a class="nav-link" id="views-tab" data-bs-toggle="tab" href="#views-tab-contents" role="tab" aria-controls="views-tab-contents" aria-selected="false">Views</a>
             </li>
             {% endif %}
             <li class="nav-item" role="presentation">
-                <a class="nav-link" id="metadata-tab" data-toggle="tab" href="#metadata-tab-contents" role="tab" aria-controls="metadata-tab-contents" aria-selected="false">Metadata</a>
+                <a class="nav-link" id="metadata-tab" data-bs-toggle="tab" href="#metadata-tab-contents" role="tab" aria-controls="metadata-tab-contents" aria-selected="false">Metadata</a>
             </li>
             {% if role|has_privilege:"Editor" %}
             <li class="nav-item" role="presentation">
-                <a class="nav-link" id="admin-tab" data-toggle="tab" href="#admin-tab-contents" role="tab" aria-controls="admin-tab-contents" aria-selected="false">Admin</a>
+                <a class="nav-link" id="admin-tab" data-bs-toggle="tab" href="#admin-tab-contents" role="tab" aria-controls="admin-tab-contents" aria-selected="false">Admin</a>
             </li>
             {% endif %}
         </ul>
@@ -352,7 +352,7 @@
                         </div>
                         {% if role|has_privilege:"Editor" %}
                         <div class="col-md-1 text-end">
-                            <button type="button" id="new-ct-group-button" class="btn btn-primary btn-sm rounded" data-toggle="modal" data-target="#new-ct-group-modal">New Group</button>
+                            <button type="button" id="new-ct-group-button" class="btn btn-primary btn-sm rounded" data-bs-toggle="modal" data-bs-target="#new-ct-group-modal">New Group</button>
                         </div>
                         {% endif %}
                     </div>
@@ -632,6 +632,7 @@
         let plugin_schema = [];
         let ct_tables = {};
         let ct_graph = null;
+        let node_ids = [];
         let selected_content = {};
         let import_editor;
         let template_editor;
@@ -664,22 +665,22 @@
         const INVALID_FIELD_NAMES = {{ invalid_field_names|safe }}
 
         // fires once HTML DOM has loaded
-        $(document).ready(function() {
+        document.addEventListener('DOMContentLoaded', function() {
             // query corpora api for corpus data
             corpora.get_corpus(corpus_id, function(corpus_data) {
                 corpus = corpus_data
 
                 // core metadata
-                $('#corpus-name-span').html(corpus.name)
-                $('#corpus-desc-span').html(corpus.description)
-                $('#corpus-path-span').html(corpus.path)
+                getEl('corpus-name-span').innerHTML = corpus.name
+                getEl('corpus-desc-span').innerHTML = corpus.description
+                getEl('corpus-path-span').innerHTML = corpus.path
 
                 // user metadata
-                let corpus_metadata_div = $('#corpus-metadata-div')
+                let corpus_metadata_div = getEl('corpus-metadata-div')
                 for (let key in corpus.kvp) {
                     let kvp_value_type = typeof(corpus.kvp[key])
                     if (!key.startsWith("_") && ["string", "boolean", "number"].includes(kvp_value_type)) {
-                        corpus_metadata_div.append(`
+                        appendToEl(corpus_metadata_div, `
                             <div class="list-group-item">
                                 <h5>${key}</h5>
                                 ${corpus.kvp[key]}
@@ -688,10 +689,38 @@
                     }
                 }
 
-                // load corpus files
-                let corpus_files_div = $('#corpus-files-div')
+                // ------------------------------
+                // LOAD CORPUS FILES
+                // ------------------------------
+                // rig up filepond
+                if(corpora.scholar_has_privilege('Editor', role)) {
+                    const import_corpus_file_pond = FilePond.create(getEl('import-corpus-file-pond'), {
+                        allowMultiple: false,
+                        allowRevert: false,
+                        chunkUploads: true,
+                        chunkSize: 5000000,
+                        credits: false,
+                        server: {
+                            url: '/fp',
+                            process: '/process/',
+                            patch: '/patch/',
+                            revert: '/revert/',
+                            fetch: '/fetch/?target=',
+                            headers: {'X-CSRFToken': '{{ csrf_token }}'}
+                        }
+                    })
+                    import_corpus_file_pond.on('processfile', (error, file) => {
+                        if(!error) {
+                            getEl('corpus-file-upload-id').value = file.serverId
+                            getEl('import-corpus-file-form').requestSubmit()
+                        }
+                    })
+                }
+                // render files table
+                let corpus_files_div = getEl('corpus-files-div')
                 if (Object.keys(corpus.files).length > 0) {
-                    corpus_files_div.html(`
+                    getEl('no-corpus-files-message').remove()
+                    appendToEl(corpus_files_div, `
                         <table class="table table-striped">
                             <thead class="thead-dark">
                                 <th scope="col">
@@ -715,7 +744,7 @@
                         </table>
                     `)
 
-                    let corpus_files_tbody = $('#corpus-files-table-body')
+                    let corpus_files_tbody = getEl('corpus-files-table-body')
                     for (let file_key in corpus.files) {
                         let file = corpus.files[file_key]
 
@@ -729,7 +758,7 @@
                             open_mode = `download="${file.basename}"`
                         }
 
-                        corpus_files_tbody.append(`
+                        appendToEl(corpus_files_tbody, `
                             <tr>
                                 <td>
                                     ${ is_admin ? `<input type="checkbox" class="corpus-file-checkbox" data-file_key="${file_key}">` : '' }
@@ -749,59 +778,56 @@
                             </tr>
                         `)
                     }
-
+                    // render footer and delete button
                     if (is_admin) {
-                        let files_footer = $('#corpus-files-footer')
-                        let select_all_box = $('#corpus-files-select-all-checkbox')
-                        let delete_button = $('#corpus-files-delete-button')
-                        files_footer.removeClass('d-none')
-                        files_footer.addClass('d-flex')
+                        let files_footer = getEl('corpus-files-footer')
+                        let select_all_box = getEl('corpus-files-select-all-checkbox')
+                        let delete_button = getEl('corpus-files-delete-button')
 
-                        select_all_box.change(function () {
-                            let is_selected = select_all_box.is(':checked')
+                        files_footer.classList.remove('d-none')
+                        files_footer.classList.add('d-flex')
 
-                            $('.corpus-file-checkbox').each(function () {
-                                $(this).prop("checked", is_selected)
-                                $(this).attr("disabled", is_selected)
-                            });
-                            delete_button.attr("disabled", !is_selected)
+                        onEl(select_all_box, 'change', () => {
+                            let is_selected = select_all_box.checked
+
+                            forElsMatching('.corpus-file-checkbox', box => {
+                                box.checked = is_selected
+                                setDisabled(box, is_selected)
+                            })
+                            setDisabled(delete_button, !is_selected)
                         })
 
-                        $('.corpus-file-checkbox').change(function () {
-                            let file_selected = false
-                            $('.corpus-file-checkbox').each(function () {
-                                if ($(this).is(':checked')) file_selected = true
-                            });
-                            if (file_selected) delete_button.attr('disabled', false)
-                            else delete_button.attr('disabled', true)
+                        forElsMatching('.corpus-file-checkbox', box => {
+                            onEl(box, 'change', () => {
+                                setDisabled(delete_button, !getElWithQuery('.corpus-file-checkbox:checked'))
+                            })
                         })
 
-                        delete_button.click(function () {
-                            let files_to_delete = $('#corpus-files-to-delete')
-                            let file_keys = []
+                        onEl(delete_button, 'click', () => {
+                            let files_to_delete = getEl('corpus-files-to-delete')
 
-                            if (select_all_box.is(':checked')) files_to_delete.val('ALL')
+                            if (select_all_box.checked) setVal(files_to_delete, 'ALL')
                             else {
-                                $('.corpus-file-checkbox').each(function () {
-                                    let checkbox = $(this)
-                                    if (checkbox.is(':checked')) file_keys.push(checkbox.data('file_key'))
-                                })
-                                files_to_delete.val(file_keys.join(','))
+                                let file_keys = []
+                                forElsMatching('.corpus-file-checkbox:checked', box => file_keys.push(box.dataset.file_key))
+                                setVal(files_to_delete, file_keys.join(','))
                             }
 
-                            $('#corpus-files-delete-form').submit()
+                            getEl('corpus-files-delete-form').submit()
                         })
                     }
                 }
 
-                // load corpus repos
+                // ------------------------------
+                // LOAD CORPUS REPOS
+                // ------------------------------
                 if (Object.keys(corpus.repos).length > 0) {
-                    let corpus_repos_div = $('#corpus-repos-div')
-                    corpus_repos_div.html('')
+                    let corpus_repos_div = getEl('corpus-repos-div')
+                    corpus_repos_div.innerHTML = ''
                     for (let repo_name in corpus.repos) {
                         let repo = corpus.repos[repo_name]
                         if (repo.error) {
-                            corpus_repos_div.append(`
+                            appendToEl(corpus_repos_div, `
                                 <div class="alert alert-danger">
                                     <b>${repo.name}</b><br/>
                                     Error pulling from branch "${repo.remote_branch}"!
@@ -809,7 +835,7 @@
                             `)
                         }
                         else {
-                            corpus_repos_div.append(`
+                            appendToEl(corpus_repos_div, `
                                 <div class="alert alert-info row no-gutters">
                                     <div class="col-sm-${ is_admin ? '11' : '12' }">
                                         <b>${repo.name}</b><br/>
@@ -828,18 +854,18 @@
 
                     if (is_admin) {
                         // repo deletion button click
-                        $('.repo-delete-button').off('click').on('click', function() {
-                            let button = $(this)
-                            let repo_name = button.data('repo-name')
-                            let multi_form = $('#multiselect-form')
+                        forElsMatching('.repo-delete-button', button => {
+                          onlyOnEl(button, 'click', () => {
+                            let repo_name = button.dataset.repoName
+                            let multi_form = getEl('multiselect-form')
 
                             corpora.confirm_action(
-                                function() {
-                                    multi_form.append(`
+                                () => {
+                                    appendToEl(multi_form, `
                                         <input type='hidden' class="repo-deletion-input" name='repo' value='${repo_name}' />
                                         <input type='hidden' name='deletion-confirmed' value='y' />
                                     `)
-                                    multi_form.attr('action', '')
+                                    multi_form.setAttribute('action', '')
                                     multi_form.submit()
                                 },
                                 "Delete Repo?",
@@ -847,37 +873,41 @@
                                 'Delete',
                                 true
                             )
+                          })
                         })
                     }
                 }
 
-                // load content views
-                $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
-                    if (e.target.id === 'views-tab') {
-                        let cv_sticky_nav = $('#views-nav')
-                        $('.content-view-table').each(function () {
-                            let table_div = $(this)
-                            let table = new ContentTable({
-                                container_id: table_div[0].id,
+                // ------------------------------
+                // LOAD CONTENT VIEWS
+                // ------------------------------
+                forElsMatching('a[data-bs-toggle="tab"]', tab => {
+                    onEl(tab, 'shown.bs.tab', e => {
+                        if (e.target.id !== 'views-tab') return
+
+                        let cv_sticky_nav = getEl('views-nav')
+                        forElsMatching('.content-view-table', table_div => {
+                            new ContentTable({
+                                container_id: table_div.id,
                                 corpora: corpora,
                                 corpus: corpus,
-                                content_type: table_div.data('ct'),
-                                content_view: table_div.data('es-doc-id'),
-                                content_view_id: table_div.data('id'),
-                                label: table_div.data('name')
+                                content_type: table_div.dataset.ct,
+                                content_view: table_div.dataset.esDocId,
+                                content_view_id: table_div.dataset.id,
+                                label: table_div.dataset.name
                             })
-                            cv_sticky_nav.append(` | <a href="#${table_div[0].id}">${table_div.data('name')}</a>`);
+                            appendToEl(cv_sticky_nav, ` | <a href="#${table_div.id}">${table_div.dataset.name}</a>`)
                         })
-                    }
+                    })
                 })
 
                 if (corpora.scholar_has_privilege('Editor', role)) {
-                    $('#new-content-view-button').click(function() {
+                    onEl(getEl('new-content-view-button'), 'click', () => {
                         corpora.create_content_view(corpus, function(data) {
-                            let ctBody = $('#content-views-body')
-                            if ($('.content-view-table').length === 0) ctBody.html('')
+                            let ctBody = getEl('content-views-body')
+                            if (!getElWithQuery('.content-view-table')) ctBody.innerHTML = ''
 
-                            ctBody.append(`
+                            appendToEl(ctBody, `
                                 <div
                                     id="content-view-table-${data.id}"
                                     class="content-view-table"
@@ -888,7 +918,7 @@
                                 </div>
                             `)
 
-                            let table = new ContentTable({
+                            new ContentTable({
                                 container_id: `content-view-table-${data.id}`,
                                 corpora: corpora,
                                 corpus: corpus,
@@ -897,12 +927,14 @@
                                 content_view_id: data.id,
                                 label: data.name
                             })
-                            $(`#content-view-table-${data.id}`)[0].scrollIntoView()
+                            getEl(`content-view-table-${data.id}`).scrollIntoView()
                         })
                     })
                 }
 
-                // setup content type manager
+                // ------------------------------
+                // SETUP CONTENT TYPE MANAGER
+                // ------------------------------
                 if (corpora.scholar_has_privilege('Editor', role)) {
                     // setup the editor for importing a content type schema
                     import_editor = ace.edit("import-editor")
@@ -911,19 +943,12 @@
                     editor_session.setMode("ace/mode/json")
                     // check for editor syntax errors (JSON) to disable import button
                     editor_session.on('changeAnnotation', function() {
-                        let import_button = $('#import-button')
-                        let syntax_error = false
-                        let annotations = import_editor.getSession().getAnnotations()
-                        annotations.map(ann => {
-                            if (ann.type === 'error') syntax_error = true
-                        })
-                        if (syntax_error) {
-                            import_button.prop('disabled', true)
-                            import_button.html('Fix Syntax Error...')
-                        } else {
-                            import_button.prop('disabled', false)
-                            import_button.html('Import')
-                        }
+                        let import_button = getEl('import-button')
+                        let syntax_error = import_editor.getSession().getAnnotations()
+                            .some(ann => ann.type === 'error')
+
+                        setDisabled(import_button, syntax_error)
+                        import_button.innerHTML = syntax_error ? 'Fix Syntax Error...' : 'Import'
                     });
 
                     // setup the editor for editing template
@@ -933,24 +958,24 @@
 
                     // populate synonym file options
                     if (corpus.hasOwnProperty('available_synonyms')) {
-                        let synonym_box = $('#new-f-synonym-box')
+                        let synonym_box = getEl('new-f-synonym-box')
                         for (let synonym_option in corpus.available_synonyms) {
-                            synonym_box.append(`
+                            appendToEl(synonym_box, `
                                 <option value='${synonym_option}'>${corpus.available_synonyms[synonym_option].label}</option>
                             `)
                         }
                     }
 
                     // setup event for showing schema import modal
-                    $('#show-import-modal-button').click(function () {
+                    onEl(getEl('show-import-modal-button'), 'click', () => {
                         import_editor.setValue('')
-                        $('#import-modal-label').html('Import Schema')
-                        $('#import-button').removeClass('d-none')
-                        $('#import-modal').modal()
+                        getEl('import-modal-label').innerHTML = 'Import Schema'
+                        getEl('import-button').classList.remove('d-none')
+                        showModal(getEl('import-modal'))
                     })
 
                     // setup event for clicking "Import" button on schema import modal
-                    $('#import-button').click(function () {
+                    onEl(getEl('import-button'), 'click', () => {
                         let import_schema = JSON.parse(import_editor.getValue())
                         let default_field_values = {
                             'type': 'keyword',
@@ -976,72 +1001,72 @@
                             }
 
                             corpus.content_types[import_schema[x].name] = import_schema[x]
-                            $('.no-content-types-message').remove()
+                            removeElsMatching('.no-content-types-message')
                             manage_content_type(import_schema[x].name)
                         }
 
-                        $('#import-modal').modal('hide');
+                        hideModal(getEl('import-modal'));
                     });
 
                     // setup event for saving the content type schema
-                    $('#save-content-type-schema-button').click(function () {
-                        $('#save-content-type-schema-button').attr('disabled', true)
+                    onEl(getEl('save-content-type-schema-button'), 'click', () => {
+                        setDisabled(getEl('save-content-type-schema-button'))
                         let ct_schema = []
                         for (let ct_name in corpus.content_types) {
                             ct_schema.push(corpus.content_types[ct_name])
                         }
 
-                        $('#ct-schema').val(JSON.stringify(ct_schema))
-                        $('#ct-schema-form').submit()
+                        setVal(getEl('ct-schema'), JSON.stringify(ct_schema))
+                        getEl('ct-schema-form').submit()
                     })
 
                     // PEP8 CLASS FORMAT CONTENT TYPE NAME
-                    $('#new-ct-name-box').focusout(function () {
-                        $('#new-ct-name-box').val(corpora.pep8_class_format(corpora.pep8_variable_format($('#new-ct-name-box').val())));
+                    onEl(getEl('new-ct-name-box'), 'focusout', () => {
+                        let ct_box = getEl('new-ct-name-box')
+                        setVal(ct_box, corpora.pep8_class_format(corpora.pep8_variable_format(getVal(ct_box))))
                     });
 
                     // PEP8 VARIABLE FORMAT FIELD NAME
-                    $('#new-f-name-box').focusout(function () {
-                        let f_box = $('#new-f-name-box');
-                        f_box.val(corpora.pep8_variable_format(f_box.val()));
-                        if (INVALID_FIELD_NAMES.includes(f_box.val())) {
-                            $('#new-f-modal-body').prepend(`
+                    onEl(getEl('new-f-name-box'), 'focusout', () => {
+                        let f_box = getEl('new-f-name-box');
+                        setVal(f_box, corpora.pep8_variable_format(getVal(f_box)));
+                        let invalid = INVALID_FIELD_NAMES.includes(getVal(f_box))
+
+                        removeEl(getEl('new-f-modal-invalid-field-msg'));
+                        if (invalid) {
+                            prependToEl(getEl('new-f-modal-body'), `
                                 <div id="new-f-modal-invalid-field-msg" class="alert alert-danger">
-                                    Unfortunately, the field name "${f_box.val()}" is invalid or reserved. Please choose a different name for this field.
+                                    Unfortunately, the field name "${getVal(f_box)}" is invalid or reserved. Please choose a different name for this field.
                                 </div>
                             `);
-                            $(`#new-f-create-button`).prop('disabled', true);
-                        } else {
-                            $('#new-f-modal-invalid-field-msg').remove();
-                            $(`#new-f-create-button`).prop('disabled', false);
                         }
+                        setDisabled(getEl('new-f-create-button'), invalid);
                     });
 
                     // NEW CONTENT TYPE BUTTON CLICK
-                    $('#new-ct-button').click(function () {
-                        $('#new-ct-modal-label').html('Create Content Type');
-                        $('#new-ct-index').val('new');
-                        $('#new-ct-name-box').prop('disabled', false);
-                        $('#new-ct-name-box').val('');
-                        $('#new-ct-plural-name-box').val('');
-                        $('#new-ct-nav-checkbox').prop('checked', true);
-                        $('#new-ct-autocomplete-checkbox').prop('checked', false);
-                        $('#new-ct-proxy-field-selector').val('');
-                        $('#new-ct-proxy-field-div').addClass('d-none');
-                        $('#new-ct-modal').modal();
+                    onEl(getEl('new-ct-button'), 'click', () => {
+                        getEl('new-ct-modal-label').innerHTML = 'Create Content Type'
+                        setDisabled(getEl('new-ct-name-box'), false)
+                        setVal(getEl('new-ct-name-box'), '')
+                        setVal(getEl('new-ct-plural-name-box'), '')
+                        setChecked(getEl('new-ct-nav-checkbox'), true)
+                        setChecked(getEl('new-ct-autocomplete-checkbox'), false)
+                        setVal(getEl('new-ct-proxy-field-selector'), '')
+                        getEl('new-ct-proxy-field-div').classList.add('d-none')
+                        showModal(getEl('new-ct-modal'))
                     });
 
                     // CREATE/EDIT CONTENT TYPE BUTTON CLICK
-                    $('#new-ct-create-button').click(function () {
-                        $('.no-content-types-message').remove()
-                        let ct_name = $('#new-ct-name-box').val();
+                    onEl(getEl('new-ct-create-button'), 'click', () => {
+                        removeElsMatching('.no-content-types-message')
+                        let ct_name = getVal(getEl('new-ct-name-box'));
                         if (!corpus.content_types.hasOwnProperty(ct_name)) {
                             corpus.content_types[ct_name] = {
                                 id: '',
                                 name: ct_name,
-                                plural_name: $('#new-ct-plural-name-box').val(),
-                                show_in_nav: $('#new-ct-nav-checkbox').is(':checked'),
-                                autocomplete_labels: $('#new-ct-autocomplete-checkbox').is(':checked'),
+                                plural_name: getVal(getEl('new-ct-plural-name-box')),
+                                show_in_nav: getEl('new-ct-nav-checkbox').checked,
+                                autocomplete_labels: getEl('new-ct-autocomplete-checkbox').checked,
                                 proxy_field: '',
                                 fields: [],
                                 is_new: true,
@@ -1053,98 +1078,73 @@
                                 }
                             };
                         } else {
-                            corpus.content_types[ct_name].plural_name = $('#new-ct-plural-name-box').val();
-                            corpus.content_types[ct_name].show_in_nav = $('#new-ct-nav-checkbox').is(':checked');
-                            corpus.content_types[ct_name].autocomplete_labels = $('#new-ct-autocomplete-checkbox').is(':checked');
-                            corpus.content_types[ct_name].proxy_field = $('#new-ct-proxy-field-selector').val();
+                            corpus.content_types[ct_name].plural_name = getVal(getEl('new-ct-plural-name-box'));
+                            corpus.content_types[ct_name].show_in_nav = getEl('new-ct-nav-checkbox').checked;
+                            corpus.content_types[ct_name].autocomplete_labels = getEl('new-ct-autocomplete-checkbox').checked;
+                            corpus.content_types[ct_name].proxy_field = getVal(getEl('new-ct-proxy-field-selector'));
                         }
 
-                        $('#new-ct-modal').modal('hide');
+                        hideModal(getEl('new-ct-modal'));
                         manage_content_type(ct_name);
                     });
 
                     // FIELD TYPE SELECTION CHANGE
-                    $('#new-f-type-box').change(function () {
-                        let selection = $(this).val();
+                    onEl(getEl('new-f-type-box'), 'change', event => {
+                        let selection = getVal(event.currentTarget);
+                        let is_xref = selection === 'cross_reference'
+                        let is_texty = ['text', 'large_text', 'html'].includes(selection)
 
-                        if (selection === 'cross_reference') {
-                            $('#new-f-cross-reference-box').removeClass('d-none');
-                            $('#new-f-has-intensity-div').removeClass('d-none');
-                        } else {
-                            $('#new-f-cross-reference-box').addClass('d-none');
-                            $('#new-f-has-intensity-div').addClass('d-none');
-                        }
-
-                        let synonym_div = $('#new-f-synonym-div');
-                        let language_div = $('#new-f-language-div');
-                        let autocomplete_div = $('#new-f-autocomplete-div');
-
-                        if (['text', 'large_text', 'html'].includes(selection)) {
-                            language_div.removeClass('d-none');
-                            synonym_div.removeClass('d-none');
-                        } else {
-                            language_div.addClass('d-none');
-                            synonym_div.addClass('d-none');
-                        }
-
-                        if (['text', 'cross_reference'].includes(selection)) autocomplete_div.removeClass('d-none');
-                        else autocomplete_div.addClass('d-none');
+                        toggle_div('new-f-cross-reference-box', is_xref);
+                        toggle_div('new-f-has-intensity-div', is_xref);
+                        toggle_div('new-f-language-div', is_texty);
+                        toggle_div('new-f-synonym-div', is_texty);
+                        toggle_div('new-f-autocomplete-div', ['text', 'cross_reference'].includes(selection));
                     });
 
                     // FIELD INDEXED CHECK CHANGE
-                    $('#new-f-indexed-checkbox').change(function () {
-                        if ($(this).is(':checked') && $('#new-f-indexed-with-box option').length > 0) {
-                            $('#new-f-indexed-with-div').removeClass('d-none');
-                            $('#new-f-indexed-with-div').addClass('d-flex');
-                        } else {
-                            $('#new-f-indexed-with-div').removeClass('d-flex');
-                            $('#new-f-indexed-with-div').addClass('d-none');
-                        }
+                    onEl(getEl('new-f-indexed-checkbox'), 'change', event => {
+                        let show = event.currentTarget.checked && getEl('new-f-indexed-with-box').options.length > 0
+                        toggle_div('new-f-indexed-with-div', show, 'd-flex');
                     });
 
                     // FIELD UNIQUE CHECK CHANGE
-                    $('#new-f-unique-checkbox').change(function () {
-                        if ($(this).is(':checked') && $('#new-f-unique-with-box option').length > 0) {
-                            $('#new-f-unique-with-div').removeClass('d-none');
-                            $('#new-f-unique-with-div').addClass('d-flex');
-                        } else {
-                            $('#new-f-unique-with-div').removeClass('d-flex');
-                            $('#new-f-unique-with-div').addClass('d-none');
-                        }
+                    onEl(getEl('new-f-unique-checkbox'), 'change', event => {
+                        let show = event.currentTarget.checked && getEl('new-f-unique-with-box').options.length > 0
+                        toggle_div('new-f-unique-with-div', show, 'd-flex');
                     });
 
                     // CREATE/EDIT FIELD BUTTON CLICK
-                    $('#new-f-create-button').click(function () {
-                        let synonym_file = $('#new-f-synonym-box').val();
+                    onEl(getEl('new-f-create-button'), 'click', () => {
+                        let synonym_file = getVal(getEl('new-f-synonym-box'));
                         let cross_reference_type = '';
-                        if ($('#new-f-type-box').val() == 'cross_reference') {
-                            cross_reference_type = $('#new-f-cross-reference-box').val();
+                        if (getVal(getEl('new-f-type-box')) == 'cross_reference') {
+                            cross_reference_type = getVal(getEl('new-f-cross-reference-box'));
                         }
 
                         let field = {
-                            name: $('#new-f-name-box').val(),
-                            label: $('#new-f-label-box').val(),
-                            in_lists: $('#new-f-in-lists-checkbox').is(':checked'),
-                            indexed: $('#new-f-indexed-checkbox').is(':checked'),
-                            indexed_with: $('#new-f-indexed-with-box').val(),
-                            unique: $('#new-f-unique-checkbox').is(':checked'),
-                            unique_with: $('#new-f-unique-with-box').val(),
-                            multiple: $('#new-f-multiple-checkbox').is(':checked'),
+                            name: getVal(getEl('new-f-name-box')),
+                            label: getVal(getEl('new-f-label-box')),
+                            in_lists: getEl('new-f-in-lists-checkbox').checked,
+                            indexed: getEl('new-f-indexed-checkbox').checked,
+                            indexed_with: getVal(getEl('new-f-indexed-with-box')),
+                            unique: getEl('new-f-unique-checkbox').checked,
+                            unique_with: getVal(getEl('new-f-unique-with-box')),
+                            multiple: getEl('new-f-multiple-checkbox').checked,
                             cross_reference_type: cross_reference_type,
-                            has_intensity: $('#new-f-has-intensity-checkbox').is(':checked'),
+                            has_intensity: getEl('new-f-has-intensity-checkbox').checked,
                             language: null,
-                            autocomplete: $('#new-f-autocomplete-checkbox').is(':checked'),
+                            autocomplete: getEl('new-f-autocomplete-checkbox').checked,
                             synonym_file: synonym_file !== 'None' ? synonym_file : null,
-                            type: $('#new-f-type-box').val(),
+                            type: getVal(getEl('new-f-type-box')),
                         };
 
                         if (['text', 'large_text', 'html'].includes(field.type)) {
-                            field.language = $('#new-f-language-box').val();
+                            field.language = getVal(getEl('new-f-language-box'));
                         }
 
-                        let ct_name = $('#new-f-ct-name').val();
-                        let f_index = $('#new-f-f-id').val();
-                        let action = $('#new-f-action').val();
+                        let ct_name = getVal(getEl('new-f-ct-name'));
+                        let f_index = getVal(getEl('new-f-f-id'));
+                        let action = getVal(getEl('new-f-action'));
 
                         if (action === 'create' && f_index === 'new') {
                             corpus.content_types[ct_name].fields.push(field);
@@ -1155,65 +1155,101 @@
                             manage_field(ct_name, f_index);
                         }
 
-                        $('#new-f-modal').modal('hide');
+                        hideModal(getEl('new-f-modal'));
                     });
 
                     // TEMPLATE SAVE BUTTON
-                    $(`#template-save-button`).click(function () {
-                        let ct_name = $('#template-ct-name').val();
-                        let template_name = $('#template-name').val();
-                        let is_new = $('#template-is-new').val();
+                    onEl(getEl('template-save-button'), 'click', () => {
+                        let ct_name = getVal(getEl('template-ct-name'));
+                        let template_name = getVal(getEl('template-name'));
+                        let is_new = getVal(getEl('template-is-new'));
 
                         if (is_new === 'yes') {
                             corpus.content_types[ct_name].templates[template_name] = {
                                 template: template_editor.getValue(),
-                                mime_type: $('#template-mime-type').val()
+                                mime_type: getVal(getEl('template-mime-type'))
                             };
                         }
                         else {
                             corpus.content_types[ct_name].templates[template_name].template = template_editor.getValue();
-                            corpus.content_types[ct_name].templates[template_name].mime_type = $('#template-mime-type').val();
+                            corpus.content_types[ct_name].templates[template_name].mime_type = getVal(getEl('template-mime-type'));
                         }
 
-                        $('#template-modal').modal('hide');
+                        hideModal(getEl('template-modal'));
                     })
 
                    // HANDLE CORPUS DELETION EVENTS
-                    $('#corpus-show-delete-confirmation-button').click(function () {
-                        $('#corpus-deletion-name-span').html(corpus.name);
-                        if ($(this).html() === "Delete Corpus") {
-                            $('#corpus-deletion-confirmation-div').removeClass('d-none');
-                            $(this).html("Cancel Corpus Deletion");
-                        } else {
-                            $('#corpus-deletion-confirmation-div').addClass('d-none');
-                            $(this).html("Delete Corpus");
-                        }
+                    onEl(getEl('corpus-show-delete-confirmation-button'), 'click', event => {
+                        let button = event.currentTarget
+                        let confirming = button.innerHTML.trim() === "Delete Corpus"
+
+                        getEl('corpus-deletion-name-span').innerHTML = corpus.name;
+                        getEl('corpus-deletion-confirmation-div').classList.toggle('d-none', !confirming);
+                        button.innerHTML = confirming ? "Cancel Corpus Deletion" : "Delete Corpus";
                     });
 
-                    $('#corpus-delete-button').click(function () {
-                        $('#corpus-deletion-form').submit();
+                    onEl(getEl('corpus-delete-button'), 'click', () => {
+                        getEl('corpus-deletion-form').submit();
                     });
 
                     // OPEN ACCESS BUTTON
-                    let oa_button = $('#open-access-button');
-                    if (corpus.open_access) oa_button.html('Revoke Open Access');
-                    oa_button.click(function() { $('#open-access-toggle-form').submit(); })
+                    let oa_button = getEl('open-access-button');
+                    if (corpus.open_access) oa_button.innerHTML = 'Revoke Open Access';
+                    onEl(oa_button, 'click', () => getEl('open-access-toggle-form').submit())
 
                     // CORPUS EXPORT BUTTON
-                    let createExportButton = $('#create-export-button')
+                    let createExportButton = getEl('create-export-button')
                     if ('Corpus Export' in corpus.kvp) {
-                        createExportButton.html('Refresh Exported Corpus Data')
-                        $('#download-corpus-export-div').removeClass('d-none')
+                        createExportButton.innerHTML = 'Refresh Exported Corpus Data'
+                        getEl('download-corpus-export-div').classList.remove('d-none')
                     }
-                    createExportButton.click(function() {
-                        let exportTaskID = job_manager.get_local_task_id('Export Corpus')
-                        console.log(exportTaskID)
-                        job_manager.new_job('Corpus', corpus_id, exportTaskID)
+                    onEl(createExportButton, 'click', () => {
+                        job_manager.new_job('Corpus', corpus_id, job_manager.get_local_task_id('Export Corpus'))
+                    })
+
+                    // setup plugin content schema import
+                    corpora.get_plugin_schema(function(schemas) {
+                        plugin_schema = schemas
+                        let ct_selector = getEl('import-modal-ct-selector')
+                        schemas.forEach(schema => {
+                            let optgroup = `
+                                <optgroup label="${schema.plugin}">
+                                    <option value="${schema.plugin}.all">All</option>
+                            `
+                            schema.content_types.forEach(schema_ct => {
+                                optgroup += `
+                                    <option value="${schema.plugin}.${schema_ct.name}">${schema_ct.name}</option>
+                                `
+                            })
+                            optgroup += `</optgroup>`
+                            appendToEl(ct_selector, optgroup)
+                        });
+
+                        onEl(ct_selector, 'change', () => {
+                            let selection = getVal(ct_selector)
+                            let [plugin, ct] = selection.split('.')
+                            plugin_schema.forEach(schema => {
+                                if (schema.plugin === plugin) {
+                                    if (ct === 'all') {
+                                        import_editor.setValue(JSON.stringify(schema.content_types, null, 4))
+                                    } else {
+                                        let single_ct_schema = []
+                                        schema.content_types.forEach(ct_schema => {
+                                            if (ct_schema.name === ct) {
+                                                single_ct_schema.push(ct_schema)
+                                                import_editor.setValue(JSON.stringify(single_ct_schema, null, 4))
+                                            }
+                                        })
+                                    }
+                                }
+                            })
+                        })
                     })
                 }
 
-
+                // ------------------------------
                 // SETUP JOBS
+                // ------------------------------
                 if (corpora.scholar_has_privilege('Editor', role)) {
                     job_manager = new JobManager({
                         jobs_container: 'jobs-container',
@@ -1225,21 +1261,21 @@
                         scholar_id: scholar_id,
                     })
 
-                    $('#run-job-button').click(function () {
-                        job_manager.new_job("Corpus", null)
-                    });
+                    onEl(getEl('run-job-button'), 'click', () => job_manager.new_job("Corpus", null));
                 }
 
-
-                // BUILD CONTENT TABLES
+                // ------------------------------
+                // SETUP CONTENT TABLES
+                // ------------------------------
                 add_breadcrumb(corpus.name, `/corpus/${corpus.id}/`);
 
                 // load first pages of 5 items for each content type; setup content type nav
-                if (Object.keys(corpus.content_types).length > 0) $('.no-content-types-message').remove()
+                if (Object.keys(corpus.content_types).length > 0) removeElsMatching('.no-content-types-message')
 
                 let tables_loaded = false
                 for (let ct_name in corpus.content_types) {
                     ct_tables[ct_name] = new ContentTable({
+                        table_id: `content-tab-${ct_name}-table`,
                         container_id: 'content-types-div',
                         corpora: corpora,
                         corpus: corpus,
@@ -1256,9 +1292,8 @@
                                         tables_loaded = true
                                         setup_ct_groups()
                                         setupStickyNav()
-                                        hide_loading_overlay()
-
                                         if (['Admin', 'Editor'].includes(corpus.scholar_role)) draw_ct_graph()
+                                        afterPageLoad()
                                     }
                                 }
                             }
@@ -1269,68 +1304,12 @@
                         manage_content_type(ct_name);
                     }
                 }
-                if (Object.keys(corpus.content_types).length === 0) hide_loading_overlay()
-
-
-                // SETUP PLUGIN CONTENT SCHEMA IMPORT
-                corpora.get_plugin_schema(function(schemas) {
-                    plugin_schema = schemas;
-                    let ct_selector = $('#import-modal-ct-selector');
-                    schemas.map(schema => {
-                        let optgroup = `
-                            <optgroup label="${schema.plugin}">
-                                <option value="${schema.plugin}.all">All</option>
-                        `;
-                        schema.content_types.map(schema_ct => {
-                            optgroup += `
-                                <option value="${schema.plugin}.${schema_ct.name}">${schema_ct.name}</option>
-                            `;
-                        });
-                        optgroup += `</optgroup>`;
-                        ct_selector.append(optgroup);
-                    });
-
-                    ct_selector.change(function() {
-                        let selection = ct_selector.val();
-                        let [plugin, ct] = selection.split('.');
-                        plugin_schema.map(schema => {
-                            if (schema.plugin === plugin) {
-                                if (ct === 'all') {
-                                    import_editor.setValue(JSON.stringify(schema.content_types, null, 4));
-                                } else {
-                                    let single_ct_schema = [];
-                                    schema.content_types.map(ct_schema => {
-                                        if (ct_schema.name === ct) {
-                                            single_ct_schema.push(ct_schema);
-                                            import_editor.setValue(JSON.stringify(single_ct_schema, null, 4));
-                                        }
-                                    });
-                                }
-                            }
-                        });
-                    });
-                });
-
-                // CONTENT DELETION BUTTON
-                $('#deletion-confirmation-button').click(function() {
-                    let multi_form = $('#multiselect-form');
-                    multi_form.append(`
-                        <input type='hidden' name='deletion-confirmed' value='y'/>
-                    `);
-                    multi_form.attr('action', '');
-                    multi_form.submit();
-                });
+                if (Object.keys(corpus.content_types).length === 0) afterPageLoad()
 
                 // LAUNCH NOTEBOOK EVENT
                 if (corpora.scholar_has_privilege('Admin', role)) {
-                    $('#launch-notebook-button').click(function () {
-                        $('#launch-notebook-form').submit();
-                    })
+                    onEl(getEl('launch-notebook-button'), 'click', () => getEl('launch-notebook-form').submit())
                 }
-
-                let scroll_location = location.hash;
-                location.hash = '';
-                location.hash = scroll_location;
             }, true);
         });
 
@@ -1373,10 +1352,9 @@
         }
 
         function draw_ct_graph() {
-            let graph_div = $('#content-types-graph');
+            let graph_div = getEl('content-types-graph');
             let nodes = new vis.DataSet();
             let edges = new vis.DataSet();
-            let node_ids = [];
             let ct_colors = [
                 '#EF3E36',
                 '#091540',
@@ -1427,9 +1405,9 @@
                 });
             }
 
-            graph_div.removeClass('d-none');
+            graph_div.classList.remove('d-none');
             ct_graph = new vis.Network(
-                graph_div[0],
+                graph_div,
                 {
                     nodes: nodes,
                     edges: edges
@@ -1464,13 +1442,7 @@
                         }
                     },
                 }
-            );
-
-            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
-                if (e.target.id === 'admin-tab') {
-                    ct_graph.fit({nodes: node_ids});
-                }
-            });
+            )
 
             ct_graph.on("dragStart", function(params){
                 params.nodes.map(id => {
@@ -1489,9 +1461,7 @@
 
         function setup_ct_groups() {
             // UI components
-            let contentTypeGroupsDiv = $('#content-type-groups-div')
-            let breadCrumbNav = $('#content-types-nav')
-            let topNavigator = $('#top-breadcrumb-navigator')
+            let contentTypeGroupsDiv = getEl('content-type-groups-div')
 
             // layout content type groups
             corpus.content_type_groups.forEach((ctg_dict, index) => {
@@ -1500,32 +1470,32 @@
             })
 
             // setup ct group events
-            $('#new-ct-group-create-button').click(function() {
-                let ctGroup = new ContentGroup(corpora, corpus, {title: $('#new-ct-group-title-box').val()}, corpus.content_type_groups.length)
-                ctGroup.save(function(response) {
+            onEl(getEl('new-ct-group-create-button'), 'click', () => {
+                let ctGroup = new ContentGroup(corpora, corpus, {title: getVal(getEl('new-ct-group-title-box'))}, corpus.content_type_groups.length)
+                ctGroup.save(response => {
                     if (response.success) {
                         ctGroup.render(contentTypeGroupsDiv, 'content-types-div')
                         ctGroup.edit()
                         ctGroup.scrollTo()
-                        $('#new-ct-group-modal').modal('hide')
+                        hideModal(getEl('new-ct-group-modal'))
                     }
                 })
             })
 
-            if (Object.keys(content_type_groups).length && $('#content-types-div .corpora-content-table').length) {
-                $('#content-types-div').prepend(`
+            if (Object.keys(content_type_groups).length && getElWithQuery('#content-types-div .corpora-content-table')) {
+                prependToEl(getEl('content-types-div'), `
                     <h2 class="mt-4">Other Content Types</h2>
                 `)
             }
         }
 
         function setupStickyNav() {
-            let nav = $('#content-types-nav')
+            let nav = getEl('content-types-nav')
             let ctsRepresented = []
             let ctsRemaining = []
 
-            nav.empty()
-            nav.append('<a href="#breadcrumb"><i class="fas fa-sort-up"></i> Top</a> | ')
+            clearEl(nav)
+            appendToEl(nav, '<a href="#breadcrumb"><i class="fas fa-sort-up"></i> Top</a> | ')
 
             corpus.content_type_groups.forEach((ctg, ctgIndex) => {
                 let memberCrumbs = []
@@ -1537,7 +1507,7 @@
                     }
                 })
 
-                nav.append(`<a href="#ct-group-${ctgIndex}" class="text-secondary">${ctg.title}</a> <b>[</b> ${memberCrumbs.join(' | ')} <b>]</b>&nbsp;`)
+                appendToEl(nav, `<a href="#ct-group-${ctgIndex}" class="text-secondary">${ctg.title}</a> <b>[</b> ${memberCrumbs.join(' | ')} <b>]</b>&nbsp;`)
             })
 
             for (let ctName in corpus.content_types) {
@@ -1546,33 +1516,65 @@
                 if (!ctsRepresented.includes(ctName) && showInNav) ctsRemaining.push(`<a href="#${pluralName}">${pluralName}</a>`)
             }
 
-            nav.append(ctsRemaining.join(' | '))
+            appendToEl(nav, ctsRemaining.join(' | '))
+        }
+
+        // shows/hides a div using Bootstrap's display utilities. defined at the top
+        // level so the content-type manager functions below can reach it.
+        function toggle_div(id, visible, display='d-block') {
+            getEl(id).classList.toggle('d-none', !visible)
+            if (display !== 'd-block') getEl(id).classList.toggle(display, visible)
+        }
+
+        // the ace mode for a template's mime type
+        function set_template_editor_mode(mime_type) {
+            if (['text/html', 'text/xml'].includes(mime_type)) template_editor.getSession().setMode("ace/mode/django");
+            else if (mime_type === 'text/css') template_editor.getSession().setMode("ace/mode/css");
+            else if (mime_type === 'text/turtle') template_editor.getSession().setMode("ace/mode/turtle");
+        }
+
+        // the "indexed with" / "unique with" multi-selects share the .f-with class
+        function populate_f_with_options(fields, skip_field_name=null) {
+            forElsMatching('.f-with', box => {
+                box.innerHTML = ''
+                fields.forEach(f => {
+                    if (f.name !== skip_field_name) {
+                        appendToEl(box, `<option value='${f.name}'>${f.label}</option>`)
+                    }
+                })
+            })
+        }
+
+        // the reindex / relabel / delete buttons all drive the same hidden form
+        function submit_content_action(ct_name, field_name, action) {
+            setVal(getEl('confirmation-ct-name'), ct_name)
+            setVal(getEl('confirmation-field-name'), field_name)
+            setVal(getEl('confirmation-action'), action)
+            getEl('content-action-form').submit()
         }
 
         function manage_content_type(ct_name) {
             let ct_div_prefix = `tm-ct-${ct_name}`
-            let ct_div = $(`#tm-ct-${ct_name}-container`)
+            removeEl(getEl(`tm-ct-${ct_name}-container`))
 
-            if (ct_div.length) ct_div.remove()
-
-            let delete_or_lock_button = `<button id="${ct_div_prefix}-delete-button" class="btn btn-sm btn-danger" data-toggle="tooltip" data-placement="top" title="Delete"><span class="fas fa-trash-alt"></span></button>`;
+            let delete_or_lock_button = `<button id="${ct_div_prefix}-delete-button" class="btn btn-sm btn-danger" data-bs-toggle="tooltip" data-bs-placement="top" title="Delete"><span class="fas fa-trash-alt"></span></button>`;
             if (corpus.content_types[ct_name].inherited) {
                 delete_or_lock_button = `<button class="btn btn-sm btn-danger" disabled><span class="fas fa-lock"></span></button>`;
             }
 
-            $('#tm-ct-group').append(`
+            appendToEl(getEl('tm-ct-group'), `
                 <div id="${ct_div_prefix}-container" class="list-group-item content-type">
-                    <button id="${ct_div_prefix}-button" class="btn btn-sm btn-link" data-toggle="collapse" data-target="#${ct_div_prefix}" aria-expanded="false" aria-controls="${ct_div_prefix}">
+                    <button id="${ct_div_prefix}-button" class="btn btn-sm btn-link" data-bs-toggle="collapse" data-bs-target="#${ct_div_prefix}" aria-expanded="false" aria-controls="${ct_div_prefix}">
                         <span id="${ct_div_prefix}-indicator" class="fas fa-caret-right"></span>
                         <h5 id="${ct_div_prefix}-name" style="display: inline;">${ct_name}</h5>
                     </button>
                     <span class="float-end">
-                        <button id="${ct_div_prefix}-edit-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Edit"><span class="fas fa-edit"></span></button>
-                        <button id="${ct_div_prefix}-reindex-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Re-Index"><span class="fas fa-sync"></span></button>
-                        <button id="${ct_div_prefix}-relabel-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Re-Label"><span class="fas fa-tag"></span></button>
+                        <button id="${ct_div_prefix}-edit-button" class="btn btn-sm btn-primary" data-bs-toggle="tooltip" data-bs-placement="top" title="Edit"><span class="fas fa-edit"></span></button>
+                        <button id="${ct_div_prefix}-reindex-button" class="btn btn-sm btn-primary" data-bs-toggle="tooltip" data-bs-placement="top" title="Re-Index"><span class="fas fa-sync"></span></button>
+                        <button id="${ct_div_prefix}-relabel-button" class="btn btn-sm btn-primary" data-bs-toggle="tooltip" data-bs-placement="top" title="Re-Label"><span class="fas fa-tag"></span></button>
                         ${delete_or_lock_button}
                     </span>
-                    <div id="${ct_div_prefix}" class="alert alert-info collapse p-3 mt-2" aria-labelledby="${ct_div_prefix}-container" data-parent="#tm-ct-group">
+                    <div id="${ct_div_prefix}" class="alert alert-info collapse p-3 mt-2" aria-labelledby="${ct_div_prefix}-container" data-bs-parent="#tm-ct-group">
                         <h5 class="mb-2">Fields</h5>
                         <table class="table table-borderless corpora-content-table">
                             <thead class="thead-dark">
@@ -1608,76 +1610,64 @@
 
             // SETUP TEMPLATE SELECTION FOR TEMPLATE EDITOR
             for (let template in corpus.content_types[ct_name].templates) {
-                $(`#${ct_div_prefix}-edit-template-selector`).append(`
+                appendToEl(getEl(`${ct_div_prefix}-edit-template-selector`), `
                     <option value="${template}">${template}</option>
                 `);
             }
 
             // SETUP COLLAPSE ICONS
-            $(`#${ct_div_prefix}`).on('show.bs.collapse', function (event) {
-                let indicator = $(`#${ct_div_prefix}-indicator`);
-                indicator.removeClass("fa-caret-right");
-                indicator.addClass("fa-caret-down");
-            });
-            $(`#${ct_div_prefix}`).on('hidden.bs.collapse', function (event) {
-                let indicator = $(`#${ct_div_prefix}-indicator`);
-                indicator.removeClass("fa-caret-down");
-                indicator.addClass("fa-caret-right");
-            });
+            let collapse_div = getEl(ct_div_prefix)
+            let set_indicator = direction => {
+                let indicator = getEl(`${ct_div_prefix}-indicator`);
+                indicator.classList.toggle('fa-caret-down', direction === 'down');
+                indicator.classList.toggle('fa-caret-right', direction === 'right');
+            }
+            onEl(collapse_div, 'show.bs.collapse', () => set_indicator('down'));
+            onEl(collapse_div, 'hidden.bs.collapse', () => set_indicator('right'));
 
             // ADD CONTENT TYPE TO CROSS REFERENCE OPTIONS
-            let new_field_xref_box = $('#new-f-cross-reference-box')
-            if (new_field_xref_box.prop('disabled')) {
-                new_field_xref_box.html('')
-                new_field_xref_box.removeAttr('disabled')
+            let new_field_xref_box = getEl('new-f-cross-reference-box')
+            if (new_field_xref_box.disabled) {
+                new_field_xref_box.innerHTML = ''
+                setDisabled(new_field_xref_box, false)
             }
 
-            new_field_xref_box.append(`
+            appendToEl(new_field_xref_box, `
                 <option value='${ct_name}'>${ct_name}</option>
             `);
 
             // EDIT CONTENT TYPE BUTTON
-            $(`#${ct_div_prefix}-edit-button`).click(function() {
-                $('#new-ct-modal-label').html('Edit Content Type');
+            onEl(getEl(`${ct_div_prefix}-edit-button`), 'click', () => {
+                let ct = corpus.content_types[ct_name]
+                getEl('new-ct-modal-label').innerHTML = 'Edit Content Type'
 
-                $('#new-ct-name').val(ct_name);
-                $('#new-ct-name-box').val(corpus.content_types[ct_name].name);
-                $('#new-ct-name-box').prop('disabled', true);
-                $('#new-ct-plural-name-box').val(corpus.content_types[ct_name].plural_name);
-                $('#new-ct-nav-checkbox').prop('checked', corpus.content_types[ct_name].show_in_nav);
-                $('#new-ct-autocomplete-checkbox').prop('checked', corpus.content_types[ct_name].autocomplete_labels);
+                setVal(getEl('new-ct-name-box'), ct.name)
+                setDisabled(getEl('new-ct-name-box'))
+                setVal(getEl('new-ct-plural-name-box'), ct.plural_name)
+                setChecked(getEl('new-ct-nav-checkbox'), ct.show_in_nav)
+                setChecked(getEl('new-ct-autocomplete-checkbox'), ct.autocomplete_labels)
 
-                let has_xrefs = false;
-                let proxy_field_selector = $('#new-ct-proxy-field-selector');
-                let proxy_field_div = $('#new-ct-proxy-field-div');
-                proxy_field_selector.html('');
-                proxy_field_selector.append(`
-                    <option value=''>None</option>
-                `);
-                for (let x = 0; x < corpus.content_types[ct_name].fields.length; x++) {
-                    if (corpus.content_types[ct_name].fields[x].type === 'cross_reference') {
+                let has_xrefs = false
+                let proxy_field_selector = getEl('new-ct-proxy-field-selector')
+                proxy_field_selector.innerHTML = `<option value=''>None</option>`
+                ct.fields.forEach(f => {
+                    if (f.type === 'cross_reference') {
                         has_xrefs = true;
-                        proxy_field_selector.append(`
-                            <option value='${corpus.content_types[ct_name].fields[x].name}'>${corpus.content_types[ct_name].fields[x].label}</option>
-                        `);
+                        appendToEl(proxy_field_selector, `
+                            <option value='${f.name}'>${f.label}</option>
+                        `)
                     }
-                }
-                proxy_field_selector.val(corpus.content_types[ct_name].proxy_field);
-                if (has_xrefs) { proxy_field_div.removeClass('d-none'); } else { proxy_field_div.addClass('d-none'); }
+                })
+                setVal(proxy_field_selector, ct.proxy_field)
+                getEl('new-ct-proxy-field-div').classList.toggle('d-none', !has_xrefs)
 
-                $('#new-ct-modal').modal();
-            });
+                showModal(getEl('new-ct-modal'))
+            })
 
             // REINDEX CONTENT TYPE BUTTON
-            $(`#${ct_div_prefix}-reindex-button`).click(function() {
+            onEl(getEl(`${ct_div_prefix}-reindex-button`), 'click', () => {
                 corpora.confirm_action(
-                    function() {
-                        $('#confirmation-ct-name').val(ct_name)
-                        $('#confirmation-field-index').val('')
-                        $('#confirmation-field-name').val('')
-                        $('#confirmation-action').val('reindex')
-                        $('#content-action-form').submit()
-                    },
+                    () => submit_content_action(ct_name, '', 'reindex'),
                     'Confirm Re-indexing',
                     `You are attempting to re-index the <b>${ct_name}</b> content type.
                         Depending on how much content belongs to this type, this may take a long time, and
@@ -1689,15 +1679,9 @@
             });
 
             // RELABEL CONTENT TYPE BUTTON
-            $(`#${ct_div_prefix}-relabel-button`).click(function() {
+            onEl(getEl(`${ct_div_prefix}-relabel-button`), 'click', () => {
                 corpora.confirm_action(
-                    function() {
-                        $('#confirmation-ct-name').val(ct_name)
-                        $('#confirmation-field-index').val('')
-                        $('#confirmation-field-name').val('')
-                        $('#confirmation-action').val('relabel')
-                        $('#content-action-form').submit()
-                    },
+                    () => submit_content_action(ct_name, '', 'relabel'),
                     'Confirm Re-labeling',
                     `You are attempting to re-label content belonging to the <b>${ct_name}</b> content type.
                         Depending on how much content belongs to this type, this may take a long time. Do you wish to proceed?`,
@@ -1707,7 +1691,7 @@
             })
 
             // DELETE CONTENT TYPE BUTTON
-            $(`#${ct_div_prefix}-delete-button`).click(function() {
+            onEl(getEl(`${ct_div_prefix}-delete-button`), 'click', () => {
                 if (!corpus.content_types[ct_name].inherited) {
                     if (!corpus.content_types[ct_name].hasOwnProperty('is_new')) {
                         let performDeletion = true
@@ -1737,16 +1721,9 @@
                         }
 
                         corpora.confirm_action(
-                            function() {
-                                if (performDeletion) {
-                                    $('#confirmation-ct-name').val(ct_name)
-                                    $('#confirmation-field-index').val('')
-                                    $('#confirmation-field-name').val('')
-                                    $('#confirmation-action').val('delete')
-                                    $('#content-action-form').submit()
-                                } else {
-                                    corpora.cancel_action()
-                                }
+                            () => {
+                                if (performDeletion) submit_content_action(ct_name, '', 'delete')
+                                else corpora.cancel_action()
                             },
                             performDeletion ? 'Confirm Deletion' : 'Unable to Delete Content Type',
                             message,
@@ -1755,95 +1732,79 @@
                         )
                     } else {
                         delete corpus.content_types[ct_name];
-                        $(`#${ct_div_prefix}-container`).remove();
+                        removeEl(getEl(`${ct_div_prefix}-container`));
                     }
                 }
             })
 
             // NEW FIELD BUTTON
-            $(`#${ct_div_prefix}-new-f-button`).click(function (){
-                $('#new-f-modal-label').html('Create New Field');
-                $('#new-f-ct-name').val(ct_name);
-                $('#new-f-f-id').val('new');
-                $('#new-f-action').val('create');
-                $('#new-f-name-box').val('');
-                $('#new-f-name-box').prop('disabled', false);
-                $('#new-f-label-box').val('');
-                $('#new-f-type-box').val('keyword');
-                $('#new-f-language-box').val('english');
-                $('#new-f-language-div').addClass('d-none');
-                $('#new-f-autocomplete-checkbox').prop('checked', false);
-                $('#new-f-autocomplete-div').addClass('d-none');
-                $('#new-f-synonym-box').val('None');
-                $('#new-f-synonym-div').addClass('d-none');
-                $('#new-f-has-intensity-checkbox').prop('checked', false);
-                $('#new-f-in-lists-checkbox').prop('checked', true);
-                $('#new-f-indexed-checkbox').prop('checked', false);
-                $('#new-f-unique-checkbox').prop('checked', false);
-                $('#new-f-multiple-checkbox').prop('checked', false);
-                $('#new-f-create-button').html('Create');
+            onEl(getEl(`${ct_div_prefix}-new-f-button`), 'click', () => {
+                getEl('new-f-modal-label').innerHTML = 'Create New Field';
+                setVal(getEl('new-f-ct-name'), ct_name);
+                setVal(getEl('new-f-f-id'), 'new');
+                setVal(getEl('new-f-action'), 'create');
+                setVal(getEl('new-f-name-box'), '');
+                setDisabled(getEl('new-f-name-box'), false);
+                setVal(getEl('new-f-label-box'), '');
+                setVal(getEl('new-f-type-box'), 'keyword');
+                setVal(getEl('new-f-language-box'), 'english');
+                setChecked(getEl('new-f-autocomplete-checkbox'), false);
+                setVal(getEl('new-f-synonym-box'), 'None');
+                setChecked(getEl('new-f-has-intensity-checkbox'), false);
+                setChecked(getEl('new-f-in-lists-checkbox'), true);
+                setChecked(getEl('new-f-indexed-checkbox'), false);
+                setChecked(getEl('new-f-unique-checkbox'), false);
+                setChecked(getEl('new-f-multiple-checkbox'), false);
+                getEl('new-f-create-button').innerHTML = 'Create';
 
-                $('.f-with').html('');
-                for (let x = 0; x < corpus.content_types[ct_name].fields.length; x++) {
-                    $('.f-with').append(`
-                        <option value='${corpus.content_types[ct_name].fields[x].name}'>${corpus.content_types[ct_name].fields[x].label}</option>
-                    `);
-                }
+                populate_f_with_options(corpus.content_types[ct_name].fields);
 
-                $('#new-f-indexed-with-box').val([]);
-                $('#new-f-indexed-with-div').removeClass('d-flex');
-                $('#new-f-indexed-with-div').addClass('d-none');
-                $('#new-f-unique-with-box').val([]);
-                $('#new-f-unique-with-div').removeClass('d-flex');
-                $('#new-f-unique-with-div').addClass('d-none');
-                $('#new-f-cross-reference-box').addClass('d-none');
-                $('#new-f-has-intensity-div').addClass('d-none');
+                setVal(getEl('new-f-indexed-with-box'), []);
+                setVal(getEl('new-f-unique-with-box'), []);
 
-                $('#new-f-create-button').html('Create');
-                $('#new-f-modal').modal();
+                ['new-f-language-div', 'new-f-autocomplete-div', 'new-f-synonym-div',
+                 'new-f-cross-reference-box', 'new-f-has-intensity-div'].forEach(id => toggle_div(id, false));
+                toggle_div('new-f-indexed-with-div', false, 'd-flex');
+                toggle_div('new-f-unique-with-div', false, 'd-flex');
+
+                showModal(getEl('new-f-modal'));
             });
 
             // EDIT TEMPLATE BUTTON
-            $(`#${ct_div_prefix}-edit-template-button`).click(function (){
-                let template_name = $(`#${ct_div_prefix}-edit-template-selector`).val();
-                let mime_type = corpus.content_types[ct_name].templates[template_name].mime_type;
+            onEl(getEl(`${ct_div_prefix}-edit-template-button`), 'click', () => {
+                let template_name = getVal(getEl(`${ct_div_prefix}-edit-template-selector`));
+                let template = corpus.content_types[ct_name].templates[template_name];
 
-                $('#template-ct-name').val(ct_name);
-                $('#template-is-new').val('no');
-                $('#template-name').val(template_name);
+                setVal(getEl('template-ct-name'), ct_name);
+                setVal(getEl('template-is-new'), 'no');
+                setVal(getEl('template-name'), template_name);
 
-                if (['text/html', 'text/xml'].includes(mime_type)) template_editor.getSession().setMode("ace/mode/django");
-                else if (mime_type === 'text/css') template_editor.getSession().setMode("ace/mode/css");
-                else if (mime_type === 'text/turtle') template_editor.getSession().setMode("ace/mode/turtle");
+                set_template_editor_mode(template.mime_type);
+                template_editor.setValue(template.template);
+                setVal(getEl('template-mime-type'), template.mime_type);
 
-                template_editor.setValue(corpus.content_types[ct_name].templates[template_name].template);
-                $('#template-mime-type').val(mime_type);
-
-                $('#template-modal').modal();
+                showModal(getEl('template-modal'));
             });
 
             // NEW TEMPLATE BUTTON
-            $(`#${ct_div_prefix}-new-template-button`).click(function (){
-                $('#template-ct-name').val(ct_name);
-                $('#template-is-new').val('yes');
-                $('#template-name').val('NewTemplate');
+            onEl(getEl(`${ct_div_prefix}-new-template-button`), 'click', () => {
+                setVal(getEl('template-ct-name'), ct_name);
+                setVal(getEl('template-is-new'), 'yes');
+                setVal(getEl('template-name'), 'NewTemplate');
 
                 template_editor.setValue('');
-                $('#template-mime-type').val('text/html');
+                setVal(getEl('template-mime-type'), 'text/html');
 
-                $('#template-modal').modal();
+                showModal(getEl('template-modal'));
             });
 
             // HANDLE TEMPLATE EDITOR MIME TYPE CHANGE
-            $('#template-mime-type').change(function() {
-                let mime_type = $('#template-mime-type').val();
-                if (['text/html', 'text/xml'].includes(mime_type)) template_editor.getSession().setMode("ace/mode/django");
-                else if (mime_type === 'text/css') template_editor.getSession().setMode("ace/mode/css");
-                else if (mime_type === 'text/turtle') template_editor.getSession().setMode("ace/mode/turtle");
+            onlyOnEl(getEl('template-mime-type'), 'change', () => {
+                set_template_editor_mode(getVal(getEl('template-mime-type')));
             });
 
             // FOCUS TEMPLATE EDITOR ON MODAL SHOWN EVENT
-            $('#template-modal').on('shown.bs.modal', function() {
+            onlyOnEl(getEl('template-modal'), 'shown.bs.modal', () => {
                 template_editor.focus();
                 template_editor.gotoLine(1);
             });
@@ -1851,13 +1812,13 @@
             // ADD FIELDS
             for (let f_index = 0; f_index < corpus.content_types[ct_name].fields.length; f_index++) {
                 if (f_index === 0) {
-                    $(`#${ct_div_prefix}-f-table`).html('');
+                    getEl(`${ct_div_prefix}-f-table`).innerHTML = '';
                 }
                 manage_field(ct_name, f_index);
             }
 
             // make fields re-orderable via drag and drop
-            let field_sorter = new Sortable.default(document.querySelectorAll(`#${ct_div_prefix}-f-table`), {
+            let field_sorter = new Sortable.default(getElsWithQuery(`#${ct_div_prefix}-f-table`), {
                 draggable: '.tm-ct-field',
                 handle: `.drag-handle`,
                 mirror: {
@@ -1869,9 +1830,9 @@
                 setTimeout(function() {
                     const old_fields = [...corpus.content_types[ct_name].fields];
                     const new_order = [];
-                    $(`#${ct_div_prefix}-f-table .tm-ct-field`).each(function() {new_order.push($(this).data('field-name'))});
+                    forElsMatching(`#${ct_div_prefix}-f-table .tm-ct-field`, row => new_order.push(row.dataset.fieldName));
                     corpus.content_types[ct_name].fields = [];
-                    new_order.map(f_name => {
+                    new_order.forEach(f_name => {
                         for (let old_idx = 0; old_idx < old_fields.length; old_idx++) {
                             if (old_fields[old_idx].name === f_name)
                               corpus.content_types[ct_name].fields.push(old_fields[old_idx])
@@ -1883,7 +1844,7 @@
 
         function manage_field(ct_name, f_index) {
             let ct = corpus.content_types[ct_name];
-            let f_table = $(`#tm-ct-${ct_name}-f-table`);
+            let f_table = getEl(`tm-ct-${ct_name}-f-table`);
             let f_div_prefix = `tm-ct-${ct_name}-f-${f_index}`;
             let field_type_display = '';
             if (ct.fields[f_index].type === 'cross_reference') {
@@ -1924,10 +1885,10 @@
                 unique_display = unique_display.slice(0, -2) + ']';
             }
 
-            if ($(`#${f_div_prefix}-row`).length === 0) {
+            if (!getEl(`${f_div_prefix}-row`)) {
                 // Clear "No fields defined message"
                 if (ct.fields.length === 1) {
-                    f_table.html('');
+                    f_table.innerHTML = '';
                 }
 
                 let delete_or_lock_button = `<button type="button" class="btn btn-sm btn-danger m-1" id="${f_div_prefix}-delete-button"><span class="fas fa-trash-alt"></span></button>`;
@@ -1935,7 +1896,7 @@
                     delete_or_lock_button = `<button type="button" class="btn btn-sm btn-danger m-1" disabled><span class="fas fa-lock"></button>`;
                 }
 
-                f_table.append(`
+                appendToEl(f_table, `
                     <tr id="${f_div_prefix}-row" class="tm-ct-field" data-field-name="${ct.fields[f_index].name}">
                         <td id="${f_div_prefix}-name" class="fw-bold">${ct.fields[f_index].name}</td>
                         <td id="${f_div_prefix}-label">${ct.fields[f_index].label}</td>
@@ -1955,89 +1916,54 @@
                 `);
 
                 // EDIT FIELD BUTTON CLICK
-                $(`#${f_div_prefix}-edit-button`).click(function () {
-                    $('#new-f-modal-label').html('Edit Field');
-                    $('#new-f-ct-name').val(ct_name);
-                    $('#new-f-f-id').val(f_index);
-                    $('#new-f-action').val('edit');
-                    $('#new-f-name-box').val(ct.fields[f_index].name);
-                    $('#new-f-name-box').prop('disabled', true);
-                    $('#new-f-label-box').val(ct.fields[f_index].label);
-                    $('#new-f-type-box').val(ct.fields[f_index].type);
+                onEl(getEl(`${f_div_prefix}-edit-button`), 'click', () => {
+                    let field = ct.fields[f_index];
+                    let is_xref = field.type === 'cross_reference';
+                    let is_texty = ['text', 'large_text', 'html'].includes(field.type);
 
-                    if (ct.fields[f_index].type === 'cross_reference') {
-                        $('#new-f-cross-reference-box').removeClass('d-none');
-                        $('#new-f-cross-reference-box').val(ct.fields[f_index].cross_reference_type);
-                        $('#new-f-has-intensity-div').removeClass('d-none');
-                    } else {
-                        $('#new-f-cross-reference-box').addClass('d-none');
-                        $('#new-f-has-intensity-div').addClass('d-none');
-                    }
+                    getEl('new-f-modal-label').innerHTML = 'Edit Field';
+                    setVal(getEl('new-f-ct-name'), ct_name);
+                    setVal(getEl('new-f-f-id'), f_index);
+                    setVal(getEl('new-f-action'), 'edit');
+                    setVal(getEl('new-f-name-box'), field.name);
+                    setDisabled(getEl('new-f-name-box'));
+                    setVal(getEl('new-f-label-box'), field.label);
+                    setVal(getEl('new-f-type-box'), field.type);
 
-                    $('#new-f-language-box').val(ct.fields[f_index].language == null ? 'english': ct.fields[f_index].language)
-                    $('#new-f-autocomplete-checkbox').prop('checked', ct.fields[f_index].autocomplete);
-                    $('#new-f-synonym-box').val(ct.fields[f_index].synonym_file == null ? 'None' : ct.fields[f_index].synonym_file);
-                    if (['text', 'large_text', 'html'].includes(ct.fields[f_index].type)) {
-                        $('#new-f-synonym-div').removeClass('d-none');
-                        $('#new-f-language-div').removeClass('d-none');
-                    } else {
-                        $('#new-f-synonym-div').addClass('d-none');
-                        $('#new-f-language-div').addClass('d-none');
-                    }
-                    if (['text', 'cross_reference'].includes(ct.fields[f_index].type)) $('#new-f-autocomplete-div').removeClass('d-none');
-                    else $('#new-f-autocomplete-div').addClass('d-none');
+                    toggle_div('new-f-cross-reference-box', is_xref);
+                    toggle_div('new-f-has-intensity-div', is_xref);
+                    if (is_xref) setVal(getEl('new-f-cross-reference-box'), field.cross_reference_type);
 
-                    $('.f-with').html('');
-                    for (let x = 0; x < ct.fields.length; x++) {
-                        if (ct.fields[x].name !== ct.fields[f_index].name) {
-                            $('.f-with').append(`
-                                <option value='${ct.fields[x].name}'>${ct.fields[x].label}</option>
-                            `);
-                        }
-                    }
+                    setVal(getEl('new-f-language-box'), field.language == null ? 'english' : field.language)
+                    setChecked(getEl('new-f-autocomplete-checkbox'), field.autocomplete);
+                    setVal(getEl('new-f-synonym-box'), field.synonym_file == null ? 'None' : field.synonym_file);
+                    toggle_div('new-f-synonym-div', is_texty);
+                    toggle_div('new-f-language-div', is_texty);
+                    toggle_div('new-f-autocomplete-div', ['text', 'cross_reference'].includes(field.type));
 
-                    $('#new-f-has-intensity-checkbox').prop('checked', ct.fields[f_index].has_intensity)
-                    $('#new-f-indexed-checkbox').prop('checked', ct.fields[f_index].indexed);
-                    $('#new-f-indexed-with-box').val(ct.fields[f_index].indexed_with);
-                    if (ct.fields[f_index].indexed) {
-                        $('#new-f-indexed-with-div').addClass('d-flex');
-                        $('#new-f-indexed-with-div').removeClass('d-none');
-                    } else {
-                        $('#new-f-indexed-with-div').removeClass('d-flex');
-                        $('#new-f-indexed-with-div').addClass('d-none');
-                    }
+                    populate_f_with_options(ct.fields, field.name);
 
-                    $('#new-f-unique-checkbox').prop('checked', ct.fields[f_index].unique);
-                    $('#new-f-unique-with-box').val(ct.fields[f_index].unique_with);
-                    if (ct.fields[f_index].unique) {
-                        $('#new-f-unique-with-div').addClass('d-flex');
-                        $('#new-f-unique-with-div').removeClass('d-none');
-                    } else {
-                        $('#new-f-unique-with-div').removeClass('d-flex');
-                        $('#new-f-unique-with-div').addClass('d-none');
-                    }
+                    setChecked(getEl('new-f-has-intensity-checkbox'), field.has_intensity)
+                    setChecked(getEl('new-f-indexed-checkbox'), field.indexed);
+                    setVal(getEl('new-f-indexed-with-box'), field.indexed_with);
+                    toggle_div('new-f-indexed-with-div', field.indexed, 'd-flex');
 
-                    $('#new-f-in-lists-checkbox').prop('checked', ct.fields[f_index].in_lists);
-                    $('#new-f-multiple-checkbox').prop('checked', ct.fields[f_index].multiple);
-                    $('#new-f-create-button').html('Edit');
+                    setChecked(getEl('new-f-unique-checkbox'), field.unique);
+                    setVal(getEl('new-f-unique-with-box'), field.unique_with);
+                    toggle_div('new-f-unique-with-div', field.unique, 'd-flex');
 
-                    if (ct.fields[f_index].inherited) {
-                        $('#new-f-type-box').attr('disabled', true);
-                        $('#new-f-indexed-checkbox').attr('disabled', true);
-                        $('#new-f-unique-checkbox').attr('disabled', true);
-                        $('#new-f-multiple-checkbox').attr('disabled', true);
-                    } else {
-                        $('#new-f-type-box').attr('disabled', false);
-                        $('#new-f-indexed-checkbox').attr('disabled', false);
-                        $('#new-f-unique-checkbox').attr('disabled', false);
-                        $('#new-f-multiple-checkbox').attr('disabled', false);
-                    }
+                    setChecked(getEl('new-f-in-lists-checkbox'), field.in_lists);
+                    setChecked(getEl('new-f-multiple-checkbox'), field.multiple);
+                    getEl('new-f-create-button').innerHTML = 'Edit';
 
-                    $('#new-f-modal').modal();
+                    ['new-f-type-box', 'new-f-indexed-checkbox', 'new-f-unique-checkbox',
+                     'new-f-multiple-checkbox'].forEach(id => setDisabled(getEl(id), !!field.inherited));
+
+                    showModal(getEl('new-f-modal'));
                 });
 
                 // FIELD DELETE BUTTON CLICK
-                $(`#${f_div_prefix}-delete-button`).click(function () {
+                onEl(getEl(`${f_div_prefix}-delete-button`), 'click', () => {
                     if (!ct.fields[f_index].inherited) {
                         let performDeletion = true
                         let message = `You are attempting to delete the <b>${ct_name} -> ${ct.fields[f_index].name}</b> field.
@@ -2052,13 +1978,9 @@
                         }
 
                         corpora.confirm_action(
-                            function() {
-                                if (performDeletion) {
-                                    $('#confirmation-ct-name').val(ct_name)
-                                    $('#confirmation-field-name').val(ct.fields[f_index].name)
-                                    $('#confirmation-action').val('delete')
-                                    $('#content-action-form').submit()
-                                } else corpora.cancel_action()
+                            () => {
+                                if (performDeletion) submit_content_action(ct_name, ct.fields[f_index].name, 'delete')
+                                else corpora.cancel_action()
                             },
                             performDeletion ? 'Confirm Deletion' : 'Unable to Delete Field',
                             message,
@@ -2068,22 +1990,20 @@
                     }
                 });
             } else {
-                $(`#${f_div_prefix}-name`).html(ct.fields[f_index].name);
-                $(`#${f_div_prefix}-label`).html(ct.fields[f_index].label);
-                $(`#${f_div_prefix}-type`).html(field_type_display);
-                $(`#${f_div_prefix}-indexed`).html(indexed_display);
-                $(`#${f_div_prefix}-unique`).html(unique_display);
-                $(`#${f_div_prefix}-in-lists`).html(ct.fields[f_index].in_lists ? 'Y' : 'N');
-                $(`#${f_div_prefix}-multiple`).html(ct.fields[f_index].multiple ? 'Y' : 'N');
+                getEl(`${f_div_prefix}-name`).innerHTML = ct.fields[f_index].name;
+                getEl(`${f_div_prefix}-label`).innerHTML = ct.fields[f_index].label;
+                getEl(`${f_div_prefix}-type`).innerHTML = field_type_display;
+                getEl(`${f_div_prefix}-indexed`).innerHTML = indexed_display;
+                getEl(`${f_div_prefix}-unique`).innerHTML = unique_display;
+                getEl(`${f_div_prefix}-in-lists`).innerHTML = ct.fields[f_index].in_lists ? 'Y' : 'N';
+                getEl(`${f_div_prefix}-multiple`).innerHTML = ct.fields[f_index].multiple ? 'Y' : 'N';
             }
         }
 
         // FILE UPLOAD FUNCTIONALITY
-        $('#import-corpus-files-button').click(function() {
-            upload_file();
-        });
+        onEl(getEl('import-corpus-files-button'), 'click', () => upload_file());
 
-        function upload_file(path='', filter='', select='file') {
+        function upload_file(path='', filter='') {
             corpora.get_corpus_files(corpus_id, path, filter, function (data) {
                 file_upload_path = path;
 
@@ -2104,96 +2024,74 @@
                 import_corpus_file_pond.removeFiles();
                 file_uploads = [];
 
-                $('#file-upload-modal-table-body').html('');
-                $('#file-upload-modal-table-header').html(path + '/');
+                let table_body = getEl('file-upload-modal-table-body');
+                let table_header = getEl('file-upload-modal-table-header');
+
+                table_body.innerHTML = '';
+                table_header.innerHTML = path + '/';
                 if (path) {
                     let up_directory = '/' + path.split('/').slice(1, -1).join('/');
                     if (up_directory === '/') { up_directory = ''; }
-                    if (select === 'file') {
-                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}');" style="color: white;"><span class="fas fa-level-up-alt float-end"></span></a>`);
-                    } else {
-                        $('#file-upload-modal-table-header').append(`<a href="javascript:upload_file('${up_directory}', '', 'dir');" style="color: white;"><span class="fas fa-level-up-alt float-end"></span></a>`);
-                    }
+                    appendToEl(table_header, `<a href="javascript:upload_file('${up_directory}');" style="color: white;"><span class="fas fa-level-up-alt float-end"></span></a>`);
                 }
                 for (let x = 0; x < data.length; x++) {
-                    if(select === 'file') {
-                        if (data[x].type === 'file') {
-                            $('#file-upload-modal-table-body').append(`
-                                <tr><td>${data[x].filename}</td></tr>
-                            `);
-                        } else {
-                            $('#file-upload-modal-table-body').append(`
-                                <tr><td><span class="fas fa-folder-open"></span> ${data[x].filename} <a class="btn btn-sm btn-primary text-white float-end" role="button" href="javascript:upload_file('${data[x].path}');">Browse</a></td></tr>
-                            `);
-                        }
+                    if (data[x].type === 'file') {
+                        appendToEl(table_body, `
+                            <tr><td>${data[x].filename}</td></tr>
+                        `);
                     } else {
-                        if (data[x].type === 'dir') {
-                            $('#file-upload-modal-table-body').append(`
-                                <tr><td><span class="fas fa-folder-open"></span> <a href="javascript:handle_file_upload('${data[x].path}', '');">${data[x].filename}</a> <a class="btn btn-sm btn-primary text-white float-end" role="button" href="javascript:upload_file(file_upload_input_id, '${data[x].path}', '', 'dir');">Browse</a></td></tr>
-                            `);
-                        }
+                        appendToEl(table_body, `
+                            <tr><td><span class="fas fa-folder-open"></span> ${data[x].filename} <a class="btn btn-sm btn-primary text-white float-end" role="button" href="javascript:upload_file('${data[x].path}');">Browse</a></td></tr>
+                        `);
                     }
                 }
 
-                $('#file-upload-modal').modal();
+                showModal(getEl('file-upload-modal'));
             });
         }
 
         function handle_folder_creation() {
-            let dirname = corpora.pep8_variable_format($('#file-upload-modal-new-folder-box').val());
-            corpora.make_corpus_file_dir(corpus_id, file_upload_path, dirname, function() {
-                $('#file-upload-modal-new-folder-box').val('');
-                upload_file(path=file_upload_path);
+            let new_folder_box = getEl('file-upload-modal-new-folder-box');
+            let dirname = corpora.pep8_variable_format(getVal(new_folder_box));
+            corpora.make_corpus_file_dir(corpus_id, file_upload_path, dirname, () => {
+                setVal(new_folder_box, '');
+                upload_file(file_upload_path);
             });
         }
 
-        $('#file-upload-reset-button').click(function() {
-            let import_button = $('#file-upload-import-button');
+        onEl(getEl('file-upload-reset-button'), 'click', () => {
+            let import_button = getEl('file-upload-import-button');
 
             import_files = [];
-            import_button.html('Import');
-            import_button.attr('disabled', true);
+            import_button.innerHTML = 'Import';
+            setDisabled(import_button);
         });
 
-        $('#file-upload-import-button').click(function() {
-            $('#import-corpus-files').val(JSON.stringify(import_files));
-            $('#import-corpus-files-form').submit();
+        onEl(getEl('file-upload-import-button'), 'click', () => {
+            setVal(getEl('import-corpus-files'), JSON.stringify(import_files));
+            getEl('import-corpus-files-form').submit();
         });
 
         // REPO FUNCTIONALITY
-        $('#add-corpus-repo-button').click(function() {
-            $('#new-repo-name-box').val('')
-            $('#new-repo-url-box').val('')
-            $('#new-repo-auth-box').prop('checked', false)
-            $('#new-repo-credentials-div').addClass('d-none')
-            $('#new-repo-user-box').val('')
-            $('#new-repo-pwd-box').val('')
-            $('#new-repo-branch-box').val('master')
-            $('#new-repo-modal').modal()
+        onEl(getEl('add-corpus-repo-button'), 'click', () => {
+            setVal(getEl('new-repo-name-box'), '')
+            setVal(getEl('new-repo-url-box'), '')
+            setChecked(getEl('new-repo-auth-box'), false)
+            getEl('new-repo-credentials-div').classList.add('d-none')
+            setVal(getEl('new-repo-user-box'), '')
+            setVal(getEl('new-repo-pwd-box'), '')
+            setVal(getEl('new-repo-branch-box'), 'master')
+            showModal(getEl('new-repo-modal'))
         })
 
-        $('#new-repo-auth-box').change(function() {
-            let auth_div = $('#new-repo-credentials-div')
-
-            if ($(this).is(':checked')) auth_div.removeClass('d-none')
-            else auth_div.addClass('d-none')
+        onEl(getEl('new-repo-auth-box'), 'change', event => {
+            getEl('new-repo-credentials-div').classList.toggle('d-none', !event.currentTarget.checked)
         })
 
         // PEP8 CLASS FORMAT REPO NAME
-        $('#new-repo-name-box').focusout(function () {
-            $('#new-repo-name-box').val(corpora.pep8_variable_format($('#new-repo-name-box').val()))
+        onEl(getEl('new-repo-name-box'), 'focusout', () => {
+            let repo_box = getEl('new-repo-name-box')
+            setVal(repo_box, corpora.pep8_variable_format(getVal(repo_box)))
         })
-
-        function job_finished() {
-            if (!ignore_finished_jobs) {
-                $('#job-finished-modal').modal()
-            }
-        }
-
-        // THIS GETS CALLED BY JOB WIDGET IN IFRAME
-        function resize_job_widget() {
-            let job_widget = document.getElementById("job-iframe");
-            job_widget.style.height = job_widget.contentWindow.document.body.scrollHeight + 'px';
-        }
     </script>
 {% endblock %}
