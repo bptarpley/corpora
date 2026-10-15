@@ -594,27 +594,16 @@ def bulk_edit_content(job_id):
                 search_query = json.loads(content_query)
                 search_params = build_search_params_from_dict(search_query)
 
-                search_params['page_size'] = 100
                 search_params['only'] = ['id']
-                page = 1
-                num_pages = 1
 
-                while page <= num_pages:
-                    search_params['page'] = page
-                    results = corpus.search_content(content_type, **search_params)
-                    if results:
-                        if results['meta']['num_pages'] > num_pages:
-                            num_pages = results['meta']['num_pages']
-                        if 'next_page_token' in results['meta']:
-                            search_params['page-token'] = results['meta']['next_page_token']
-
-                        content_ids = []
-                        for record in results['records']:
-                            content_ids.append(record['id'])
-
-                        set_and_save_content(corpus, content_type, content_ids, content_bundle, scholar_id)
-
-                    page += 1
+                for records, _ in stream_search_results(corpus, content_type, search_params):
+                    set_and_save_content(
+                        corpus,
+                        content_type,
+                        [record['id'] for record in records],
+                        content_bundle,
+                        scholar_id
+                    )
 
     job.complete('complete')
 
