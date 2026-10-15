@@ -111,6 +111,29 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['bulk_edit_content']
     },
+    "Bulk Delete Content": {
+        "version": "0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "create_report": True,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "content_type": {
+                    "value": "",
+                    "type": "content_type",
+                    "label": "Content Type"
+                },
+                "content_query": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Content Search Query JSON"
+                }
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['bulk_delete_content']
+    },
     "Save Content Type Schema": {
         "version": "0",
         "jobsite_type": "HUEY",
@@ -620,6 +643,70 @@ def set_and_save_content(corpus, content_type, content_ids, content_bundle, scho
                 scholar_id,
                 True
             )
+
+
+@db_task(priority=3)
+def bulk_delete_content(job_id):
+    """
+    Delete every instance of a content type matching a search.
+
+    Only ever launched with a search -- an explicit list of ids is deleted inline by
+    the corpus view, since that is bounded by what the user could select by hand.
+    """
+    job = Job(job_id)
+    job.set_status('running')
+    corpus = job.corpus
+    content_type = job.get_param_value('content_type')
+    content_query = job.get_param_value('content_query')
+
+    if content_type in corpus.content_types and content_query:
+        search_params = build_search_params_from_dict(json.loads(content_query))
+        search_params['only'] = ['id']
+
+        # Every matching id is gathered BEFORE anything is deleted. Deleting while
+        # streaming would mutate the result set being paged through: until
+        # Elasticsearch starts handing out deep-pagination tokens, stream_search_results
+        # pages by number, so removing page 1 shifts page 2's window past the records
+        # that moved up into it -- silently skipping roughly half of them. The shrinking
+        # 'total' would also end the walk early.
+        content_ids = []
+        for records, _ in stream_search_results(corpus, content_type, search_params):
+            content_ids += [record['id'] for record in records]
+
+        total = len(content_ids)
+        job.report("Deleting {0} instance(s) of {1} matching:\n{2}".format(
+            total,
+            content_type,
+            json.dumps(json.loads(content_query), indent=2)
+        ))
+
+        deleted = 0
+        errored = 0
+        for index, content_id in enumerate(content_ids):
+            try:
+                content = corpus.get_content(content_type, content_id, single_result=True)
+                if content:
+                    content.delete()
+                    deleted += 1
+            except:
+                errored += 1
+                job.report("Error deleting {0} with ID {1}:\n{2}".format(
+                    content_type, content_id, traceback.format_exc()
+                ))
+
+            if total and index % 100 == 0:
+                job.set_status('running', percent_complete=int((index / total) * 100))
+
+        job.report("\nDeleted {0} of {1} instance(s) of {2}.{3}".format(
+            deleted,
+            total,
+            content_type,
+            " {0} error(s) -- see above.".format(errored) if errored else ""
+        ))
+    else:
+        job.report("No content type or search query provided -- nothing deleted.")
+
+    job.complete('complete')
 
 
 @db_periodic_task(crontab(minute='*'), priority=4)
