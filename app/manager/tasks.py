@@ -42,9 +42,10 @@ from django_drf_filepond.models import TemporaryUpload
 
 REGISTRY = {
     "Bulk Launch Jobs": {
-        "version": "0.0",
+        "version": "0.1",
         "jobsite_type": "HUEY",
         "track_provenance": False,
+        "create_report": True,
         "content_type": "Corpus",
         "configuration": {
             "parameters": {
@@ -534,19 +535,15 @@ def bulk_launch_jobs(job_id):
         search_params = build_search_params_from_dict(search_query)
         job_params = json.loads(job.get_param_value('job_params'))
 
-        search_params['page_size'] = 100
         search_params['only'] = ['id']
-        page = 1
-        num_pages = 1
+        launched = 0
 
-        while page <= num_pages:
-            search_params['page'] = page
-            results = corpus.search_content(content_type, **search_params)
-            if results:
-                if results['meta']['num_pages'] > num_pages:
-                    num_pages = results['meta']['num_pages']
+        try:
+            for records, meta in stream_search_results(corpus, content_type, search_params):
+                if not launched:
+                    job.report("Queueing {0} job(s) for {1}.".format(meta['total'], content_type))
 
-                for record in results['records']:
+                for record in records:
                     corpus.queue_local_job(
                         content_type=content_type,
                         content_id=record['id'],
@@ -555,7 +552,24 @@ def bulk_launch_jobs(job_id):
                         parameters=job_params
                     )
 
-            page += 1
+                launched += len(records)
+
+                # these are created at status 'queueing' on purpose -- check_jobs
+                # promotes them a batch at a time, so hold short of 100 until every
+                # job has been created.
+                if meta['total']:
+                    job.set_status('running', percent_complete=min(
+                        99, int((launched / meta['total']) * 100)
+                    ))
+        except RuntimeError:
+            job.report(traceback.format_exc())
+            job.complete(
+                status='error',
+                error_msg="Queued {0} job(s) before deep pagination failed.".format(launched)
+            )
+            return
+
+        job.report("Queued {0} job(s).".format(launched))
 
     job.complete('complete')
 
