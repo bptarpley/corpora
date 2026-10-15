@@ -568,59 +568,6 @@ def transcribe(request, corpus_id, document_id, project_id, ref_no=None):
         raise Http404("Corpus does not exist, or you are not authorized to view it.")
 
 
-@login_required
-def draw_page_regions(request, corpus_id, document_id, ref_no):
-    response = _get_context(request)
-    corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
-
-    if corpus and (response['scholar'].is_admin or role == 'Editor'):
-        document = corpus.get_content('Document', document_id)
-        image_file = None
-        page_regions = []
-        ocr_file = request.GET.get('ocrfile', None)
-
-        if document and ref_no in document.pages:
-            page = document.pages[ref_no]
-            if page:
-                if ocr_file and os.path.exists(ocr_file):
-                    if ocr_file.lower().endswith('.json'):
-                        page_regions = get_page_regions(ocr_file, 'GCV')
-                    elif ocr_file.lower().endswith('.hocr'):
-                        page_regions = get_page_regions(ocr_file, 'HOCR')
-
-                for file_key, file in page.files.items():
-                    if 'Image' in file.description and file.primary_witness:
-                        image_file = file
-                    elif not page_regions and 'GCV TextAnnotation Object' in file.description:
-                        ocr_file = file.path
-                        page_regions = get_page_regions(file.path, 'GCV')
-                    elif not page_regions and 'HOCR' in file.description:
-                        ocr_file = file.path
-                        page_regions = get_page_regions(file.path, 'HOCR')
-
-        image_dict = image_file.to_dict(parent_uri="/corpus/{0}/Document/{1}/page/{2}".format(
-            corpus_id,
-            document_id,
-            ref_no
-        ))
-
-        return render(
-            request,
-            'draw_regions.html',
-            {
-                'response': response,
-                'image_file': image_dict,
-                'page_regions': page_regions,
-                'corpus': corpus,
-                'document': document,
-                'ocr_file': ocr_file,
-                'ref_no': ref_no
-            }
-        )
-    else:
-        raise Http404("Corpus does not exist, or you are not authorized to view it.")
-
-
 @api_view(['GET'])
 def api_document_page_file_collections(request, corpus_id, document_id, pfc_slug=None):
     response = _get_context(request)
