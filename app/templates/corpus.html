@@ -653,6 +653,7 @@
 {% endblock %}
 
 {% block js %}
+    {{ nav_target|json_script:"nav-target-data" }}
     <script src="{% static 'js/filepond.js' %}"></script>
     <script src="{% static 'js/ace/ace.js' %}"></script>
     <script src={% static 'js/beautify/beautify.js' %}></script>
@@ -677,7 +678,7 @@
         let import_editor;
         let template_editor;
         let job_report_timer = null;
-        let ignore_finished_jobs = false;
+        let navTarget = JSON.parse(getEl('nav-target-data').textContent)
 
         // FOR CONTENT TYPE GROUPS
         let content_type_groups = {}
@@ -1403,6 +1404,44 @@
                 location.hash = scroll_location;
             }, true);
         });
+
+        function afterPageLoad() {
+            hide_loading_overlay()
+
+            // setup event listener for when a tab is made active
+            forElsMatching('a[data-bs-toggle="tab"]', tab => {
+                onEl(tab, 'shown.bs.tab', e => {
+                    if (e.target.id === 'admin-tab') ct_graph.fit({nodes: node_ids})
+
+                    if (navTarget.tab === e.target.id) {
+                        if (navTarget.id) {
+                            delayedScroll(navTarget.id)
+                            navTarget = {}
+
+                            // also show any messages hidden by scroll
+                            forElsMatching('.corpora-alert', alert => {
+                                Toastify({
+                                    node: alert,
+                                    duration: -1,
+                                    close: true,
+                                    gravity: 'bottom',
+                                    position: 'right',
+                                    style: {
+                                        background: 'unset',
+                                        padding: '8px'
+                                    }
+                                }).showToast()
+                            })
+                        }
+                    }
+                })
+            })
+
+            if (navTarget.tab) {
+                let tab = getEl(navTarget.tab)
+                if (tab) bootstrap.Tab.getOrCreateInstance(tab).show()
+            }
+        }
 
         function draw_ct_graph() {
             let graph_div = $('#content-types-graph');

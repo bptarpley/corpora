@@ -153,6 +153,7 @@ def corpus(request, corpus_id):
     response = _get_context(request)
     corpus, role = get_scholar_corpus(corpus_id, response['scholar'])
     content_views = []
+    nav_target = {}
 
     if corpus:
         # EDITOR REQUESTS
@@ -261,6 +262,8 @@ def corpus(request, corpus_id):
 
                         response['messages'].append("Corpus file(s) deleted successfully.")
 
+                    nav_target = {'tab': 'metadata-tab', 'id': f'corpus-files-div'}
+
                 # HANDLE REPO CREATION
                 elif _contains(request.POST, ['new-repo-name', 'new-repo-url', 'new-repo-branch']):
                     repo = GitRepo()
@@ -290,6 +293,8 @@ def corpus(request, corpus_id):
                     else:
                         response['errors'].append("Please provide values for the repository's name, URL, and branch.")
 
+                    nav_target = {'tab': 'metadata-tab', 'id': f'corpus-repos-div'}
+
                 # HANDLE REPO DELETION
                 elif _contains(request.POST, ['deletion-confirmed', 'repo']):
                     repo_name = _clean(request.POST, 'repo')
@@ -303,6 +308,8 @@ def corpus(request, corpus_id):
                         response['errors'].append(
                             'An error occurred when attempting to delete the "{0}" repository!'.format(
                                 repo_name))
+
+                    nav_target = {'tab': 'metadata-tab', 'id': f'corpus-repos-div'}
 
                 # HANDLE CONTENT VIEW DELETION
                 elif _contains(request.POST, ['deletion-confirmed', 'content-view']):
@@ -319,6 +326,7 @@ def corpus(request, corpus_id):
 
                     content_views = ContentView.objects(corpus=corpus, status='populated').order_by('name')
                     response['messages'].append('The "{0}" Content View is being deleted.'.format(cv_name))
+                    nav_target = {'tab': 'views-tab'}
 
                 # HANDLE CONTENT TYPE SCHEMA SUBMISSION
                 elif 'schema' in request.POST:
@@ -344,6 +352,8 @@ def corpus(request, corpus_id):
                         response['errors'].append('''
                             Unable to save content type schema! There may be an issue with circular dependencies.
                         ''')
+
+                    nav_target = {'tab': 'admin-tab', 'id': f'type-manager-div'}
 
                 # HANDLE CONTENT_TYPE/FIELD ACTIONS THAT REQUIRE CONFIRMATION
                 elif _contains(request.POST, [
@@ -405,6 +415,8 @@ def corpus(request, corpus_id):
                                     action_field_name,
                                     action_content_type
                                 ))
+
+                    nav_target = {'tab': 'admin-tab', 'id': f'type-manager-div'}
 
             # CORPORA ADMIN POST REQUESTS
             if scholar_has_privilege('Admin', role):
@@ -539,6 +551,7 @@ def corpus(request, corpus_id):
             'content_views': content_views,
             'invalid_field_names': settings.INVALID_FIELD_NAMES,
             'field_languages': FIELD_LANGUAGES,
+            'nav_target': nav_target,
             'response': response,
             'available_jobsites': [str(js.id) for js in response['scholar']['available_jobsites']],
             'available_tasks': [str(t.id) for t in response['scholar']['available_tasks']],
