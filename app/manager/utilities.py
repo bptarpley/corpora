@@ -901,6 +901,23 @@ def _clean(obj, key, default_value=''):
         return default_value
 
 
+def place_uploaded_file(upload_id, destination_path):
+    temp_upload = TemporaryUpload.objects.get(upload_id=upload_id)
+    temp_path = temp_upload.file.path
+
+    # ensure destination path exists
+    os.makedirs(destination_path, exist_ok=True)
+
+    new_path = f"{destination_path}/{temp_upload.upload_name.replace(' ', '_').replace('%20', '_')}"
+
+    if os.path.exists(temp_path):
+        os.rename(temp_path, new_path)
+
+    temp_upload.delete()
+
+    return new_path
+
+
 def fix_mongo_json(json_string):
     json_string = mongo_id_pattern.sub(r'"\1"', json_string)
     json_string = mongo_date_pattern.sub(r'\1', json_string)
