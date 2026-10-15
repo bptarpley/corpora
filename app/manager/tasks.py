@@ -26,7 +26,10 @@ from subprocess import call
 from manager.utilities import (
     _contains,
     build_search_params_from_dict,
+    stream_search_results,
     order_content_schema,
+    reindex_corpus,
+    relink_corpus,
     process_content_bundle,
     delimit_content_json,
     create_content_csv_rows,
@@ -383,6 +386,45 @@ REGISTRY = {
         },
         "module": 'manager.tasks',
         "functions": ['backup_corpus']
+    },
+    "Reindex Corpora": {
+        "version": "0.1",
+        "jobsite_type": "HUEY",
+        # deliberately False: this keeps the task out of the per-corpus "Run a Job"
+        # dropdown, which is gated on track_provenance. Editors who want to reindex a
+        # single content type can still use "Adjust Content".
+        "track_provenance": False,
+        "create_report": True,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "remaining_corpus_ids": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Remaining Corpus IDs",
+                },
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['reindex_corpora']
+    },
+    "Relink Corpora": {
+        "version": "0.1",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "create_report": True,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "remaining_corpus_ids": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Remaining Corpus IDs",
+                },
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['relink_corpora']
     },
     "Export Corpus": {
         "version": "0.4",
@@ -769,19 +811,80 @@ def adjust_content_slice(corpus, content_type, start, end, reindex, relabel, res
     return errors
 
 
-@db_task(priority=5)
-def scrub_all_provenance():
-    corpora = Corpus.objects()
-    for corpus in corpora:
-        corpus.provenance = []
-        corpus.save()
+# chained, instance-wide maintenance. Named here so check_jobs can recognise an
+# orphaned maintenance job and carry its chain forward rather than stranding it.
+CORPORA_MAINTENANCE_TASKS = ('Reindex Corpora', 'Relink Corpora')
 
-        for content_type in corpus.content_types.keys():
-            contents = corpus.get_content(content_type, {"provenance__exists": True, "provenance__not__size": 0}).no_cache()
-            contents = contents.batch_size(10)
-            for content in contents:
-                content.provenance = []
-                content.save()
+
+def _chain_corpora_maintenance(job, task_name):
+    """
+    Hand off to the next corpus in a maintenance run.
+
+    These tasks are chained rather than fanned out on purpose: Corpora is typically
+    deployed on a resource-constrained VM, and reindexing or relinking several large
+    corpora at once would overwhelm Elasticsearch/Neo4j. Each job carries the IDs of
+    the corpora still to process and queues exactly one successor on completion.
+    """
+    # get_param_value returns None when the parameter is absent, hence the `or ''`
+    remaining = [c_id for c_id in (job.get_param_value('remaining_corpus_ids') or '').split(',') if c_id]
+    if not remaining:
+        job.report(f'{task_name} complete for all corpora.')
+        return
+
+    next_corpus = get_corpus(remaining[0])
+    if not next_corpus:
+        job.report(f'Could not load corpus {remaining[0]}; skipping it.')
+        remaining = remaining[1:]
+        if not remaining:
+            return
+
+        next_corpus = get_corpus(remaining[0])
+        if not next_corpus:
+            return
+
+    next_job_id = next_corpus.queue_local_job(
+        task_name=task_name,
+        scholar_id=job.scholar_id,
+        parameters={'remaining_corpus_ids': ','.join(remaining[1:])}
+    )
+
+    if next_job_id:
+        job.report(f'Handing off to "{next_corpus.name}" (job {next_job_id}).')
+        run_job(next_job_id)
+    else:
+        job.report(f'Unable to queue {task_name} for "{next_corpus.name}"! Chain halted.')
+
+
+def _run_corpora_maintenance(job_id, task_name, operation):
+    """Shared body for the two chained, instance-wide maintenance tasks."""
+    job = Job(job_id)
+    job.set_status('running')
+
+    try:
+        operation(
+            job.corpus,
+            report=job.report,
+            progress=lambda pct: job.set_status('running', percent_complete=pct)
+        )
+    except:
+        job.report(traceback.format_exc())
+        job.complete(status='error', error_msg=f'{task_name} failed for this corpus.')
+        # the chain continues regardless, so one bad corpus does not strand the rest
+        _chain_corpora_maintenance(job, task_name)
+        return
+
+    _chain_corpora_maintenance(job, task_name)
+    job.complete(status='complete')
+
+
+@db_task(priority=5)
+def reindex_corpora(job_id):
+    _run_corpora_maintenance(job_id, 'Reindex Corpora', reindex_corpus)
+
+
+@db_task(priority=5)
+def relink_corpora(job_id):
+    _run_corpora_maintenance(job_id, 'Relink Corpora', relink_corpus)
 
 
 @db_task(priority=5)

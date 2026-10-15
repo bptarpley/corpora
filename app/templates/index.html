@@ -132,7 +132,8 @@
                     <span>
                       <select class="form-select-sm bg-primary mx-1" id="admin-action-selector">
                           <option value="" selected>Admin Actions...</option>
-                          <option value="scrub-provenance">Scrub all provenance</option>
+                          <option value="reindex-corpora">Reindex all corpora</option>
+                          <option value="relink-corpora">Relink all corpora</option>
                       </select>
                       <button type="button" class="btn btn-sm btn-secondary" id="admin-action-go-button" disabled>Go</button>
                     </span>
@@ -146,8 +147,31 @@
 {% block js %}
 
     <script type="application/javascript">
-        $(document).ready(function() {
-            hide_loading_overlay();
+        let job_manager = null
+
+        // confirmation text per admin action, keyed by the <option> value
+        const ADMIN_ACTION_CONFIRMATIONS = {
+            'reindex-corpora': `
+                This will rebuild the Elasticsearch index for every corpus and reindex all of their content.
+                Corpora are processed one at a time, and content may be temporarily unavailable in lists and
+                searches while its content type is being reindexed. Would you like to proceed?
+            `,
+            'relink-corpora': `
+                This will delete and rebuild all Neo4j nodes and relationships for every corpus. Corpora are
+                processed one at a time, and relationship data may be temporarily unavailable while a content
+                type is being relinked. Would you like to proceed?
+            `
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            hide_loading_overlay()
+
+            onEl(getEl('corpus-new-button'), 'click', () => showModal(getEl('new-corpus-modal')))
+
+            // NEW CORPUS NAME VALIDATION
+            onEl(getEl('new-corpus-form'), 'submit', event => {
+                let name_box = getEl('new-corpus-name-box')
+                let missing = !getVal(name_box).trim()
 
             $('#corpus-new-button').click(function() {
                 $('#new-corpus-modal').modal()

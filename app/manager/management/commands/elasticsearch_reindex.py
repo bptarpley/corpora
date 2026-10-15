@@ -1,30 +1,16 @@
 from django.core.management.base import BaseCommand
-from manager.utilities import order_content_schema
+from manager.utilities import reindex_corpus
 from corpus import Corpus
 
 
 class Command(BaseCommand):
+    help = "Rebuild the Elasticsearch index for every corpus and reindex all content."
+
     def handle(self, *args, **options):
+        # the per-corpus logic is shared with the "Reindex Corpora" task so that this
+        # command and the admin action on the Corpora home page behave identically
         for c in Corpus.objects.all():
-            print(f"Adding corpus \"{c.name}\" to corpus index...")
-            c.save()
+            reindex_corpus(c, report=self.stdout.write)
+            self.stdout.write("\n")
 
-            ordered_schema = []
-            for ct_name in c.content_types.keys():
-                ordered_schema.append(c.content_types[ct_name].to_dict())
-            ordered_schema = order_content_schema(ordered_schema)
-
-            for ct in ordered_schema:
-                ct_name = ct['name']
-                print(f"Rebuilding \"{ct_name}\" content type index...")
-                c.build_content_type_elastic_index(ct_name)
-
-                content_count = 0
-                for content in c.get_content(ct_name, all=True):
-                    content._do_indexing()
-                    content_count += 1
-                print(f"Reindexed {content_count} \"{ct_name}\" instances!")
-
-            print("\n")
-
-        print("All content successfully reindexed.")
+        self.stdout.write("All content successfully reindexed.")
