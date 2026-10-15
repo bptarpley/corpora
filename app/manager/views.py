@@ -59,27 +59,41 @@ def corpora(request):
         if 'new-corpus-name' in request.POST:
             include_document_content_types = 'new-corpus-content-types' in request.POST
 
-            c_name = unescape(_clean(request.POST, 'new-corpus-name'))
+            c_name = unescape(_clean(request.POST, 'new-corpus-name')).strip()
             c_desc = unescape(_clean(request.POST, 'new-corpus-desc'))
             c_open = unescape(_clean(request.POST, 'new-corpus-open'))
 
-            c = Corpus()
-            c.name = c_name
-            c.description = c_desc
-            c.open_access = True if c_open else False
-            c.save()
+            # Corpus.name is unique but not required, so without these two checks an
+            # unnamed corpus could be created, and a duplicate name raised an
+            # unhandled NotUniqueError (a 500) rather than reporting the clash.
+            if not c_name:
+                context['errors'].append("Please provide a name for this corpus.")
+            else:
+                c = Corpus()
+                c.name = c_name
+                c.description = c_desc
+                c.open_access = True if c_open else False
 
-            if c.open_access:
-                get_open_access_corpora(False)
+                try:
+                    c.save()
+                except NotUniqueError:
+                    c = None
+                    context['errors'].append(
+                        'A corpus named "{0}" already exists. Please choose a different name.'.format(c_name)
+                    )
 
-            if include_document_content_types:
-                from plugins.document.content import REGISTRY
-                for schema in REGISTRY:
-                    c.save_content_type(schema)
+                if c:
+                    if c.open_access:
+                        get_open_access_corpora(False)
 
-            sleep(4)
+                    if include_document_content_types:
+                        from plugins.document.content import REGISTRY
+                        for schema in REGISTRY:
+                            c.save_content_type(schema)
 
-            context['messages'].append("{0} corpus successfully created.".format(c.name))
+                    sleep(4)
+
+                    context['messages'].append("{0} corpus successfully created.".format(c.name))
 
         elif 'admin-action' in request.POST:
             action = _clean(request.POST, 'admin-action')
