@@ -13,8 +13,6 @@
             overflow-y: scroll;
         }
     </style>
-    <link href="{% static 'css/vis-network.min.css' %}" rel="stylesheet">
-
 {% endblock %}
 
 {% block main %}
@@ -84,64 +82,65 @@
 {% endblock %}
 
 {% block js %}
-    <script src="{% static 'js/filepond.js' %}"></script>
-    <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
-    <script src="{% static 'js/vis-network.min.js' %}"></script>
     <script type="application/javascript">
-        let corpus_id = '{{ corpus_id }}';
-        let corpus_uri = `/corpus/${corpus_id}`;
-        let content_type_name = '{{ content_type }}';
-        let job_id = '{% if job_id %}{{ job_id }}{% endif %}';
-        let report_timer = null;
-        let target_id = '';
-        let merge_ids = [];
+        let corpus_id = '{{ corpus_id }}'
+        let corpus_uri = `/corpus/${corpus_id}`
+        let content_type_name = '{{ content_type }}'
+        let job_id = '{% if job_id %}{{ job_id }}{% endif %}'
+        let report_timer = null
+        let target_id = ''
+        let merge_ids = []
 
-        $(document).ready(function() {
+        document.addEventListener('DOMContentLoaded', function() {
             if (!job_id) {
-                $('.target-selector').click(function () {
-                    target_id = this.id;
-                    merge_ids = [];
+                onElsMatching('.target-selector', 'click', event => {
+                    let target_selector = event.currentTarget
+                    target_id = target_selector.id
+                    merge_ids = []
 
-                    let target_selector = $(this);
+                    forElsMatching('.target-selector', selector => {
+                        selector.classList.remove('alert-primary')
+                        selector.classList.add('alert-secondary')
+                        if (selector.id !== target_id) merge_ids.push(selector.id)
+                    })
 
-                    $('.target-selector').each(function () {
-                        $(this).removeClass('alert-primary');
-                        $(this).addClass('alert-secondary');
-                        if (this.id !== target_id) {
-                            merge_ids.push(this.id);
-                        }
-                    });
+                    target_selector.classList.remove('alert-secondary')
+                    target_selector.classList.add('alert-primary')
 
-                    target_selector.removeClass('alert-secondary');
-                    target_selector.addClass('alert-primary');
+                    getEl('merge_form').classList.remove('d-none')
+                    setDisabled(getEl('merge_button'), false)
+                })
 
-                    $('#merge_form').removeClass('d-none');
-                    $('#merge_button').removeAttr('disabled');
-                });
-
-                $('#merge_button').click(function () {
-                    $('#target_id').val(target_id);
-                    $('#merge_ids').val(merge_ids.join(','));
-                    $('#merge_form').submit();
-                });
+                onEl(getEl('merge_button'), 'click', () => {
+                    setVal(getEl('target_id'), target_id)
+                    setVal(getEl('merge_ids'), merge_ids.join(','))
+                    getEl('merge_form').requestSubmit()
+                })
             } else {
-                load_report();
+                load_report()
             }
 
-            hide_loading_overlay();
-        });
+            hide_loading_overlay()
+        })
 
         function load_report() {
-            let report_url = `${corpus_uri}/get-file/?path=merge_reports/${job_id}.txt`;
-            let report_div = $('#merge-report-div');
+            let report_div = getEl('merge-report-div')
 
-            report_div.load(report_url, function() {
-                report_div.scrollTop(report_div.height());
+            fetch(`${corpus_uri}/get-file/?path=merge_reports/${job_id}.txt`)
+                .then(res => res.ok ? res.text() : null)
+                .then(report => {
+                    if (report !== null) {
+                        report_div.textContent = report
+                        report_div.scrollTop = report_div.scrollHeight
+                    }
 
-                if (!report_div.html().includes('MERGE COMPLETED')) {
-                    setTimeout(load_report, 10000);
-                }
-            });
+                    if (report === null || !report.includes('MERGE COMPLETED')) {
+                        report_timer = setTimeout(load_report, 10000)
+                    }
+                })
+                .catch(() => {
+                    report_timer = setTimeout(load_report, 10000)
+                })
         }
     </script>
 {% endblock %}
