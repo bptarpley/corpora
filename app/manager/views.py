@@ -1102,17 +1102,8 @@ def backups(request):
                         response['messages'].append(f'Will now retain {cba_status} automated backups for {cba_corpus.name}.')
 
             elif _contains(request.POST, ['backup-file-import', 'backup-upload-id']):
-                upload_id = _clean(request.POST, 'backup-upload-id')
-                temp_upload = TemporaryUpload.objects.get(upload_id=upload_id)
-                temp_path = temp_upload.file.path
-
                 corpora_backups_path = "/corpora/backups"
-                os.makedirs(corpora_backups_path, exist_ok=True)
-
-                new_path = f"{corpora_backups_path}/{temp_upload.upload_name.replace(' ', '_').replace('%20', '_')}"
-
-                if os.path.exists(temp_path):
-                    os.rename(temp_path, new_path)
+                new_path = place_uploaded_file(_clean(request.POST, 'backup-upload-id'), corpora_backups_path)
 
                 if os.path.exists(new_path):
                     backup_file = new_path
@@ -1122,8 +1113,6 @@ def backups(request):
                         else:
                             response['errors'].append('An error occurred while importing this backup file!')
                             os.remove(new_path)
-
-                temp_upload.delete()
 
             # HANDLE BACKUP ACTIONS
             backup_action = _clean(request.POST, 'backup-action')
