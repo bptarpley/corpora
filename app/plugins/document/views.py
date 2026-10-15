@@ -8,13 +8,16 @@ from django.template import Template, Context
 from django.contrib.auth.decorators import login_required
 from django.utils.text import slugify
 from .content import PageSet
-from manager.utilities import _get_context, get_scholar_corpus, _contains, _clean, scholar_has_privilege
+from manager.utilities import (
+    _get_context, get_scholar_corpus,
+    _contains, _clean, scholar_has_privilege,
+    place_uploaded_file
+)
 from manager.tasks import run_job
 from manager.views import view_content
 from natsort import natsorted
 from rest_framework.decorators import api_view
 from bs4 import BeautifulSoup
-from django_drf_filepond.models import TemporaryUpload
 from corpus import (
     Job, JobSite, Task,
     File
@@ -353,13 +356,9 @@ def process_document_file_upload(document, upload_id, username):
         document._make_path()
         document.save()
 
-    temp_upload = TemporaryUpload.objects.get(upload_id=upload_id)
-    temp_upload_path = temp_upload.file.path
-    import_file_path = f"{document.path}/files/{temp_upload.upload_name.replace(' ', '_').replace('%20', '_')}"
+    import_file_path = place_uploaded_file(upload_id, f"{document.path}/files")
 
-    if not os.path.exists(import_file_path):
-        os.rename(temp_upload_path, import_file_path)
-
+    if os.path.exists(import_file_path):
         extension = import_file_path.split('.')[-1]
         document.save_file(File.process(
             import_file_path,
@@ -369,7 +368,6 @@ def process_document_file_upload(document, upload_id, username):
             False
         ))
 
-        temp_upload.delete()
         return import_file_path
     return False
 
