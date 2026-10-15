@@ -83,6 +83,24 @@ class CompletedTask(mongoengine.EmbeddedDocument):
     report_path = mongoengine.StringField()
     error = mongoengine.StringField()
 
+    @staticmethod
+    def _parse_timestamp(value):
+        # to_dict() emits epoch seconds, so this is the inverse. datetime.timestamp()
+        # treats a naive datetime as local time, so fromtimestamp() -- not
+        # utcfromtimestamp() -- is what round-trips without shifting by the UTC offset.
+        if value is None or isinstance(value, datetime):
+            return value
+        if isinstance(value, (int, float)):
+            return datetime.fromtimestamp(value)
+        if isinstance(value, str):
+            if value.isdigit():
+                return datetime.fromtimestamp(int(value))
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError:
+                return None
+        return None
+
     @classmethod
     def from_dict(cls, prov_info):
         prov = CompletedTask()
@@ -99,7 +117,10 @@ class CompletedTask(mongoengine.EmbeddedDocument):
             'error'
         ]:
             if attr in prov_info:
-                setattr(prov, attr, prov_info[attr])
+                value = prov_info[attr]
+                if attr in ['submitted', 'completed']:
+                    value = cls._parse_timestamp(value)
+                setattr(prov, attr, value)
 
         return prov
 
