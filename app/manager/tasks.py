@@ -1607,11 +1607,13 @@ def restore_corpus(backup_id):
 
                                 # todo: backup and restore content views
 
-                                if not foreign_import:
-                                    for prov_info in corpus_dict['provenance']:
-                                        prov = CompletedTask.from_dict(prov_info)
-                                        if prov:
-                                            corpus.provenance.append(prov)
+                                # Provenance carries no instance-scoped references -- task and
+                                # scholar are denormalized strings and the jobsite reference is
+                                # gone -- so it restores regardless of originating instance.
+                                for prov_info in corpus_dict['provenance']:
+                                    prov = CompletedTask.from_dict(prov_info)
+                                    if prov:
+                                        corpus.provenance.append(prov)
 
                                 corpus.save()
                                 if corpus.open_access:
