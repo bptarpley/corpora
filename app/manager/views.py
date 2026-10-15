@@ -2379,6 +2379,7 @@ def api_submit_jobs(request, corpus_id):
 
         elif _contains(request.POST, ['retry-job-id', 'retry-content-type']):
             retried = False
+            alerted = False
             job_id = _clean(request.POST, 'retry-job-id').strip()
             content_type = _clean(request.POST, 'retry-content-type').strip()
             content_id = _clean(request.POST, 'retry-content-id', None)
@@ -2392,13 +2393,20 @@ def api_submit_jobs(request, corpus_id):
             if content:
                 for prov in content.provenance:
                     if prov.job_id == job_id:
+                        # returns None when this instance has no task matching the
+                        # recorded name and version -- don't drop the provenance entry
+                        # in that case, it's the only record of the task having run.
                         job = Job.setup_retry_for_completed_task(corpus, context['scholar'], content_type, content_id, prov)
-                        content.modify(pull__provenance=prov)
-                        run_job(job.id)
-                        send_alert(corpus_id, 'success', f'Task {prov.task_name} successfully retried.')
-                        retried = True
+                        if job:
+                            content.modify(pull__provenance=prov)
+                            run_job(job.id)
+                            send_alert(corpus_id, 'success', f'Task {prov.task_name} successfully retried.')
+                            retried = True
+                        else:
+                            send_alert(corpus_id, 'error', f'No task named {prov.task_name} (version {prov.task_version}) is registered on this instance of Corpora.')
+                            alerted = True
 
-            if not retried:
+            if not retried and not alerted:
                 send_alert(corpus_id, 'error', "Error retrying job!")
 
     return HttpResponse(status=204)
