@@ -906,7 +906,7 @@ def iiif_widget(request, corpus_id, content_type, content_id, content_field):
             content = corpus.get_content(content_type, content_id, only=[content_field])
             image_url = getattr(content, content_field, None)
 
-            if str(type(image_url)) == "<class 'corpus.File'>":
+            if isinstance(image_url, File):
                 image_url = image_url.get_url("/corpus/{0}/{1}/{2}".format(
                     corpus_id,
                     content_type,
