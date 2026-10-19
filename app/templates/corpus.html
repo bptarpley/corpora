@@ -1193,9 +1193,11 @@
                     });
 
                     // OPEN ACCESS BUTTON
-                    let oa_button = getEl('open-access-button');
-                    if (corpus.open_access) oa_button.innerHTML = 'Revoke Open Access';
-                    onEl(oa_button, 'click', () => getEl('open-access-toggle-form').submit())
+                    if (corpora.scholar_has_privilege('Admin', role)) {
+                        let oa_button = getEl('open-access-button');
+                        if (corpus.open_access) oa_button.innerHTML = 'Revoke Open Access';
+                        onEl(oa_button, 'click', () => getEl('open-access-toggle-form').submit())
+                    }
 
                     // CORPUS EXPORT BUTTON
                     let createExportButton = getEl('create-export-button')
