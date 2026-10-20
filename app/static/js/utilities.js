@@ -336,3 +336,80 @@ function parseDate(timestamp) {
 function forEachKey(obj, callback) {
     Object.keys(obj).forEach(key => callback(key))
 }
+// Returned by a field's value_format function to mean "the scholar did not touch this
+// control, so leave whatever is stored alone". content_edit.html drops the field from the
+// content bundle entirely, and process_content_bundle only walks the keys it is given, so
+// an omitted field is never written.
+//
+// This exists because saving a content item gathers EVERY field, not just the edited ones,
+// and an html field's value is gathered by re-serializing it through TinyMCE. Any markup
+// TinyMCE's schema does not recognise is destroyed by that round trip,
+// so editing an unrelated field on the same record silently flattened the generated HTML.
+const UNCHANGED_FIELD_VALUE = Symbol('corpora.unchanged-field-value')
+
+// ---------------------------------------------------------------------------
+// TinyMCE
+// ---------------------------------------------------------------------------
+// One shared config for every rich-text editor in Corpora, so the HTML field
+// template and the content-group description box cannot drift apart.
+//
+// Corpora stores presentation in stylesheets, not in content, so the editor
+// refuses to emit fonts or colors. Three layers are needed, because each one
+// catches what the others miss:
+//
+//   1. removed_menuitems   drops the UI, so nothing is offered that will not survive
+//   2. invalid_styles      strips the CSS properties themselves, whatever set them
+//   3. an attribute filter strips the presentational HTML attributes, which are not
+//                          styles and so are invisible to invalid_styles
+//
+// Layers 2 and 3 run in the serializer as well as the parser, which is what makes
+// this hold against a paste: content pasted into the editable body never passes
+// through the parser, but getContent() always runs the serializer, so the markup
+// is cleaned on its way out whatever route it took in.
+const TINYMCE_BANNED_STYLES = 'color background background-color background-image ' +
+    'font font-family font-size'
+
+// <font> is removed outright. Without this TinyMCE *upgrades* it into a styled
+// <span>, which then has to be stripped a second time.
+const TINYMCE_BANNED_ELEMENTS = 'font'
+
+// Presentational attributes. These are attributes rather than CSS, so the style
+// filters above never see them -- a Word table pastes in as <td bgcolor="#ff0000">.
+const TINYMCE_BANNED_ATTRS = ['bgcolor', 'color', 'background', 'face', 'text', 'link', 'vlink', 'alink']
+
+function tinymceConfig(overrides = {}) {
+    return Object.assign({
+        width: '100%',
+        min_height: '200px',
+        // 'paste' makes the cleanup happen at paste time, so the editor shows what will
+        // actually be saved rather than showing colour that vanishes on save. It is a
+        // separate plugin in TinyMCE 5 and part of core from 6 on -- drop it from this
+        // list when upgrading, or the editor will warn that the plugin is missing.
+        plugins: 'autoresize link image media code table paste',
+        // 'media' and 'help' were listed here historically but are not menubar items
+        // -- 'media' is not one at all, and 'help' needs the help plugin -- so both
+        // were silently dropped by TinyMCE and are left out.
+        menubar: 'edit insert view format table tools',
+        image_advtab: true,
+
+        removed_menuitems: 'fontformats fontsizes forecolor backcolor',
+        invalid_styles: {'*': TINYMCE_BANNED_STYLES},
+        invalid_elements: TINYMCE_BANNED_ELEMENTS,
+        // Not set here: valid_classes: {}. It would drop Word's MsoNormal and friends,
+        // but it drops *every* class, including deliberate ones, and it would quietly
+        // strip them from existing content the first time someone re-saved it. Word's
+        // classes carry no colour of their own -- the <style> block that would give them
+        // any is not in valid_elements, so it never survives the paste -- so this is a
+        // tidiness question, not a colour one. Add it per-editor if a field wants it.
+
+        setup: editor => {
+            editor.on('PreInit', () => {
+                TINYMCE_BANNED_ATTRS.forEach(attr => {
+                    let strip = nodes => nodes.forEach(node => node.attr(attr, null))
+                    editor.parser.addAttributeFilter(attr, strip)
+                    editor.serializer.addAttributeFilter(attr, strip)
+                })
+            })
+        }
+    }, overrides)
+}

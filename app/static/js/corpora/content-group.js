@@ -209,16 +209,9 @@ class ContentGroup {
         forElsMatching('.content-type-group-member-controls', el => el.classList.remove('d-none'))
 
         if (!this.editing) {
-            tinymce.init(
-                {
-                    selector: `#ct-group-${this.index}-description`,
-                    width: '100%',
-                    min_height: '200px',
-                    plugins: 'autoresize link image media code table',
-                    menubar: 'edit insert media view format table tools help',
-                    image_advtab: true
-                }
-            )
+            tinymce.init(tinymceConfig({
+                selector: `#ct-group-${this.index}-description`
+            }))
         }
 
         this.editing = true

@@ -296,6 +296,12 @@
                 }
             })
 
+            // Fields whose every control reported itself untouched are dropped from the
+            // bundle below, so the stored value survives untouched. See UNCHANGED_FIELD_VALUE
+            // in utilities.js for why that matters for backend-generated HTML.
+            let untouched_fields = new Set()
+            let touched_fields = new Set()
+
             forElsMatching('.field-value', control => {
                 let field_name = control.dataset.field_name
                 let value_format = control.dataset.value_format
@@ -304,7 +310,21 @@
                 if (!bulk_editing || (bulk_editing && bulk_edit_fields.includes(field_name))) {
                     if (value_format.startsWith('javascript') && value_format.includes(':')) {
                         let function_name = value_format.split(':')[1]
-                        value = window[function_name](control)
+                        // In bulk edit the scholar picked this field deliberately, so gather
+                        // it whether or not the control was touched.
+                        value = window[function_name](control, bulk_editing)
+
+                        if (value === UNCHANGED_FIELD_VALUE) {
+                            untouched_fields.add(field_name)
+                            // A multi-valued field is rebuilt positionally, so one edited
+                            // entry means every entry has to be sent or the others are lost.
+                            // Gather the real value now and discard the whole field later if
+                            // it turns out nothing in it was touched.
+                            value = window[function_name](control, true)
+                        } else {
+                            touched_fields.add(field_name)
+                        }
+
                         if (value === '') value = null
                     } else if (value_format === 'json') {
                         try { value = JSON.parse(getVal(control)) }
@@ -326,6 +346,10 @@
                     }
                     else bundle[field_name] = {value: value}
                 }
+            })
+
+            untouched_fields.forEach(field_name => {
+                if (!touched_fields.has(field_name)) delete bundle[field_name]
             })
 
             console.log(bundle);
