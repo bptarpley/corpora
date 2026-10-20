@@ -486,8 +486,10 @@
             image = delineate.image(image_url).move(0, 0);
             canvas = delineate.group().attr('class', 'delineator-canvas');
 
-            let vb_specs = calculate_viewbox(0, 0, image_file.width, image_file.height)
-            delineate.viewbox(vb_specs);
+            // Open already framed. This used to fit the whole image with a 200px margin and
+            // then animate to a different framing further down, which is what produced the
+            // zoom on every page load.
+            delineate.viewbox(page_fit_viewbox());
 
 
             // ---------------------------------------
@@ -760,6 +762,7 @@
             // find first incomplete region and select it
             // -------------------------------------------
             let incompleteRegionFound = false
+            /* disabling this functionality for now; users finding it frustrating when needing to navigate across pages
             for (let region_id in page_regions) {
                 if (!page_regions[region_id].hasOwnProperty('transcription')) {
                     zoom_to(region_id, page_regions[region_id].rect, 2)
@@ -768,16 +771,13 @@
                 }
                 region_id_cursor = region_id;
             }
+             */
 
-            // if no incomplete regions found, zoom to page bounds
-            if (!incompleteRegionFound) {
-                delineate.animate(1000).viewbox({
-                    x: -(viewer_width / 4),
-                    y: 0,
-                    width: viewer_width,
-                    height: viewer_height
-                })
-            }
+            // If no incomplete region was zoomed to, the page keeps the framing it opened
+            // with. Set deliberately rather than animated: re-enabling the search above is
+            // the only way the view has moved by this point, and a page that nothing moved
+            // should not animate at all.
+            if (!incompleteRegionFound) delineate.viewbox(page_fit_viewbox());
 
             // -----------------------------------------------------------
             // setup transcription modal if imported transcriptions exist
@@ -908,6 +908,43 @@
             trans_cursor += 1;
             setVal(getEl('trans-text-identifier'), trans_cursor + trans_id_differential);
             setup_trans_modal_click_events();
+        }
+
+        // How much of the viewer's width the page image should occupy when a page opens.
+        const PAGE_FIT_WIDTH_RATIO = 0.8;
+
+        // The framing a page opens with: top edge of the image flush with the top of the
+        // viewer, image centred horizontally and occupying PAGE_FIT_WIDTH_RATIO of the width.
+        //
+        // Everything here is in IMAGE coordinates. 
+        //
+        // The height is derived from the width so the viewbox matches the viewer's aspect
+        // ratio.
+        function page_fit_viewbox() {
+            let vb_width = image_file.width / PAGE_FIT_WIDTH_RATIO;
+            let vb_height = vb_width * (viewer_height / viewer_width);
+
+            // #page-control-panel is absolutely positioned over the top of the viewer, so the
+            // first slice of the SVG sits behind it. Measure the overlap rather than reusing
+            // the panel's CSS height: #delineator does not start at the top of the page (the
+            // body margin alone puts it 8px down), so the two differ.
+            let overlap = 0;
+            let panel = getEl('page-control-panel');
+
+            if (panel) {
+                let panel_bottom = panel.getBoundingClientRect().bottom;
+                let viewer_top = getEl('delineator').getBoundingClientRect().top;
+                overlap = Math.max(0, panel_bottom - viewer_top);
+            }
+
+            return {
+                x: (image_file.width - vb_width) / 2,
+                // Push the image down by the overlap, converted from CSS pixels into image
+                // units, so its top edge lands flush with the bottom of the panel.
+                y: -(overlap * (vb_height / viewer_height)),
+                width: vb_width,
+                height: vb_height
+            }
         }
 
         function calculate_viewbox(x, y, w, h, margin=200) {
