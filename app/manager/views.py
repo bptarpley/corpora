@@ -63,9 +63,6 @@ def corpora(request):
             c_desc = unescape(_clean(request.POST, 'new-corpus-desc'))
             c_open = unescape(_clean(request.POST, 'new-corpus-open'))
 
-            # Corpus.name is unique but not required, so without these two checks an
-            # unnamed corpus could be created, and a duplicate name raised an
-            # unhandled NotUniqueError (a 500) rather than reporting the clash.
             if not c_name:
                 context['errors'].append("Please provide a name for this corpus.")
             else:
@@ -98,10 +95,7 @@ def corpora(request):
         elif 'admin-action' in request.POST:
             action = _clean(request.POST, 'admin-action')
 
-            # Instance-wide maintenance. These are chained rather than launched in
-            # parallel -- the first corpus gets a job, and each job queues the next on
-            # completion -- so only one corpus is ever being reindexed/relinked at a
-            # time. See _chain_corpora_maintenance in manager.tasks.
+            # Instance-wide maintenance. See _chain_corpora_maintenance in manager.tasks.
             CORPORA_MAINTENANCE_TASKS = {
                 'reindex-corpora': 'Reindex Corpora',
                 'relink-corpora': 'Relink Corpora',
