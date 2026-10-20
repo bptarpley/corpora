@@ -48,15 +48,12 @@ function setCssVar(variableName, value) {
 function removeEl(el) { if (el) el.remove() }
 function removeElsMatching(query) { forElsMatching(query, el => el.remove()) }
 
-// enabling/disabling form controls. ALWAYS use this rather than setAttribute():
-// jQuery's .attr('disabled', false) REMOVES the attribute, but
-// setAttribute('disabled', false) sets it to the string "false", which is truthy --
-// so the control silently stays disabled. assigning the property avoids that trap.
+// enabling/disabling form controls. ALWAYS use this rather than setAttribute
 function setDisabled(el, disabled=true) { el.disabled = !!disabled }
 function setChecked(el, checked=true) { el.checked = !!checked }
 
 // reading/writing form control values. prefer these over el.value directly, since
-// a multi-select's value is an array (matching jQuery's .val()) rather than the
+// a multi-select's value is an array rather than the
 // single string el.value reports, and a checkbox's value is its checked state.
 function getVal(el) {
     if (el.tagName === 'SELECT' && el.multiple) return Array.from(el.selectedOptions).map(opt => opt.value)
@@ -75,7 +72,7 @@ function setVal(el, value) {
 // binding events. onEl is null-tolerant for the same reason removeEl is. onDelegate
 // binds a single listener to a container and matches events bubbling up from
 // descendants, which is how to handle dynamically generated content without
-// rebinding (the vanilla equivalent of jQuery's $(parent).on(evt, selector, fn)).
+// rebinding
 function onEl(el, event, callback) { if (el) el.addEventListener(event, callback) }
 function onElsMatching(query, event, callback) {
     forElsMatching(query, el => el.addEventListener(event, callback))
@@ -87,21 +84,19 @@ function onDelegate(el, event, selector, callback) {
     })
 }
 
-// replaces any handler previously set this way, which is the vanilla equivalent of
-// jQuery's .off(evt).on(evt, fn) idiom. use it where a handler is (re)bound on every
+// replaces any handler previously set this way. use it where a handler is (re)bound on every
 // render and must not accumulate; onEl is still correct for one-time bindings.
 function onlyOnEl(el, event, callback) {
     if (el) el[`on${event}`] = callback
 }
 
-// slides an element open the way jQuery's slideDown('slow') did, for elements that
+// slides an element open, for elements that
 // use Bootstrap's display utilities. This needs JS rather than a CSS transition for
 // two reasons: `display` is not animatable at all, and CSS cannot transition to a
 // height of `auto` -- so the natural height and vertical margins are measured while
 // the element is laid out, then animated to explicitly.
 //
-// Collapsing is deliberately instant, matching the jQuery original (which paired
-// slideDown with a plain .hide()). Repeat calls in the same direction are ignored,
+// Collapsing is deliberately instant. Repeat calls in the same direction are ignored,
 // so a drawer already open does not re-animate.
 function toggleDrawer(el, visible, displayClass='d-flex', duration=600) {
     if (!el) return
@@ -209,11 +204,6 @@ function hideTooltip(el) {
 }
 
 // showing/hiding Bootstrap modals.
-// TEMPORARY SHIM: bootstrap.min.js is currently v4.0.0, whose modal is a jQuery
-// plugin, while corpora.css is already v5.3.8. Once the JS is upgraded to 5.x the
-// jQuery fallback below can be deleted and these become one-liners.
-// NOTE: v4 also defines a `bootstrap` global, so feature-detect on
-// getOrCreateInstance (v5-only) rather than on the global itself.
 function bootstrapModalAPI() {
     let hasV5 = typeof bootstrap !== 'undefined' && bootstrap.Modal && bootstrap.Modal.getOrCreateInstance
     return hasV5 ? bootstrap.Modal : null
