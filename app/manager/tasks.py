@@ -26,7 +26,10 @@ from subprocess import call
 from manager.utilities import (
     _contains,
     build_search_params_from_dict,
+    stream_search_results,
     order_content_schema,
+    reindex_corpus,
+    relink_corpus,
     process_content_bundle,
     delimit_content_json,
     create_content_csv_rows,
@@ -39,9 +42,10 @@ from django_drf_filepond.models import TemporaryUpload
 
 REGISTRY = {
     "Bulk Launch Jobs": {
-        "version": "0.0",
+        "version": "0.1",
         "jobsite_type": "HUEY",
         "track_provenance": False,
+        "create_report": True,
         "content_type": "Corpus",
         "configuration": {
             "parameters": {
@@ -106,6 +110,29 @@ REGISTRY = {
         },
         "module": 'manager.tasks',
         "functions": ['bulk_edit_content']
+    },
+    "Bulk Delete Content": {
+        "version": "0",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "create_report": True,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "content_type": {
+                    "value": "",
+                    "type": "content_type",
+                    "label": "Content Type"
+                },
+                "content_query": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Content Search Query JSON"
+                }
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['bulk_delete_content']
     },
     "Save Content Type Schema": {
         "version": "0",
@@ -384,6 +411,45 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['backup_corpus']
     },
+    "Reindex Corpora": {
+        "version": "0.1",
+        "jobsite_type": "HUEY",
+        # deliberately False: this keeps the task out of the per-corpus "Run a Job"
+        # dropdown, which is gated on track_provenance. Editors who want to reindex a
+        # single content type can still use "Adjust Content".
+        "track_provenance": False,
+        "create_report": True,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "remaining_corpus_ids": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Remaining Corpus IDs",
+                },
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['reindex_corpora']
+    },
+    "Relink Corpora": {
+        "version": "0.1",
+        "jobsite_type": "HUEY",
+        "track_provenance": False,
+        "create_report": True,
+        "content_type": "Corpus",
+        "configuration": {
+            "parameters": {
+                "remaining_corpus_ids": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Remaining Corpus IDs",
+                },
+            }
+        },
+        "module": 'manager.tasks',
+        "functions": ['relink_corpora']
+    },
     "Export Corpus": {
         "version": "0.4",
         "jobsite_type": "HUEY",
@@ -408,6 +474,26 @@ REGISTRY = {
         "functions": ['export_corpus']
     }
 }
+
+
+def _abandon_job(job, reason):
+    """
+    Mark a job as errored, and if it was a link in a chained maintenance run, hand
+    off to the next corpus so one dead job does not strand the rest of the chain.
+
+    A SIGKILL (an OOM, say) runs no except blocks, so the task itself cannot do this
+    -- it has to happen here, when the job is reaped.
+    """
+    if job.report_path:
+        job.report(f"ERROR: {reason}")
+
+    if job.task and job.task.name in CORPORA_MAINTENANCE_TASKS:
+        try:
+            _chain_corpora_maintenance(job, job.task.name)
+        except:
+            print(traceback.format_exc())
+
+    job.complete(status='error')
 
 
 @db_task(priority=3)
@@ -472,19 +558,15 @@ def bulk_launch_jobs(job_id):
         search_params = build_search_params_from_dict(search_query)
         job_params = json.loads(job.get_param_value('job_params'))
 
-        search_params['page_size'] = 100
         search_params['only'] = ['id']
-        page = 1
-        num_pages = 1
+        launched = 0
 
-        while page <= num_pages:
-            search_params['page'] = page
-            results = corpus.search_content(content_type, **search_params)
-            if results:
-                if results['meta']['num_pages'] > num_pages:
-                    num_pages = results['meta']['num_pages']
+        try:
+            for records, meta in stream_search_results(corpus, content_type, search_params):
+                if not launched:
+                    job.report("Queueing {0} job(s) for {1}.".format(meta['total'], content_type))
 
-                for record in results['records']:
+                for record in records:
                     corpus.queue_local_job(
                         content_type=content_type,
                         content_id=record['id'],
@@ -493,7 +575,24 @@ def bulk_launch_jobs(job_id):
                         parameters=job_params
                     )
 
-            page += 1
+                launched += len(records)
+
+                # these are created at status 'queueing' on purpose -- check_jobs
+                # promotes them a batch at a time, so hold short of 100 until every
+                # job has been created.
+                if meta['total']:
+                    job.set_status('running', percent_complete=min(
+                        99, int((launched / meta['total']) * 100)
+                    ))
+        except RuntimeError:
+            job.report(traceback.format_exc())
+            job.complete(
+                status='error',
+                error_msg="Queued {0} job(s) before deep pagination failed.".format(launched)
+            )
+            return
+
+        job.report("Queued {0} job(s).".format(launched))
 
     job.complete('complete')
 
@@ -518,27 +617,16 @@ def bulk_edit_content(job_id):
                 search_query = json.loads(content_query)
                 search_params = build_search_params_from_dict(search_query)
 
-                search_params['page_size'] = 100
                 search_params['only'] = ['id']
-                page = 1
-                num_pages = 1
 
-                while page <= num_pages:
-                    search_params['page'] = page
-                    results = corpus.search_content(content_type, **search_params)
-                    if results:
-                        if results['meta']['num_pages'] > num_pages:
-                            num_pages = results['meta']['num_pages']
-                        if 'next_page_token' in results['meta']:
-                            search_params['page-token'] = results['meta']['next_page_token']
-
-                        content_ids = []
-                        for record in results['records']:
-                            content_ids.append(record['id'])
-
-                        set_and_save_content(corpus, content_type, content_ids, content_bundle, scholar_id)
-
-                    page += 1
+                for records, _ in stream_search_results(corpus, content_type, search_params):
+                    set_and_save_content(
+                        corpus,
+                        content_type,
+                        [record['id'] for record in records],
+                        content_bundle,
+                        scholar_id
+                    )
 
     job.complete('complete')
 
@@ -555,6 +643,70 @@ def set_and_save_content(corpus, content_type, content_ids, content_bundle, scho
                 scholar_id,
                 True
             )
+
+
+@db_task(priority=3)
+def bulk_delete_content(job_id):
+    """
+    Delete every instance of a content type matching a search.
+
+    Only ever launched with a search -- an explicit list of ids is deleted inline by
+    the corpus view, since that is bounded by what the user could select by hand.
+    """
+    job = Job(job_id)
+    job.set_status('running')
+    corpus = job.corpus
+    content_type = job.get_param_value('content_type')
+    content_query = job.get_param_value('content_query')
+
+    if content_type in corpus.content_types and content_query:
+        search_params = build_search_params_from_dict(json.loads(content_query))
+        search_params['only'] = ['id']
+
+        # Every matching id is gathered BEFORE anything is deleted. Deleting while
+        # streaming would mutate the result set being paged through: until
+        # Elasticsearch starts handing out deep-pagination tokens, stream_search_results
+        # pages by number, so removing page 1 shifts page 2's window past the records
+        # that moved up into it -- silently skipping roughly half of them. The shrinking
+        # 'total' would also end the walk early.
+        content_ids = []
+        for records, _ in stream_search_results(corpus, content_type, search_params):
+            content_ids += [record['id'] for record in records]
+
+        total = len(content_ids)
+        job.report("Deleting {0} instance(s) of {1} matching:\n{2}".format(
+            total,
+            content_type,
+            json.dumps(json.loads(content_query), indent=2)
+        ))
+
+        deleted = 0
+        errored = 0
+        for index, content_id in enumerate(content_ids):
+            try:
+                content = corpus.get_content(content_type, content_id, single_result=True)
+                if content:
+                    content.delete()
+                    deleted += 1
+            except:
+                errored += 1
+                job.report("Error deleting {0} with ID {1}:\n{2}".format(
+                    content_type, content_id, traceback.format_exc()
+                ))
+
+            if total and index % 100 == 0:
+                job.set_status('running', percent_complete=int((index / total) * 100))
+
+        job.report("\nDeleted {0} of {1} instance(s) of {2}.{3}".format(
+            deleted,
+            total,
+            content_type,
+            " {0} error(s) -- see above.".format(errored) if errored else ""
+        ))
+    else:
+        job.report("No content type or search query provided -- nothing deleted.")
+
+    job.complete('complete')
 
 
 @db_periodic_task(crontab(minute='*'), priority=4)
@@ -597,13 +749,16 @@ def check_jobs():
 
                     # clean up timed out (likely errored out) jobs
                     elif datetime.now().timestamp() - job.status_time.timestamp() > settings.JOB_TIMEOUT_SECS:
-                        if job.report_path:
-                            job.report("ERROR: Job timed out or experienced an unexpected failure.")
-                        job.complete(status='error')
+                        _abandon_job(job, "Job timed out or experienced an unexpected failure.")
 
                 elif job.status == 'queueing':
                     job.set_status('enqueued')
                     run_job(job.id)
+
+                # cleaning any jobs killed before it could mark itself running
+                elif job.status == 'enqueued':
+                    if datetime.now().timestamp() - job.status_time.timestamp() > settings.JOB_STARTUP_TIMEOUT_SECS:
+                        _abandon_job(job, "Job was never started by a worker and has been abandoned.")
 
         # here we're checking to see if any content has been deleted and is in need of cleanup for referential
         # integrity. we only want to do this if there haven't been any jobs to run so we aren't filling up and
@@ -746,19 +901,80 @@ def adjust_content_slice(corpus, content_type, start, end, reindex, relabel, res
     return errors
 
 
-@db_task(priority=5)
-def scrub_all_provenance():
-    corpora = Corpus.objects()
-    for corpus in corpora:
-        corpus.provenance = []
-        corpus.save()
+# chained, instance-wide maintenance. Named here so check_jobs can recognise an
+# orphaned maintenance job and carry its chain forward rather than stranding it.
+CORPORA_MAINTENANCE_TASKS = ('Reindex Corpora', 'Relink Corpora')
 
-        for content_type in corpus.content_types.keys():
-            contents = corpus.get_content(content_type, {"provenance__exists": True, "provenance__not__size": 0}).no_cache()
-            contents = contents.batch_size(10)
-            for content in contents:
-                content.provenance = []
-                content.save()
+
+def _chain_corpora_maintenance(job, task_name):
+    """
+    Hand off to the next corpus in a maintenance run.
+
+    These tasks are chained rather than fanned out on purpose: Corpora is typically
+    deployed on a resource-constrained VM, and reindexing or relinking several large
+    corpora at once would overwhelm Elasticsearch/Neo4j. Each job carries the IDs of
+    the corpora still to process and queues exactly one successor on completion.
+    """
+    # get_param_value returns None when the parameter is absent, hence the `or ''`
+    remaining = [c_id for c_id in (job.get_param_value('remaining_corpus_ids') or '').split(',') if c_id]
+    if not remaining:
+        job.report(f'{task_name} complete for all corpora.')
+        return
+
+    next_corpus = get_corpus(remaining[0])
+    if not next_corpus:
+        job.report(f'Could not load corpus {remaining[0]}; skipping it.')
+        remaining = remaining[1:]
+        if not remaining:
+            return
+
+        next_corpus = get_corpus(remaining[0])
+        if not next_corpus:
+            return
+
+    next_job_id = next_corpus.queue_local_job(
+        task_name=task_name,
+        scholar_id=job.scholar_id,
+        parameters={'remaining_corpus_ids': ','.join(remaining[1:])}
+    )
+
+    if next_job_id:
+        job.report(f'Handing off to "{next_corpus.name}" (job {next_job_id}).')
+        run_job(next_job_id)
+    else:
+        job.report(f'Unable to queue {task_name} for "{next_corpus.name}"! Chain halted.')
+
+
+def _run_corpora_maintenance(job_id, task_name, operation):
+    """Shared body for the two chained, instance-wide maintenance tasks."""
+    job = Job(job_id)
+    job.set_status('running')
+
+    try:
+        operation(
+            job.corpus,
+            report=job.report,
+            progress=lambda pct: job.set_status('running', percent_complete=pct)
+        )
+    except:
+        job.report(traceback.format_exc())
+        job.complete(status='error', error_msg=f'{task_name} failed for this corpus.')
+        # the chain continues regardless, so one bad corpus does not strand the rest
+        _chain_corpora_maintenance(job, task_name)
+        return
+
+    _chain_corpora_maintenance(job, task_name)
+    job.complete(status='complete')
+
+
+@db_task(priority=5)
+def reindex_corpora(job_id):
+    _run_corpora_maintenance(job_id, 'Reindex Corpora', reindex_corpus)
+
+
+@db_task(priority=5)
+def relink_corpora(job_id):
+    _run_corpora_maintenance(job_id, 'Relink Corpora', relink_corpus)
 
 
 @db_task(priority=5)
@@ -1391,11 +1607,13 @@ def restore_corpus(backup_id):
 
                                 # todo: backup and restore content views
 
-                                if not foreign_import:
-                                    for prov_info in corpus_dict['provenance']:
-                                        prov = CompletedTask.from_dict(prov_info)
-                                        if prov:
-                                            corpus.provenance.append(prov)
+                                # Provenance carries no instance-scoped references -- task and
+                                # scholar are denormalized strings and the jobsite reference is
+                                # gone -- so it restores regardless of originating instance.
+                                for prov_info in corpus_dict['provenance']:
+                                    prov = CompletedTask.from_dict(prov_info)
+                                    if prov:
+                                        corpus.provenance.append(prov)
 
                                 corpus.save()
                                 if corpus.open_access:

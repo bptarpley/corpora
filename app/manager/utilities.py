@@ -16,7 +16,7 @@ from corpus import (
     Corpus, CorpusBackup, Scholar,
     JobSite, Task,
     File, GitRepo, Timespan,
-    get_corpus, parse_date_string
+    get_corpus, parse_date_string, run_neo
 )
 
 
@@ -398,6 +398,225 @@ def get_open_access_corpora(use_cache=True):
     return oa_corpora
 
 
+# Bulk maintenance iterates whole content types. corpus.get_content(all=True)
+# returns a mongoengine queryset that caches every document it yields, so a single
+# pass over a large content type materialises the entire collection in the worker --
+# which is what OOM-killed the container. no_cache() plus a batch size keeps only one
+# batch resident, and makes the pass O(n) rather than the O(n^2) that skip/limit
+# slicing would cost.
+CONTENT_BATCH_SIZE = 100
+
+# how often, in documents, to push a progress update back to the caller
+PROGRESS_EVERY = 500
+
+
+# Elasticsearch refuses from+size paging past index.max_result_window (10,000 by
+# default), so Corpus.search_content starts handing back a search_after cursor --
+# 'next_page_token' -- once a request reaches ~9,000 hits. Walking pages by number
+# alone therefore stops working partway through any content type bigger than that.
+SEARCH_PAGE_SIZE = 100
+
+# search_content gates its entire Elasticsearch call on at least one query clause
+# having been built, so a search carrying no criteria matches nothing rather than
+# everything. A bulk operation over an unfiltered selection means every record, so
+# these are the params worth checking before falling back to match-all.
+SEARCH_CLAUSE_PARAMS = (
+    'general_query', 'fields_query', 'fields_term', 'fields_phrase',
+    'fields_wildcard', 'fields_exist', 'fields_filter', 'fields_range',
+    'grouped_searches', 'content_view',
+)
+
+
+def stream_search_results(corpus, content_type, search_params, page_size=SEARCH_PAGE_SIZE):
+    """
+    Iterate every page of a content search, following deep-pagination tokens.
+
+    Follows 'next_page_token' whenever search_content offers one and falls back to
+    page numbers until then, so a search can be walked past Elasticsearch's result
+    window. The token is cached for five minutes, so a consumer slow enough to
+    outlive one would otherwise be handed a page it had already processed --
+    search_content silently reverts to from/size paging when a token has expired.
+    That case raises rather than replaying work.
+
+    Args:
+        corpus (Corpus): The corpus to search.
+        content_type (str): Name of the content type to search.
+        search_params (dict): Output of build_search_params_from_dict. Mutated in
+            place: 'page', 'page_size' and 'next_page_token' are managed here.
+        page_size (int): Records to fetch per page.
+
+    Yields:
+        tuple[list, dict]: (records, meta) for each page, in order.
+
+    Raises:
+        RuntimeError: If a deep-pagination token expired partway through the walk.
+    """
+    search_params['page'] = 1
+    search_params['page_size'] = page_size
+    search_params.pop('next_page_token', None)
+
+    # '*' is search_content's own idiom for match-all (it special-cases the value
+    # into a simple_query_string). Without it an unfiltered bulk operation would
+    # build no query clauses and quietly process nothing at all.
+    if not any(search_params.get(param) for param in SEARCH_CLAUSE_PARAMS):
+        search_params['general_query'] = '*'
+
+    expected_page = 1
+    streamed = 0
+
+    while True:
+        results = corpus.search_content(content_type, **search_params)
+        if not results or not results['records']:
+            return
+
+        meta = results['meta']
+
+        # search_content reports the page it actually served, which comes from the
+        # token when one was honored. A mismatch means the token had expired.
+        if meta['page'] != expected_page:
+            raise RuntimeError(
+                "Deep pagination token expired after {0} record(s) of {1}: expected "
+                "page {2}, got page {3}.".format(
+                    streamed, content_type, expected_page, meta['page']
+                )
+            )
+
+        yield results['records'], meta
+        streamed += len(results['records'])
+
+        if streamed >= meta['total'] or not meta['has_next_page']:
+            return
+
+        expected_page = meta['page'] + 1
+        token = meta.get('next_page_token')
+        if token:
+            search_params['next_page_token'] = token
+        else:
+            search_params.pop('next_page_token', None)
+            search_params['page'] = expected_page
+
+
+def ordered_content_type_names(corpus):
+    """
+    Content type names for a corpus, ordered so that cross-referenced types come
+    before the types that reference them.
+    """
+    schema = [corpus.content_types[ct_name].to_dict() for ct_name in corpus.content_types.keys()]
+    return [ct['name'] for ct in order_content_schema(schema)]
+
+
+def stream_content(corpus, content_type):
+    """
+    Iterate every instance of a content type without holding the collection in memory.
+
+    Args:
+        corpus (Corpus): The corpus to read from.
+        content_type (str): Name of the content type to stream.
+
+    Yields:
+        Content instances, one batch at a time.
+    """
+    contents = corpus.get_content(content_type, all=True).no_cache().batch_size(CONTENT_BATCH_SIZE)
+    for content in contents:
+        yield content
+
+
+def _run_content_maintenance(corpus, operation_label, per_content_type, per_content, report, progress):
+    """
+    Walk a corpus' content types in dependency order, applying per_content to every
+    instance, reporting progress as a share of the corpus' total content.
+
+    Progress is deliberately capped below 100 until the caller finishes: check_jobs
+    auto-completes any job sitting at 100%, which would race the chain hand-off.
+    """
+    ct_names = ordered_content_type_names(corpus)
+    counts = {ct_name: corpus.get_content(ct_name, all=True).count() for ct_name in ct_names}
+    total = sum(counts.values())
+    processed = 0
+
+    for ct_name in ct_names:
+        report(f'{operation_label} "{ct_name}" for {corpus.name}...')
+        if per_content_type:
+            per_content_type(ct_name)
+
+        content_count = 0
+        for content in stream_content(corpus, ct_name):
+            per_content(content)
+            content_count += 1
+            processed += 1
+
+            if progress and total and processed % PROGRESS_EVERY == 0:
+                progress(min(99, int((processed / total) * 100)))
+
+        report(f'  ...{content_count} of {counts[ct_name]} "{ct_name}" instances done')
+
+    if progress:
+        progress(99)
+
+    return True
+
+
+def reindex_corpus(corpus, report=print, progress=None):
+    """
+    Rebuild the Elasticsearch index for a single corpus and reindex all of its content.
+
+    Shared by the `elasticsearch_reindex` management command and the "Reindex Corpora"
+    task, so the CLI and the UI run identical logic. `report` takes a single string;
+    `progress`, if given, takes a completion percentage for this corpus.
+
+    Args:
+        corpus (Corpus): The corpus to reindex.
+        report (callable): Receives progress messages.
+        progress (callable): Optional, receives an int percentage 0-99.
+    """
+    report(f'Adding corpus "{corpus.name}" to corpus index...')
+    corpus.save()
+
+    return _run_content_maintenance(
+        corpus,
+        'Reindexing',
+        lambda ct_name: corpus.build_content_type_elastic_index(ct_name),
+        lambda content: content._do_indexing(),
+        report,
+        progress
+    )
+
+
+def relink_corpus(corpus, report=print, progress=None):
+    """
+    Purge and rebuild the Neo4j nodes and relationships for a single corpus.
+
+    Shared by the `neo4j_relink` management command and the "Relink Corpora" task.
+    Nodes are detached and deleted per content type before being relinked, so stale
+    nodes do not survive the operation.
+
+    Args:
+        corpus (Corpus): The corpus to relink.
+        report (callable): Receives progress messages.
+        progress (callable): Optional, receives an int percentage 0-99.
+    """
+    def purge_nodes(ct_name):
+        run_neo(
+            '''
+                MATCH (x:{0} {{corpus_id: $corpus_id}})
+                CALL {{
+                    WITH x
+                    DETACH DELETE x
+                }} IN TRANSACTIONS OF 50 ROWS
+            '''.format(ct_name),
+            {'corpus_id': str(corpus.id)}
+        )
+
+    return _run_content_maintenance(
+        corpus,
+        'Relinking',
+        purge_nodes,
+        lambda content: content._do_linking(),
+        report,
+        progress
+    )
+
+
 def order_content_schema(schema):
     ordered_schema = []
     ordering = True
@@ -680,6 +899,23 @@ def _clean(obj, key, default_value=''):
         return escape(val).strip()
     else:
         return default_value
+
+
+def place_uploaded_file(upload_id, destination_path):
+    temp_upload = TemporaryUpload.objects.get(upload_id=upload_id)
+    temp_path = temp_upload.file.path
+
+    # ensure destination path exists
+    os.makedirs(destination_path, exist_ok=True)
+
+    new_path = f"{destination_path}/{temp_upload.upload_name.replace(' ', '_').replace('%20', '_')}"
+
+    if os.path.exists(temp_path):
+        os.rename(temp_path, new_path)
+
+    temp_upload.delete()
+
+    return new_path
 
 
 def fix_mongo_json(json_string):

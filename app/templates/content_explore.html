@@ -31,8 +31,6 @@
             color: #EF3E36;
         }
     </style>
-    <link href="{% static 'css/vis-network.min.css' %}" rel="stylesheet">
-
 {% endblock %}
 
 {% block main %}
@@ -45,35 +43,25 @@
 {% endblock %}
 
 {% block js %}
-    <script src="{% static 'js/filepond.js' %}"></script>
-    <script src="{% static 'js/tinymce/tinymce.min.js' %}"></script>
-    <script src="{% static 'js/vis-network.min.js' %}"></script>
+    <script src="{% static 'js/vis-network.js' %}"></script>
     <script type="application/javascript">
-        let corpus_id = '{{ corpus_id }}';
-        let corpus_uri = `/corpus/${corpus_id}`;
-        let content_type_name = '{{ content_type }}';
-        let content_ids = {{ content_ids|safe }};
-        let content_uris = {{ content_uris|safe }};
-        let network = null;
-        let content_type = null;
-
+        let corpus_id = '{{ corpus_id }}'
+        let corpus_uri = `/corpus/${corpus_id}`
+        let content_type_name = '{{ content_type }}'
+        let content_ids = {{ content_ids|safe }}
+        let content_uris = {{ content_uris|safe }}
+        let network = null
 
         if (!content_uris.length) {
-            content_uris = content_ids.map(c_id => `${corpus_uri}/${content_type_name}/${c_id}`);
+            content_uris = content_ids.map(c_id => `${corpus_uri}/${content_type_name}/${c_id}`)
         }
 
-        $(document).ready(function() {
-            /* when finished loading:
-            network.fit();
-            nodes.update([{ id: content.uri, label: content.label, title: null, fixed: true }]);
-            hide_loading_overlay();
-             */
-            canvas = $('#explore-div');
-
+        document.addEventListener('DOMContentLoaded', function() {
             corpora.get_corpus(corpus_id, function(corpus_data) {
+
                 // INITIAL EXPLORE VIZ LOAD
-                let explore_container_width = $('#explore').innerWidth();
-                $('#explore-div').css("width", `${explore_container_width}px`);
+                let explore_container_width = getEl('explore').clientWidth
+                getEl('explore-div').style.width = `${explore_container_width}px`
                 network = new ContentGraph(
                     corpora,
                     corpus_data,
@@ -85,10 +73,10 @@
                         'width': explore_container_width,
                         'height': 800
                     }
-                );
-            }, true);
+                )
+            }, true)
 
-            hide_loading_overlay();
-        });
+            hide_loading_overlay()
+        })
     </script>
 {% endblock %}

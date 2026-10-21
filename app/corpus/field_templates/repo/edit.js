@@ -1,30 +1,28 @@
 function renderRepoField(target) {
-    if (target.hasOwnProperty('target')) target = target.target
+    target = elFromEventOrEl(target)
     setRepoValueField(target)
 }
 
 function toggleRepoAuthCheckbox(target) {
-    if (target.hasOwnProperty('target')) target = target.target
-    let auth_box = $(target)
-    let id_prefix = auth_box.data('id_prefix')
-    let auth_div = $(`#${id_prefix}-credentials-div`)
+    target = elFromEventOrEl(target)
+    let id_prefix = target.dataset.id_prefix
+    let auth_div = getEl(`${id_prefix}-credentials-div`)
 
-    if (auth_box.is(':checked')) {
-        auth_div.removeClass('d-none')
+    if (target.checked) {
+        showEl(auth_div)
     }
     else {
-        auth_div.addClass('d-none')
-        $(`#${id_prefix}-user`).val('')
-        $(`#${id_prefix}-pwd`).val('')
+        hideEl(auth_div)
+        setVal(getEl(`${id_prefix}-user`), '')
+        setVal(getEl(`${id_prefix}-pwd`), '')
     }
 }
 
 function clickDeleteRepoButton(target) {
-    if (target.hasOwnProperty('target')) target = target.target
-    let button = $(target)
-    let id_prefix = button.data('id_prefix')
-    let repo_name = button.data('name')
-    let field_name = button.data('field_name')
+    target = elFromEventOrEl(target)
+    let id_prefix = target.dataset.id_prefix
+    let repo_name = target.dataset.name
+    let field_name = target.dataset.field_name
 
     corpora.make_request(
         '',
@@ -35,20 +33,19 @@ function clickDeleteRepoButton(target) {
             'field-name': field_name
         },
         function() {
-            let deletion_div = $(`#${id_prefix}-deletion-div`)
-            let name_box = $(`#${id_prefix}-name`)
-            let url_box = $(`#${id_prefix}-url`)
-            let auth_box = $(`#${id_prefix}-auth`)
-            let branch_box = $(`#${id_prefix}-branch`)
+            let name_box = getEl(`${id_prefix}-name`)
+            let url_box = getEl(`${id_prefix}-url`)
+            let auth_box = getEl(`${id_prefix}-auth`)
+            let branch_box = getEl(`${id_prefix}-branch`)
 
-            deletion_div.remove()
-            name_box.val('')
-            name_box.prop('disabled', false)
-            url_box.val('')
-            url_box.prop('disabled', false)
-            auth_box.prop('disabled', false)
-            branch_box.val('')
-            branch_box.prop('disabled', false)
+            removeEl(getEl(`${id_prefix}-deletion-div`))
+            setVal(name_box, '')
+            setDisabled(name_box, false)
+            setVal(url_box, '')
+            setDisabled(url_box, false)
+            setDisabled(auth_box, false)
+            setVal(branch_box, '')
+            setDisabled(branch_box, false)
         }
     )
 
@@ -56,34 +53,34 @@ function clickDeleteRepoButton(target) {
 }
 
 function setRepoValueField(target) {
-    if (target.hasOwnProperty('target')) target = target.target
-    let id_prefix = $(target).data('id_prefix')
-    let value_field = $(`#${id_prefix}-value`)
-    let name_box = $(`#${id_prefix}-name`)
-    let url_box = $(`#${id_prefix}-url`)
-    let auth_box = $(`#${id_prefix}-auth`)
-    let user_box = $(`#${id_prefix}-user`)
-    let pwd_box = $(`#${id_prefix}-pwd`)
-    let branch_box = $(`#${id_prefix}-branch`)
+    target = elFromEventOrEl(target)
+    let id_prefix = target.dataset.id_prefix
+    let value_field = getEl(`${id_prefix}-value`)
+    let name_box = getEl(`${id_prefix}-name`)
+    let url_box = getEl(`${id_prefix}-url`)
+    let auth_box = getEl(`${id_prefix}-auth`)
+    let user_box = getEl(`${id_prefix}-user`)
+    let pwd_box = getEl(`${id_prefix}-pwd`)
+    let branch_box = getEl(`${id_prefix}-branch`)
 
-    if (name_box.val()) {
-        name_box.val(corpora.pep8_variable_format(name_box.val()))
+    if (getVal(name_box)) {
+        setVal(name_box, corpora.pep8_variable_format(getVal(name_box)))
     }
 
-    if (name_box.val() && url_box.val() && branch_box.val()) {
+    if (getVal(name_box) && getVal(url_box) && getVal(branch_box)) {
         let value = {
-            name: name_box.val(),
-            url: url_box.val(),
-            branch: branch_box.val()
+            name: getVal(name_box),
+            url: getVal(url_box),
+            branch: getVal(branch_box)
         }
 
-        if (auth_box.is(':checked')) {
-            value['user'] = user_box.val()
-            value['password'] = pwd_box.val()
+        if (auth_box.checked) {
+            value['user'] = getVal(user_box)
+            value['password'] = getVal(pwd_box)
         }
 
-        value_field.val(JSON.stringify(value))
+        setVal(value_field, JSON.stringify(value))
     } else {
-        value_field.val(null)
+        setVal(value_field, null)
     }
 }

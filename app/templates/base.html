@@ -60,7 +60,7 @@
             <div class="row mt-4">
                 {% if response.messages %}
                     {% for message in response.messages %}
-                        <div class="col alert alert-info" role="alert">
+                        <div class="corpora-alert col alert alert-info" role="alert">
                             {{ message|safe }}
                         </div>
                     {% endfor %}
@@ -94,10 +94,11 @@
             </div>
         </div>
 
-        <script src="{% static 'js/jquery-3.3.1.min.js' %}"></script>
-        <script src="{% static 'js/popper.min.js' %}"></script>
-        <script src="{% static 'js/bootstrap.min.js' %}"></script>
+        <!-- Bootstrap 5 bundle: includes Popper, and needs no jQuery. Matches the
+             Bootstrap 5.3.8 CSS already bundled into corpora.css. -->
+        <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
         <script src="{% static 'js/interact.min.js' %}"></script>
+        <script src="{% static 'js/utilities.js' %}?no-cache={% no_cache_suffix %}"></script>
         <script src="{% static 'js/corpora/corpora.js' %}?no-cache={% no_cache_suffix %}"></script>
         <script src="{% static 'js/corpora/content-table.js' %}?no-cache={% no_cache_suffix %}"></script>
         <script src="{% static 'js/corpora/content-graph.js' %}?no-cache={% no_cache_suffix %}"></script>
@@ -112,33 +113,41 @@
             var corpora = null
             var corpora_event_source = null
             var scholar_id = "{{ response.scholar.id }}"
-            var main_container = $('#main-container')
+            var main_container = getEl('main-container')
+
+            const LOADING_FADE_MS = 400
 
             function hide_loading_overlay() {
-                let loading_overlay = $('#loading-overlay')
-                loading_overlay.fadeOut()
-                loading_overlay.addClass('d-none')
-                loading_overlay.removeClass('d-flex')
-                $('[data-toggle=tooltip]').tooltip()
+                let loading_overlay = getEl('loading-overlay')
+
+                loading_overlay.style.transition = `opacity ${LOADING_FADE_MS}ms`
+                loading_overlay.style.opacity = '0'
+                setTimeout(() => {
+                    loading_overlay.classList.add('d-none')
+                    loading_overlay.classList.remove('d-flex')
+                }, LOADING_FADE_MS)
+
+                initTooltips()
             }
 
             function show_loading_overlay() {
-                let loading_overlay = $('#loading-overlay')
-                loading_overlay.addClass('d-flex')
-                loading_overlay.removeClass('d-none')
+                let loading_overlay = getEl('loading-overlay')
+                loading_overlay.style.opacity = '1'
+                loading_overlay.classList.add('d-flex')
+                loading_overlay.classList.remove('d-none')
             }
 
             function add_breadcrumb(label=null, url=null) {
-                let breadcrumb_inner_div = $('#breadcrumb-inner')
-                if (breadcrumb_inner_div.html()) {
-                    breadcrumb_inner_div.append(' <i class="fas fa-chevron-right"></i> ')
+                let breadcrumb_inner_div = getEl('breadcrumb-inner')
+                if (breadcrumb_inner_div.innerHTML.trim()) {
+                    appendToEl(breadcrumb_inner_div, ' <i class="fas fa-chevron-right"></i> ')
                 } else {
-                    $('#breadcrumb').removeClass('d-none')
-                    breadcrumb_inner_div.append(`<a href="/"><img src="/static/img/logo.png" class="logo-small"></a>`)
-                    if (label) breadcrumb_inner_div.append(` <i class="fas fa-chevron-right"></i> `)
+                    getEl('breadcrumb').classList.remove('d-none')
+                    appendToEl(breadcrumb_inner_div, `<a href="/"><img src="/static/img/logo.png" class="logo-small"></a>`)
+                    if (label) appendToEl(breadcrumb_inner_div, ` <i class="fas fa-chevron-right"></i> `)
                 }
 
-                breadcrumb_inner_div.append(`<a href="${url}">${label}</a>`)
+                appendToEl(breadcrumb_inner_div, `<a href="${url}">${label}</a>`)
             }
 
             function resolve(path, obj=self, separator='.') {
@@ -146,7 +155,7 @@
                 return properties.reduce((prev, curr) => prev && prev[curr], obj)
             }
 
-            $(document).ready(function() {
+            document.addEventListener('DOMContentLoaded', () => {
                 corpora = new Corpora({'csrf_token': "{{ csrf_token }}"})
             })
         </script>

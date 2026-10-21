@@ -49,19 +49,19 @@ const entity_renderings = '160,nbsp,161,iexcl,162,cent,163,pound,164,curren,165,
 'permil,8249,lsaquo,8250,rsaquo,8364,euro'
 
 function renderHTMLField(target) {
-    tinymce.init(
-        {
-            selector: `#${target.id}`,
-            width: '100%',
-            min_height: '200px',
-            plugins: 'autoresize link image media code table',
-            menubar: 'edit insert media view format table tools help',
-            image_advtab: true,
-            entities: entity_renderings
-        }
-    )
+    // tinymceConfig() lives in utilities.js and carries the shared font/colour
+    // restrictions; only the per-field bits belong here.
+    tinymce.init(tinymceConfig({
+        selector: `#${target.id}`,
+        entities: entity_renderings
+    }))
 }
 
-function gatherHTMLFieldValue(target) {
-    return tinymce.get(target.id).getContent()
+// `force` is set when the scholar has explicitly chosen this field -- bulk editing, or a
+// sibling entry of the same multi-valued field having been edited -- in which case the
+// editor's current content is what they mean, even if they left this particular box alone.
+function gatherHTMLFieldValue(target, force = false) {
+    let editor = tinymce.get(target.id)
+    if (!force && !editor.isDirty()) return UNCHANGED_FIELD_VALUE
+    return editor.getContent()
 }

@@ -25,6 +25,7 @@
 {% endblock %}
 
 {% block modals %}
+    {% if response.scholar.is_admin %}
     <!-- New Corpus Modal -->
     <div class="modal fade" id="new-corpus-modal" tabindex="-1" role="dialog" aria-labelledby="new-corpus-modal-label" aria-hidden="true">
         <div class="modal-dialog" role="document">
@@ -33,7 +34,7 @@
                     {% csrf_token %}
                     <div class="modal-header">
                         <h5 class="modal-title" id="new-corpus-modal-label">New Corpus</h5>
-                        <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
                         </button>
                     </div>
                     <div class="modal-body">
@@ -60,7 +61,7 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                         <button type="submit" class="btn btn-primary">Create</button>
                     </div>
                 </form>
@@ -77,20 +78,21 @@
               <div class="modal-content">
                   <div class="modal-header">
                       <h5 class="modal-title" id="confirmation-modal-label">Confirm</h5>
-                      <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
                       </button>
                   </div>
                   <div class="modal-body">
                       <div id="confirmation-modal-message" class="alert alert-danger"></div>
                   </div>
                   <div class="modal-footer">
-                      <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                       <button type="submit" class="btn btn-primary">Confirm</button>
                   </div>
               </div>
             </form>
         </div>
     </div>
+    {% endif %}
 {% endblock %}
 
 {% block main %}
@@ -132,7 +134,8 @@
                     <span>
                       <select class="form-select-sm bg-primary mx-1" id="admin-action-selector">
                           <option value="" selected>Admin Actions...</option>
-                          <option value="scrub-provenance">Scrub all provenance</option>
+                          <option value="reindex-corpora">Reindex all corpora</option>
+                          <option value="relink-corpora">Relink all corpora</option>
                       </select>
                       <button type="button" class="btn btn-sm btn-secondary" id="admin-action-go-button" disabled>Go</button>
                     </span>
@@ -141,18 +144,87 @@
             </div>
         </div>
     </div>
+
+    {% if response.scholar.is_admin %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header"><h5 class="m-0">Running Jobs</h5></div>
+                <div class="card-body">
+                    <!-- filled by JobManager in instance-wide mode (see block js) -->
+                    <div id="jobs-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 {% endblock %}
 
 {% block js %}
 
     <script type="application/javascript">
-        $(document).ready(function() {
-            hide_loading_overlay();
+        let job_manager = null
 
-            $('#corpus-new-button').click(function() {
-                $('#new-corpus-modal').modal()
+        // confirmation text per admin action, keyed by the <option> value
+        const ADMIN_ACTION_CONFIRMATIONS = {
+            'reindex-corpora': `
+                This will rebuild the Elasticsearch index for every corpus and reindex all of their content.
+                Corpora are processed one at a time, and content may be temporarily unavailable in lists and
+                searches while its content type is being reindexed. Would you like to proceed?
+            `,
+            'relink-corpora': `
+                This will delete and rebuild all Neo4j nodes and relationships for every corpus. Corpora are
+                processed one at a time, and relationship data may be temporarily unavailable while a content
+                type is being relinked. Would you like to proceed?
+            `
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            hide_loading_overlay()
+
+            onEl(getEl('corpus-new-button'), 'click', () => showModal(getEl('new-corpus-modal')))
+
+            // NEW CORPUS NAME VALIDATION
+            onEl(getEl('new-corpus-form'), 'submit', event => {
+                let name_box = getEl('new-corpus-name-box')
+                let missing = !getVal(name_box).trim()
+
+                getEl('new-corpus-name-required-msg').classList.toggle('d-none', !missing)
+
+                if (missing) {
+                    event.preventDefault()
+                    name_box.focus()
+                }
             })
+
+            // ADMIN ACTIONS
+            let admin_action_selector = getEl('admin-action-selector')
+            let admin_action_button = getEl('admin-action-go-button')
+
+            onEl(admin_action_selector, 'change', () => {
+                setDisabled(admin_action_button, !getVal(admin_action_selector))
+            })
+
+            onEl(admin_action_button, 'click', () => {
+                let action = getVal(admin_action_selector)
+                setVal(getEl('admin-action-input'), action)
+
+                if (action in ADMIN_ACTION_CONFIRMATIONS) {
+                    getEl('confirmation-modal-message').innerHTML = ADMIN_ACTION_CONFIRMATIONS[action]
+                }
+
+                showModal(getEl('confirmation-modal'))
+            })
+
+            {% if response.scholar.is_admin %}
+            job_manager = new JobManager({
+                jobs_container: 'jobs-container',
+                corpora: corpora,
+                scholar_id: scholar_id
+            })
+            {% endif %}
         })
+
     </script>
 
 {% endblock %}

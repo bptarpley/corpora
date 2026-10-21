@@ -21,18 +21,18 @@ class ContentGroup {
         let editButtonHTML = ''
         if (this.canEdit) {
             editButtonHTML = `
-                <button id="ct-group-${this.index}-edit-button" class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top" title="Edit">
+                <button id="ct-group-${this.index}-edit-button" class="btn btn-sm btn-primary" data-bs-toggle="tooltip" data-bs-placement="top" title="Edit">
                     <span class="fas fa-edit"></span>
                 </button>
             `
         }
 
-        groupContainer.append(`
+        appendToEl(groupContainer, `
             <div id="ct-group-${this.index}" class="alert alert-info content-type-group mt-4 pb-4" data-title="${this.title}">
                 <h2 class="content-type-group-header d-flex justify-content-between">${this.title}${editButtonHTML}</h2>
                 <div id="ct-group-${this.index}-controls-div" class="d-none my-2 justify-content-between align-bottom">
                     <span>
-                        <button id="ct-group-${this.index}-delete-button" type="button" class="btn btn-danger me-4" data-title="${this.title}" data-toggle="tooltip" title="Delete Group">
+                        <button id="ct-group-${this.index}-delete-button" type="button" class="btn btn-danger me-4" data-title="${this.title}" data-bs-toggle="tooltip" title="Delete Group">
                             <span class="fas fa-trash-alt"></span>
                         </button>
                         <button id="ct-group-${this.index}-cancel-button" type="button" class="btn btn-secondary me-1">Cancel</button>
@@ -51,194 +51,170 @@ class ContentGroup {
         `)
         this.renderMembers()
 
-        let ctSelector = $(`#ct-group-${this.index}-ct-selector`)
-        let ctSelectorGoButton = $(`#ct-group-${this.index}-ct-add-button`)
-        let ctgEditButton = $(`#ct-group-${this.index}-edit-button`)
-        let ctgCancelButton = $(`#ct-group-${this.index}-cancel-button`)
-        let ctgDeleteButton = $(`#ct-group-${this.index}-delete-button`)
-        let ctgSaveButton = $(`#ct-group-${this.index}-save-button`)
+        let ctSelector = getEl(`ct-group-${this.index}-ct-selector`)
+        let ctgCancelButton = getEl(`ct-group-${this.index}-cancel-button`)
 
-        let sender = this
+        onEl(getEl(`ct-group-${this.index}-edit-button`), 'click', () => this.edit())
 
-        ctgEditButton.click(function() {
-            sender.edit()
-        })
-
-        ctSelectorGoButton.click(function() {
-            let membersDiv = $(`#ct-group-${this.index}-members-div`)
-            let ctName = ctSelector.val()
-            sender.members.push({
-                name: ctName,
+        onEl(getEl(`ct-group-${this.index}-ct-add-button`), 'click', () => {
+            this.members.push({
+                name: getVal(ctSelector),
                 display_preference: 'full'
             })
-            sender.save(function(response) {
+            this.save(response => {
                 if (response.success) {
-                    sender.renderMembers()
-                    sender.edit()
+                    this.renderMembers()
+                    this.edit()
                 }
             })
         })
 
-        ctgCancelButton.click(function() {
-            if (sender.editing) {
-                let descBoxID = `ct-group-${sender.index}-description`
+        onEl(ctgCancelButton, 'click', () => {
+            if (!this.editing) return
 
-                $(`#ct-group-${sender.index}-ct-selector-div`).addClass('d-none')
-                $(`#ct-group-${sender.index}-controls-div`).removeClass('d-flex').addClass('d-none')
-                $(`.content-type-group-member-controls`).addClass('d-none')
-                $(`#ct-group-${sender.index}-edit-button`).removeClass('d-none')
+            let descBoxID = `ct-group-${this.index}-description`
 
-                tinymce.get(descBoxID).remove()
-                $(`#${descBoxID}`).html(sender.description)
+            getEl(`ct-group-${this.index}-ct-selector-div`).classList.add('d-none')
+            let controlsDiv = getEl(`ct-group-${this.index}-controls-div`)
+            controlsDiv.classList.remove('d-flex')
+            controlsDiv.classList.add('d-none')
+            forElsMatching('.content-type-group-member-controls', el => el.classList.add('d-none'))
+            getEl(`ct-group-${this.index}-edit-button`).classList.remove('d-none')
 
-                sender.editing = false
-            }
+            tinymce.get(descBoxID).remove()
+            getEl(descBoxID).innerHTML = this.description
+
+            this.editing = false
         })
 
-        ctgSaveButton.click(function() {
-            sender.save(function(response) {
-                if (response.success) ctgCancelButton.trigger('click')
+        onEl(getEl(`ct-group-${this.index}-save-button`), 'click', () => {
+            this.save(response => {
+                if (response.success) ctgCancelButton.click()
             })
         })
 
-        ctgDeleteButton.click(function() {
-            sender.delete()
-        })
+        onEl(getEl(`ct-group-${this.index}-delete-button`), 'click', () => this.delete())
+
+        initTooltips(getEl(`ct-group-${this.index}`))
     }
 
     scrollTo() {
-        $(`#ct-group-${this.index}`)[0].scrollIntoView({behavior: 'smooth'})
+        getEl(`ct-group-${this.index}`).scrollIntoView({behavior: 'smooth'})
     }
 
     renderMembers(scrollToContentType=null) {
-        let membersDiv = $(`#ct-group-${this.index}-members-div`)
-        let contentTypesDiv = $(`#${this.contentTypesDivID}`)
+        let membersDiv = getEl(`ct-group-${this.index}-members-div`)
+        let contentTypesDiv = getEl(this.contentTypesDivID)
         let scrollToControl = null
 
-        membersDiv.find(`.corpora-content-table[data-content-type]`).each(function() {
-            let ctTable = $(this)
-            ctTable.detach().appendTo(contentTypesDiv)
+        // park any tables we already own back in the main container before re-laying
+        // out, so they survive membersDiv being emptied (appendChild moves the node
+        // and keeps its listeners).
+        membersDiv.querySelectorAll('.corpora-content-table[data-content-type]').forEach(ctTable => {
+            contentTypesDiv.appendChild(ctTable)
         })
 
-        membersDiv.empty()
+        clearEl(membersDiv)
+        if (!this.members.length) return
 
-        if (this.members.length) {
-            this.members.forEach((member, memberIndex) => {
-                let ctTableRow = $(`#${this.contentTypesDivID} .corpora-content-table[data-content-type="${member.name}"]`)
-                let ctContainer = membersDiv
+        this.members.forEach((member, memberIndex) => {
+            let ctTableRow = contentTypesDiv.querySelector(`.corpora-content-table[data-content-type="${member.name}"]`)
+            let ctContainer = membersDiv
 
-                if (member.display_preference === 'half') {
-                    ctContainer = $(`.ct-group-${this.index}-member-col.open`)
-                    if (!ctContainer.length) {
-                        membersDiv.append(`
-                            <div class="row">
-                                <div class="col-md-6 ct-group-${this.index}-member-col open"></div>
-                                <div class="col-md-6 ct-group-${this.index}-member-col open"></div>
-                            </div>
-                        `)
-                        ctContainer = $(`.ct-group-${this.index}-member-col.open`)
-                    }
-                    ctContainer = ctContainer.first()
-                    ctContainer.removeClass('open')
-                } else if (member.display_preference === 'minimized') {
-                    membersDiv.append(`
-                        <details id="ct-group-${this.index}-member-detail-${memberIndex}" class="content-type-group-member-minimized">
-                        <summary><h4>${this.corpus.content_types[member.name].plural_name}</h4></summary>
-                        </details>
-                    `)
-                    ctContainer = $(`#ct-group-${this.index}-member-detail-${memberIndex}`)
-                }
-
-                if (ctTableRow.length) {
-                    ctContainer.append(`
-                        <div class="content-type-group-member-controls ${this.editing ? '' : 'd-none'}">
-                            <button class="btn btn-sm btn-primary ct-group-${this.index}-member-control"
-                                data-ct="${member.name}" data-action="move-up"
-                                data-toggle="tooltip" title="Move up" ${memberIndex === 0 ? 'disabled' : ''}>
-                                <span class="fas fa-sort-up"></span></button>
-                            <button class="btn btn-sm btn-primary ct-group-${this.index}-member-control"
-                                data-ct="${member.name}" data-action="move-down"
-                                data-toggle="tooltip" title="Move down" ${memberIndex === (this.members.length - 1) ? 'disabled' : ''}>
-                                <span class="fas fa-sort-down"></span></button>
-                            <button class="btn btn-sm btn-primary ct-group-${this.index}-member-control"
-                                data-ct="${member.name}" data-action="minimize"
-                                data-toggle="tooltip" title="Minimize" ${member.display_preference === 'minimized' ? 'disabled' : ''}>
-                                <span class="far fa-window-minimize"></span></button>
-                            <button class="btn btn-sm btn-primary ct-group-${this.index}-member-control"
-                                data-ct="${member.name}" data-action="maximize"
-                                data-toggle="tooltip" title="Maximize" ${member.display_preference === 'full' ? 'disabled' : ''}>
-                                <span class="far fa-window-maximize"></span></button>
-                            <button class="btn btn-sm btn-primary ct-group-${this.index}-member-control"
-                                data-ct="${member.name}" data-action="half-size"
-                                data-toggle="tooltip" title="Make half-sized" ${member.display_preference === 'half' ? 'disabled' : ''}>
-                                <span class="fas fa-columns"></span></button>
-                            <button class="btn btn-sm btn-primary ct-group-${this.index}-member-control"
-                                data-ct="${member.name}" data-action="remove"
-                                data-toggle="tooltip" title="Remove from group">
-                                <span class="fas fa-trash-alt"></span></button>
+            if (member.display_preference === 'half') {
+                ctContainer = getElWithQuery(`.ct-group-${this.index}-member-col.open`)
+                if (!ctContainer) {
+                    appendToEl(membersDiv, `
+                        <div class="row">
+                            <div class="col-md-6 ct-group-${this.index}-member-col open"></div>
+                            <div class="col-md-6 ct-group-${this.index}-member-col open"></div>
                         </div>
                     `)
-
-                    ctTableRow.detach().appendTo(ctContainer)
-                    if (scrollToContentType === member.name) {
-                        if (member.display_preference === 'full') scrollToControl = ctTableRow
-                        else scrollToControl = ctContainer
-                    }
+                    ctContainer = getElWithQuery(`.ct-group-${this.index}-member-col.open`)
                 }
+                ctContainer.classList.remove('open')
+            } else if (member.display_preference === 'minimized') {
+                appendToEl(membersDiv, `
+                    <details id="ct-group-${this.index}-member-detail-${memberIndex}" class="content-type-group-member-minimized">
+                    <summary><h4>${this.corpus.content_types[member.name].plural_name}</h4></summary>
+                    </details>
+                `)
+                ctContainer = getEl(`ct-group-${this.index}-member-detail-${memberIndex}`)
+            }
+
+            if (!ctTableRow) return
+
+            appendToEl(ctContainer, `
+                <div class="content-type-group-member-controls ${this.editing ? '' : 'd-none'}">
+                    <button class="btn btn-sm btn-primary ct-group-${this.index}-member-control"
+                        data-ct="${member.name}" data-action="move-up"
+                        data-bs-toggle="tooltip" title="Move up" ${memberIndex === 0 ? 'disabled' : ''}>
+                        <span class="fas fa-sort-up"></span></button>
+                    <button class="btn btn-sm btn-primary ct-group-${this.index}-member-control"
+                        data-ct="${member.name}" data-action="move-down"
+                        data-bs-toggle="tooltip" title="Move down" ${memberIndex === (this.members.length - 1) ? 'disabled' : ''}>
+                        <span class="fas fa-sort-down"></span></button>
+                    <button class="btn btn-sm btn-primary ct-group-${this.index}-member-control"
+                        data-ct="${member.name}" data-action="minimize"
+                        data-bs-toggle="tooltip" title="Minimize" ${member.display_preference === 'minimized' ? 'disabled' : ''}>
+                        <span class="far fa-window-minimize"></span></button>
+                    <button class="btn btn-sm btn-primary ct-group-${this.index}-member-control"
+                        data-ct="${member.name}" data-action="maximize"
+                        data-bs-toggle="tooltip" title="Maximize" ${member.display_preference === 'full' ? 'disabled' : ''}>
+                        <span class="far fa-window-maximize"></span></button>
+                    <button class="btn btn-sm btn-primary ct-group-${this.index}-member-control"
+                        data-ct="${member.name}" data-action="half-size"
+                        data-bs-toggle="tooltip" title="Make half-sized" ${member.display_preference === 'half' ? 'disabled' : ''}>
+                        <span class="fas fa-columns"></span></button>
+                    <button class="btn btn-sm btn-primary ct-group-${this.index}-member-control"
+                        data-ct="${member.name}" data-action="remove"
+                        data-bs-toggle="tooltip" title="Remove from group">
+                        <span class="fas fa-trash-alt"></span></button>
+                </div>
+            `)
+
+            ctContainer.appendChild(ctTableRow)
+            if (scrollToContentType === member.name) {
+                scrollToControl = member.display_preference === 'full' ? ctTableRow : ctContainer
+            }
+        })
+
+        forElsMatching(`.ct-group-${this.index}-member-control`, button => {
+            onlyOnEl(button, 'click', () => {
+                hideTooltip(button)
+                this.changeMember(button.dataset.ct, button.dataset.action)
             })
+        })
+        initTooltips(membersDiv)
 
-            let sender = this
-            let memberControls = $(`.ct-group-${this.index}-member-control`)
-
-            memberControls.tooltip('update')
-            memberControls.click(function () {
-                let button = $(this)
-                let ct = button.data('ct')
-                let action = button.data('action')
-
-                button.tooltip('hide')
-                sender.changeMember(ct, action)
-            })
-            if (scrollToControl) setTimeout(() => scrollToControl[0].scrollIntoView({behavior: 'smooth'}), 500)
-        }
+        if (scrollToControl) setTimeout(() => scrollToControl.scrollIntoView({behavior: 'smooth'}), 500)
     }
 
     edit() {
-        if (this.canEdit) {
-            let ctSelectorDiv = $(`#ct-group-${this.index}-ct-selector-div`)
-            let ctSelector = $(`#ct-group-${this.index}-ct-selector`)
-            let ctgEditButton = $(`#ct-group-${this.index}-edit-button`)
-            let ctgControlsDiv = $(`#ct-group-${this.index}-controls-div`)
-            let ctgMemberControls = $(`.content-type-group-member-controls`)
+        if (!this.canEdit) return
 
-            ctSelector.empty()
+        let ctSelector = getEl(`ct-group-${this.index}-ct-selector`)
+        let ctgControlsDiv = getEl(`ct-group-${this.index}-controls-div`)
 
-            $(`#${this.contentTypesDivID} .corpora-content-table`).each(function() {
-                let ctName = $(this).data('content-type')
-                ctSelector.append(`<option value="${ctName}">${ctName}</option>`)
-            })
+        clearEl(ctSelector)
+        forElsMatching(`#${this.contentTypesDivID} .corpora-content-table`, ctTable => {
+            let ctName = ctTable.dataset.contentType
+            appendToEl(ctSelector, `<option value="${ctName}">${ctName}</option>`)
+        })
 
-            ctgEditButton.addClass('d-none')
-            ctSelectorDiv.removeClass('d-none')
-            ctgControlsDiv.removeClass('d-none')
-            ctgControlsDiv.addClass('d-flex')
-            ctgMemberControls.removeClass('d-none')
+        getEl(`ct-group-${this.index}-edit-button`).classList.add('d-none')
+        getEl(`ct-group-${this.index}-ct-selector-div`).classList.remove('d-none')
+        ctgControlsDiv.classList.remove('d-none')
+        ctgControlsDiv.classList.add('d-flex')
+        forElsMatching('.content-type-group-member-controls', el => el.classList.remove('d-none'))
 
-            if (!this.editing) {
-                tinymce.init(
-                    {
-                        selector: `#ct-group-${this.index}-description`,
-                        width: '100%',
-                        min_height: '200px',
-                        plugins: 'autoresize link image media code table',
-                        menubar: 'edit insert media view format table tools help',
-                        image_advtab: true
-                    }
-                )
-            }
-
-            this.editing = true
+        if (!this.editing) {
+            tinymce.init(tinymceConfig({
+                selector: `#ct-group-${this.index}-description`
+            }))
         }
+
+        this.editing = true
     }
 
     changeMember(contentType, action) {
@@ -291,9 +267,8 @@ class ContentGroup {
             }
 
             if (validMove) {
-                let sender = this
-                this.save(function(response) {
-                    if (response.success) sender.renderMembers(contentType)
+                this.save(response => {
+                    if (response.success) this.renderMembers(contentType)
                 })
             }
         }
@@ -339,43 +314,48 @@ class ContentGroup {
 
     save(callback=null) {
         let [valid, message] = this.validate()
-        if (valid) {
-            if (this.editing) this.description = tinymce.get(`ct-group-${this.index}-description`).getContent()
 
-            let sender = this
-            this.corpora.make_request(
-                `/api/corpus/${this.corpus.id}/content-group/`,
-                'POST',
-                {'content-group-json': this.toJSON(), 'action': sender.editing ? 'edit' : 'create'},
-                function (response) {
-                    if (callback != null) {
-                        callback(response)
-                    }
-                }
+        // previously this just fell through silently, so a failed validation looked
+        // to the user like the save button did nothing.
+        if (!valid) {
+            this.corpora.confirm_action(
+                () => this.corpora.cancel_action(),
+                'Unable to Save Content Group',
+                message,
+                'Okay',
+                false
             )
+            return
         }
+
+        if (this.editing) this.description = tinymce.get(`ct-group-${this.index}-description`).getContent()
+
+        this.corpora.make_request(
+            `/api/corpus/${this.corpus.id}/content-group/`,
+            'POST',
+            {'content-group-json': this.toJSON(), 'action': this.editing ? 'edit' : 'create'},
+            response => {
+                if (callback != null) callback(response)
+            }
+        )
     }
 
     delete() {
-        let sender = this
-
         this.corpora.confirm_action(
-            function() {
-                sender.members = []
-                sender.renderMembers()
-                sender.corpora.make_request(
-                    `/api/corpus/${sender.corpus.id}/content-group/`,
+            () => {
+                this.members = []
+                this.renderMembers()
+                this.corpora.make_request(
+                    `/api/corpus/${this.corpus.id}/content-group/`,
                     'POST',
-                    {'content-group-json': sender.toJSON(), 'action': 'delete'},
-                    function (response) {
-                        if (response.success) {
-                            $(`#ct-group-${sender.index}`).remove()
-                        }
+                    {'content-group-json': this.toJSON(), 'action': 'delete'},
+                    response => {
+                        if (response.success) removeEl(getEl(`ct-group-${this.index}`))
                     }
                 )
             },
             'Confirm Content Group Deletion',
-            `Are you sure you want to delete the "${sender.title}" Content Type Group? Deleting the group
+            `Are you sure you want to delete the "${this.title}" Content Type Group? Deleting the group
                 will not delete the content types belonging to it.`,
             'Delete',
             true

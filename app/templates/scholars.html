@@ -8,7 +8,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="scholar-modal-label">Manage Scholar</h5>
-                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
                     </button>
                 </div>
                 <div class="modal-body">
@@ -25,11 +25,11 @@
                             </form>
                         </div>
                         <div id="corpus-permissions-container" class="list-group-item">
-                            <button class="btn btn-link" data-toggle="collapse" data-target="#corpus-permissions-collapsible" aria-expanded="false" aria-controls="corpus-permissions-collapsible">
+                            <button class="btn btn-link" data-bs-toggle="collapse" data-bs-target="#corpus-permissions-collapsible" aria-expanded="false" aria-controls="corpus-permissions-collapsible">
                                 <span id="corpus-permissions-collapse-indicator" class="fas fa-caret-right"></span>
                                 Corpus permissions
                             </button>
-                            <div id="corpus-permissions-collapsible" class="collapse" aria-labelledby="corpus-permissions-container" data-parent="#scholar-list-group">
+                            <div id="corpus-permissions-collapsible" class="collapse" aria-labelledby="corpus-permissions-container" data-bs-parent="#scholar-list-group">
                                 <form method="post">
                                     {% csrf_token %}
                                     <input type="hidden" name="corpus-perms" class="scholar-id" />
@@ -64,11 +64,11 @@
                         </div>
 
                         <div id="job-permissions-container" class="list-group-item">
-                            <button class="btn btn-link" data-toggle="collapse" data-target="#job-permissions-collapsible" aria-expanded="false" aria-controls="job-permissions-collapsible">
+                            <button class="btn btn-link" data-bs-toggle="collapse" data-bs-target="#job-permissions-collapsible" aria-expanded="false" aria-controls="job-permissions-collapsible">
                                 <span id="job-permissions-collapse-indicator" class="fas fa-caret-right"></span>
                                 Job permissions
                             </button>
-                            <div id="job-permissions-collapsible" class="collapse" aria-labelledby="job-permissions-container" data-parent="#scholar-list-group">
+                            <div id="job-permissions-collapsible" class="collapse" aria-labelledby="job-permissions-container" data-bs-parent="#scholar-list-group">
                                 <form method="post">
                                     {% csrf_token %}
                                     <input type="hidden" name="job-perms" class="scholar-id" />
@@ -85,11 +85,11 @@
                         </div>
 
                         <div id="set-password-container" class="list-group-item">
-                            <button class="btn btn-link" data-toggle="collapse" data-target="#set-password-collapsible" aria-expanded="false" aria-controls="set-password-collapsible">
+                            <button class="btn btn-link" data-bs-toggle="collapse" data-bs-target="#set-password-collapsible" aria-expanded="false" aria-controls="set-password-collapsible">
                                 <span id="set-password-collapse-indicator" class="fas fa-caret-right"></span>
                                 Change password
                             </button>
-                            <div id="set-password-collapsible" class="alert alert-info collapse" aria-labelledby="set-password-container" data-parent="#scholar-list-group">
+                            <div id="set-password-collapsible" class="alert alert-info collapse" aria-labelledby="set-password-container" data-bs-parent="#scholar-list-group">
                                 <form method="post">
                                     {% csrf_token %}
                                     <input type="hidden" name="change-pwd" class="scholar-id" />
@@ -107,11 +107,11 @@
                         </div>
 
                         <div id="delete-scholar-container" class="list-group-item">
-                            <button class="btn btn-link" data-toggle="collapse" data-target="#delete-scholar-collapsible" aria-expanded="false" aria-controls="delete-scholar-collapsible">
+                            <button class="btn btn-link" data-bs-toggle="collapse" data-bs-target="#delete-scholar-collapsible" aria-expanded="false" aria-controls="delete-scholar-collapsible">
                                 <span id="delete-scholar-collapse-indicator" class="fas fa-caret-right"></span>
                                 Delete Account
                             </button>
-                            <div id="delete-scholar-collapsible" class="alert alert-info collapse" aria-labelledby="delete-scholar-container" data-parent="#scholar-list-group">
+                            <div id="delete-scholar-collapsible" class="alert alert-info collapse" aria-labelledby="delete-scholar-container" data-bs-parent="#scholar-list-group">
                                 <form method="post">
                                     {% csrf_token %}
                                     <input type="hidden" name="delete-scholar" class="scholar-id" />
@@ -125,7 +125,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -189,12 +189,12 @@
         let total_scholars = 0
         let scholarObserver = null
 
-        $(document).ready(function() {
+        document.addEventListener('DOMContentLoaded', function() {
             corpora.get_jobsites(function(jobsite_data) {
                 jobsites = jobsite_data
-                let jobsite_div = $('#jobsite-permissions-div')
+                let jobsite_div = getEl('jobsite-permissions-div')
                 jobsites.map(jobsite => {
-                    jobsite_div.append(`
+                    appendToEl(jobsite_div, `
                         <div class="form-check">
                             <input class="form-check-input job-perm" type="checkbox" id="jobsite-${jobsite.id}" name="jobsite-${jobsite.id}">
                             <label class="form-check-label" for="jobsite-${jobsite.id}">${jobsite.name} (${jobsite.type})</label>
@@ -204,7 +204,7 @@
                     Object.keys(jobsite.task_registry).map(task_name => {
                         let task = jobsite.task_registry[task_name]
                         let task_id = task.task_id
-                        jobsite_div.append(`
+                        appendToEl(jobsite_div, `
                             <div class="form-check ms-3">
                                 <input class="form-check-input job-perm" type="checkbox" id="task-${task_id}" name="task-${task_id}">
                                 <label class="form-check-label" for="task-${task_id}">${task_name}</label>
@@ -215,9 +215,9 @@
 
                 corpora.get_corpora({}, corpus_info => {
                     if (corpus_info.records) {
-                        let corpus_selector = $('#corpus-id-box')
+                        let corpus_selector = getEl('corpus-id-box')
                         corpus_info.records.forEach(corp => {
-                            corpus_selector.append(`
+                            appendToEl(corpus_selector, `
                                 <option value="${corp.id}">${corp.name}</option>
                             `)
                         })
@@ -227,10 +227,9 @@
 
             load_scholars()
 
-            $("#scholar-search-box").keypress(function(e){
-                let key = e.which
-                if (key === 13) {
-                    let query = $("#scholar-search-box").val()
+            onEl(getEl('scholar-search-box'), 'keydown', event => {
+                if (event.key === 'Enter') {
+                    let query = getVal(event.currentTarget)
                     if (query) {
                         scholar_search.q = query + '*'
                     } else {
@@ -242,8 +241,8 @@
                 }
             })
 
-            $('.sort-link').click(function() {
-                let field = $(this).data('field')
+            onElsMatching('.sort-link', 'click', event => {
+                let field = event.currentTarget.dataset.field
                 let setting = `s_${field}`
                 let settings = Object.keys(scholar_search)
                 settings.map(old_setting => {
@@ -265,14 +264,16 @@
                 scholarObserver = new IntersectionObserver(entries => {
                     entries.forEach((entry, index) => {
                         if (entry.isIntersecting) {
-                            let page_breaker = $(entry.target)
-                            let scroll_progress_bar = $(`#scholar-scroll-progress`)
-                            let rec_num = page_breaker.data('record_num')
+                            let page_breaker = entry.target
+                            let scroll_progress_bar = getEl('scholar-scroll-progress')
+                            // these two data attributes are underscored, so they survive
+                            // verbatim on dataset -- unlike data-field above, which camelCases
+                            let rec_num = Number(page_breaker.dataset.record_num)
                             let scroll_progress = Math.round((rec_num / total_scholars) * 100)
-                            let next_page = page_breaker.data('next_page')
+                            let next_page = page_breaker.dataset.next_page
 
-                            scroll_progress_bar.css('width', `${scroll_progress}%`)
-                            scroll_progress_bar.attr('aria-valuenow', scroll_progress)
+                            scroll_progress_bar.style.width = `${scroll_progress}%`
+                            scroll_progress_bar.setAttribute('aria-valuenow', scroll_progress)
 
                             if (next_page) {
                                 next_page = parseInt(next_page)
@@ -294,11 +295,11 @@
         function build_scholars(scholar_data) {
             scholars = scholar_data.records
             total_scholars = scholar_data.meta.total
-            $('#scholar-total-badge').html(`Total: ${total_scholars}`)
+            getEl('scholar-total-badge').innerHTML = `Total: ${total_scholars}`
 
-            let scholar_table = $("#scholar-table")
+            let scholar_table = getEl('scholar-table')
             if (total_scholars > 0) {
-                if (scholar_data.meta.page === 1) scholar_table.html('')
+                if (scholar_data.meta.page === 1) clearEl(scholar_table)
 
                 scholars.forEach((scholar, scholar_index) => {
                     let rec_num = (scholar_index + 1) + ((scholar_data.meta.page - 1) * scholar_data.meta.page_size)
@@ -306,7 +307,7 @@
                     if (scholar_index + 1 >= scholars.length && scholar_data.meta.has_next_page)
                         pageBreakAttributes += ` data-next_page="${scholar_data.meta.page + 1}"`
 
-                    scholar_table.append(`
+                    appendToEl(scholar_table, `
                         <tr class="scholar-content-row" ${pageBreakAttributes}>
                             <td>
                                 <a href="javascript:show_scholar('${scholar.id}');">${scholar.username}</a>
@@ -327,13 +328,13 @@
                     `)
                 })
 
-                $('.scholar-content-row:not([data-observed])').each(function() {
-                    this.setAttribute('data-observed', 'true')
-                    scholarObserver.observe(this)
+                forElsMatching('.scholar-content-row:not([data-observed])', row => {
+                    row.setAttribute('data-observed', 'true')
+                    scholarObserver.observe(row)
                 })
 
             } else if (scholar_search.q !== '*') {
-                scholar_table.html(`
+                scholar_table.innerHTML = `
                     <tr>
                         <td colspan="5">
                             <div class="alert alert-info">
@@ -341,7 +342,7 @@
                             </div>
                         </td>
                     </tr>
-                `)
+                `
             }
 
             hide_loading_overlay()
@@ -349,36 +350,36 @@
         
         function show_scholar(scholar_id) {
             corpora.get_scholar(scholar_id, function(scholar_data) {
-                $('#scholar-username-span').html(scholar_data.username)
-                $('.scholar-id').val(scholar_id)
+                getEl('scholar-username-span').textContent = scholar_data.username
+                forElsMatching('.scholar-id', input => setVal(input, scholar_id))
 
-                let scholarAdminPrivsButton = $('#scholar-admin-privs-button')
-                let corpusPermissionsContainer = $('#corpus-permissions-container')
-                let jobPermissionsContainer = $('#job-permissions-container')
-                let corpus_permissions_div = $('#current-corpus-permissions-div')
-                corpus_permissions_div.html('')
+                let scholarAdminPrivsButton = getEl('scholar-admin-privs-button')
+                let corpusPermissionsContainer = getEl('corpus-permissions-container')
+                let jobPermissionsContainer = getEl('job-permissions-container')
+                let corpus_permissions_div = getEl('current-corpus-permissions-div')
+                clearEl(corpus_permissions_div)
 
                 if (scholar_data.is_admin) {
-                    scholarAdminPrivsButton.html('Revoke Admin Privileges')
-                    corpusPermissionsContainer.addClass('d-none')
-                    jobPermissionsContainer.addClass('d-none')
+                    scholarAdminPrivsButton.innerHTML = 'Revoke Admin Privileges'
+                    hideEl(corpusPermissionsContainer)
+                    hideEl(jobPermissionsContainer)
                 } else {
-                    scholarAdminPrivsButton.html('Grant Admin Privileges')
-                    corpusPermissionsContainer.removeClass('d-none')
-                    jobPermissionsContainer.removeClass('d-none')
+                    scholarAdminPrivsButton.innerHTML = 'Grant Admin Privileges'
+                    showEl(corpusPermissionsContainer)
+                    showEl(jobPermissionsContainer)
 
                     Object.keys(scholar_data.available_corpora).forEach((corpus_id, index) => {
                         let border_style = ""
                         if (index + 1 < Object.keys(scholar_data.available_corpora).length)
                             border_style = "border-bottom: solid 1px #BFBFBF;"
 
-                        corpus_permissions_div.append(`
+                        appendToEl(corpus_permissions_div, `
                             <div class="row py-3 mx-1" style="${border_style}">
                                 <div class="col-6">
                                     <strong>${scholar_data.available_corpora[corpus_id].name}</strong>
                                 </div>
                                 <div class="col-6">
-                                    <label for="corpus-${corpus_id}-permission-selector" class="sr-only">Permission</label>
+                                    <label for="corpus-${corpus_id}-permission-selector" class="visually-hidden">Permission</label>
                                     <select class="form-select" id="corpus-${corpus_id}-permission-selector" name="corpus-${corpus_id}-permission">
                                         <option>Viewer</option>
                                         <option>Contributor</option>
@@ -389,31 +390,31 @@
                             </div>
                         `)
 
-                        $(`#corpus-${corpus_id}-permission-selector`).val(scholar_data.available_corpora[corpus_id].role)
+                        setVal(getEl(`corpus-${corpus_id}-permission-selector`), scholar_data.available_corpora[corpus_id].role)
                     })
                 }
 
-                $('.job-perm').attr('checked', false)
+                forElsMatching('.job-perm', box => setChecked(box, false))
 
                 scholar_data.available_jobsites.map(js_id => {
-                    $(`#jobsite-${js_id}`).attr('checked', true)
+                    setChecked(getEl(`jobsite-${js_id}`))
                 })
 
                 scholar_data.available_tasks.map(task_id => {
-                    $(`#task-${task_id}`).attr('checked', true)
+                    setChecked(getEl(`task-${task_id}`))
                 })
 
-                let scholarDeletionGroup = $('#delete-scholar-container')
+                let scholarDeletionGroup = getEl('delete-scholar-container')
                 if (scholar_data.username === 'corpora') {
-                    scholarDeletionGroup.addClass('d-none')
-                    scholarAdminPrivsButton.prop('disabled', true)
+                    hideEl(scholarDeletionGroup)
+                    setDisabled(scholarAdminPrivsButton, true)
                 }
                 else {
-                    scholarDeletionGroup.removeClass('d-none')
-                    scholarAdminPrivsButton.prop('disabled', false)
+                    showEl(scholarDeletionGroup)
+                    setDisabled(scholarAdminPrivsButton, false)
                 }
 
-                $('#scholar-modal').modal()
+                showModal(getEl('scholar-modal'))
             });
 
         }

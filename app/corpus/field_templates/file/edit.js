@@ -1,20 +1,19 @@
 function renderFileField(target) {
-    if (target.hasOwnProperty('target')) target = target.target
-    target = $(target)
-    let file_link = $(`#${target.data('file_link')}`)
-    let file_link_div = $(`#${target.data('file_link_div')}`)
-    let value_control = $(`#${target.data('value_control')}`)
+    target = elFromEventOrEl(target)
+    let file_link = getEl(target.dataset.file_link)
+    let file_link_div = getEl(target.dataset.file_link_div)
+    let value_control = getEl(target.dataset.value_control)
 
-    if (target.data('value')) {
-        let file_uri = `${target.data('parent_uri')}/file/${target.data('key')}`
-        file_link.attr('href', `${corpora.file_url(file_uri)}`)
-        value_control.val('/' + target.data('value').split('/').slice(7).join('/'))
-        target.addClass('d-none')
+    if (target.dataset.value) {
+        let file_uri = `${target.dataset.parent_uri}/file/${target.dataset.key}`
+        file_link.setAttribute('href', `${corpora.file_url(file_uri)}`)
+        setVal(value_control, '/' + target.dataset.value.split('/').slice(7).join('/'))
+        hideEl(target)
     } else {
-        let pond = FilePond.create(target[0], {
+        let pond = FilePond.create(target, {
             allowMultiple: false,
             chunkUploads: true,
-            chunkSize: 500000,
+            chunkSize: 5000000,
             credits: false,
             server: {
                 url: '/fp',
@@ -22,30 +21,29 @@ function renderFileField(target) {
                 patch: '/patch/',
                 revert: '/revert/',
                 fetch: '/fetch/?target=',
-                headers: {'X-CSRFToken': target.data('csrf')}
+                headers: {'X-CSRFToken': target.dataset.csrf}
             }
         })
 
         pond.on('processfile', (error, file) => {
-            if(!error) {
-                value_control.val(file.serverId)
+            if (!error) {
+                setVal(value_control, file.serverId)
             }
         })
 
-        pond.on('removefile', () => value_control.val(''))
+        pond.on('removefile', () => setVal(value_control, ''))
 
-        file_link_div.addClass('d-none')
+        hideEl(file_link_div)
     }
 }
 
 function resetFileField(target) {
-    if (target.hasOwnProperty('target')) target = target.target
-    target = $(target)
-    let editor = $(`#${target.data('editor')}`)
-    let value_control = $(`#${target.data('value_control')}`)
+    target = elFromEventOrEl(target)
+    let editor = getEl(target.dataset.editor)
+    let value_control = getEl(target.dataset.value_control)
 
-    value_control.val('')
-    editor.data('value', '')
-    editor.removeClass('d-none')
-    renderFileField(editor[0])
+    setVal(value_control, '')
+    editor.dataset.value = ''
+    showEl(editor)
+    renderFileField(editor)
 }

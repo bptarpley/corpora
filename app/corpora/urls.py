@@ -21,7 +21,6 @@ urlpatterns = [
     path('corpus/<str:corpus_id>/event-dispatcher/', manager_views.get_corpus_event_dispatcher),
     path('corpus/<str:corpus_id>/<str:content_type>/explore/', manager_views.explore_content),
     path('corpus/<str:corpus_id>/<str:content_type>/merge/', manager_views.merge_content),
-    path('corpus/<str:corpus_id>/<str:content_type>/bulk-job-manager/', manager_views.bulk_job_manager),
 ]
 
 plugins = [app for app in settings.INSTALLED_APPS if app.startswith('plugins.')]
@@ -46,10 +45,6 @@ urlpatterns += [
     path('iiif/2/<path:req_path>', manager_views.iiif_passthrough),
     path('render/<str:field_type>/<str:mode>/<str:language>/<str:field_name>/<int:suffix>/', manager_views.render_field_component),
 
-    path('jobs/', manager_views.job_widget),
-    path('jobs/corpus/<str:corpus_id>/', manager_views.job_widget),
-    path('jobs/corpus/<str:corpus_id>/<str:content_type>/', manager_views.job_widget),
-    path('jobs/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/', manager_views.job_widget),
 
     path('api/jobsites/', manager_views.api_jobsites),
     path('api/tasks/', manager_views.api_tasks),
@@ -67,20 +62,17 @@ urlpatterns += [
 
     path('api/corpus/', manager_views.api_corpora),
     path('api/corpus/<str:corpus_id>/', manager_views.api_corpus),
-    path('api/corpus/<str:corpus_id>/files/', manager_views.api_content_files),
     path('api/corpus/<str:corpus_id>/content-view/', manager_views.api_content_view),
     path('api/corpus/<str:corpus_id>/content-view/<str:content_view_id>/', manager_views.api_content_view),
     path('api/corpus/<str:corpus_id>/content-group/', manager_views.api_content_group),
     path('api/corpus/<str:corpus_id>/last-updated/', manager_views.api_last_updated),
 
     path('api/corpus/<str:corpus_id>/<str:content_type>/', manager_views.api_content),
-    path('api/corpus/<str:corpus_id>/<str:content_type>/files/', manager_views.api_content_files),
     path('api/corpus/<str:corpus_id>/<str:content_type>/suggest/', manager_views.api_suggest),
     path('api/corpus/<str:corpus_id>/<str:content_type>/pattern-count/', manager_views.api_pattern_count),
     path('api/corpus/<str:corpus_id>/<str:content_type>/last-updated/', manager_views.api_last_updated),
 
     path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/', manager_views.api_content),
-    path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/files/', manager_views.api_content_files),
     path('api/corpus/<str:corpus_id>/<str:content_type>/<str:content_id>/network-json/', manager_views.api_network_json),
     path('api/scholar/preference/<str:content_type>/<str:preference>/', manager_views.api_scholar_preference),
     path('api/publish/<str:corpus_id>/<str:event_type>/', manager_views.api_publish),

@@ -181,34 +181,16 @@
             stroke:#F9FFED;
             stroke-opacity:0.8;
             fill-opacity:0.1;
-            pointer-events:none; /* This ons is needed if you want to deselect or drag the shape*/
+            pointer-events:none;
         }
     </style>
 {% endblock %}
 
 {% block modals %}
-    <!-- CONFIRMATION MODAL -->
-    <div class="modal fade" id="confirm-modal" tabindex="-1" role="dialog" aria-labelledby="confirm-modal-label" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="confirm-modal-label"></h5>
-                    <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
-                    </button>
-                </div>
-                <div id="confirm-content" class="modal-body">
-
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="confirm-go-button"></button>
-                </div>
-                <form id="confirm-form" method="post">
-                    {% csrf_token %}
-                </form>
-            </div>
-        </div>
-    </div>
+    <!-- Carrier for the hidden inputs behind "Reset Page" and "Mark Page Complete". -->
+    <form id="confirm-form" method="post" class="d-none">
+        {% csrf_token %}
+    </form>
 
     <!-- IMAGE ROTATE MODAL -->
     <div class="modal fade" id="rotate-modal" tabindex="-1" role="dialog" aria-labelledby="rotate-modal-label" aria-hidden="true">
@@ -219,9 +201,7 @@
                         <button id="rotate-left-button" class="btn rounded image-rotate-button" data-direction="left"><span class="fas fa-undo"></span></button>
                         <div class="input-group">
                             <input id="rotate-degrees-box" type="number" min="0" max="359" class="form-control" aria-label="Rotation Degree" style="width: 62px;" value="1">
-                            <div class="input-group-append">
-                                <span class="input-group-text">°</span>
-                            </div>
+                            <span class="input-group-text">°</span>
                         </div>
                         <button id="rotate-right-button" class="btn rounded image-rotate-button" data-direction="right"><span class="fas fa-undo fa-flip-horizontal"></span></button>
                     </div>
@@ -245,7 +225,7 @@
             <button id="next-page-button" type="button" class="btn btn-sm btn-primary rounded"><span class="fas fa-caret-right"></span></button>
             of <span id="page-length-span"></span>
             <button id="reset-regions" type="button" class="btn btn-sm btn-secondary ms-1">Reset Page</button>
-            <button id="rotate-page-button" type="button" class="btn btn-sm btn-secondary ms-1 d-none" data-toggle="modal" data-target="#rotate-modal">Rotate Page</button>
+            <button id="rotate-page-button" type="button" class="btn btn-sm btn-secondary ms-1 d-none" data-bs-toggle="modal" data-bs-target="#rotate-modal">Rotate Page</button>
             <button id="complete-page-button" type="button" class="btn btn-sm btn-secondary ms-1">Mark Page Complete</button>
         </span>
         <span id="region-controls" class="control-group">
@@ -301,7 +281,6 @@
     <script src="{% static 'js/svg.draw/svg.draw.js' %}"></script>
     <script src="{% static 'js/svg.select/svg.select.js' %}"></script>
     <script src="{% static 'js/svg.resize/svg.resize.js' %}"></script>
-    <script src="{% static 'jquery-ui/jquery-ui.js' %}"></script>
     <script type="application/javascript">
         let delineate;
         let canvas;
@@ -311,11 +290,16 @@
         let splitter;
         let mask;
         let currently_selected;
+
+        // Canvas interaction mode.
+        const MODE = {
+            DRAW: 'drawing',
+            SELECT: 'selecting',
+            SPLIT: 'splitting',
+            REORDER: 'reordering'
+        };
+        let mode = null;
         let currently_editing = false;
-        let reordering = false;
-        let drawing = false;
-        let selecting = false;
-        let splitting = false;
         let click_timer = null;
         let resize_lock = false;
         let work_saved = true;
@@ -330,7 +314,6 @@
             pointSize: 20
         };
         let selection;
-        let confirm_modal = $('#confirm-modal');
         let completion_offered = false;
 
         let project_url = '{{ document.uri }}/transcribe/{{ project.id }}/';
@@ -361,85 +344,62 @@
         let min_control_font = 20;
         let max_control_font = 60;
 
-        $(document).ready(function() {
+        document.addEventListener('DOMContentLoaded', () => {
             // ---------------------------------------
             // setup page control panel
             // ---------------------------------------
             let page_location = project_pages.indexOf(current_page);
-            if (page_location === 0) $('#prev-page-button').attr('disabled', true);
-            if (page_location + 1 === project_pages.length) $('#next-page-button').attr('disabled', true);
-            $('#page-location-span').html(page_location + 1);
-            $('#page-length-span').html(project_pages.length);
+            if (page_location === 0) setDisabled(getEl('prev-page-button'), true);
+            if (page_location + 1 === project_pages.length) setDisabled(getEl('next-page-button'), true);
+            getEl('page-location-span').innerHTML = page_location + 1;
+            getEl('page-length-span').innerHTML = project_pages.length;
 
-            $('#prev-page-button').click(function() {
+            onEl(getEl('prev-page-button'), 'click', () => {
                 if (page_location > 0) {
                     window.location.pathname = `${project_url}${project_pages[page_location - 1]}/`;
                 }
             });
 
-            $('#next-page-button').click(function() {
+            onEl(getEl('next-page-button'), 'click', () => {
                 if (page_location < project_pages.length) {
                     window.location.pathname = `${project_url}${project_pages[page_location + 1]}/`;
                 }
             });
 
-            $('#reset-regions').click(function() {
-                $('#confirm-modal-label').html('Reset Page?');
-                $('#confirm-content').html(`
-                    <div class="alert alert-danger">
-                        Resetting the page will remove all manual transcriptions and revert the page back to
-                        its original state (OCR regions and text only), and cannot be undone. Proceed?
-                    </div>
-                `);
-                let go_button = $('#confirm-go-button')
-                go_button.html('Reset Page');
-                go_button.off('click').on('click', function() {
-                    let confirm_form = $('#confirm-form');
-                    confirm_form.append(`<input type="hidden" name="ref-no" value="${current_page}"/>`);
-                    confirm_form.append(`<input type="hidden" name="reset-page" value="y"/>`);
-                    confirm_form.submit();
-                });
-                confirm_modal.modal();
+            onEl(getEl('reset-regions'), 'click', () => {
+                corpora.confirm_action(
+                    () => {
+                        let confirm_form = getEl('confirm-form');
+                        appendToEl(confirm_form, `<input type="hidden" name="ref-no" value="${current_page}"/>`);
+                        appendToEl(confirm_form, `<input type="hidden" name="reset-page" value="y"/>`);
+                        confirm_form.requestSubmit();
+                    },
+                    'Reset Page?',
+                    `Resetting the page will remove all manual transcriptions and revert the page back to
+                     its original state (OCR regions and text only), and cannot be undone. Proceed?`,
+                    'Reset Page',
+                    true
+                );
             });
 
-            $('#complete-page-button').click(function() {
+            onEl(getEl('complete-page-button'), 'click', () => {
                 let complete = check_completion();
-                let message = '';
-                if (complete && !completion_offered) {
-                    return;
-                } else if (complete && completion_offered) {
-                    message = `
-                        <div class="alert alert-success">
-                            You appear to have transcribed all page regions! Would you like to mark this page
-                            as complete?
-                        </div>
-                    `;
-                } else if (!complete) {
-                    message = `
-                        <div class="alert alert-danger">
-                            There appear to be regions on this page that you have not yet vetted/corrected for
-                            transcription. Are you sure you want to mark this page as complete?
-                        </div>
-                    `;
-                }
 
-                $('#confirm-modal-label').html('Mark Page Complete?');
-                $('#confirm-content').html(message);
-                let go_button = $('#confirm-go-button')
-                go_button.html('Mark Page Complete');
-                go_button.off('click').on('click', function() {
-                    if (!work_saved) save_progress(true);
-                    else complete_page();
-                });
-                confirm_modal.modal();
+                // check_completion already offered the dialog in this case
+                if (complete && !completion_offered) return;
+
+                offer_page_completion(complete ? ALL_REGIONS_DONE_MESSAGE : `
+                    There appear to be regions on this page that you have not yet vetted/corrected
+                    for transcription. Are you sure you want to mark this page as complete?
+                `, !complete);
             });
 
 
             // ---------------------------------------
             // place page image and pan/zoom it to center
             // ---------------------------------------
-            viewer_width = $('#delineator').width();
-            viewer_height = $('#delineator').height();
+            viewer_width = getEl('delineator').clientWidth;
+            viewer_height = getEl('delineator').clientHeight;
 
             delineate = SVG('delineator')
                 .size(`${viewer_width}px`, `${viewer_height}px`)
@@ -454,10 +414,10 @@
 
                 image_url = corpora.iiif_url(image_file.path, image_file.iiif_info, 'full', `${image_width}`)
 
-                let rotate_modal = $('#rotate-modal');
-                let rotate_page_button = $('#rotate-page-button');
-                let rotate_degrees_box = $('#rotate-degrees-box');
-                let rotate_save_button = $('#rotate-save-button');
+                let rotate_modal = getEl('rotate-modal');
+                let rotate_page_button = getEl('rotate-page-button');
+                let rotate_degrees_box = getEl('rotate-degrees-box');
+                let rotate_save_button = getEl('rotate-save-button');
 
                 let image_rotation = 0;
                 if (image_file.iiif_info.hasOwnProperty('fixed_rotation'))
@@ -474,17 +434,17 @@
                     }).move(0, 0).back();
                 }
 
-                rotate_page_button.removeClass('d-none');
+                showEl(rotate_page_button);
 
                 // setup grid lines when modal appears
-                rotate_modal.on('shown.bs.modal', function (e) {
-                    $('.modal-backdrop').addClass('grid-lines');
+                onEl(rotate_modal, 'shown.bs.modal', () => {
+                    forElsMatching('.modal-backdrop', el => el.classList.add('grid-lines'));
                 });
 
                 // rotation button events
-                $('.image-rotate-button').click(function() {
-                    let direction = $(this).data('direction');
-                    let degrees = parseInt(rotate_degrees_box.val());
+                onElsMatching('.image-rotate-button', 'click', event => {
+                    let direction = event.currentTarget.dataset.direction;
+                    let degrees = parseInt(getVal(rotate_degrees_box));
 
                     if (direction === 'right') image_rotation += degrees;
                     else if (direction === 'left') image_rotation -= degrees;
@@ -495,43 +455,41 @@
                 });
 
                 // rotation save event
-                rotate_save_button.click(function() {
-                    rotate_save_button.attr('disabled', true);
+                onEl(rotate_save_button, 'click', () => {
+                    setDisabled(rotate_save_button, true);
 
                     let rotation_data = {
                         'ref-no': current_page,
                         'rotate-page': image_rotation,
                         csrfmiddlewaretoken: '{{ csrf_token }}',
                     }
-                    $.ajax({
-                        type: 'POST',
-                        url: '',
-                        dataType: 'json',
-                        data: rotation_data,
-                        statusCode: {
-                            201: function() {
-                                rotate_save_button.attr('disabled', false);
-                                rotate_modal.modal('hide');
-                            }
-                        }
-                    });
+                    post_to_page(rotation_data)
+                        .then(ok => {
+                            setDisabled(rotate_save_button, false);
+                            if (ok) hideModal(getEl('rotate-modal'));
+                            // the button used to stay disabled forever if the save failed,
+                            // leaving no way to retry
+                            else report_save_failure('Rotation could not be saved.');
+                        });
                 });
 
                 // rotation cancellation event
-                $('#rotate-cancel-button').click(function() {
+                onEl(getEl('rotate-cancel-button'), 'click', () => {
                     if (image_rotation !== original_rotation) {
                         image_rotation = original_rotation;
                         perform_rotation();
                     }
-                    rotate_modal.modal('hide');
+                    hideModal(getEl('rotate-modal'));
                 });
             }
 
             image = delineate.image(image_url).move(0, 0);
             canvas = delineate.group().attr('class', 'delineator-canvas');
 
-            let vb_specs = calculate_viewbox(0, 0, image_file.width, image_file.height)
-            delineate.viewbox(vb_specs);
+            // Open already framed. This used to fit the whole image with a 200px margin and
+            // then animate to a different framing further down, which is what produced the
+            // zoom on every page load.
+            delineate.viewbox(page_fit_viewbox());
 
 
             // ---------------------------------------
@@ -591,12 +549,12 @@
                     last_region_id = new_region_id;
 
                     region = null;
-                    drawing = false;
-                    $('#delineator').css('cursor', 'default');
+                    mode = null;
+                    getEl('delineator').style.cursor = 'default';
                     mark_unsaved();
                     delineate.panZoom(panzoom_options);
 
-                    if (trans_text_to_import && $('#trans-text-auto-box').is(':checked')) {
+                    if (trans_text_to_import && getEl('trans-text-auto-box').checked) {
                         place_transcription_text(trans_cursor);
                     }
                     else {
@@ -612,12 +570,12 @@
                         page_regions[region_id]['selected'] = true;
                     });
 
-                    $('#region-controls').addClass('d-none');
-                    $('#selection-controls').removeClass('d-none');
+                    hideEl(getEl('region-controls'));
+                    showEl(getEl('selection-controls'));
 
                     selector.remove();
                     selector = null;
-                    $('#delineator').css('cursor', 'default');
+                    getEl('delineator').style.cursor = 'default';
                     delineate.panZoom(panzoom_options);
 
                 // PERFORM SPLITTING
@@ -633,15 +591,15 @@
                     );
                     splitter.remove();
                     splitter = null;
-                    splitting = false;
-                    $('#delineator').css('cursor', 'default');
+                    mode = null;
+                    getEl('delineator').style.cursor = 'default';
                     delineate.panZoom(panzoom_options);
                 }
                 display_mode_status();
             });
 
             // HANDLE ESCAPE KEY
-            $(document).keyup(function(e) {
+            onEl(document, 'keyup', e => {
                 if (e.which === 27) {
                     reset_mode();
                 } else if (e.which === 68 && !currently_editing) {
@@ -649,14 +607,14 @@
                 }
             });
 
-            $('#draw-region').click(function() {
+            onEl(getEl('draw-region'), 'click', () => {
                 draw_region();
             });
 
-            $('#select-region,#selection-more').click(function() {
+            onElsMatching('#select-region, #selection-more', 'click', () => {
                 deselect_region();
-                selecting = true;
-                $('#delineator').css('cursor', 'crosshair');
+                mode = MODE.SELECT;
+                getEl('delineator').style.cursor = 'crosshair';
                 selector = canvas.rect()
                     .attr({
                         class: 'selection-box',
@@ -670,27 +628,21 @@
                 display_mode_status();
             });
 
-            $('#clear-regions').click(function() {
-                $('#confirm-modal-label').html('Clear Regions?');
-                $('#confirm-content').html(`
-                    <div class="alert alert-danger">
-                        Clearing regions will remove all regions and transcriptions, and cannot be undone.
-                        To perform transcription on this page, you'll need to draw new regions. Proceed?
-                    </div>
-                `);
-                let go_button = $('#confirm-go-button')
-                go_button.html('Clear Regions');
-                go_button.off('click').on('click', function() {
-                    clear_regions();
-                    confirm_modal.modal('hide');
-                });
-                confirm_modal.modal();
+            onEl(getEl('clear-regions'), 'click', () => {
+                corpora.confirm_action(
+                    clear_regions,
+                    'Clear Regions?',
+                    `Clearing regions will remove all regions and transcriptions, and cannot be undone.
+                     To perform transcription on this page, you'll need to draw new regions. Proceed?`,
+                    'Clear Regions',
+                    true
+                );
             });
 
-            $('#split-regions').click(function() {
+            onEl(getEl('split-regions'), 'click', () => {
                 deselect_region();
-                splitting = true;
-                $('#delineator').css('cursor', 'crosshair');
+                mode = MODE.SPLIT;
+                getEl('delineator').style.cursor = 'crosshair';
                 splitter = canvas.rect()
                     .attr({
                         class: 'splitting-box',
@@ -701,22 +653,23 @@
                         'stroke-dasharray': '10,10'
                     });
                 delineate.panZoom(false);
+                display_mode_status();
             });
 
-            $('#delete-region').click(function() {
+            onEl(getEl('delete-region'), 'click', () => {
                 delete_region();
             });
 
-            $('#save-button').click(function() {
+            onEl(getEl('save-button'), 'click', () => {
                 save_progress();
             });
 
-            $('#exit-button').click(function() {
+            onEl(getEl('exit-button'), 'click', () => {
                 window.location.pathname = '{{ document.uri }}/';
             });
 
             // setup selection controls
-            $('#selection-delete').click(function() {
+            onEl(getEl('selection-delete'), 'click', () => {
                 let selected_regions = [];
                 ordered_region_ids.map(region_id => {
                     if (page_regions[region_id].hasOwnProperty('selected') && page_regions[region_id].selected) {
@@ -727,12 +680,13 @@
                     currently_selected = page_regions[region_id].rect;
                     delete_region();
                 });
-                selecting = false;
-                $('#region-controls').removeClass('d-none');
-                $('#selection-controls').addClass('d-none');
+                mode = null;
+                showEl(getEl('region-controls'));
+                hideEl(getEl('selection-controls'));
+                display_mode_status();
             });
 
-            $('#selection-reorder').click(function() {
+            onEl(getEl('selection-reorder'), 'click', () => {
                 let selected_regions = [];
                 let y_values = [];
                 let top_to_bottom = [];
@@ -780,18 +734,18 @@
                 }
             });
 
-            $('#selection-cancel').click(function() {
+            onEl(getEl('selection-cancel'), 'click', () => {
                 cancel_selection();
             });
 
             // setup reordering controls
-            $('#make-first-button').click(function() {
+            onEl(getEl('make-first-button'), 'click', () => {
                 reorder_region();
             });
-            $('#cancel-reorder-button').click(function() {
-                reordering = false;
-                $('#region-controls').removeClass('d-none');
-                $('#reorder-controls').addClass('d-none');
+            onEl(getEl('cancel-reorder-button'), 'click', () => {
+                mode = null;
+                showEl(getEl('region-controls'));
+                hideEl(getEl('reorder-controls'));
                 select_region(currently_selected);
             });
 
@@ -804,10 +758,11 @@
                 }
             });
 
-            // ---------------------------------------
+            // -------------------------------------------
             // find first incomplete region and select it
-            // ---------------------------------------
+            // -------------------------------------------
             let incompleteRegionFound = false
+            /* disabling this functionality for now; users finding it frustrating when needing to navigate across pages
             for (let region_id in page_regions) {
                 if (!page_regions[region_id].hasOwnProperty('transcription')) {
                     zoom_to(region_id, page_regions[region_id].rect, 2)
@@ -816,24 +771,21 @@
                 }
                 region_id_cursor = region_id;
             }
+             */
 
-            // if no incomplete regions found, zoom to page bounds
-            if (!incompleteRegionFound) {
-                delineate.animate(1000).viewbox({
-                    x: -(viewer_width / 4),
-                    y: 0,
-                    width: viewer_width,
-                    height: viewer_height
-                })
-            }
+            // If no incomplete region was zoomed to, the page keeps the framing it opened
+            // with. Set deliberately rather than animated: re-enabling the search above is
+            // the only way the view has moved by this point, and a page that nothing moved
+            // should not animate at all.
+            if (!incompleteRegionFound) delineate.viewbox(page_fit_viewbox());
 
-            // ---------------------------------------
+            // -----------------------------------------------------------
             // setup transcription modal if imported transcriptions exist
-            // ---------------------------------------
+            // -----------------------------------------------------------
             if (trans_text.length) {
-                let trans_modal = $('#trans-text-modal');
-                let trans_text_identifier = $('#trans-text-identifier');
-                let trans_div = $('#trans-text-div');
+                let trans_modal = getEl('trans-text-modal');
+                let trans_text_identifier = getEl('trans-text-identifier');
+                let trans_div = getEl('trans-text-div');
                 let trans_modal_height = parseInt(window.innerHeight / 3);
                 let trans_modal_width = parseInt(window.innerWidth / 3);
 
@@ -846,7 +798,7 @@
                         help_text = "Double-click to reset line cursor and start placing lines from here.";
                     }
 
-                    trans_div.append(`
+                    appendToEl(trans_div, `
                         <div id="trans-text-${unit}" class="${unit_class}" data-unit="${unit}" title="${help_text}">
                             ${text}
                         </div>
@@ -856,35 +808,40 @@
                 // modal visibility and position
                 if (trans_modal_height < 60) trans_modal_height = 60;
                 if (trans_modal_width < 100) trans_modal_width = 100;
-                trans_modal.css({
-                    height: trans_modal_height,
-                    width: trans_modal_width,
-                    top: trans_modal_height * 2,
-                    left: trans_modal_width * 2
-                });
-                trans_div.css({'max-height': trans_modal_height - 30});
-                trans_text_identifier.val(trans_cursor + trans_id_differential);
-                trans_modal.removeClass('d-none');
+                trans_modal.style.height = `${trans_modal_height}px`;
+                trans_modal.style.width = `${trans_modal_width}px`;
+                trans_modal.style.top = `${trans_modal_height * 2}px`;
+                trans_modal.style.left = `${trans_modal_width * 2}px`;
+                trans_div.style.maxHeight = `${trans_modal_height - 30}px`;
+                setVal(trans_text_identifier, trans_cursor + trans_id_differential);
+                showEl(trans_modal);
 
                 // determine next line to be placed and scroll it into view
-                let next_unit = $(`#trans-text-${trans_cursor}`);
-                if (next_unit.length) next_unit[0].scrollIntoView();
+                let next_unit = getEl(`trans-text-${trans_cursor}`);
+                if (next_unit) next_unit.scrollIntoView();
 
-                // make transcription modal draggable
-                $("#trans-text-modal").draggable({
-                    cursor: "move",
-                    handle: ".draggable-touch",
+                // make transcription modal draggable by its header.
+                interact('#trans-text-modal').draggable({
+                    allowFrom: '.draggable-touch',
+                    ignoreFrom: 'input, textarea, button, select, option',
+                    listeners: {
+                        move(event) {
+                            let el = event.target;
+                            el.style.left = `${parseFloat(el.style.left || 0) + event.dx}px`;
+                            el.style.top = `${parseFloat(el.style.top || 0) + event.dy}px`;
+                        }
+                    }
                 });
 
                 // setup event for resizing transcription modal
                 let modal_resize_timer = null;
-                let modal_resize_observer = new MutationObserver(function(mutations) {
+                let modal_resize_observer = new MutationObserver(() => {
                     clearTimeout(modal_resize_timer);
-                    modal_resize_timer = setTimeout(function() {
-                        trans_div.css({'max-height': trans_modal.height() - 30});
+                    modal_resize_timer = setTimeout(() => {
+                        trans_div.style.maxHeight = `${trans_modal.clientHeight - 30}px`;
                     }, 1000);
                 });
-                modal_resize_observer.observe(trans_modal[0], {attributes: true});
+                modal_resize_observer.observe(trans_modal, {attributes: true});
 
                 // setup line click events
                 setup_trans_modal_click_events();
@@ -897,60 +854,97 @@
 
         function setup_trans_modal_click_events() {
             // transcription line click event
-            $('.trans-text-unit').off('click').on('click', function() {
-                place_transcription_text($(this).data('unit'));
-            });
+            forElsMatching('.trans-text-unit', el => onlyOnEl(el, 'click', event => {
+                place_transcription_text(Number(event.currentTarget.dataset.unit));
+            }));
 
             // completed transcription line double-click event
-            $('.trans-text-unit-completed').off('dlbclick').on('dblclick', function() {
-                let new_cursor = $(this).data('unit');
+            forElsMatching('.trans-text-unit-completed', el => onlyOnEl(el, 'dblclick', event => {
+                let new_cursor = Number(event.currentTarget.dataset.unit);
                 console.log(new_cursor);
                 while (trans_cursor >= new_cursor) {
-                    let unit_el = $(`#trans-text-${trans_cursor}`);
-                    if (unit_el.length) {
-                        unit_el.removeClass('selected');
-                        unit_el.removeClass('trans-text-unit-completed');
-                        unit_el.addClass('trans-text-unit');
+                    let unit_el = getEl(`trans-text-${trans_cursor}`);
+                    if (unit_el) {
+                        unit_el.classList.remove('selected');
+                        unit_el.classList.remove('trans-text-unit-completed');
+                        unit_el.classList.add('trans-text-unit');
                     }
                     trans_cursor -= 1;
                 }
                 trans_cursor = new_cursor;
-                $('#trans-text-identifier').val(trans_cursor + trans_id_differential);
+                setVal(getEl('trans-text-identifier'), trans_cursor + trans_id_differential);
 
                 // recreate click transcription line click event now that formerly completed lines are reset
-                $('.trans-text-unit').off('click').on('click', function() {
-                    place_transcription_text($(this).data('unit'));
-                });
+                forElsMatching('.trans-text-unit', el => onlyOnEl(el, 'click', evt => {
+                    place_transcription_text(Number(evt.currentTarget.dataset.unit));
+                }));
                 mark_unsaved();
                 place_transcription_text(trans_cursor);
-            });
+            }));
         }
 
         function place_transcription_text(unit) {
-            let unit_el = $(`#trans-text-${unit}`);
-            if (unit_el.length) {
-                $('.trans-text-unit.selected').removeClass('selected');
-                unit_el.addClass('selected');
-                unit_el[0].scrollIntoView();
+            let unit_el = getEl(`trans-text-${unit}`);
+            if (unit_el) {
+                forElsMatching('.trans-text-unit.selected', el => el.classList.remove('selected'));
+                unit_el.classList.add('selected');
+                unit_el.scrollIntoView();
                 trans_cursor = unit;
-                trans_text_to_import = unit_el.text().trim();
-                trans_id_differential = $('#trans-text-identifier').val() - trans_cursor;
+                trans_text_to_import = unit_el.textContent.trim();
+                trans_id_differential = getVal(getEl('trans-text-identifier')) - trans_cursor;
                 draw_region();
             }
         }
 
         function increment_transcription_text_cursor() {
-            let former_unit_el = $(`#trans-text-${trans_cursor}`);
-            if (former_unit_el.length) {
-                former_unit_el.removeClass('selected')
-                former_unit_el.removeClass('trans-text-unit');
-                former_unit_el.addClass('trans-text-unit-completed');
-                former_unit_el.attr('title', "Double-click to reset line cursor and start placing lines from here.");
-                former_unit_el.off('click');
+            let former_unit_el = getEl(`trans-text-${trans_cursor}`);
+            if (former_unit_el) {
+                former_unit_el.classList.remove('selected');
+                former_unit_el.classList.remove('trans-text-unit');
+                former_unit_el.classList.add('trans-text-unit-completed');
+                former_unit_el.title = "Double-click to reset line cursor and start placing lines from here.";
+                onlyOnEl(former_unit_el, 'click', null);
             }
             trans_cursor += 1;
-            $('#trans-text-identifier').val(trans_cursor + trans_id_differential);
+            setVal(getEl('trans-text-identifier'), trans_cursor + trans_id_differential);
             setup_trans_modal_click_events();
+        }
+
+        // How much of the viewer's width the page image should occupy when a page opens.
+        const PAGE_FIT_WIDTH_RATIO = 0.8;
+
+        // The framing a page opens with: top edge of the image flush with the top of the
+        // viewer, image centred horizontally and occupying PAGE_FIT_WIDTH_RATIO of the width.
+        //
+        // Everything here is in IMAGE coordinates. 
+        //
+        // The height is derived from the width so the viewbox matches the viewer's aspect
+        // ratio.
+        function page_fit_viewbox() {
+            let vb_width = image_file.width / PAGE_FIT_WIDTH_RATIO;
+            let vb_height = vb_width * (viewer_height / viewer_width);
+
+            // #page-control-panel is absolutely positioned over the top of the viewer, so the
+            // first slice of the SVG sits behind it. Measure the overlap rather than reusing
+            // the panel's CSS height: #delineator does not start at the top of the page (the
+            // body margin alone puts it 8px down), so the two differ.
+            let overlap = 0;
+            let panel = getEl('page-control-panel');
+
+            if (panel) {
+                let panel_bottom = panel.getBoundingClientRect().bottom;
+                let viewer_top = getEl('delineator').getBoundingClientRect().top;
+                overlap = Math.max(0, panel_bottom - viewer_top);
+            }
+
+            return {
+                x: (image_file.width - vb_width) / 2,
+                // Push the image down by the overlap, converted from CSS pixels into image
+                // units, so its top edge lands flush with the bottom of the panel.
+                y: -(overlap * (vb_height / viewer_height)),
+                width: vb_width,
+                height: vb_height
+            }
         }
 
         function calculate_viewbox(x, y, w, h, margin=200) {
@@ -1033,9 +1027,7 @@
 
         function clear_regions() {
             deselect_region();
-            $('.delineator-region').each(function() {
-                this.remove();
-            });
+            forElsMatching('.delineator-region', el => el.remove());
             page_regions = {};
             ordered_region_ids = [];
             region_id_cursor = null;
@@ -1046,8 +1038,8 @@
 
         function draw_region() {
             deselect_region();
-            drawing = true;
-            $('#delineator').css('cursor', 'crosshair');
+            mode = MODE.DRAW;
+            getEl('delineator').style.cursor = 'crosshair';
 
             region = canvas.rect()
                 .attr({
@@ -1072,14 +1064,11 @@
         }
 
         function click_region(col, event) {
-            if (!(drawing || selecting || splitting)) {
-                if (reordering) {
-                    let preceding_region_id = col.node.id.replace('region-', '');
-                    reorder_region(preceding_region_id);
-                } else {
-                    select_region(col);
-                }
-            } else if (selecting && event.shiftKey) {
+            if (mode === MODE.REORDER) {
+                reorder_region(col.node.id.replace('region-', ''));
+            } else if (mode === null) {
+                select_region(col);
+            } else if (mode === MODE.SELECT && event.shiftKey) {
                 let region_id = col.node.id.replace('region-', '');
                 if(page_regions[region_id].hasOwnProperty('selected') && page_regions[region_id].selected) {
                     color_region(region_id);
@@ -1094,7 +1083,7 @@
 
         function select_region(col, give_focus=true) {
             deselect_region();
-            $('#delete-region').removeClass('d-none');
+            showEl(getEl('delete-region'));
 
             // enable resizing of box
             col.selectize(select_options).resize();
@@ -1105,7 +1094,7 @@
             });
 
             // event for once resizing is done
-            col.off('rezisedone').on('resizedone', function() {
+            col.off('resizedone').on('resizedone', function() {
                 if (!resize_lock) {
                     console.log('resized');
                     resize_lock = true;
@@ -1155,7 +1144,7 @@
                     width: region_width + 10,
                     height: region_height + 10
                 });
-                $(`#${current_line.node.id}`).append(`
+                appendToEl(current_line.node, `
                     <div id="region-${region_id}-text" class="w-100 h-100 text-region" contentEditable></div>
                 `);
 
@@ -1191,7 +1180,7 @@
                     `;
                 }*/
 
-                $(`#region-${region_id}-control-obj`).append(`
+                appendToEl(control_panel.node, `
                     <div id="region-${region_id}-control" class="alert-info control-panel h-100 w-100">
                         <div class="row"><div class="col-12 d-flex justify-content-between align-items-center">
                             <button id="prev-region-button" type="button" class="btn btn-sm btn-primary rounded region-control me-1" style="width: ${control_height}px; height: ${control_height}px;"><span class="fas fa-caret-up"></span></button>
@@ -1207,38 +1196,39 @@
                     </div>
                 `);
 
-                $('#prev-region-button').click(function() {
+                onEl(getEl('prev-region-button'), 'click', () => {
                     traverse_region(region_id_cursor, true);
                 });
-                $('#next-region-button').off('click').on('click', function() {
+                onlyOnEl(getEl('next-region-button'), 'click', () => {
                     traverse_region(region_id_cursor);
                 });
-                $('#reset-region-button').click(function() {
+                onEl(getEl('reset-region-button'), 'click', () => {
                     delete page_regions[region_id].transcription;
                     mark_unsaved();
                     select_region(currently_selected);
                 });
-                $('#reorder-region-button').click(function() {
-                    reordering = true;
-                    $(`#region-${region_id_cursor}-control`).addClass('d-none');
-                    $('#region-controls').addClass('d-none');
-                    $('#reorder-controls').removeClass('d-none');
+                onEl(getEl('reorder-region-button'), 'click', () => {
+                    mode = MODE.REORDER;
+                    hideEl(getEl(`region-${region_id_cursor}-control`));
+                    hideEl(getEl('region-controls'));
+                    showEl(getEl('reorder-controls'));
+                    display_mode_status();
                 });
-                $('#delete-region-button').click(function() {
+                onEl(getEl('delete-region-button'), 'click', () => {
                     delete_region();
                 });
 
-                $('.region-metadata').keyup(function() {
-                    let metadata_field = $(this).data('metadata_field');
+                onElsMatching('.region-metadata', 'keyup', event => {
+                    let metadata_field = event.currentTarget.dataset.metadata_field;
                     if (!page_regions[region_id_cursor].hasOwnProperty('metadata')) {
                         page_regions[region_id_cursor]['metadata'] = {};
                     }
-                    page_regions[region_id_cursor]['metadata'][metadata_field] = $(this).val();
+                    page_regions[region_id_cursor]['metadata'][metadata_field] = getVal(event.currentTarget);
                     mark_unsaved();
                 });
 
-                $('.markup-button').click(function() {
-                    let tag = $(this).data('tag');
+                onElsMatching('.markup-button', 'click', event => {
+                    let tag = event.currentTarget.dataset.tag;
                     let r = selection.cloneRange();
                     r.surroundContents(document.createElement(tag));
                 })
@@ -1248,18 +1238,20 @@
                         let ocr_x = currently_selected.x() < 0 ? 0 : currently_selected.x();
                         let ocr_y = currently_selected.y() < 0 ? 0 : currently_selected.y();
 
-                        $.get(
-                            `/api/corpus/{{ corpus.id }}/Document/{{ document.id }}/page/get-region-content/{{ ref_no }}/${parseInt(ocr_x)}/${parseInt(ocr_y)}/${parseInt(currently_selected.width())}/${parseInt(currently_selected.height())}/?ocrfile={{ ocr_file }}`,
-                            function (content) {
+                        fetch(`/api/corpus/{{ corpus.id }}/Document/{{ document.id }}/page/get-region-content/{{ ref_no }}/${parseInt(ocr_x)}/${parseInt(ocr_y)}/${parseInt(currently_selected.width())}/${parseInt(currently_selected.height())}/?ocrfile={{ ocr_file }}`)
+                            .then(res => res.ok ? res.json() : null)
+                            .then(content => {
+                                if (content === null) return;
                                 page_regions[region_id]['ocr_content'] = content;
                                 currently_editing = true;
-                            }
-                        ).done(function () {
-                            if (!page_regions[region_id].hasOwnProperty('ocr_content')) {
-                                page_regions[region_id]['ocr_content'] = '';
-                            }
-                            inject_transcription(region_id, give_focus);
-                        });
+                            })
+                            .catch(() => {})
+                            .finally(() => {
+                                if (!page_regions[region_id].hasOwnProperty('ocr_content')) {
+                                    page_regions[region_id]['ocr_content'] = '';
+                                }
+                                inject_transcription(region_id, give_focus);
+                            });
                     } else {
                         page_regions[region_id]['ocr_content'] = '';
                         inject_transcription(region_id, give_focus);
@@ -1270,14 +1262,14 @@
 
                 let region_id_index = ordered_region_ids.indexOf(region_id);
                 if (region_id_index <= 0) {
-                    $('#prev-region-button').attr('disabled', true);
+                    setDisabled(getEl('prev-region-button'), true);
                 } else {
-                    $('#prev-region-button').attr('disabled', false);
+                    setDisabled(getEl('prev-region-button'), false);
                 }
                 if (region_id_index + 1 >= ordered_region_ids.length) {
-                    $('#next-region-button').attr('disabled', true);
+                    setDisabled(getEl('next-region-button'), true);
                 } else {
-                    $('#next-region-button').attr('disabled', false);
+                    setDisabled(getEl('next-region-button'), false);
                 }
                 region_id_cursor = region_id;
             }
@@ -1286,7 +1278,7 @@
 
         function inject_transcription(region_id, give_focus) {
             let has_content = true;
-            let current_region = $(`#region-${region_id}-text`);
+            let current_region = getEl(`region-${region_id}-text`);
 
             let region_content = page_regions[region_id].ocr_content;
             if (page_regions[region_id].hasOwnProperty('transcription'))
@@ -1297,25 +1289,25 @@
                 has_content = false;
             }
 
-            current_region.html(region_content);
+            current_region.innerHTML = region_content;
 
             let font_size = min_trans_font;
             let threshold = (page_regions[region_id].height);
-            current_region.css('font-size', `${font_size}px`);
+            current_region.style.fontSize = `${font_size}px`;
             font_size = fit_region_text(current_region, threshold, font_size);
 
-            if (!has_content) current_region.html('');
+            if (!has_content) current_region.innerHTML = '';
 
             font_size = parseInt(parseInt(font_size) / 3);
             if (font_size > max_control_font) font_size = max_control_font;
             if (font_size < min_control_font) font_size = min_control_font;
 
-            $('.region-control').css('font-size', `${font_size}px`);
-            $('.region-metadata').css('font-size', `${font_size}px`);
+            forElsMatching('.region-control', el => el.style.fontSize = `${font_size}px`);
+            forElsMatching('.region-metadata', el => el.style.fontSize = `${font_size}px`);
 
-            page_regions[region_id]['scroll_height'] = current_region[0].scrollHeight;
+            page_regions[region_id]['scroll_height'] = current_region.scrollHeight;
 
-            current_region.click(function() {
+            onEl(current_region, 'click', () => {
                 clearTimeout(click_timer);
                 currently_editing = true;
                 delineate.panZoom(false);
@@ -1328,19 +1320,13 @@
                 current_region.focus();
             }
 
-            current_region.keyup(function(e) {
+            onEl(current_region, 'keyup', e => {
                 if (![37, 38, 39, 40, 27].includes(e.which)) {
-                    let font_size = parseInt(current_region.css('font-size'));
-                    let resized = false;
+                    let font_size = parseInt(getComputedStyle(current_region).fontSize);
 
-                    let new_font_size = fit_region_text(current_region, threshold, font_size);
-                    if (font_size !== new_font_size) resized = true;
+                    fit_region_text(current_region, threshold, font_size);
 
-                    if (resized) {
-                        $(`#region-${region_id}-text-obj`).scroll(0, 0);
-                    }
-
-                    page_regions[region_id]['transcription'] = current_region.text();
+                    page_regions[region_id]['transcription'] = current_region.textContent;
                     mark_unsaved();
                 }
                 else if (e.which === 38) traverse_region(region_id, true);
@@ -1352,13 +1338,13 @@
             let font_size = starting_font_size;
             let threshold_buffer = 10
             
-            while (font_size <= max_trans_font && region[0].scrollHeight < (height_threshold + threshold_buffer)) {
+            while (font_size <= max_trans_font && region.scrollHeight < (height_threshold + threshold_buffer)) {
                 font_size += 10;
-                region.css('font-size', `${font_size}px`);
+                region.style.fontSize = `${font_size}px`;
             }
-            while (font_size >= min_trans_font && region[0].scrollHeight > (height_threshold + threshold_buffer)) {
+            while (font_size >= min_trans_font && region.scrollHeight > (height_threshold + threshold_buffer)) {
                 font_size -= 1;
-                region.css('font-size', `${font_size}px`);
+                region.style.fontSize = `${font_size}px`;
             }
             return font_size;
         }
@@ -1367,16 +1353,17 @@
             if (currently_selected) {
                 let region_id = currently_selected.node.id.replace('region-', '');
 
-                $(`#region-${region_id}-text-obj`).remove();
-                $(`#region-${region_id}-control-obj`).remove();
+                removeEl(getEl(`region-${region_id}-text-obj`));
+                removeEl(getEl(`region-${region_id}-control-obj`));
 
                 color_region(region_id);
                 currently_selected.selectize(false);
                 currently_selected = null;
                 currently_editing = false;
                 if (mask) mask.remove();
-                $('#delete-region').addClass('d-none');
+                hideEl(getEl('delete-region'));
                 enable_zoom();
+                display_mode_status();
             }
         }
 
@@ -1404,21 +1391,30 @@
                     ordered_region_ids.unshift(region_id_cursor);
                 }
             }
-            reordering = false;
-            $('#region-controls').removeClass('d-none');
-            $('#reorder-controls').addClass('d-none');
+            mode = null;
+            showEl(getEl('region-controls'));
+            hideEl(getEl('reorder-controls'));
             select_region(currently_selected);
             mark_unsaved();
         }
 
-        function traverse_region(region_id, backward=false) {
+        // Accepting a region as vetted: if the transcriber never edited it, the OCR text
+        // stands as the transcription, which is what colours the region green.
+        function vet_region(region_id) {
+            if (!page_regions.hasOwnProperty(region_id)) return;
+
             if (!page_regions[region_id].hasOwnProperty('transcription') &&
                 page_regions[region_id].hasOwnProperty('ocr_content')) {
                 page_regions[region_id]['transcription'] = page_regions[region_id].ocr_content;
-                mark_unsaved()
+                mark_unsaved();
             }
 
+            color_region(region_id);
             if (trans_text.length === 0) check_completion();
+        }
+
+        function traverse_region(region_id, backward=false) {
+            vet_region(region_id);
 
             let region_id_index = ordered_region_ids.indexOf(region_id);
             let destination_id = null;
@@ -1520,28 +1516,36 @@
                 }
             });
 
-            selecting = false;
-            $('#region-controls').removeClass('d-none');
-            $('#selection-controls').addClass('d-none');
+            mode = null;
+            showEl(getEl('region-controls'));
+            hideEl(getEl('selection-controls'));
+            display_mode_status();
         }
 
         function reset_mode() {
+            // exiting to idle accepts the region you were on, exactly as moving to
+            // another region does
+            if (currently_selected) {
+                vet_region(currently_selected.node.id.replace('region-', ''));
+            }
+
             deselect_region();
+
             if (region) {
-                drawing = false;
                 region = null;
                 if (trans_text_to_import) {
-                    $('.trans-text-unit.selected').removeClass('selected');
+                    forElsMatching('.trans-text-unit.selected', el => el.classList.remove('selected'));
                     trans_text_to_import = null;
                 }
             } else if (selector) {
                 selector = null;
             } else if (splitter) {
                 splitter = null;
-                splitting = false;
             }
 
-            $('#delineator').css('cursor', 'default');
+            mode = null;
+
+            getEl('delineator').style.cursor = 'default';
             delineate.panZoom(panzoom_options);
             display_mode_status();
         }
@@ -1551,17 +1555,17 @@
             currently_editing = false;
         }
 
+        // clamps a region into the page image.
         function normalize_bbox(x, y, width, height) {
-            let norm_x = x;
-            let norm_y = y;
-            let norm_width = width;
-            let norm_height = height;
+            let norm_x = Math.max(0, x);
+            let norm_y = Math.max(0, y);
 
-            if (norm_x < 0) norm_x = 0;
-            if (norm_y < 0) norm_y = 0;
-            while (norm_x + norm_width > image_file.width) norm_width -= 1;
-            while (norm_y + norm_height > image_file.height) norm_height -= 1;
-            return {x: norm_x, y: norm_y, width: norm_width, height: norm_height};
+            return {
+                x: norm_x,
+                y: norm_y,
+                width: Math.max(0, Math.min(width, image_file.width - norm_x)),
+                height: Math.max(0, Math.min(height, image_file.height - norm_y))
+            };
         }
 
         function check_completion() {
@@ -1573,69 +1577,98 @@
                 }
             }
             if (complete && !completion_offered) {
-                $('#confirm-modal-label').html('Mark Page Complete?');
-                $('#confirm-content').html(`
-                    <div class="alert alert-success">
-                        You appear to have transcribed all page regions! Would you like to mark this page
-                        as complete?
-                    </div>
-                `);
-                let go_button = $('#confirm-go-button')
-                go_button.html('Mark Page Complete');
-                go_button.off('click').on('click', function() {
-                    if (!work_saved) save_progress(true);
-                    else complete_page();
-                });
-                confirm_modal.modal();
+                offer_page_completion(ALL_REGIONS_DONE_MESSAGE, false);
                 completion_offered = true;
             }
 
             return complete;
         }
 
+        const ALL_REGIONS_DONE_MESSAGE = `
+            You appear to have transcribed all page regions! Would you like to mark this page
+            as complete?
+        `;
+
+        // the "mark complete" dialog is offered from two places -- the toolbar button and
+        // check_completion -- with the same callback and button label.
+        function offer_page_completion(message, dangerous) {
+            corpora.confirm_action(
+                () => {
+                    if (!work_saved) save_progress(true);
+                    else complete_page();
+                },
+                'Mark Page Complete?',
+                message,
+                'Mark Page Complete',
+                dangerous
+            );
+        }
+
         function complete_page() {
-            let confirm_form = $('#confirm-form');
-            confirm_form.append(`<input type="hidden" name="ref-no" value="${current_page}"/>`);
-            confirm_form.append(`<input type="hidden" name="complete-page" value="y"/>`);
-            confirm_form.submit();
+            let confirm_form = getEl('confirm-form');
+            appendToEl(confirm_form, `<input type="hidden" name="ref-no" value="${current_page}"/>`);
+            appendToEl(confirm_form, `<input type="hidden" name="complete-page" value="y"/>`);
+            confirm_form.requestSubmit();
         }
 
         function mark_unsaved() {
             work_saved = false;
-            let save_button = $('#save-button');
-            save_button.attr('disabled', false);
-            save_button.html('Save Progress');
+            let save_button = getEl('save-button');
+            setDisabled(save_button, false);
+            save_button.innerHTML = 'Save Progress';
+            save_button.title = '';
         }
 
         function mark_saved() {
             work_saved = true;
-            let save_button = $('#save-button');
-            save_button.attr('disabled', true);
-            save_button.html('Progress Saved');
+            let save_button = getEl('save-button');
+            setDisabled(save_button, true);
+            save_button.innerHTML = 'Progress Saved';
+            save_button.title = '';
         }
 
         function display_mode_status() {
-            let status_div = $('#mode-status-div');
-            let status_indicator = $('#mode-status-indicator');
+            let status_div = getEl('mode-status-div');
+            let status_indicator = getEl('mode-status-indicator');
             let status = "";
 
-            if (currently_selected) {
-                status = "Editing Region";
-            } else if (region) {
-                status = "Drawing Region";
-                if (trans_text_to_import) status = "Placing a Line";
-            } else if (selector) {
+            // an active mode takes precedence over the selection. REORDER is the only
+            // mode entered without deselecting first.
+            if (mode === MODE.DRAW) {
+                status = trans_text_to_import ? "Placing a Line" : "Drawing Region";
+            } else if (mode === MODE.SELECT) {
                 status = "Selecting Regions";
-            } else if (splitter) {
+            } else if (mode === MODE.SPLIT) {
                 status = "Splitting Regions";
-            } else if (reordering) {
-                status = "Re-ordering Region"
+            } else if (mode === MODE.REORDER) {
+                status = "Re-ordering Region";
+            } else if (currently_selected) {
+                status = "Editing Region";
             }
 
             if (status) {
-                status_div.removeClass('d-none');
-                status_indicator.html(status);
-            } else status_div.addClass('d-none');
+                showEl(status_div);
+                status_indicator.innerHTML = status;
+            } else hideEl(status_div);
+        }
+
+        // POSTs form-encoded data back to this page, which is how the transcribe view
+        // receives saves (it dispatches on the POST keys). Resolves true on the 201 the
+        // view returns, false on anything else -- including a network failure.
+        function post_to_page(data) {
+            let form = new FormData();
+            for (let key in data) form.append(key, data[key]);
+
+            return fetch(window.location.href, {method: 'POST', body: form})
+                .then(res => res.status === 201)
+                .catch(() => false);
+        }
+
+        function report_save_failure(message) {
+            let save_button = getEl('save-button');
+            setDisabled(save_button, false);
+            save_button.innerHTML = 'Save Failed';
+            save_button.title = message;
         }
 
         function save_progress(mark_page_complete=false) {
@@ -1667,20 +1700,16 @@
                     save_data['transcription_cursor'] = trans_cursor;
                 }
 
-                $.ajax({
-                    type: 'POST',
-                    url: '',
-                    dataType: 'json',
-                    data: save_data,
-                    statusCode: {
-                        201: function() {
-                            mark_saved();
-                            if (mark_page_complete) {
-                                complete_page();
-                            }
+                post_to_page(save_data)
+                    .then(ok => {
+                        if (!ok) {
+                            // work_saved stays false so the timer below retries
+                            report_save_failure('Progress could not be saved — retrying.');
+                            return;
                         }
-                    }
-                });
+                        mark_saved();
+                        if (mark_page_complete) complete_page();
+                    });
             }
 
             save_timer = setTimeout(save_progress, 15000);

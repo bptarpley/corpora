@@ -8,11 +8,10 @@ class Corpora {
     make_request(path, type, params={}, callback, spool=false, spool_records = []) {
         let url = `${this.host}${path}`
         let req_options = {}
-        let sender = this
 
         if (path.startsWith('http')) url = path
         if (this.auth_token) {
-            req_options = {headers: {Authorization: `Token ${sender.auth_token}`}}
+            req_options = {headers: {Authorization: `Token ${this.auth_token}`}}
         }
 
         if (type === 'GET') url += `?${new URLSearchParams(params).toString()}`
@@ -53,7 +52,7 @@ class Corpora {
                         next_params.page = data.meta.page + 1
                         next_params['page-size'] = data.meta.page_size
 
-                        corpora_instance.make_request(
+                        this.make_request(
                             path,
                             type,
                             next_params,
@@ -114,7 +113,7 @@ class Corpora {
             `/api/corpus/${id}/`,
             "GET",
             params,
-            function(corpus) {
+            corpus => {
                 corpus.events = new SharedWorker(`/corpus/${id}/event-dispatcher/`)
                 corpus.event_ids = new Set()
                 corpus.event_callbacks = {
@@ -123,14 +122,14 @@ class Corpora {
                             // prevent duplicate alerts
                             corpus.event_ids.add(alert.event_id)
 
-                            let alert_div = $(`
+                            let alert_div = htmlToEl(`
                                 <div class="alert alert-${alert.type === "success" ? 'success' : 'danger'}"
                                     style="width: 95%; float: left; margin: 0px;">
                                   ${alert.message}
                                 </div>
                             `)
                             Toastify({
-                                node: alert_div[0],
+                                node: alert_div,
                                 duration: 10000,
                                 close: true,
                                 gravity: 'bottom',
@@ -369,221 +368,219 @@ class Corpora {
     }
 
     create_content_view(corpus, callback=null) {
-        let cv_modal = $('#cv-creation-modal')
-        let ct_keys = Object.keys(corpus.content_types)
-        let sender = this
+        removeEl(getEl('cv-creation-modal'))
 
-        if (!cv_modal.length) {
-            $('body').append(`
-                <div class="modal fade" id="cv-creation-modal" tabindex="-1" role="dialog" aria-labelledby="cv-creation-modal-label" aria-hidden="true">
-                    <div class="modal-dialog modal-lg" role="document">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 id="cv-creation-modal-label" class="modal-title">Content View</h5>
-                                <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
-                                </button>
+        appendToEl(document.body, `
+            <div class="modal fade" id="cv-creation-modal" tabindex="-1" role="dialog" aria-labelledby="cv-creation-modal-label" aria-hidden="true">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 id="cv-creation-modal-label" class="modal-title">Content View</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                            </button>
+                        </div>
+                        <div class="modal-body" style="max-height: 70vh; overflow-y: scroll;">
+                            <div class="alert alert-info">
+                                A "Content View" is a defined subset of content for a particular content type. To define one,
+                                start by giving it a name and choosing the content type. You may then start filtering content
+                                by performing a search and/or creating a pattern of association. Once a Content View is created,
+                                it will appear on the Corpus page, and may also be selected as a filtering criteria in any Explore
+                                pane.
                             </div>
-                            <div class="modal-body" style="max-height: 70vh; overflow-y: scroll;">
-                                <div class="alert alert-info">
-                                    A "Content View" is a defined subset of content for a particular content type. To define one,
-                                    start by giving it a name and choosing the content type. You may then start filtering content
-                                    by performing a search and/or creating a pattern of association. Once a Content View is created,
-                                    it will appear on the Corpus page, and may also be selected as a filtering criteria in any Explore
-                                    pane. 
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="cv-name-box" class="form-label">Name</label>
-                                    <input id="cv-name-box" type="text" class="form-control">
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="cv-target-ct" class="form-label">Content Type</label>
-                                    <select id="cv-target-ct" class="form-select bg-primary"><option value="None">--select--</option></select>
-                                </div>
-                                
-                                <div id="cv-target-table-div"></div>
-                                
-                                <div id="cv-pattern-div" class="d-none mt-3">
-                                    
-                                </div>
+
+                            <div class="form-group">
+                                <label for="cv-name-box" class="form-label">Name</label>
+                                <input id="cv-name-box" type="text" class="form-control">
                             </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                                <button type="button" class="btn btn-primary" id="cv-create-button">Create</button>
+
+                            <div class="form-group">
+                                <label for="cv-target-ct" class="form-label">Content Type</label>
+                                <select id="cv-target-ct" class="form-select bg-primary"><option value="None">--select--</option></select>
                             </div>
+
+                            <div id="cv-target-table-div"></div>
+
+                            <div id="cv-pattern-div" class="d-none mt-3">
+
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="cv-create-button">Create</button>
                         </div>
                     </div>
                 </div>
-            `)
+            </div>
+        `)
 
-            cv_modal = $('#cv-creation-modal')
-            let target_ct_selector = $('#cv-target-ct')
-            let target_table_div = $('#cv-target-table-div')
+        let cv_modal = getEl('cv-creation-modal')
+        let target_ct_selector = getEl('cv-target-ct')
+        let target_table_div = getEl('cv-target-table-div')
+        let target_table = null
 
-            target_ct_selector.val('None')
-            target_table_div.html('')
+        setVal(target_ct_selector, 'None')
+        target_table_div.innerHTML = ''
 
-            ct_keys.map(ct_key => {
-                let ct = corpus.content_types[ct_key]
-                target_ct_selector.append(`<option value="${ct.name}">${ct.name}</option>`)
+        Object.keys(corpus.content_types).forEach(ct_key => {
+            let ct = corpus.content_types[ct_key]
+            appendToEl(target_ct_selector, `<option value="${ct.name}">${ct.name}</option>`)
+        })
+
+        onEl(target_ct_selector, 'change', () => {
+            let target_ct = getVal(target_ct_selector)
+            let patass_div = getEl('cv-pattern-div')
+
+            target_table_div.innerHTML = ''
+            patass_div.classList.remove('d-none')
+            patass_div.innerHTML = ''
+            appendToEl(patass_div, '<button type="button" class="btn btn-primary" id="cv-create-pattern-button">Create a Pattern of Association</button>')
+
+            target_table = new ContentTable({
+                container_id: 'cv-target-table-div',
+                corpora: this,
+                corpus: corpus,
+                content_type: target_ct,
+                mode: 'read-only'
             })
 
-            target_ct_selector.change(function() {
-                let target_ct = $(this).val()
-                let patass_div = $('#cv-pattern-div')
+            onlyOnEl(getEl('cv-create-pattern-button'), 'click', event => {
+                let pattern_div = getEl('cv-pattern-div')
+                let root_ct = corpus.content_types[getVal(target_ct_selector)]
+                appendToEl(pattern_div, `<div id="patass-canvas" class="d-flex flex-column"></div>`)
+                let canvas = getEl('patass-canvas')
 
-                target_table_div.html('')
-                patass_div.removeClass('d-none')
-                patass_div.html('')
-                patass_div.append('<button type="button" class="btn btn-primary" id="cv-create-pattern-button">Create a Pattern of Association</button>')
-
-                let target_table = new ContentTable({
-                    container_id: 'cv-target-table-div',
-                    corpora: sender,
-                    corpus: corpus,
-                    content_type: target_ct,
-                    mode: 'read-only'
-                })
-
-                $('#cv-create-pattern-button').click(function() {
-                    let pattern_div = $('#cv-pattern-div')
-                    let target_ct = corpus.content_types[target_ct_selector.val()]
-                    pattern_div.append(`<div id="patass-canvas" class="d-flex flex-column"></div>`)
-                    let canvas = $('#patass-canvas')
-
-                    let patass_step = (step, direction, ct) => {
-                        let next_ct_options = new Set()
-                        ct.fields.map(field => {
-                            if (field.type === 'cross_reference') {
-                                let next_ct = field.cross_reference_type
-                                next_ct_options.add(`<option value="--> ${next_ct}">--> ${next_ct}</option>`)
-                            }
-                        })
-                        for (let ct_name in corpus.content_types) {
-                            if (ct_name !== ct.name) {
-                                corpus.content_types[ct_name].fields.map(field => {
-                                    if (field.type === 'cross_reference' && field.cross_reference_type === ct.name) {
-                                        next_ct_options.add(`<option value="<-- ${ct_name}"><-- ${ct_name}</option>`)
-                                    }
-                                })
-                            }
-                        }
-
-                        let next_selector = `
-                            <select class="patass-next-selector form-select-sm bg-secondary d-flex align-self-center" data-step="${step}">
-                                <option value="--">Select...</option>
-                                ${[...next_ct_options].join('\n')}
-                            </select>
-                        `
-
-                        canvas.append(`
-                            ${ step > 0 ? ` <div class="patass-pipe patass-step-${step} d-flex align-self-center">&nbsp;</div>` : '' }
-                            <div id="patass-step-${step}-circle" class="patass-ct-circle patass-step-${step} d-flex justify-content-center align-self-center" data-step="${step}" data-direction="${direction ? direction : ''}" data-ct="${ct.name}" data-ids=""><span class="mx-auto my-auto">${ct.plural_name}</span></div>
-                            ${ step > 0 ? `<div class="patass-ct-controls d-flex justify-content-center align-self-center"><button role="button" class="btn btn-sm btn-secondary patass-specific-ids-button" data-step="${step}">Specify</button></div>` : '' }
-                            <div class="patass-pipe patass-from-ct-to-add patass-step-${step} d-flex align-self-center">&nbsp;</div>
-                            <div class="patass-add-circle patass-step-${step} d-flex justify-content-center align-self-center" data-step="${step}" data-origin-ct="${ct.name}">${next_selector}</div>
-                        `)
-
-                        $('.patass-next-selector').off('change').on('change', function() {
-                            if ($(this).val() !== '--') {
-                                let step = parseInt($(this).data('step'))
-                                let [next_direction, next_ct_name] = $(this).val().split(' ')
-                                let next_ct = corpus.content_types[next_ct_name]
-                                $('.patass-add-circle').remove()
-                                $('.patass-from-ct-to-add').remove()
-                                patass_step(step + 1, next_direction, next_ct)
-                            }
-                        })
-
-                        $('.patass-specific-ids-button').off('click').on('click', function() {
-                            let step = $(this).data('step')
-                            let ct_circle = $(`#patass-step-${step}-circle`)
-                            let ids = ct_circle.data('ids').split(',')
-                            if (ids[0] === '') ids = []
-                            let ct_circle_span = $(`#patass-step-${step}-circle > span`)
-
-                            sender.select_content(corpus, ct.name, function(new_id, new_label) {
-                                ids.push(new_id)
-                                ct_circle.data('ids', ids.join(','))
-                                let label = ct_circle_span.html()
-                                if (!label.includes(' (')) label += ' ('
-                                else label = label.slice(0, -1) + ', '
-                                label += `<a href="/corpus/${corpus_id}/${ct.name}/${new_id}/" target="_blank">${new_label}</a>)`
-                                ct_circle_span.html(label)
-                            })
-                        })
-                    }
-
-                    patass_step(0, null, target_ct, [])
-
-
-                    $(this).remove()
-                })
-
-                $('#cv-create-button').click(function() {
-                    let patass = ''
-                    $('.patass-ct-circle').each(function() {
-                        let step = parseInt($(this).data('step'))
-                        if (step > 0) {
-                            let ct = $(this).data('ct')
-                            let direction = $(this).data('direction')
-                            let ids = $(this).data('ids')
-                            if (ids) ids = ids.split(',')
-                            else ids = []
-
-                            patass += `${direction}(${ct}${ ids.length ? `[${ids.join(',')}]` : '' }) `
+                let patass_step = (step, direction, ct) => {
+                    let next_ct_options = new Set()
+                    ct.fields.forEach(field => {
+                        if (field.type === 'cross_reference') {
+                            let next_ct = field.cross_reference_type
+                            next_ct_options.add(`<option value="--> ${next_ct}">--> ${next_ct}</option>`)
                         }
                     })
-
-                    if (patass.length) {
-                        patass = patass.slice(0, -1)
-                    }
-
-                    let submission = {
-                        'cv-name': $('#cv-name-box').val(),
-                        'cv-target-ct': target_ct_selector.val(),
-                        'cv-search-json': JSON.stringify(target_table.search),
-                        'cv-patass': patass
-                    }
-
-                    sender.make_request(
-                        `/api/corpus/${corpus.id}/content-view/`,
-                        'POST',
-                        submission,
-                        function (data) {
-                            if (data.status === 'populating') {
-                                let create_button = $('#cv-create-button')
-                                create_button.html('Populating...')
-                                create_button.attr('disabled', true)
-                                sender.await_content_view_population(corpus.id, data.id, function(data) {
-                                    cv_modal.modal('hide')
-                                    callback(data)
-                                })
-                            } else {
-                                cv_modal.modal('hide')
-                                callback(data)
-                            }
+                    for (let ct_name in corpus.content_types) {
+                        if (ct_name !== ct.name) {
+                            corpus.content_types[ct_name].fields.forEach(field => {
+                                if (field.type === 'cross_reference' && field.cross_reference_type === ct.name) {
+                                    next_ct_options.add(`<option value="<-- ${ct_name}"><-- ${ct_name}</option>`)
+                                }
+                            })
                         }
-                    )
-                })
-            })
-        }
+                    }
 
-        cv_modal.modal()
-        cv_modal.on('hidden.bs.modal', function() { cv_modal.remove(); })
+                    let next_selector = `
+                        <select class="patass-next-selector form-select-sm bg-secondary d-flex align-self-center" data-step="${step}">
+                            <option value="--">Select...</option>
+                            ${Array.from(next_ct_options).join('\n')}
+                        </select>
+                    `
+
+                    appendToEl(canvas, `
+                        ${ step > 0 ? ` <div class="patass-pipe patass-step-${step} d-flex align-self-center">&nbsp;</div>` : '' }
+                        <div id="patass-step-${step}-circle" class="patass-ct-circle patass-step-${step} d-flex justify-content-center align-self-center" data-step="${step}" data-direction="${direction ? direction : ''}" data-ct="${ct.name}" data-ids=""><span class="mx-auto my-auto">${ct.plural_name}</span></div>
+                        ${ step > 0 ? `<div class="patass-ct-controls d-flex justify-content-center align-self-center"><button role="button" class="btn btn-sm btn-secondary patass-specific-ids-button" data-step="${step}">Specify</button></div>` : '' }
+                        <div class="patass-pipe patass-from-ct-to-add patass-step-${step} d-flex align-self-center">&nbsp;</div>
+                        <div class="patass-add-circle patass-step-${step} d-flex justify-content-center align-self-center" data-step="${step}" data-origin-ct="${ct.name}">${next_selector}</div>
+                    `)
+
+                    forElsMatching('.patass-next-selector', selector_el => {
+                        onlyOnEl(selector_el, 'change', () => {
+                            if (getVal(selector_el) !== '--') {
+                                let selected_step = parseInt(selector_el.dataset.step)
+                                let [next_direction, next_ct_name] = getVal(selector_el).split(' ')
+                                let next_ct = corpus.content_types[next_ct_name]
+                                removeElsMatching('.patass-add-circle')
+                                removeElsMatching('.patass-from-ct-to-add')
+                                patass_step(selected_step + 1, next_direction, next_ct)
+                            }
+                        })
+                    })
+
+                    forElsMatching('.patass-specific-ids-button', button => {
+                        onlyOnEl(button, 'click', () => {
+                            let button_step = button.dataset.step
+                            let ct_circle = getEl(`patass-step-${button_step}-circle`)
+                            let ids = ct_circle.dataset.ids.split(',')
+                            if (ids[0] === '') ids = []
+                            let ct_circle_span = ct_circle.querySelector('span')
+
+                            this.select_content(corpus, ct.name, (new_id, new_label) => {
+                                ids.push(new_id)
+                                ct_circle.dataset.ids = ids.join(',')
+                                let label = ct_circle_span.innerHTML
+                                if (!label.includes(' (')) label += ' ('
+                                else label = label.slice(0, -1) + ', '
+                                // was the template-global `corpus_id`, which only
+                                // happened to exist on the corpus page.
+                                label += `<a href="/corpus/${corpus.id}/${ct.name}/${new_id}/" target="_blank">${new_label}</a>)`
+                                ct_circle_span.innerHTML = label
+                            })
+                        })
+                    })
+                }
+
+                patass_step(0, null, root_ct)
+                removeEl(event.currentTarget)
+            })
+        })
+
+        onEl(getEl('cv-create-button'), 'click', () => {
+            let patass = ''
+            forElsMatching('.patass-ct-circle', circle => {
+                let step = parseInt(circle.dataset.step)
+                if (step > 0) {
+                    let ct = circle.dataset.ct
+                    let direction = circle.dataset.direction
+                    let ids = circle.dataset.ids ? circle.dataset.ids.split(',') : []
+
+                    patass += `${direction}(${ct}${ ids.length ? `[${ids.join(',')}]` : '' }) `
+                }
+            })
+
+            if (patass.length) {
+                patass = patass.slice(0, -1)
+            }
+
+            let submission = {
+                'cv-name': getVal(getEl('cv-name-box')),
+                'cv-target-ct': getVal(target_ct_selector),
+                'cv-search-json': JSON.stringify(target_table ? target_table.search : {}),
+                'cv-patass': patass
+            }
+
+            this.make_request(
+                `/api/corpus/${corpus.id}/content-view/`,
+                'POST',
+                submission,
+                data => {
+                    let finish = view => {
+                        hideModal(cv_modal)
+                        if (callback) callback(view)
+                    }
+
+                    if (data.status === 'populating') {
+                        let create_button = getEl('cv-create-button')
+                        create_button.innerHTML = 'Populating...'
+                        setDisabled(create_button)
+                        this.await_content_view_population(corpus.id, data.id, finish)
+                    } else finish(data)
+                }
+            )
+        })
+
+        onEl(cv_modal, 'hidden.bs.modal', () => removeEl(cv_modal))
+        showModal(cv_modal)
     }
 
     await_content_view_population(corpus_id, content_view_id, callback) {
-        let sender = this
-        sender.make_request(
-            `/api/corpus/${corpus.id}/content-view/${content_view_id}/`,
+        this.make_request(
+            // was `corpus.id` (a template global), ignoring the corpus_id argument.
+            `/api/corpus/${corpus_id}/content-view/${content_view_id}/`,
             'GET',
             {},
-            function (data) {
+            data => {
                 if (data.status === 'populating') {
-                    setTimeout(function() {
-                        sender.await_content_view_population(corpus_id, content_view_id, callback)
+                    setTimeout(() => {
+                        this.await_content_view_population(corpus_id, content_view_id, callback)
                     }, 5000)
                 } else {
                     callback(data)
@@ -593,56 +590,59 @@ class Corpora {
     }
 
     select_content(corpus, content_type, callback) {
-        let sender = this
-        let modal = $('#content-selection-modal')
+        // NOTE: this modal is deliberately id'd differently from the one ContentSelector
+        // builds. Both used to be called `content-selection-modal` despite having
+        // different internals, so whichever rendered first silently won.
+        let modal = getEl('corpora-content-selection-modal')
 
-        if (!modal.length) {
-            $('body').append(`
-                <div class="modal fade" id="content-selection-modal" tabindex="-1" role="dialog" aria-labelledby="content-selection-modal-label" aria-hidden="true">
+        if (!modal) {
+            appendToEl(document.body, `
+                <div class="modal fade" id="corpora-content-selection-modal" tabindex="-1" role="dialog" aria-labelledby="corpora-content-selection-modal-label" aria-hidden="true">
                     <div class="modal-dialog modal-lg" role="document">
                         <div class="modal-content">
                             <div class="modal-header">
-                                <h5 class="modal-title" id="content-selection-modal-label">Select ContentType</h5>
-                                <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
+                                <h5 class="modal-title" id="corpora-content-selection-modal-label">Select ContentType</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
                                 </button>
                             </div>
-                            <div id="content-selection-modal-body" class="modal-body">
-                                
+                            <div id="corpora-content-selection-modal-body" class="modal-body">
+
                             </div>
                             <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                             </div>
                         </div>
                     </div>
                 </div>
             `)
-            modal = $('#content-selection-modal')
+            modal = getEl('corpora-content-selection-modal')
         }
 
-        $('#content-selection-modal-label').html(`Select ${content_type}`)
-        $('#content-selection-modal-body').empty()
-        let search_table = new ContentTable({
+        getEl('corpora-content-selection-modal-label').innerHTML = `Select ${content_type}`
+        clearEl(getEl('corpora-content-selection-modal-body'))
+
+        new ContentTable({
             label: ``,
-            container_id: 'content-selection-modal-body',
-            corpora: sender,
+            container_id: 'corpora-content-selection-modal-body',
+            corpora: this,
             corpus: corpus,
             mode: 'select',
             min_height: 300,
             content_type: content_type,
-            selection_callback: (content) => {
+            selection_callback: content => {
                 callback(content.id, content.label)
-                modal.modal('hide')
+                hideModal(modal)
             }
         })
 
-        modal.modal()
+        showModal(modal)
     }
 
-    build_associated_content_tables(corpus, content_type, content_id, container_id) {
+    build_associated_content_tables(corpus, content_type, content_id, container_id, job_manager=null) {
         let associated_cts = {}
         for (let ct_name in corpus.content_types) {
             let ct = corpus.content_types[ct_name]
-            ct.fields.map(field => {
+            ct.fields.forEach(field => {
                 if (field.type === 'cross_reference' && field.cross_reference_type === content_type && field.in_lists) {
                     if (!(ct_name in associated_cts)) {
                         associated_cts[ct_name] = []
@@ -655,7 +655,21 @@ class Corpora {
             })
         }
 
-        if (Object.keys(associated_cts).length) $(`#${container_id}`).html('')
+        let container = getEl(container_id)
+
+        // nothing cross-references this content type, so say so rather than leaving
+        // the container empty and looking broken
+        if (!Object.keys(associated_cts).length) {
+            let plural_name = corpus.content_types[content_type]?.plural_name ?? content_type
+            container.innerHTML = `
+                <div class="alert alert-info m-0">
+                    No content types in this corpus reference ${plural_name} in their schema.
+                </div>
+            `
+            return
+        }
+
+        container.innerHTML = ''
 
         for (let ct_name in associated_cts) {
             associated_cts[ct_name].forEach(xref_field => {
@@ -664,64 +678,68 @@ class Corpora {
                     'page-size': 5,
                 }
                 associated_search[`f_${xref_field.name}.id`] = content_id
-                let associated_table = new ContentTable({
+                new ContentTable({
                     label: `${corpus.content_types[ct_name].plural_name} (${xref_field.label})`,
                     container_id: container_id,
                     corpora: this,
                     corpus: corpus,
                     content_type: ct_name,
-                    search: associated_search
+                    search: associated_search,
+                    // passed through so these tables can still launch jobs against a
+                    // selection; without it no "Launch Job" options are offered
+                    job_manager: job_manager
                 })
             })
         }
     }
 
     confirm_action(callback, title='Confirm', message='Are you Sure?', actionButton='Confirm', dangerous=false) {
-        let corporaConfirmModal = $('#corpora-confirm-modal')
+        let confirm_modal = getEl('corpora-confirm-modal')
 
-        if (!corporaConfirmModal.length) {
-            $('body').prepend(`
+        if (!confirm_modal) {
+            prependToEl(document.body, `
                 <div class="modal fade" id="corpora-confirm-modal" tabindex="-1" role="dialog" aria-labelledby="corpora-confirm-modal-label" aria-hidden="true">
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="corpora-confirm-modal-label">${title}</h5>
-                                <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
                                 </button>
                             </div>
                             <div class="modal-body">
                                 <div id="corpora-confirm-modal-message" class="alert alert-${dangerous ? 'danger' : 'info'}">${message}</div>
                             </div>
                             <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                                 <button type="button" class="btn btn-primary" id="corpora-confirm-modal-action-button">${actionButton}</button>
                             </div>
                         </div>
                     </div>
                 </div>
             `)
-            corporaConfirmModal = $('#corpora-confirm-modal')
+            confirm_modal = getEl('corpora-confirm-modal')
         } else {
-            let confirmMessageDiv = $('#corpora-confirm-modal-message')
-            confirmMessageDiv.html(message)
-            if (dangerous) confirmMessageDiv.removeClass('alert-info').addClass('alert-danger')
-            else confirmMessageDiv.removeClass('alert-danger').addClass('alert-info')
+            let message_div = getEl('corpora-confirm-modal-message')
+            message_div.innerHTML = message
+            message_div.classList.toggle('alert-danger', dangerous)
+            message_div.classList.toggle('alert-info', !dangerous)
 
-            $('#corpora-confirm-modal-label').html(title)
+            getEl('corpora-confirm-modal-label').innerHTML = title
         }
 
-        let confirmButton = $('#corpora-confirm-modal-action-button')
-        confirmButton.html(actionButton)
-        confirmButton.off('click').on('click', function() {
+        let confirm_button = getEl('corpora-confirm-modal-action-button')
+        confirm_button.innerHTML = actionButton
+        // onlyOnEl rather than onEl: this runs on every confirm, and accumulated
+        // handlers would fire every previous callback too.
+        onlyOnEl(confirm_button, 'click', () => {
             callback()
-            corporaConfirmModal.modal('hide')
+            hideModal(confirm_modal)
         })
-        corporaConfirmModal.modal('show')
+        showModal(confirm_modal)
     }
 
     cancel_action() {
-        let corporaConfirmModal = $('#corpora-confirm-modal')
-        if (corporaConfirmModal.length) corporaConfirmModal.modal('hide')
+        hideModal(getEl('corpora-confirm-modal'))
     }
 
     file_url(uri) {
@@ -806,25 +824,27 @@ class Corpora {
     }
 
     pep8_variable_format(string) {
-    const a = 'àáäâãåăæçèéëêǵḧìíïîḿńǹñòóöôœøṕŕßśșțùúüûǘẃẍÿź·/-,:;'
-    const b = 'aaaaaaaaceeeeghiiiimnnnooooooprssstuuuuuwxyz______'
-    const p = new RegExp(a.split('').join('|'), 'g')
+        const a = 'àáäâãåăæçèéëêǵḧìíïîḿńǹñòóöôœøṕŕßśșțùúüûǘẃẍÿź·/-,:;'
+        const b = 'aaaaaaaaceeeeghiiiimnnnooooooprssstuuuuuwxyz______'
+        const accented = new RegExp(a.split('').join('|'), 'g')
 
-    return string.toString().toLowerCase()
-        .replace(/\s+/g, '_') // Replace spaces with -
-        .replace(p, c => b.charAt(a.indexOf(c))) // Replace special characters
-        .replace(/&/g, '_and_') // Replace & with 'and'
-        .replace(/[^\w\-]+/g, '') // Remove all non-word characters
-        .replace(/\-\-+/g, '_') // Replace multiple - with single -
-        .replace(/^-+/, '') // Trim - from start of text
-        .replace(/-+$/, ''); // Trim - from end of text
-}
+        return string.toString().toLowerCase()
+            .replace(/\s+/g, '_')                            // spaces to underscores
+            .replace(accented, c => b.charAt(a.indexOf(c)))  // strip accents
+            .replace(/&/g, '_and_')
+            .replace(/[^\w\-]+/g, '')                        // drop non-word characters
+            .replace(/\-\-+/g, '_')                           // collapse repeated dashes
+            .replace(/^-+/, '')
+            .replace(/-+$/, '')
+    }
 
     pep8_class_format(string) {
-        // expects a pep8 variable formatted string
-        return string.toLowerCase().split('_').map(function(word) {
-            return word.replace(word[0], word[0].toUpperCase())
-        }).join('')
+        // expects a pep8 variable formatted string. empty segments are skipped --
+        // 'a__b' used to throw here, since ''[0] is undefined.
+        return string.toLowerCase().split('_')
+            .filter(word => word.length)
+            .map(word => word[0].toUpperCase() + word.slice(1))
+            .join('')
     }
 
     unescape(string) {

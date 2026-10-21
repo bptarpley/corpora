@@ -30,22 +30,22 @@
         <div class="col-12 {% if popup %}p-0 m-0{% endif %}">
             <ul id="content-nav-tabs" class="nav nav-tabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <a class="nav-link active" id="metadata-tab" data-toggle="tab" href="#metadata" role="tab" aria-controls="metadata" aria-selected="true">Metadata</a>
+                    <a class="nav-link active" id="metadata-tab" data-bs-toggle="tab" href="#metadata" role="tab" aria-controls="metadata" aria-selected="true">Metadata</a>
                 </li>
                 {% if not popup %}
                 <li class="nav-item" role="presentation">
-                    <a class="nav-link" id="explore-tab" data-toggle="tab" href="#explore" role="tab" aria-controls="explore" aria-selected="false">Explore</a>
+                    <a class="nav-link" id="explore-tab" data-bs-toggle="tab" href="#explore" role="tab" aria-controls="explore" aria-selected="false">Explore</a>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <a class="nav-link" id="associated-tab" data-toggle="tab" href="#associated" role="tab" aria-controls="associated" aria-selected="false">Associated Content</a>
+                    <a class="nav-link" id="associated-tab" data-bs-toggle="tab" href="#associated" role="tab" aria-controls="associated" aria-selected="false">Associated Content</a>
                 </li>
                 {% endif %}
             </ul>
             <div class="tab-content h-100 {% if popup %}p-0 m-0{% else %}p-3{% endif %}">
                 <div class="tab-pane fade show active" id="metadata" role="tabpanel" aria-labelledby="metadata-tab">
                     {% if view_widget_url %}
-                        <div class="row" style="min-height: 70vh;">
-                            <div class="col-sm-12 col-md-6">
+                        <div id="content-widget-row" class="row" style="min-height: 70vh;">
+                            <div id="content-main-col" class="col-sm-12 col-md-6">
                     {% endif %}
                     <div class="content-type-card" id="content-div">
                         {% for field in content_type.fields %}
@@ -71,7 +71,7 @@
                     </div>
                     {% if view_widget_url %}
                             </div>
-                            <div class="col-sm-12 col-md-6">
+                            <div id="view-widget-col" class="col-sm-12 col-md-6">
                                 <iframe id="view-widget-iframe" src="" height="100%" width="100%" frameBorder="0"></iframe>
                             </div>
                         </div>
@@ -115,32 +115,43 @@
         let has_widget = {% if view_widget_url %}true{% else %}false{% endif %}
         let network = null
 
-        $(document).ready(function() {
-            $('[data-events]').each(function() {
-                let events = this.getAttribute('data-events')
-                events = events.split(';')
-                events.forEach(event => {
-                    let [occasion, callback] = event.split(':')
-                    if (occasion === 'load') {
-                        window[callback](this)
-                    } else {
-                        $(this).on(occasion, window[callback])
-                    }
-                })
-            })
+        // Called by a widget iframe that has nothing to display.
+        // Must stay a top-level function declaration so window.hide_content_widget exists
+        // for the child to find. The content column reclaims the full width.
+        function hide_content_widget() {
+            hideEl(getEl('view-widget-col'))
 
-            if (popup) $('#content-nav-tabs').addClass('d-none')
-
-            if (has_widget) {
-                $('#metadata').css('min-height', '70vh')
+            let main_col = getEl('content-main-col')
+            if (main_col) {
+                main_col.classList.remove('col-md-6')
+                main_col.classList.add('col-12')
             }
 
-            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            let widget_row = getEl('content-widget-row')
+            if (widget_row) widget_row.style.minHeight = ''
+            getEl('metadata').style.minHeight = ''
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // field templates under corpus/field_templates declare their own bindings
+            // via data-events; see mountDataEvents in utilities.js
+            mountDataEvents()
+
+            if (popup) getEl('content-nav-tabs').classList.add('d-none')
+
+            if (has_widget) {
+                getEl('metadata').style.minHeight = '70vh'
+            }
+
+            forElsMatching('a[data-bs-toggle="tab"]', tab => {
+              onEl(tab, 'shown.bs.tab', e => {
                 if (e.target.id === 'explore-tab' && !exploreGraphLoaded) {
+
                     // LOAD EXPLORE GRAPH
-                    let explore_container_width = $('#content-nav-tabs').innerWidth()
-                    $('#explore-div').css("width", `${explore_container_width}px`)
-                    $('#explore-div').css("height", `80vh`)
+                    let explore_container_width = getEl('content-nav-tabs').clientWidth
+                    let explore_div = getEl('explore-div')
+                    explore_div.style.width = `${explore_container_width}px`
+                    explore_div.style.height = '80vh'
                     network = new ContentGraph(
                         corpora,
                         corpus,
@@ -155,6 +166,7 @@
                     )
                     exploreGraphLoaded = true
                 } else if (e.target.id === 'associated-tab' && !associatedContentLoaded) {
+
                     // LOAD ASSOCIATED CONTENT TABLES
                     corpora.build_associated_content_tables(
                         corpus,
@@ -164,6 +176,7 @@
                     )
                     associatedContentLoaded = true
                 }
+              })
             })
 
             corpora.get_corpus(corpus_id, function(corpus_data) {
@@ -171,7 +184,7 @@
                 content_type = corpus.content_types[content_type_name]
 
                 {% if view_widget_url %}
-                $('#view-widget-iframe').attr('src', '{{ view_widget_url }}')
+                getEl('view-widget-iframe').setAttribute('src', '{{ view_widget_url }}')
                 {% endif %}
 
                 if (!popup) {
