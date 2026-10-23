@@ -34,6 +34,29 @@
         #content-types-graph {
             background-color: #F7F7F7;
         }
+
+        /* FOR DRAGGING/REORDERING CONTENT TYPE FIELDS */
+        tr.tm-ct-field.draggable-mirror {
+            display: table;
+            table-layout: fixed;
+            background-color: var(--bs-body-bg);
+            box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .25);
+            z-index: 1050;
+        }
+        .corpora-content-table tr.tm-ct-field.draggable-source--is-dragging > td {
+            background-color: var(--bs-body-bg);
+            box-shadow: none;
+            color: transparent;
+        }
+        tr.tm-ct-field.draggable-source--is-dragging > td * {
+            visibility: hidden;
+        }
+        .tm-ct-field .drag-handle {
+            cursor: grab;
+        }
+        body.draggable--is-dragging, body.draggable--is-dragging * {
+            cursor: grabbing !important;
+        }
     </style>
 {% endblock %}
 
@@ -1820,28 +1843,35 @@
             }
 
             // make fields re-orderable via drag and drop
-            let field_sorter = new Sortable.default(getElsWithQuery(`#${ct_div_prefix}-f-table`), {
+            let fieldSorter = new Sortable.default(getElsWithQuery(`#${ct_div_prefix}-f-table`), {
                 draggable: '.tm-ct-field',
                 handle: `.drag-handle`,
                 mirror: {
-                    //appendTo: `#${ct_div_prefix}-f-table`,
-                    constrainDimensions: true
+                    constrainDimensions: true,
+                    xAxis: false
                 }
+            })
+            // pin the mirror's cells to the source row's column widths, which it loses outside the table
+            fieldSorter.on('mirror:created', evt => {
+                [...evt.source.children].forEach((td, i) => {
+                    evt.mirror.children[i].style.width = `${td.getBoundingClientRect().width}px`
+                })
+            })
             // event for handling when re-ordering finished
-            }).on('sortable:stop', () => {
+            fieldSorter.on('sortable:stop', () => {
                 setTimeout(function() {
                     const old_fields = [...corpus.content_types[ct_name].fields];
                     const new_order = [];
-                    forElsMatching(`#${ct_div_prefix}-f-table .tm-ct-field`, row => new_order.push(row.dataset.fieldName));
-                    corpus.content_types[ct_name].fields = [];
+                    forElsMatching(`#${ct_div_prefix}-f-table .tm-ct-field`, row => new_order.push(row.dataset.fieldName))
+                    corpus.content_types[ct_name].fields = []
                     new_order.forEach(f_name => {
                         for (let old_idx = 0; old_idx < old_fields.length; old_idx++) {
                             if (old_fields[old_idx].name === f_name)
                               corpus.content_types[ct_name].fields.push(old_fields[old_idx])
                         }
-                    });
-                }, 1000);
-            });
+                    })
+                }, 1000)
+            })
         }
 
         function manage_field(ct_name, f_index) {
@@ -1911,7 +1941,7 @@
                             <div class="d-flex flex-wrap flex-row">
                                 <button type="button" class="btn btn-sm btn-primary m-1" id="${f_div_prefix}-edit-button"><span class="fas fa-edit"></span></button>
                                 ${delete_or_lock_button}
-                                <button type="button" class="btn btn-sm btn-danger m-1 drag-handle"><span class="fas fa-bars" title="Re-order Field (drag and drop)"></span></button>
+                                <button type="button" class="btn btn-sm btn-danger m-1 drag-handle"><span class="fas fa-grip-vertical" title="Re-order Field (drag and drop)"></span></button>
                             </div>
                         </td>
                     </tr>
