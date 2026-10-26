@@ -774,10 +774,12 @@ def save_content_type_schema(job_id):
     schema = json.loads(job.get_param_value('schema'))
 
     for ct_schema in schema:
-        queued_job_ids = job.corpus.save_content_type(ct_schema)
+        queued_job_ids = job.corpus.save_content_type(ct_schema, bump_version=False)
         for queued_job_id in queued_job_ids:
             run_job(queued_job_id)
 
+    # one version bump (and one SSE event) for the whole schema, not one per content type
+    job.corpus.increment_schema_version()
     job.complete(status='complete')
 
 

@@ -17,7 +17,7 @@ from elasticsearch_dsl import (
 )
 from elasticsearch_dsl.connections import get_connection
 from django.conf import settings
-from .utilities import run_neo, parse_date_string, is_valid_long_lat, ensure_neo_indexes
+from .utilities import run_neo, parse_date_string, is_valid_long_lat, ensure_neo_indexes, publish_message
 from .field_types.file import File
 from .field_types.gitrepo import GitRepo
 from .content_type import ContentType, ContentTypeGroup, ContentTemplate
@@ -84,6 +84,27 @@ class Corpus(mongoengine.Document):
     content_type_groups = mongoengine.ListField(mongoengine.EmbeddedDocumentField(ContentTypeGroup))
     provenance = mongoengine.EmbeddedDocumentListField(CompletedTask)
     last_schema_update = mongoengine.DateTimeField(default=datetime.now)
+    schema_version = mongoengine.IntField(default=0)
+
+    def increment_schema_version(self):
+        """Record that this corpus's content type schema has changed.
+
+        Atomically increments ``schema_version`` and stamps ``last_schema_update``, then publishes a
+        ``schema`` event on this corpus's SSE channel so open pages can tell their copy of the schema
+        is stale. Called after the schema itself has been saved, so a page reacting to the event
+        never fetches the old schema.
+
+        Returns:
+            int: The new schema version.
+        """
+        # $inc rather than self.save() so concurrent schema changes can't lose a bump
+        Corpus.objects(id=self.id).update_one(
+            inc__schema_version=1,
+            set__last_schema_update=datetime.now()
+        )
+        self.reload('schema_version', 'last_schema_update')
+        publish_message(self.id, 'schema', {'schema_version': self.schema_version})
+        return self.schema_version
 
     def save_file(self, file):
         self.modify(**{'set__files__{0}'.format(file.key): file})
@@ -1610,7 +1631,7 @@ class Corpus(mongoengine.Document):
 
         return results
 
-    def save_content_type(self, schema):
+    def save_content_type(self, schema, bump_version=True):
         """
         Create or update a content type definition.
 
@@ -1634,6 +1655,8 @@ class Corpus(mongoengine.Document):
                     'has_file_field': bool (optional),
                     'invalid_field_names': list (optional),
                 }
+            bump_version (bool): Whether to call increment_schema_version() once saved. Pass False
+                when saving several content types as one change, then increment once at the end.
 
         Returns:
             list[str]: Job IDs for any triggered reindexing tasks.
@@ -1936,8 +1959,9 @@ class Corpus(mongoengine.Document):
                     'related_content_types': ','.join(related_content_types)
                 }))
 
-            self.last_schema_update = datetime.now()
             self.save()
+            if bump_version:
+                self.increment_schema_version()
 
         return queued_job_ids
 
@@ -2429,6 +2453,7 @@ class Corpus(mongoengine.Document):
             'repos': {},
             'content_types': {},
             'last_schema_update': self.last_schema_update.timestamp(),
+            'schema_version': self.schema_version,
         }
 
         for file_key in self.files:
