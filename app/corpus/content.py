@@ -176,17 +176,31 @@ class Content(mongoengine.Document):
             **kwargs: Additional arguments passed to MongoEngine save.
         """
 
-        super().save(**kwargs)
-        label_created = self._make_label(relabel)
-        path_created = self._make_path()
-        uri_created = self._make_uri()
+        if self._created and self.id is None:
+            # Assign the id up front so uri, path and label (which may use the id) go out with the insert
+            # rather than in a second write. Setting an id clears mongoengine's _created flag, so restore
+            # it, and force_insert, since otherwise a document carrying an _id costs a find_one_and_replace
+            # before its insert.
+            self.id = ObjectId()
+            self._created = True
+            kwargs.setdefault('force_insert', True)
 
-        if path_created or label_created or uri_created:
-            self.update(
-                set__path=self.path,
-                set__label=self.label,
-                set__uri=self.uri
-            )
+        path_created = self._make_path(create_dirs=False)
+        self._make_uri()
+
+        # A label template that reaches through a cross reference reloads the document to resolve it, which
+        # must wait until the document is saved; any other template can render before the write.
+        label_after_save = self._label_traverses_references()
+        if not label_after_save:
+            self._make_label(relabel)
+
+        super().save(**kwargs)
+
+        if path_created:
+            os.makedirs(self.path + "/files", exist_ok=True)
+
+        if label_after_save and self._make_label(relabel):
+            self.update(set__label=self.label)
 
         if do_indexing or do_linking:
             cx_fields = [field.name for field in self._ct.fields if field.type == 'cross_reference']
@@ -267,10 +281,13 @@ class Content(mongoengine.Document):
                     deletion.path = document.path
                 deletion.save()
 
+    def _label_traverses_references(self):
+        return bool(re.search(r'{{[^}\.]*\.[^}\.]*\.[^}]*}}', self._ct.templates['Label'].template))
+
     def _make_label(self, force=True):
         if force or not self.label:
             # make sure that if template is referencing cross_reference fields, we reload from database
-            if re.search(r'{{[^}\.]*\.[^}\.]*\.[^}]*}}', self._ct.templates['Label'].template):
+            if self._label_traverses_references():
                 self.reload()
 
             label_template = Template(self._ct.templates['Label'].template)
@@ -305,11 +322,12 @@ class Content(mongoengine.Document):
             return True
         return False
 
-    def _make_path(self, force=False):
+    def _make_path(self, force=False, create_dirs=True):
         if not self.path and (self._ct.has_file_field or force):
             breakout_dir = str(self.id)[-6:-2]
             self.path = "/corpora/{0}/{1}/{2}/{3}".format(self.corpus_id, self.content_type, breakout_dir, self.id)
-            os.makedirs(self.path + "/files", exist_ok=True)
+            if create_dirs:
+                os.makedirs(self.path + "/files", exist_ok=True)
             return True
         return False
 

@@ -23,7 +23,7 @@ from .field_types.gitrepo import GitRepo
 from .content_type import ContentType, ContentTypeGroup, ContentTemplate
 from .content import Content, ContentView
 from .field import Field
-from .job import Job, JobSite, Task, CompletedTask
+from .job import Job, JobSite, JobTracker, Task, CompletedTask
 
 
 # to avoid circular dependency between Scholar and Corpus classes:
@@ -2073,6 +2073,7 @@ class Corpus(mongoengine.Document):
 
             # Drop MongoDB collection (by name, since the content type may no longer be in the schema)
             self._get_db()["corpus_{0}_{1}".format(self.id, content_type)].drop()
+            self.clear_content_classes()
 
             # Delete files
             ct_path = "{0}/{1}".format(self.path, content_type)
@@ -2436,6 +2437,32 @@ class Corpus(mongoengine.Document):
             setattr(self, '_redis_cache', redis.Redis(host=settings.REDIS_HOST, decode_responses=True))
         return self._redis_cache
 
+    @property
+    def content_classes(self):
+        """The mongoengine classes ContentType.get_mongoengine_class() has built for this instance, by name."""
+        if not hasattr(self, '_content_classes'):
+            setattr(self, '_content_classes', {})
+        return self._content_classes
+
+    def clear_content_classes(self):
+        """Discard cached content classes so the next get_content() rebuilds them from content_types.
+
+        Every schema change in this class ends in save(), which calls this. Call it directly after
+        editing content_types without saving, or after dropping a content type's collection, since a
+        cached class creates its MongoDB indexes only the first time it touches the collection.
+        """
+        setattr(self, '_content_classes', {})
+
+    def save(self, *args, **kwargs):
+        # content_types may have been edited in place, which the cached classes wouldn't reflect
+        self.clear_content_classes()
+        return super().save(*args, **kwargs)
+
+    def reload(self, *fields, **kwargs):
+        if not fields or 'content_types' in fields:
+            self.clear_content_classes()
+        return super().reload(*fields, **kwargs)
+
     @classmethod
     def _post_save(cls, sender, document, **kwargs):
 
@@ -2469,6 +2496,13 @@ class Corpus(mongoengine.Document):
     @classmethod
     def _pre_delete(cls, sender, document, **kwargs):
         corpus_id = str(document.id)
+
+        # Delete this corpus's jobs first, so check_jobs can't launch one mid-deletion. Left behind, they make
+        # check_jobs raise DoesNotExist on the missing corpus every run, which stops it enqueuing any job after
+        # them. kill() also revokes queued Huey processes. This includes the Delete Corpus job running this
+        # deletion, which is safe: complete() only publishes its status and deletes it again, a no-op.
+        for job in JobTracker.objects(corpus=document.id):
+            job.kill()
 
         # Delete any ContentViews associated with this corpus
         cvs = ContentView.objects(corpus=corpus_id)

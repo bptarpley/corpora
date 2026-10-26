@@ -79,12 +79,21 @@ class ContentType(mongoengine.EmbeddedDocument):
         all fields properly configured as MongoEngine fields. Handles indexes,
         unique constraints, and signal connections.
 
+        The class is cached on the corpus instance, since building it also builds the class of every
+        content type reachable by cross-reference and costs up to several milliseconds. Corpus.save()
+        and Corpus.reload() clear that cache, so a schema edited in place must be saved before its
+        classes reflect the change.
+
         Args:
             corpus (Corpus): The parent corpus instance.
 
         Returns:
             type: A MongoEngine Document class configured for this content type.
         """
+
+        content_classes = corpus.content_classes
+        if self.name in content_classes:
+            return content_classes[self.name]
 
         class_dict = {
             '_ct': self,
@@ -99,7 +108,9 @@ class ContentType(mongoengine.EmbeddedDocument):
             if not field.inherited:
                 if field.type == 'cross_reference':
                     if field.cross_reference_type == self.name:
-                        xref_class = self.name
+                        # 'self' resolves to this class; the bare name would be looked up in mongoengine's
+                        # global registry, where another corpus's same-named content type may have replaced it
+                        xref_class = 'self'
                     else:
                         xref_class = corpus.content_types[field.cross_reference_type].get_mongoengine_class(corpus)
 
@@ -150,6 +161,8 @@ class ContentType(mongoengine.EmbeddedDocument):
 
         mongoengine.signals.pre_save.connect(ct_class._pre_save, sender=ct_class)
         mongoengine.signals.pre_delete.connect(ct_class._pre_delete, sender=ct_class)
+
+        content_classes[self.name] = ct_class
 
         return ct_class
 
