@@ -130,7 +130,10 @@ class ContentType(mongoengine.EmbeddedDocument):
 
         class_dict['meta'] = {
             'indexes': indexes,
-            'collection': "corpus_{0}_{1}".format(corpus.id, self.name)
+            'collection': "corpus_{0}_{1}".format(corpus.id, self.name),
+            # a deleted field leaves its values in the collection until the Purge Content Type Field job
+            # unsets them, so documents must still load while carrying fields the schema no longer has
+            'strict': False,
         }
 
         ct_class = Content

@@ -216,7 +216,7 @@ REGISTRY = {
         "module": 'manager.tasks',
         "functions": ['delete_content_type']
     },
-    "Delete Content Type Field": {
+    "Purge Content Type Field": {
         "version": "0",
         "jobsite_type": "HUEY",
         "track_provenance": False,
@@ -230,13 +230,23 @@ REGISTRY = {
                 },
                 "field_name": {
                     "value": "",
-                    "type": "field",
+                    "type": "text",
                     "label": "Field Name"
+                },
+                "relink": {
+                    "value": False,
+                    "type": "boolean",
+                    "label": "Re-link?",
+                },
+                "related_content_types": {
+                    "value": "",
+                    "type": "text",
+                    "label": "Related Content Types",
                 }
             }
         },
         "module": 'manager.tasks',
-        "functions": ['delete_content_type_field']
+        "functions": ['purge_content_type_field']
     },
     "Delete Corpus": {
         "version": "0",
@@ -773,13 +783,9 @@ def save_content_type_schema(job_id):
     job.set_status('running')
     schema = json.loads(job.get_param_value('schema'))
 
-    for ct_schema in schema:
-        queued_job_ids = job.corpus.save_content_type(ct_schema, bump_version=False)
-        for queued_job_id in queued_job_ids:
-            run_job(queued_job_id)
+    for queued_job_id in job.corpus.save_content_type_schema(schema):
+        run_job(queued_job_id)
 
-    # one version bump (and one SSE event) for the whole schema, not one per content type
-    job.corpus.increment_schema_version()
     job.complete(status='complete')
 
 
@@ -984,22 +990,33 @@ def delete_content_type(job_id):
     job = Job(job_id)
     job.set_status('running')
     content_type = job.configuration['parameters']['content_type']['value']
-    if content_type in job.corpus.content_types:
+    # Corpus.remove_content_type() has normally taken it out of the schema already; its data is found by name
+    if content_type:
         job.corpus.delete_content_type(content_type)
 
     job.complete(status='complete')
 
 
 @db_task(priority=5)
-def delete_content_type_field(job_id):
+def purge_content_type_field(job_id):
+    # the field has already left the schema (see Corpus.delete_content_type_field), so work on the raw collection
     job = Job(job_id)
     job.set_status('running')
-    content_type = job.configuration['parameters']['content_type']['value']
-    field_name = job.configuration['parameters']['field_name']['value']
-    if content_type in job.corpus.content_types:
-        content_adjustment_job_id = job.corpus.delete_content_type_field(content_type, field_name)
-        if content_adjustment_job_id:
-            run_job(content_adjustment_job_id)
+    content_type = job.get_param_value('content_type')
+    field_name = job.get_param_value('field_name')
+
+    if content_type and field_name:
+        collection_name = "corpus_{0}_{1}".format(job.corpus.id, content_type)
+        job.corpus._get_db()[collection_name].update_many({}, {'$unset': {field_name: 1}})
+
+        # reindex across elasticsearch and possibly neo4j for this content type and any related ones
+        if content_type in job.corpus.content_types:
+            run_job(job.corpus.queue_local_job(task_name="Adjust Content", parameters={
+                'content_type': content_type,
+                'reindex': True,
+                'relink': job.get_param_value('relink'),
+                'related_content_types': job.get_param_value('related_content_types')
+            }))
 
     job.complete(status='complete')
 
@@ -1231,7 +1248,9 @@ def convert_foreign_key_to_xref(job_id):
                                 all_targets_found = False
 
                     if all_targets_found and delete_old_field:
-                        corpus.delete_content_type_field(source_ct, source_field)
+                        purge_job_id = corpus.delete_content_type_field(source_ct, source_field)
+                        if purge_job_id:
+                            run_job(purge_job_id)
 
     job.complete(status='complete')
 
