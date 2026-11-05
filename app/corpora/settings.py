@@ -10,7 +10,7 @@ from elasticsearch_dsl import connections
 
 # Basic Django config
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SECRET_KEY = '=4@4^2y04f^c6^q9b7y*3r2n7+hsf+!3ou^m+bzlgk0#h&w=$1'
+SECRET_KEY = os.environ.get('CRP_SECRET_KEY', '=4@4^2y04f^c6^q9b7y*3r2n7+hsf+!3ou^m+bzlgk0#h&w=$1')
 DEBUG = os.environ.get('CRP_DEVELOPMENT', 'no') == 'yes'
 
 if 'CRP_HOST' in os.environ:
@@ -116,6 +116,7 @@ if DEBUG:
 
 WSGI_APPLICATION = 'corpora.wsgi.application'
 ASGI_APPLICATION = 'corpora.asgi.application'
+EVENTSTREAM_CHANNELMANAGER_CLASS = 'manager.channelmanager.CorpusChannelManager'
 
 
 # Redis config

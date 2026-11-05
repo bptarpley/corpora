@@ -1,6 +1,5 @@
 import os
 import importlib
-import django_eventstream
 from django.contrib import admin
 from django.urls import path, re_path, include
 from django.conf import settings
@@ -77,5 +76,5 @@ urlpatterns += [
     path('api/scholar/preference/<str:content_type>/<str:preference>/', manager_views.api_scholar_preference),
     path('api/publish/<str:corpus_id>/<str:event_type>/', manager_views.api_publish),
 
-    path('events/<channel>/', include(django_eventstream.urls), {}),
+    path('events/<channel>/', manager_views.events),
 ]

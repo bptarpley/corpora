@@ -34,6 +34,29 @@
         #content-types-graph {
             background-color: #F7F7F7;
         }
+
+        /* FOR DRAGGING/REORDERING CONTENT TYPE FIELDS */
+        tr.tm-ct-field.draggable-mirror {
+            display: table;
+            table-layout: fixed;
+            background-color: var(--bs-body-bg);
+            box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .25);
+            z-index: 1050;
+        }
+        .corpora-content-table tr.tm-ct-field.draggable-source--is-dragging > td {
+            background-color: var(--bs-body-bg);
+            box-shadow: none;
+            color: transparent;
+        }
+        tr.tm-ct-field.draggable-source--is-dragging > td * {
+            visibility: hidden;
+        }
+        .tm-ct-field .drag-handle {
+            cursor: grab;
+        }
+        body.draggable--is-dragging, body.draggable--is-dragging * {
+            cursor: grabbing !important;
+        }
     </style>
 {% endblock %}
 
@@ -376,6 +399,7 @@
                         <input type="hidden" id="confirmation-ct-name" name="content_type" value="">
                         <input type="hidden" id="confirmation-field-name" name="field" value="">
                         <input type="hidden" id="confirmation-action" name="action" value="">
+                        <input type="hidden" id="confirmation-schema-version" name="schema_version" value="">
                     </form>
                 </div>
             </div>
@@ -563,6 +587,7 @@
                         <form id="ct-schema-form" method="post">
                             {% csrf_token %}
                             <input type="hidden" name="schema" id="ct-schema" value="">
+                            <input type="hidden" name="schema_version" id="ct-schema-version" value="">
                         </form>
                     </div>
                 {% endif %}
@@ -638,6 +663,8 @@
         let template_editor;
         let job_report_timer = null;
         let navTarget = JSON.parse(getEl('nav-target-data').textContent)
+        // set while this page posts a schema change, so its own schema event doesn't lock it on the way out
+        let schema_submitting = false
 
         // FOR CONTENT TYPE GROUPS
         let content_type_groups = {}
@@ -669,6 +696,15 @@
             // query corpora api for corpus data
             corpora.get_corpus(corpus_id, function(corpus_data) {
                 corpus = corpus_data
+
+                // lock the content type manager if the schema changes after this page loaded it
+                // (SSE values arrive as strings, hence Number())
+                if (getEl('type-manager-div')) {
+                    corpus.event_callbacks['schema'] = payload => {
+                        let new_version = Number(payload.schema_version)
+                        if (!schema_submitting && new_version > corpus.schema_version) lock_type_manager(new_version)
+                    }
+                }
 
                 // core metadata
                 getEl('corpus-name-span').innerHTML = corpus.name
@@ -1017,6 +1053,9 @@
                         }
 
                         setVal(getEl('ct-schema'), JSON.stringify(ct_schema))
+                        // the version these edits were made against; the server refuses the save if it has moved on
+                        setVal(getEl('ct-schema-version'), corpus.schema_version)
+                        schema_submitting = true
                         getEl('ct-schema-form').submit()
                     })
 
@@ -1552,7 +1591,50 @@
             setVal(getEl('confirmation-ct-name'), ct_name)
             setVal(getEl('confirmation-field-name'), field_name)
             setVal(getEl('confirmation-action'), action)
+            setVal(getEl('confirmation-schema-version'), corpus.schema_version)
+            schema_submitting = true
             getEl('content-action-form').submit()
+        }
+
+        // another tab, scholar or job changed the schema, so this page's copy is stale; block
+        // further edits (which would overwrite that change) until the page is reloaded
+        function lock_type_manager(new_version) {
+            let manager = getEl('type-manager-div')
+            if (!manager || manager.dataset.locked === 'true') return
+            manager.dataset.locked = 'true'
+
+            // inert blocks clicks, typing and drag handles; the modals live outside the card
+            forElsMatching('#type-manager-div > .card-body, #type-manager-div > .card-footer', el => {
+                el.inert = true
+                el.classList.add('opacity-50')
+            })
+            ;['new-ct-modal', 'new-f-modal', 'template-modal', 'import-modal'].forEach(id => hideModal(getEl(id)))
+
+            const message = `The content type schema for this corpus has been changed elsewhere (now version
+                ${new_version}). Refresh this page before making any further changes, or they may overwrite it.`
+
+            // the alert sits between header and body so it stays outside the inert region
+            let alert = htmlToEl(`
+                <div class="alert alert-warning d-flex align-items-center justify-content-between m-3 mb-0">
+                    <span>${message}</span>
+                    <button type="button" class="btn btn-sm btn-warning ms-3 text-nowrap">Refresh</button>
+                </div>
+            `)
+            // GET rather than reload(): this page may be the response to a POST, which reload() would resubmit
+            onEl(alert.querySelector('button'), 'click', () => window.location.assign(window.location.pathname))
+            manager.querySelector('.card-header').after(alert)
+
+            Toastify({
+                node: htmlToEl(`<div class="alert alert-warning" style="width: 95%; float: left; margin: 0px;">${message}</div>`),
+                duration: -1,
+                close: true,
+                gravity: 'bottom',
+                position: 'right',
+                style: {
+                    background: 'unset',
+                    padding: '8px'
+                }
+            }).showToast()
         }
 
         function manage_content_type(ct_name) {
@@ -1820,28 +1902,35 @@
             }
 
             // make fields re-orderable via drag and drop
-            let field_sorter = new Sortable.default(getElsWithQuery(`#${ct_div_prefix}-f-table`), {
+            let fieldSorter = new Sortable.default(getElsWithQuery(`#${ct_div_prefix}-f-table`), {
                 draggable: '.tm-ct-field',
                 handle: `.drag-handle`,
                 mirror: {
-                    //appendTo: `#${ct_div_prefix}-f-table`,
-                    constrainDimensions: true
+                    constrainDimensions: true,
+                    xAxis: false
                 }
+            })
+            // pin the mirror's cells to the source row's column widths, which it loses outside the table
+            fieldSorter.on('mirror:created', evt => {
+                [...evt.source.children].forEach((td, i) => {
+                    evt.mirror.children[i].style.width = `${td.getBoundingClientRect().width}px`
+                })
+            })
             // event for handling when re-ordering finished
-            }).on('sortable:stop', () => {
+            fieldSorter.on('sortable:stop', () => {
                 setTimeout(function() {
                     const old_fields = [...corpus.content_types[ct_name].fields];
                     const new_order = [];
-                    forElsMatching(`#${ct_div_prefix}-f-table .tm-ct-field`, row => new_order.push(row.dataset.fieldName));
-                    corpus.content_types[ct_name].fields = [];
+                    forElsMatching(`#${ct_div_prefix}-f-table .tm-ct-field`, row => new_order.push(row.dataset.fieldName))
+                    corpus.content_types[ct_name].fields = []
                     new_order.forEach(f_name => {
                         for (let old_idx = 0; old_idx < old_fields.length; old_idx++) {
                             if (old_fields[old_idx].name === f_name)
                               corpus.content_types[ct_name].fields.push(old_fields[old_idx])
                         }
-                    });
-                }, 1000);
-            });
+                    })
+                }, 1000)
+            })
         }
 
         function manage_field(ct_name, f_index) {
@@ -1911,7 +2000,7 @@
                             <div class="d-flex flex-wrap flex-row">
                                 <button type="button" class="btn btn-sm btn-primary m-1" id="${f_div_prefix}-edit-button"><span class="fas fa-edit"></span></button>
                                 ${delete_or_lock_button}
-                                <button type="button" class="btn btn-sm btn-danger m-1 drag-handle"><span class="fas fa-bars" title="Re-order Field (drag and drop)"></span></button>
+                                <button type="button" class="btn btn-sm btn-danger m-1 drag-handle"><span class="fas fa-grip-vertical" title="Re-order Field (drag and drop)"></span></button>
                             </div>
                         </td>
                     </tr>

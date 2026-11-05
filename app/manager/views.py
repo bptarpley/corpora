@@ -5,7 +5,7 @@ from copy import deepcopy
 from ipaddress import ip_address
 from asgiref.sync import sync_to_async
 from django.shortcuts import render, redirect, HttpResponse
-from django.http import Http404, JsonResponse, StreamingHttpResponse
+from django.http import Http404, HttpResponseBadRequest, JsonResponse, StreamingHttpResponse
 from django.template import Context, Template
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -14,6 +14,7 @@ from mongoengine.errors import NotUniqueError
 from rest_framework.decorators import api_view
 from rest_framework.authtoken.models import Token
 from django_eventstream import send_event
+from django_eventstream.views import events as eventstream_events
 from notebook.notebookapp import list_running_servers, NotebookApp
 from types import SimpleNamespace
 from html import unescape
@@ -363,16 +364,34 @@ def corpus(request, corpus_id):
                 # if no problems with dependencies, save the content types in correct order
                 if len(ordered_schema) == len(schema):
 
-                    run_job(corpus.queue_local_job(task_name="Save Content Type Schema", parameters={
-                        'schema': json.dumps(ordered_schema),
-                    }))
+                    # saved here rather than by a job, so the page rendered from this response already
+                    # has the new schema; only reindexing and field purges are left to jobs
+                    try:
+                        queued_job_ids = corpus.save_content_type_schema(
+                            ordered_schema,
+                            expected_version=_clean(request.POST, 'schema_version')
+                        )
 
-                    response['messages'].append('''
-                        The content type schema for this corpus is being saved, and once this task is completed, you'll need to refresh this page to see those changes. Due to the setting/unsetting of fields as being in lists, or the 
-                        changing of label templates, <strong>reindexing of existing content may occur</strong>, which can 
-                        result in the temporary unavailability of content in lists or searches. All existing content will be 
-                        made available once reindexing completes.  
-                    ''')
+                        if queued_job_ids is None:
+                            response['errors'].append('''
+                                The content type schema for this corpus was changed after this page loaded it, so your change was not saved, as it
+                                could have undone (or deleted) the newer one. The page now shows the current schema; please make your change again.
+                            ''')
+                        else:
+                            for queued_job_id in queued_job_ids:
+                                run_job(queued_job_id)
+
+                            response['messages'].append('''
+                                The content type schema for this corpus has been saved. Due to the setting/unsetting of fields as being in lists, or the
+                                changing of label templates, <strong>reindexing of existing content may occur</strong>, which can
+                                result in the temporary unavailability of content in lists or searches. All existing content will be
+                                made available once reindexing completes.
+                            ''')
+                    except Exception:
+                        print(traceback.format_exc())
+                        response['errors'].append('''
+                            An error occurred while saving the content type schema, which may have been only partially saved.
+                        ''')
                 else:
                     response['errors'].append('''
                         Unable to save content type schema! There may be an issue with circular dependencies.
@@ -397,12 +416,15 @@ def corpus(request, corpus_id):
 
                         # delete content type
                         if action == 'delete':
-                            run_job(corpus.queue_local_job(task_name="Delete Content Type", parameters={
-                                'content_type': action_content_type,
-                            }))
+                            if not corpus.schema_version_is_current(_clean(request.POST, 'schema_version')):
+                                response['errors'].append(STALE_SCHEMA_ERROR)
+                            else:
+                                # leaves the schema now; its data is deleted by the queued job
+                                deletion_job_id = corpus.remove_content_type(action_content_type)
+                                if deletion_job_id:
+                                    run_job(deletion_job_id)
 
-                            response['messages'].append("Content type {0} successfully deleted.".format(action_content_type))
-                            sleep(4)
+                                response['messages'].append("Content type {0} successfully deleted.".format(action_content_type))
 
                         # re-index content type
                         elif action == 'reindex':
@@ -430,16 +452,24 @@ def corpus(request, corpus_id):
 
                     # field actions
                     else:
-                        if action == 'delete':
-                            run_job(corpus.queue_local_job(task_name="Delete Content Type Field", parameters={
-                                'content_type': action_content_type,
-                                'field_name': action_field_name
-                            }))
+                        if action == 'delete' and not corpus.schema_version_is_current(_clean(request.POST, 'schema_version')):
+                            response['errors'].append(STALE_SCHEMA_ERROR)
 
-                            response['messages'].append("Field {0} successfully deleted from {1}.".format(
-                                action_field_name,
-                                action_content_type
-                            ))
+                        elif action == 'delete':
+                            # leaves the schema now; its values are unset by the queued purge job
+                            purge_job_id = corpus.delete_content_type_field(action_content_type, action_field_name)
+                            if purge_job_id:
+                                run_job(purge_job_id)
+
+                                response['messages'].append("Field {0} successfully deleted from {1}.".format(
+                                    action_field_name,
+                                    action_content_type
+                                ))
+                            else:
+                                response['errors'].append("Unable to delete field {0} from {1}.".format(
+                                    action_field_name,
+                                    action_content_type
+                                ))
 
                 nav_target = {'tab': 'admin-tab', 'id': f'type-manager-div'}
 
@@ -1551,6 +1581,16 @@ def get_corpus_event_dispatcher(request, corpus_id):
         },
         content_type='application/javascript'
     )
+
+
+def events(request, channel):
+    # es-meta is how a GRIP proxy tells django_eventstream which user and channels a request is for, and it's trusted
+    # over the session. We don't run a GRIP proxy, so nothing legitimate sends one. Since the token is only signed with
+    # SECRET_KEY, honoring it would let anyone who has that key stream any corpus as any user.
+    if 'es-meta' in request.GET:
+        return HttpResponseBadRequest()
+
+    return eventstream_events(request, channel=channel)
 
 
 def get_image(

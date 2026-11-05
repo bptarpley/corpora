@@ -682,13 +682,22 @@ class JobManager {
 
     _register_as_provenance(job_id) {
         let render_matching = provenance => {
-            provenance.forEach(prov => {
-                if (prov.job_id === job_id) this.register_job(this._job_from_provenance(prov))
-            })
+            // provenance is appended in completion order, so the last match is the latest run
+            let prov = provenance.findLast(prov => prov.job_id === job_id)
+            if (!prov) return
+
+            removeEl(getEl(`job-${job_id}-container`))
+            this.register_job(this._job_from_provenance(prov))
         }
 
         if (this.content_type === 'Corpus') {
-            render_matching(this.corpus.provenance)
+            // not corpora.get_corpus(), which would open another SharedWorker
+            this.corpora.make_request(`/api/corpus/${this.corpus.id}/`, 'GET', {}, data => {
+                if (!data || !data.provenance) return
+
+                this.corpus.provenance = data.provenance
+                render_matching(data.provenance)
+            })
         } else {
             this.corpora.get_content(this.corpus.id, this.content_type, this.content_id, data => {
                 if (data && data.provenance) render_matching(data.provenance)

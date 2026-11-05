@@ -17,13 +17,13 @@ from elasticsearch_dsl import (
 )
 from elasticsearch_dsl.connections import get_connection
 from django.conf import settings
-from .utilities import run_neo, parse_date_string, is_valid_long_lat, ensure_neo_indexes
+from .utilities import run_neo, parse_date_string, is_valid_long_lat, ensure_neo_indexes, publish_message
 from .field_types.file import File
 from .field_types.gitrepo import GitRepo
 from .content_type import ContentType, ContentTypeGroup, ContentTemplate
 from .content import Content, ContentView
 from .field import Field
-from .job import Job, JobSite, Task, CompletedTask
+from .job import Job, JobSite, JobTracker, Task, CompletedTask
 
 
 # to avoid circular dependency between Scholar and Corpus classes:
@@ -84,6 +84,48 @@ class Corpus(mongoengine.Document):
     content_type_groups = mongoengine.ListField(mongoengine.EmbeddedDocumentField(ContentTypeGroup))
     provenance = mongoengine.EmbeddedDocumentListField(CompletedTask)
     last_schema_update = mongoengine.DateTimeField(default=datetime.now)
+    schema_version = mongoengine.IntField(default=0)
+
+    def increment_schema_version(self):
+        """Record that this corpus's content type schema has changed.
+
+        Atomically increments ``schema_version`` and stamps ``last_schema_update``, then publishes a
+        ``schema`` event on this corpus's SSE channel so open pages can tell their copy of the schema
+        is stale. Called after the schema itself has been saved, so a page reacting to the event
+        never fetches the old schema.
+
+        Returns:
+            int: The new schema version.
+        """
+        # $inc rather than self.save() so concurrent schema changes can't lose a bump
+        Corpus.objects(id=self.id).update_one(
+            inc__schema_version=1,
+            set__last_schema_update=datetime.now()
+        )
+        self.reload('schema_version', 'last_schema_update')
+        publish_message(self.id, 'schema', {'schema_version': self.schema_version})
+        return self.schema_version
+
+    def schema_version_is_current(self, expected_version):
+        """Check whether a schema version (e.g. the one a page loaded) is still this corpus's latest.
+
+        Reads the version fresh from the database rather than trusting this instance, which may have
+        been loaded before another change landed.
+
+        Args:
+            expected_version (int | str): The version the caller believes is current. Anything that
+                isn't a whole number (None, '', a missing form value) counts as stale.
+
+        Returns:
+            bool: True if no schema change has happened since expected_version.
+        """
+        try:
+            expected_version = int(expected_version)
+        except (TypeError, ValueError):
+            return False
+
+        latest = Corpus.objects(id=self.id).only('schema_version').first()
+        return latest is not None and latest.schema_version == expected_version
 
     def save_file(self, file):
         self.modify(**{'set__files__{0}'.format(file.key): file})
@@ -1610,7 +1652,7 @@ class Corpus(mongoengine.Document):
 
         return results
 
-    def save_content_type(self, schema):
+    def save_content_type(self, schema, bump_version=True):
         """
         Create or update a content type definition.
 
@@ -1634,6 +1676,8 @@ class Corpus(mongoengine.Document):
                     'has_file_field': bool (optional),
                     'invalid_field_names': list (optional),
                 }
+            bump_version (bool): Whether to call increment_schema_version() once saved. Pass False
+                when saving several content types as one change, then increment once at the end.
 
         Returns:
             list[str]: Job IDs for any triggered reindexing tasks.
@@ -1878,7 +1922,9 @@ class Corpus(mongoengine.Document):
 
             # check to see if any old fields weren't present in the new schema, indicating they should be deleted
             for field_to_delete in old_fields.keys():
-                self.delete_content_type_field(ct_name, field_to_delete)
+                purge_job_id = self.delete_content_type_field(ct_name, field_to_delete, bump_version=False)
+                if purge_job_id:
+                    queued_job_ids.append(purge_job_id)
 
             # now that old and new fields have been reconciled, sort them according to the order found in the schema
             schema_ordered = [self.content_types[ct_name].get_field(f_spec['name']) for f_spec in schema['fields']]
@@ -1936,13 +1982,76 @@ class Corpus(mongoengine.Document):
                     'related_content_types': ','.join(related_content_types)
                 }))
 
-            self.last_schema_update = datetime.now()
             self.save()
+            if bump_version:
+                self.increment_schema_version()
 
         return queued_job_ids
 
-    def delete_content_type(self, content_type, content_only=False):
+    def save_content_type_schema(self, schema, expected_version=None):
+        """Save several content types as a single schema change.
+
+        Args:
+            schema (list[dict]): Content type definitions as accepted by save_content_type(), ordered so
+                that each comes after any content type it cross-references (see order_content_schema).
+            expected_version (int | str): The schema version this schema was edited from (e.g. the one a
+                page loaded). If given and no longer current, nothing is saved: an edit made against an
+                outdated schema would silently revert, or delete, whatever changed since.
+
+        Returns:
+            list[str] | None: IDs of queued follow-up jobs (reindexing, field purges), not yet run; or
+                None if expected_version was stale and nothing was saved.
+        """
+        if expected_version is not None and not self.schema_version_is_current(expected_version):
+            return None
+
+        queued_job_ids = []
+        try:
+            for ct_schema in schema:
+                queued_job_ids += self.save_content_type(ct_schema, bump_version=False)
+        finally:
+            # one version bump (and one SSE event) for the whole schema, not one per content type; bumped
+            # even on failure, since the content types saved before it have already changed
+            self.increment_schema_version()
+
+        return queued_job_ids
+
+    def remove_content_type(self, content_type):
+        """Remove a content type from the schema immediately, and queue the deletion of its data.
+
+        The content type disappears from the schema before this returns; its Neo4J nodes, Elasticsearch
+        index, MongoDB collection and files are deleted by a "Delete Content Type" job, which finds
+        them by name.
+
+        Args:
+            content_type (str): Name of the content type.
+
+        Returns:
+            str: ID of the queued deletion job (not yet run; pass it to run_job), or None if there is
+                no such content type.
+        """
         if content_type in self.content_types:
+            del self.content_types[content_type]
+            self.save()
+            self.increment_schema_version()
+
+            return self.queue_local_job(task_name="Delete Content Type", parameters={
+                'content_type': content_type,
+            })
+
+        return None
+
+    def delete_content_type(self, content_type, content_only=False):
+        """Delete a content type's data, and (unless content_only) the content type itself.
+
+        Everything is found by name, so this also cleans up after remove_content_type(), once the
+        content type has already left the schema.
+
+        Args:
+            content_type (str): Name of the content type.
+            content_only (bool): Delete the content but keep the content type, with an empty index.
+        """
+        if content_type in self.content_types or not content_only:
             # Delete Neo4J nodes
             nodes_deleted = 1
             while nodes_deleted > 0:
@@ -1962,8 +2071,9 @@ class Corpus(mongoengine.Document):
             if index.exists():
                 index.delete()
 
-            # Drop MongoDB collection
-            self.content_types[content_type].get_mongoengine_class(self).drop_collection()
+            # Drop MongoDB collection (by name, since the content type may no longer be in the schema)
+            self._get_db()["corpus_{0}_{1}".format(self.id, content_type)].drop()
+            self.clear_content_classes()
 
             # Delete files
             ct_path = "{0}/{1}".format(self.path, content_type)
@@ -1972,11 +2082,12 @@ class Corpus(mongoengine.Document):
 
             if content_only:
                 self.build_content_type_elastic_index(content_type)
-            else:
+            elif content_type in self.content_types:
                 # Remove from content_types
                 del self.content_types[content_type]
 
                 self.save()
+                self.increment_schema_version()
 
     def clear_content_type_field(self, content_type, field_name):
         if content_type in self.content_types:
@@ -1984,7 +2095,23 @@ class Corpus(mongoengine.Document):
             if field_name in [field.name for field in ct.fields]:
                 ct.get_mongoengine_class(self).objects.update(**{'set__{0}'.format(field_name): None})
 
-    def delete_content_type_field(self, content_type, field_name):
+    def delete_content_type_field(self, content_type, field_name, bump_version=True):
+        """Remove a field from a content type's schema immediately, and queue the purge of its data.
+
+        The schema change, the dropping of any MongoDB indexes on the field and the rebuilding of
+        related Elasticsearch indexes all happen before this returns. Removing the field's values from
+        every document is slow on a large collection, so it is left to a "Purge Content Type Field"
+        job, which unsets them by name and needs nothing from the schema.
+
+        Args:
+            content_type (str): Name of the content type.
+            field_name (str): Name of the field to delete. Inherited fields are left alone.
+            bump_version (bool): Whether to call increment_schema_version() once the schema is saved.
+
+        Returns:
+            str: ID of the queued purge job (not yet run; pass it to run_job), or None if no field
+                was deleted.
+        """
         if content_type in self.content_types:
             ct = self.content_types[content_type]
 
@@ -2009,8 +2136,8 @@ class Corpus(mongoengine.Document):
                 self.content_types[content_type].fields.pop(field_index)
                 self.save()
 
-                # delete any indexes referencing field, then drop field from collection
-                print('field cleared. now attemtpting to drop indexes...')
+                # drop any indexes referencing the field now rather than in the purge job: a leftover unique
+                # index would see every new document as null for the field and reject all but the first
                 collection_name = "corpus_{0}_{1}".format(self.id, content_type)
                 db = self._get_db()
                 index_info = db[collection_name].index_information()
@@ -2021,8 +2148,6 @@ class Corpus(mongoengine.Document):
                             delete_index = True
                     if delete_index:
                         db[collection_name].drop_index(index_name)
-                print('indexes cleared. now attemtpting to unset fields...')
-                db[collection_name].update_many({}, {'$unset': {field_name: 1}})
 
                 # find any other content types that reference the one we're modifying so we can rebuild their es indices
                 related_content_types = []
@@ -2034,10 +2159,14 @@ class Corpus(mongoengine.Document):
                                     self.build_content_type_elastic_index(related_ct)
                                     related_content_types.append(related_ct)
 
-                # reindex across elasticsearch and possibly neo4j for this content type and any related ones
-                return self.queue_local_job(task_name="Adjust Content", parameters={
+                if bump_version:
+                    self.increment_schema_version()
+
+                # the purge job unsets the field's values, then reindexes this content type and any related
+                # ones; relink and related_content_types are captured here, while the schema still knew the field
+                return self.queue_local_job(task_name="Purge Content Type Field", parameters={
                     'content_type': content_type,
-                    'reindex': True,
+                    'field_name': field_name,
                     'relink': relink,
                     'related_content_types': ','.join(related_content_types)
                 })
@@ -2308,6 +2437,32 @@ class Corpus(mongoengine.Document):
             setattr(self, '_redis_cache', redis.Redis(host=settings.REDIS_HOST, decode_responses=True))
         return self._redis_cache
 
+    @property
+    def content_classes(self):
+        """The mongoengine classes ContentType.get_mongoengine_class() has built for this instance, by name."""
+        if not hasattr(self, '_content_classes'):
+            setattr(self, '_content_classes', {})
+        return self._content_classes
+
+    def clear_content_classes(self):
+        """Discard cached content classes so the next get_content() rebuilds them from content_types.
+
+        Every schema change in this class ends in save(), which calls this. Call it directly after
+        editing content_types without saving, or after dropping a content type's collection, since a
+        cached class creates its MongoDB indexes only the first time it touches the collection.
+        """
+        setattr(self, '_content_classes', {})
+
+    def save(self, *args, **kwargs):
+        # content_types may have been edited in place, which the cached classes wouldn't reflect
+        self.clear_content_classes()
+        return super().save(*args, **kwargs)
+
+    def reload(self, *fields, **kwargs):
+        if not fields or 'content_types' in fields:
+            self.clear_content_classes()
+        return super().reload(*fields, **kwargs)
+
     @classmethod
     def _post_save(cls, sender, document, **kwargs):
 
@@ -2341,6 +2496,13 @@ class Corpus(mongoengine.Document):
     @classmethod
     def _pre_delete(cls, sender, document, **kwargs):
         corpus_id = str(document.id)
+
+        # Delete this corpus's jobs first, so check_jobs can't launch one mid-deletion. Left behind, they make
+        # check_jobs raise DoesNotExist on the missing corpus every run, which stops it enqueuing any job after
+        # them. kill() also revokes queued Huey processes. This includes the Delete Corpus job running this
+        # deletion, which is safe: complete() only publishes its status and deletes it again, a no-op.
+        for job in JobTracker.objects(corpus=document.id):
+            job.kill()
 
         # Delete any ContentViews associated with this corpus
         cvs = ContentView.objects(corpus=corpus_id)
@@ -2429,6 +2591,7 @@ class Corpus(mongoengine.Document):
             'repos': {},
             'content_types': {},
             'last_schema_update': self.last_schema_update.timestamp(),
+            'schema_version': self.schema_version,
         }
 
         for file_key in self.files:
