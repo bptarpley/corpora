@@ -5,7 +5,7 @@ from copy import deepcopy
 from ipaddress import ip_address
 from asgiref.sync import sync_to_async
 from django.shortcuts import render, redirect, HttpResponse
-from django.http import Http404, JsonResponse, StreamingHttpResponse
+from django.http import Http404, HttpResponseBadRequest, JsonResponse, StreamingHttpResponse
 from django.template import Context, Template
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -14,6 +14,7 @@ from mongoengine.errors import NotUniqueError
 from rest_framework.decorators import api_view
 from rest_framework.authtoken.models import Token
 from django_eventstream import send_event
+from django_eventstream.views import events as eventstream_events
 from notebook.notebookapp import list_running_servers, NotebookApp
 from types import SimpleNamespace
 from html import unescape
@@ -1580,6 +1581,16 @@ def get_corpus_event_dispatcher(request, corpus_id):
         },
         content_type='application/javascript'
     )
+
+
+def events(request, channel):
+    # es-meta is how a GRIP proxy tells django_eventstream which user and channels a request is for, and it's trusted
+    # over the session. We don't run a GRIP proxy, so nothing legitimate sends one. Since the token is only signed with
+    # SECRET_KEY, honoring it would let anyone who has that key stream any corpus as any user.
+    if 'es-meta' in request.GET:
+        return HttpResponseBadRequest()
+
+    return eventstream_events(request, channel=channel)
 
 
 def get_image(

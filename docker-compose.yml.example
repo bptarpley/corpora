@@ -28,6 +28,7 @@ services:
     command: ./start.sh
     environment:
       CRP_HOSTS: localhost
+      CRP_SECRET_KEY: =4^42YOUR-OWN-VERY-SECRET-KEY-FOR-SIGNING-SESSIONShfw=$1
       # Example for installing plugins
       #CRP_INSTALLED_PLUGINS: tesseract,csv
       CRP_MONGO_HOST: mongo

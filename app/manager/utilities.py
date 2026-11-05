@@ -44,14 +44,17 @@ def get_scholar_corpora(scholar, only=[], page=1, page_size=50):
     return corpora[start_record:end_record]
 
 
+def scholar_can_access_corpus(corpus_id, scholar):
+    return (scholar and scholar.is_admin) or \
+        (scholar and corpus_id in scholar.available_corpora.keys()) or \
+        corpus_id in get_open_access_corpora()
+
+
 def get_scholar_corpus(corpus_id, scholar, only=[]):
     corpus = None
     role = 'Viewer'
 
-    if (scholar and scholar.is_admin) or \
-            (scholar and corpus_id in scholar.available_corpora.keys()) or \
-            corpus_id in get_open_access_corpora():
-
+    if scholar_can_access_corpus(corpus_id, scholar):
         corpus = get_corpus(corpus_id, only)
         if scholar and scholar.is_admin:
             role = 'Admin'
