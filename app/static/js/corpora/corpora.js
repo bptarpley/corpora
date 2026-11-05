@@ -3,6 +3,7 @@ class Corpora {
         this.host = 'host' in config ? config.host : ""
         this.auth_token = 'auth_token' in config ? config.auth_token : ""
         this.csrf_token = 'csrf_token' in config ? config.csrf_token : ""
+        this.scholar_id = 'scholar_id' in config ? config.scholar_id : ""
     }
 
     make_request(path, type, params={}, callback, spool=false, spool_records = []) {
@@ -114,7 +115,6 @@ class Corpora {
             "GET",
             params,
             corpus => {
-                corpus.events = new SharedWorker(`/corpus/${id}/event-dispatcher/`)
                 corpus.event_ids = new Set()
                 corpus.event_callbacks = {
                     alert: function (alert) {
@@ -143,11 +143,16 @@ class Corpora {
                     }
                 }
 
-                corpus.events.port.start()
-                corpus.events.port.onmessage = (event) => {
-                    let payload = JSON.parse(event.data)
-                    if (payload.event_type && Object.keys(corpus.event_callbacks).includes(payload.event_type)) {
-                        corpus.event_callbacks[payload.event_type](payload)
+                // Job, schema and alert events only matter to logged in scholars, and a stream holds two nginx
+                // connections for as long as a tab stays open, so anonymous visitors don't open one.
+                if (this.scholar_id) {
+                    corpus.events = new SharedWorker(`/corpus/${id}/event-dispatcher/`)
+                    corpus.events.port.start()
+                    corpus.events.port.onmessage = (event) => {
+                        let payload = JSON.parse(event.data)
+                        if (payload.event_type && Object.keys(corpus.event_callbacks).includes(payload.event_type)) {
+                            corpus.event_callbacks[payload.event_type](payload)
+                        }
                     }
                 }
 

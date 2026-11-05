@@ -23,8 +23,9 @@ onconnect = (event) => {
     })
 }
 
-// Initialize the EventSource
-const eventSource = new ReconnectingEventSource('/events/{{ corpus_id }}/')
+// Initialize the EventSource. Retries wait a random time up to max_retry_time, so a longer window stops every
+// browser from reconnecting at once after an outage (the default of 3 seconds keeps a full nginx full).
+const eventSource = new ReconnectingEventSource('/events/{{ corpus_id }}/', {max_retry_time: 30000})
 
 // Dispatch events to each client
 eventSource.addEventListener('event', (event) => {
