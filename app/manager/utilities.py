@@ -385,10 +385,17 @@ def clear_cached_session_scholar(user_id):
                 session.save()
 
 
+# Shared by every call to get_open_access_corpora, which access checks run on each request
+# (iiif_passthrough among them): the client pools its connections, so a lookup costs a single
+# round trip rather than a new TCP connection. redis-py clients are thread-safe and connect
+# lazily, so creating this at import time opens nothing.
+OPEN_ACCESS_CACHE = redis.Redis(host='redis', decode_responses=True)
+
+
 def get_open_access_corpora(use_cache=True):
     oa_corpora = []
 
-    cache = redis.Redis(host='redis', decode_responses=True)
+    cache = OPEN_ACCESS_CACHE
     oa_corpora_list = cache.get('/open_access_corpora')
     if not oa_corpora_list or not use_cache:
         corpora = Corpus.objects(open_access=True)
