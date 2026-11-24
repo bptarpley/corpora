@@ -381,6 +381,53 @@ class Content(mongoengine.Document):
                 else:
                     setattr(self, field_name, new_file)
 
+    def _xref_index_fields(self, xref_ct_name, xref):
+        """
+        The in-lists fields of a referenced document, shaped for embedding in the
+        referencing document's Elasticsearch entry.
+
+        Both the single- and multi-valued cross reference branches of _do_indexing
+        go through here, so that the two cannot disagree about a field's shape. The
+        field selection mirrors build_content_type_elastic_index, which maps every
+        in-lists field of the referenced type except its own cross references.
+        """
+        fields = {}
+        for xref_field in self._corpus.content_types[xref_ct_name].fields:
+            if xref_field.in_lists and xref_field.type != 'cross_reference':
+                value = self._xref_field_index_value(xref_field, xref)
+
+                if value is None and xref_field.type == 'file':
+                    continue
+
+                fields[xref_field.name] = value
+        return fields
+
+    @staticmethod
+    def _xref_field_index_value(xref_field, xref):
+        """
+        Value of one field of a referenced document, shaped for the Elasticsearch
+        mapping of the referencing document.
+
+        This deliberately differs from top-level indexing for multi-valued geo_point
+        fields. A top-level one is mapped as geo_shape and indexed as a MultiPoint,
+        but build_content_type_elastic_index maps an embedded one as a plain
+        geo_point, which rejects a MultiPoint object and accepts a list of
+        [lon, lat] pairs -- the shape get_dict_value already produces, and the one
+        the search API returns for top-level fields after flattening.
+        """
+        value = getattr(xref, xref_field.name)
+
+        if xref_field.multiple and value is None:
+            value = []
+
+        if xref_field.type == 'file':
+            # mapped as keyword: index the path, not File.to_dict()
+            if xref_field.multiple:
+                return [f.path for f in value if hasattr(f, 'path')]
+            return value.path if hasattr(value, 'path') else None
+
+        return xref_field.get_dict_value(value, xref.uri)
+
     def _do_indexing(self, field_list=[]):
         index_obj = {}
         for field in self._ct.fields:
@@ -403,9 +450,7 @@ class Content(mongoengine.Document):
                                         1
                                     )
 
-                                for xref_field in self._corpus.content_types[field.cross_reference_type].fields:
-                                    if xref_field.in_lists and not xref_field.cross_reference_type:
-                                        xref_dict[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
+                                xref_dict.update(self._xref_index_fields(field.cross_reference_type, xref))
                                 field_value.append(xref_dict)
                         else:
                             xref = field_value
@@ -421,21 +466,7 @@ class Content(mongoengine.Document):
                                     1
                                 )
 
-                            for xref_field in self._corpus.content_types[field.cross_reference_type].fields:
-                                if xref_field.in_lists and xref_field.type != "cross_reference":
-                                    if xref_field.type == 'file':
-                                        if xref_field.multiple:
-                                            field_value[xref_field.name] = [f.path for f in getattr(xref, xref_field.name) if hasattr(f, 'path')]
-                                        elif hasattr(getattr(xref, xref_field.name), 'path'):
-                                            field_value[xref_field.name] = getattr(xref, xref_field.name).path
-
-                                    elif xref_field.type == 'geo_point' and xref_field.multiple:
-                                        field_value[xref_field.name] = {
-                                            'type': 'MultiPoint',
-                                            'coordinates': [v['coordinates'] for v in getattr(xref, xref_field.name)]
-                                        }
-                                    else:
-                                        field_value[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
+                            field_value.update(self._xref_index_fields(field.cross_reference_type, xref))
 
                         index_obj[field.name] = field_value
 
