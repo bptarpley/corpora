@@ -22,6 +22,25 @@ if TYPE_CHECKING:
     from .corpus import Corpus
 
 
+# Cypher that detach-deletes a content node, bound to `c`, along with the nodes it owns: the _File
+# nodes of its file fields, and whatever embedded values link in for themselves (the document plugin's
+# _Page nodes and the _File nodes hanging off those). A node counts as owned when every node on the
+# path to it carries a label starting with an underscore AND a uri extending the content's own uri.
+# The label rule keeps the walk from following a cross reference into other content; the uri rule
+# keeps it from taking instance-wide underscore nodes (_Scholar, _Task, _ContentView ...) should
+# content ever link to one. The walk starts from the node itself rather than matching a uri prefix,
+# because a proxy content type shares its uri with the content it proxies.
+DELETE_CONTENT_NODE_CYPHER = '''
+    OPTIONAL MATCH owned_path = (c) -[*1..3]-> (owned)
+    WHERE all(o IN nodes(owned_path)[1..] WHERE
+              any(label IN labels(o) WHERE label STARTS WITH '_')
+              AND o.uri STARTS WITH c.uri + '/')
+    WITH c, collect(DISTINCT owned) AS owned_nodes
+    FOREACH (o IN owned_nodes | DETACH DELETE o)
+    DETACH DELETE c
+'''
+
+
 class Content(mongoengine.Document):
     """
     Base class for all content instances within a corpus.
@@ -248,12 +267,12 @@ class Content(mongoengine.Document):
     @classmethod
     def _pre_delete(cls, sender, document, **kwargs):
         if (document._unlink):
-            # delete Neo4J node
+            # delete Neo4J node and the nodes it owns (see DELETE_CONTENT_NODE_CYPHER)
             run_neo(
                 '''
-                    MATCH (d:{content_type} {{ uri: $content_uri }})
-                    DETACH DELETE d
-                '''.format(content_type=document.content_type),
+                    MATCH (c:{content_type} {{ uri: $content_uri }})
+                    {delete_content_node}
+                '''.format(content_type=document.content_type, delete_content_node=DELETE_CONTENT_NODE_CYPHER),
                 {
                     'content_uri': document.uri
                 }

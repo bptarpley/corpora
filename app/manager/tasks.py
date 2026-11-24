@@ -13,8 +13,9 @@ from corpus import (
     Corpus, Job, get_corpus, File,
     ContentView, ContentTypeGroup, ContentDeletion,
     CorpusBackup, CorpusBackupAutomation,
-    JobSite, GitRepo, CompletedTask
+    JobSite, GitRepo, CompletedTask, run_neo
 )
+from corpus.content import DELETE_CONTENT_NODE_CYPHER
 from huey.contrib.djhuey import db_task, db_periodic_task
 from huey import crontab
 from bson.objectid import ObjectId
@@ -1423,6 +1424,107 @@ def content_deletion_cleanup():
     expired_uploads = TemporaryUpload.objects.filter(uploaded__lte=datetime.now()-timedelta(days=1))
     for upload in expired_uploads:
         upload.delete()
+
+    # check_jobs also calls this task whenever deletions are pending, so the orphan sweep is throttled to
+    # once per interval; the lock also keeps replicas from sweeping at the same time
+    cache = redis.Redis(host=settings.REDIS_HOST, decode_responses=True)
+    if cache.set(ORPHAN_SWEEP_LOCK_KEY, int(time.time()), nx=True, ex=ORPHAN_SWEEP_INTERVAL_SECS):
+        try:
+            sweep_orphaned_owned_nodes()
+        except:
+            print("Error sweeping orphaned Neo4J nodes:\n{0}".format(traceback.format_exc()))
+
+
+# Nodes a content item owns (_File nodes from its file fields, the document plugin's _Page nodes) carry a
+# label starting with an underscore and a uri extending the content's own uri. Instance-wide underscore
+# nodes have uris outside /corpus/ (/scholar/..., /task/..., /jobsite/..., /contentview/...), and a
+# corpus's own files (/corpus/<id>/file/...) have no content id segment, so neither matches this pattern.
+OWNED_NODE_URI_PATTERN = r'^/corpus/[0-9a-f]{24}/[^/]+/[0-9a-f]{24}/.+'
+ORPHAN_GRACE_SECS = 60 * 60
+ORPHAN_SWEEP_INTERVAL_SECS = 50 * 60
+ORPHAN_SWEEP_LOCK_KEY = 'corpora_orphan_sweep_lock'
+ORPHAN_SWEEP_BATCH_SIZE = 5000
+
+
+def sweep_orphaned_owned_nodes(now=None):
+    """
+    Delete owned nodes that nothing points at any more, such as the _File nodes of a file value that
+    was removed or cleared, or the _Page nodes of content deleted without them.
+
+    Content._do_linking deletes a content node's outbound relationships before rebuilding them, so a
+    live node can look orphaned for a moment. Orphans are therefore only marked on the sweep that
+    finds them (orphaned_since), and deleted by a later sweep once they have stayed orphaned for
+    ORPHAN_GRACE_SECS. Any node that has been linked again in the meantime is unmarked, both here and
+    by File._do_linking, which removes the mark whenever it links a file.
+
+    Args:
+        now (int): Epoch seconds to treat as the current time; defaults to the actual time.
+
+    Returns:
+        dict: Per label, how many nodes were unmarked, deleted, and newly marked.
+    """
+    if now is None:
+        now = int(time.time())
+
+    labels = [record[0] for record in run_neo("CALL db.labels() YIELD label RETURN label", {})
+              if record[0].startswith('_')]
+    report = {}
+
+    def run_batched(cypher, params):
+        total = 0
+        processed = 1
+        while processed > 0:
+            processed = run_neo(cypher, dict(params, batch_size=ORPHAN_SWEEP_BATCH_SIZE))[0][0]
+            total += processed
+        return total
+
+    for label in labels:
+        counts = {}
+
+        # unmark nodes that have been linked again since they were marked
+        counts['unmarked'] = run_batched(
+            '''
+                MATCH (n:`{0}`)
+                WHERE n.orphaned_since IS NOT NULL AND EXISTS {{ ()-->(n) }}
+                WITH n LIMIT $batch_size
+                REMOVE n.orphaned_since
+                RETURN count(n)
+            '''.format(label),
+            {}
+        )
+
+        # delete nodes that have stayed orphaned through the grace period, along with the nodes they own
+        # in turn (an orphaned _Page takes its _File nodes with it)
+        counts['deleted'] = run_batched(
+            '''
+                MATCH (c:`{0}`)
+                WHERE c.orphaned_since <= $cutoff AND NOT EXISTS {{ ()-->(c) }}
+                WITH c LIMIT $batch_size
+                {1}
+                RETURN count(*)
+            '''.format(label, DELETE_CONTENT_NODE_CYPHER),
+            {'cutoff': now - ORPHAN_GRACE_SECS}
+        )
+
+        # mark new orphans; marking last means a node is never deleted by the sweep that first finds it
+        counts['marked'] = run_batched(
+            '''
+                MATCH (n:`{0}`)
+                WHERE n.orphaned_since IS NULL AND n.uri =~ $uri_pattern AND NOT EXISTS {{ ()-->(n) }}
+                WITH n LIMIT $batch_size
+                SET n.orphaned_since = $now
+                RETURN count(n)
+            '''.format(label),
+            {'uri_pattern': OWNED_NODE_URI_PATTERN, 'now': now}
+        )
+
+        if any(counts.values()):
+            print("Orphaned {0} nodes: {1} unmarked, {2} deleted, {3} newly marked.".format(
+                label, counts['unmarked'], counts['deleted'], counts['marked']
+            ))
+        report[label] = counts
+
+    return report
 
 
 @db_task(priority=3)

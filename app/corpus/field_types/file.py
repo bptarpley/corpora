@@ -55,6 +55,7 @@ class File(mongoengine.EmbeddedDocument):
                     SET f.corpus_id = $corpus_id
                     SET f.is_image = $is_image
                     SET f.external = $is_external
+                    REMOVE f.orphaned_since
                     MERGE (n) -[rel:hasFile]-> (f)
                 '''.format(content_type=content_type),
                 {
