@@ -24,8 +24,8 @@ function renderGeoPointMap(target) {
     }
 
     if (getVal(lat_input) && getVal(long_input)) {
-        // also normalizes a stored value saved before longitudes were wrapped,
-        // so the inputs and the value that gets saved can't disagree
+        // also normalizes a stored out-of-range longitude, so the inputs and the
+        // value that gets saved always agree
         setValueFromCoords(setGeoPointMarker(lat_input, long_input, target, map))
     } else
         map.locate({setView: true})
