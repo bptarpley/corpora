@@ -11,8 +11,10 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'corpora.settings')
 # is populated before importing code that may import ORM models.
 django_asgi_app = get_asgi_application()
 
+from manager.iiif import OpenAccessIIIFFastPath
+
 application = ProtocolTypeRouter({
-    'http': URLRouter([
+    'http': OpenAccessIIIFFastPath(URLRouter([
         re_path(r'', get_asgi_application()),
-    ]),
+    ])),
 })

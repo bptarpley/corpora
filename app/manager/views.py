@@ -1,4 +1,3 @@
-import re
 import subprocess
 import mimetypes
 import asyncio
@@ -20,7 +19,6 @@ from notebook.notebookapp import list_running_servers, NotebookApp
 from types import SimpleNamespace
 from html import unescape
 from time import sleep
-from urllib.parse import quote
 from corpus import (
     Scholar, Task,
     ContentTypeGroupMember, FieldRenderer,
@@ -29,6 +27,7 @@ from corpus import (
 )
 from corpus.utilities import parse_graph_steps, build_cypher_from_graph_steps
 from .captcha import generate_captcha, validate_captcha
+from .iiif import parse_iiif_request, media_redirect
 from .tasks import *
 from .utilities import (
     _get_context,
@@ -1640,22 +1639,18 @@ def get_image(
                 format=format
             ))
 
-        elif req_type == '*/*' or request.build_absolute_uri().endswith('/info.json'):
+        path_segments = [segment for segment in file_path.split('/') if segment]
+
+        if req_type == '*/*' or request.build_absolute_uri().endswith('/info.json'):
             response = HttpResponse(content_type='application/json')
-            response['X-Accel-Redirect'] = "/media/{identifier}/info.json".format(
-                identifier=file_path[1:].replace('/', '$!$'),
-            )
+            response['X-Accel-Redirect'] = media_redirect(path_segments, ['info.json'])
             return response
         else:
             mime_type, encoding = mimetypes.guess_type(file_path)
             response = HttpResponse(content_type=mime_type)
-            response['X-Accel-Redirect'] = "/media/{identifier}/{region}/{size}/{rotation}/{quality}.{format}".format(
-                identifier=file_path[1:].replace('/', '$!$'),
-                region=region,
-                size=size,
-                rotation=rotation,
-                quality=quality,
-                format=format
+            response['X-Accel-Redirect'] = media_redirect(
+                path_segments,
+                [region, size, rotation, f"{quality}.{format}"]
             )
             return response
 
@@ -1666,63 +1661,29 @@ def iiif_passthrough(request, req_path):
     """
     Hands an IIIF Image API request to Cantaloupe via nginx's internal /media/ location.
 
-    The file path becomes the IIIF identifier, with Cantaloupe's slash substitute ($!$)
-    joining its segments. Django has already decoded req_path, so every segment is
-    percent-encoded again before it goes into X-Accel-Redirect, keeping the header plain
-    ASCII: Django RFC 2047-encodes any non-latin-1 header value, and a raw space would pass
-    straight into Cantaloupe's request line. nginx unescapes the header and re-escapes the
-    URI on the way upstream, because /media/ is a prefix location with a variable-free
-    proxy_pass -- see the note on that block in corpora.conf.
+    Only files under /corpora/<corpus_id>/ are served (parse_iiif_request in manager.iiif
+    decides that, and builds the X-Accel-Redirect). An open access corpus needs no login;
+    any other needs a logged-in scholar with at least Viewer privileges on it.
 
-    Only files under /corpora/<corpus_id>/ are served. An open access corpus needs no
-    login; any other needs a logged-in scholar with at least Viewer privileges on it.
+    Requests for open access corpora are normally answered before reaching Django, by
+    manager.iiif.OpenAccessIIIFFastPath; this view still serves them whenever that falls
+    through, such as when the open access list isn't cached yet.
     """
-    context = _get_context(request)
-
-    req_path_parts = req_path.split('/')
-    if req_path.endswith('/info.json'):
-        file_parts, iiif_params = req_path_parts[:-1], req_path_parts[-1:]
-    else:
-        # region/size/rotation/quality.format
-        file_parts, iiif_params = req_path_parts[:-4], req_path_parts[-4:]
-
-    # The file path arrives in more than one form: with real slashes, with Cantaloupe's
-    # $!$ slash substitute (the form info.json's @id uses, which viewers build tile URLs
-    # from), or a mix, and content-table thumbnails add a leading slash. Normalize to
-    # segments before checking anything, or the check could be read off one form while
-    # Cantaloupe resolves another.
-    path_segments = [segment for part in file_parts for segment in part.split('$!$')]
-    while path_segments and path_segments[0] == '':
-        path_segments.pop(0)
-
-    # '..' is refused outright: the corpus id is read off the front of the path, so
-    # corpora/<open access id>/../<private id>/... would otherwise pass as the former
-    if len(path_segments) < 3 or \
-            path_segments[0] != 'corpora' or \
-            not re.fullmatch(r'[0-9a-f]{24}', path_segments[1]) or \
-            any(segment in ('', '.', '..') for segment in path_segments):
+    iiif_request = parse_iiif_request(req_path)
+    if not iiif_request:
         raise Http404("Not a corpus file.")
 
-    corpus_id = path_segments[1]
-    if corpus_id not in get_open_access_corpora():
-        scholar = context['scholar']
+    if iiif_request.corpus_id not in get_open_access_corpora():
+        scholar = _get_context(request)['scholar']
         if not scholar:
             return HttpResponseForbidden()
 
-        role = 'Admin' if scholar.is_admin else scholar.available_corpora.get(corpus_id)
+        role = 'Admin' if scholar.is_admin else scholar.available_corpora.get(iiif_request.corpus_id)
         if not (role and scholar_has_privilege('Viewer', role)):
             return HttpResponseForbidden()
 
-    iiif_identifier = "$!$".join(quote(segment, safe='') for segment in path_segments)
-    iiif_params = "/".join(quote(param, safe='') for param in iiif_params)
-
-    if iiif_params == 'info.json':
-        mime_type = 'application/json'
-    else:
-        mime_type, encoding = mimetypes.guess_type("/".join(path_segments))
-
-    response = HttpResponse(content_type=mime_type)
-    response['X-Accel-Redirect'] = f"/media/{iiif_identifier}/{iiif_params}"
+    response = HttpResponse(content_type=iiif_request.content_type)
+    response['X-Accel-Redirect'] = iiif_request.x_accel_redirect
     return response
 
 
