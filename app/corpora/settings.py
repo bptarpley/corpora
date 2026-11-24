@@ -125,7 +125,7 @@ SESSION_CACHE_ALIAS = "default"
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://{0}:6379/1".format(os.environ.get('CRP_REDIS_HOST', 'redis')),
+        "LOCATION": "redis://{0}:6379/1".format(REDIS_HOST),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient"
         },
@@ -282,7 +282,7 @@ X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 
 # Huey config
-HUEY = PriorityRedisHuey('corpora', host='redis')
+HUEY = PriorityRedisHuey('corpora', host=REDIS_HOST)
 NUM_HUEY_WORKERS = os.environ.get('CRP_HUEY_WORKERS')
 NUM_JOBS_PER_MINUTE = int(os.environ.get('CRP_NUM_JOBS_PER_MINUTE', 200))
 JOB_TIMEOUT_SECS = int(os.environ.get('CRP_JOB_TIMEOUT_SECS', 86400))

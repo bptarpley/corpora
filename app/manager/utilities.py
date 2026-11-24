@@ -364,7 +364,7 @@ def build_search_params_from_dict(params):
 
 
 def clear_cached_session_scholar(user_id):
-    cache = redis.Redis(host='redis', db=1, decode_responses=True)
+    cache = redis.Redis(host=settings.REDIS_HOST, db=1, decode_responses=True)
     key_prefix = 'corpora:1:django.contrib.sessions.cache'
     from importlib import import_module
     SessionStore = import_module(settings.SESSION_ENGINE).SessionStore
@@ -389,7 +389,7 @@ def clear_cached_session_scholar(user_id):
 # (iiif_passthrough among them): the client pools its connections, so a lookup costs a single
 # round trip rather than a new TCP connection. redis-py clients are thread-safe and connect
 # lazily, so creating this at import time opens nothing.
-OPEN_ACCESS_CACHE = redis.Redis(host='redis', decode_responses=True)
+OPEN_ACCESS_CACHE = redis.Redis(host=settings.REDIS_HOST, decode_responses=True)
 
 
 def get_open_access_corpora(use_cache=True):

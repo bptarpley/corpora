@@ -724,7 +724,7 @@ def check_jobs():
     # the bool below is for preventing race conditions when django app is replicated in a cluster
     proceed = False
 
-    cache = redis.Redis(host='redis', decode_responses=True)
+    cache = redis.Redis(host=settings.REDIS_HOST, decode_responses=True)
     now = int(datetime.now().timestamp())
     last_checked = cache.get('corpora_manager_last_job_check')
 
