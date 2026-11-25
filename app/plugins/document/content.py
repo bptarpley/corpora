@@ -462,7 +462,8 @@ class Page(mongoengine.EmbeddedDocument):
                     SET p.label = $page_label
                     SET p.corpus_id = $corpus_id
                     SET p.ref_no = $page_ref_no
-                    MERGE (d) -[rel:hasPage]-> (p) 
+                    REMOVE p.orphaned_since
+                    MERGE (d) -[rel:hasPage]-> (p)
                 '''.format(content_type=content_type),
                 {
                     'doc_uri': content_uri,

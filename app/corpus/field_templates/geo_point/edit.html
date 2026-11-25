@@ -7,6 +7,7 @@
             type="number"
             class="form-control {{ field.type }}-control"
             value="{% if value.coordinates %}{{ value.coordinates.1 }}{% endif %}">
+        <div class="invalid-feedback">Latitude must be a number between -90 and 90.</div>
     </div>
     <div class="col-sm-6 form-group">
         <label for="{{ field.name }}{{ suffix }}-long" class="form-label">Longitude</label>
@@ -14,6 +15,7 @@
             type="number"
             class="form-control {{ field.type }}-control"
             value="{% if value.coordinates %}{{ value.coordinates.0 }}{% endif %}">
+        <div class="invalid-feedback">Longitude must be a number.</div>
     </div>
 </div>
 <div class="row no-gutters">

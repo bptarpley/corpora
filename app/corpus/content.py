@@ -22,6 +22,25 @@ if TYPE_CHECKING:
     from .corpus import Corpus
 
 
+# Cypher that detach-deletes a content node, bound to `c`, along with the nodes it owns: the _File
+# nodes of its file fields, and whatever embedded values link in for themselves (the document plugin's
+# _Page nodes and the _File nodes hanging off those). A node counts as owned when every node on the
+# path to it carries a label starting with an underscore AND a uri extending the content's own uri.
+# The label rule keeps the walk from following a cross reference into other content; the uri rule
+# keeps it from taking instance-wide underscore nodes (_Scholar, _Task, _ContentView ...) should
+# content ever link to one. The walk starts from the node itself rather than matching a uri prefix,
+# because a proxy content type shares its uri with the content it proxies.
+DELETE_CONTENT_NODE_CYPHER = '''
+    OPTIONAL MATCH owned_path = (c) -[*1..3]-> (owned)
+    WHERE all(o IN nodes(owned_path)[1..] WHERE
+              any(label IN labels(o) WHERE label STARTS WITH '_')
+              AND o.uri STARTS WITH c.uri + '/')
+    WITH c, collect(DISTINCT owned) AS owned_nodes
+    FOREACH (o IN owned_nodes | DETACH DELETE o)
+    DETACH DELETE c
+'''
+
+
 class Content(mongoengine.Document):
     """
     Base class for all content instances within a corpus.
@@ -248,12 +267,12 @@ class Content(mongoengine.Document):
     @classmethod
     def _pre_delete(cls, sender, document, **kwargs):
         if (document._unlink):
-            # delete Neo4J node
+            # delete Neo4J node and the nodes it owns (see DELETE_CONTENT_NODE_CYPHER)
             run_neo(
                 '''
-                    MATCH (d:{content_type} {{ uri: $content_uri }})
-                    DETACH DELETE d
-                '''.format(content_type=document.content_type),
+                    MATCH (c:{content_type} {{ uri: $content_uri }})
+                    {delete_content_node}
+                '''.format(content_type=document.content_type, delete_content_node=DELETE_CONTENT_NODE_CYPHER),
                 {
                     'content_uri': document.uri
                 }
@@ -381,6 +400,53 @@ class Content(mongoengine.Document):
                 else:
                     setattr(self, field_name, new_file)
 
+    def _xref_index_fields(self, xref_ct_name, xref):
+        """
+        The in-lists fields of a referenced document, shaped for embedding in the
+        referencing document's Elasticsearch entry.
+
+        Both the single- and multi-valued cross reference branches of _do_indexing
+        go through here, so that the two cannot disagree about a field's shape. The
+        field selection mirrors build_content_type_elastic_index, which maps every
+        in-lists field of the referenced type except its own cross references.
+        """
+        fields = {}
+        for xref_field in self._corpus.content_types[xref_ct_name].fields:
+            if xref_field.in_lists and xref_field.type != 'cross_reference':
+                value = self._xref_field_index_value(xref_field, xref)
+
+                if value is None and xref_field.type == 'file':
+                    continue
+
+                fields[xref_field.name] = value
+        return fields
+
+    @staticmethod
+    def _xref_field_index_value(xref_field, xref):
+        """
+        Value of one field of a referenced document, shaped for the Elasticsearch
+        mapping of the referencing document.
+
+        This deliberately differs from top-level indexing for multi-valued geo_point
+        fields. A top-level one is mapped as geo_shape and indexed as a MultiPoint,
+        but build_content_type_elastic_index maps an embedded one as a plain
+        geo_point, which rejects a MultiPoint object and accepts a list of
+        [lon, lat] pairs -- the shape get_dict_value already produces, and the one
+        the search API returns for top-level fields after flattening.
+        """
+        value = getattr(xref, xref_field.name)
+
+        if xref_field.multiple and value is None:
+            value = []
+
+        if xref_field.type == 'file':
+            # mapped as keyword: index the path, not File.to_dict()
+            if xref_field.multiple:
+                return [f.path for f in value if hasattr(f, 'path')]
+            return value.path if hasattr(value, 'path') else None
+
+        return xref_field.get_dict_value(value, xref.uri)
+
     def _do_indexing(self, field_list=[]):
         index_obj = {}
         for field in self._ct.fields:
@@ -403,9 +469,7 @@ class Content(mongoengine.Document):
                                         1
                                     )
 
-                                for xref_field in self._corpus.content_types[field.cross_reference_type].fields:
-                                    if xref_field.in_lists and not xref_field.cross_reference_type:
-                                        xref_dict[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
+                                xref_dict.update(self._xref_index_fields(field.cross_reference_type, xref))
                                 field_value.append(xref_dict)
                         else:
                             xref = field_value
@@ -421,21 +485,7 @@ class Content(mongoengine.Document):
                                     1
                                 )
 
-                            for xref_field in self._corpus.content_types[field.cross_reference_type].fields:
-                                if xref_field.in_lists and xref_field.type != "cross_reference":
-                                    if xref_field.type == 'file':
-                                        if xref_field.multiple:
-                                            field_value[xref_field.name] = [f.path for f in getattr(xref, xref_field.name) if hasattr(f, 'path')]
-                                        elif hasattr(getattr(xref, xref_field.name), 'path'):
-                                            field_value[xref_field.name] = getattr(xref, xref_field.name).path
-
-                                    elif xref_field.type == 'geo_point' and xref_field.multiple:
-                                        field_value[xref_field.name] = {
-                                            'type': 'MultiPoint',
-                                            'coordinates': [v['coordinates'] for v in getattr(xref, xref_field.name)]
-                                        }
-                                    else:
-                                        field_value[xref_field.name] = xref_field.get_dict_value(getattr(xref, xref_field.name), xref.uri)
+                            field_value.update(self._xref_index_fields(field.cross_reference_type, xref))
 
                         index_obj[field.name] = field_value
 

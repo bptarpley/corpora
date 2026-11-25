@@ -5,7 +5,7 @@ from copy import deepcopy
 from ipaddress import ip_address
 from asgiref.sync import sync_to_async
 from django.shortcuts import render, redirect, HttpResponse
-from django.http import Http404, HttpResponseBadRequest, JsonResponse, StreamingHttpResponse
+from django.http import Http404, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse, StreamingHttpResponse
 from django.template import Context, Template
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -27,6 +27,7 @@ from corpus import (
 )
 from corpus.utilities import parse_graph_steps, build_cypher_from_graph_steps
 from .captcha import generate_captcha, validate_captcha
+from .iiif import parse_iiif_request, media_redirect
 from .tasks import *
 from .utilities import (
     _get_context,
@@ -593,8 +594,9 @@ def corpus(request, corpus_id):
                 else:
                     corpus.open_access = True
                     response['messages'].append('This corpus is now open access.')
-                get_open_access_corpora(False)  # to refresh redis cache
                 corpus.save()
+                # refresh the redis cache after saving: the refresh re-reads open_access from MongoDB
+                get_open_access_corpora(False)
 
     return render(
         request,
@@ -1637,22 +1639,18 @@ def get_image(
                 format=format
             ))
 
-        elif req_type == '*/*' or request.build_absolute_uri().endswith('/info.json'):
+        path_segments = [segment for segment in file_path.split('/') if segment]
+
+        if req_type == '*/*' or request.build_absolute_uri().endswith('/info.json'):
             response = HttpResponse(content_type='application/json')
-            response['X-Accel-Redirect'] = "/media/{identifier}/info.json".format(
-                identifier=file_path[1:].replace('/', '$!$'),
-            )
+            response['X-Accel-Redirect'] = media_redirect(path_segments, ['info.json'])
             return response
         else:
             mime_type, encoding = mimetypes.guess_type(file_path)
             response = HttpResponse(content_type=mime_type)
-            response['X-Accel-Redirect'] = "/media/{identifier}/{region}/{size}/{rotation}/{quality}.{format}".format(
-                identifier=file_path[1:].replace('/', '$!$'),
-                region=region,
-                size=size,
-                rotation=rotation,
-                quality=quality,
-                format=format
+            response['X-Accel-Redirect'] = media_redirect(
+                path_segments,
+                [region, size, rotation, f"{quality}.{format}"]
             )
             return response
 
@@ -1660,29 +1658,32 @@ def get_image(
 
 
 def iiif_passthrough(request, req_path):
-    context = _get_context(request)
+    """
+    Hands an IIIF Image API request to Cantaloupe via nginx's internal /media/ location.
 
-    if req_path.endswith('/info.json'):
-        req_path_parts = req_path.split('/')
-        file_path = "/".join(req_path_parts[:-1])
-        iiif_identifier = "$!$".join(req_path_parts[:-1])
-        response = HttpResponse(content_type='application/json')
-        response['X-Accel-Redirect'] = f"/media/{iiif_identifier}/info.json"
-        return response
+    Only files under /corpora/<corpus_id>/ are served (parse_iiif_request in manager.iiif
+    decides that, and builds the X-Accel-Redirect). An open access corpus needs no login;
+    any other needs a logged-in scholar with at least Viewer privileges on it.
 
-    req_path_parts = req_path.split('/')
-    file_path = "/".join(req_path_parts[:-4])
-    iiif_identifier = "$!$".join(req_path_parts[:-4])
-    internal_req_path = "{0}/{1}".format(
-        iiif_identifier,
-        "/".join(req_path_parts[-4:])
-    )
+    Requests for open access corpora are normally answered before reaching Django, by
+    manager.iiif.OpenAccessIIIFFastPath; this view still serves them whenever that falls
+    through, such as when the open access list isn't cached yet.
+    """
+    iiif_request = parse_iiif_request(req_path)
+    if not iiif_request:
+        raise Http404("Not a corpus file.")
 
-    mime_type, encoding = mimetypes.guess_type(file_path)
-    response = HttpResponse(content_type=mime_type)
-    response['X-Accel-Redirect'] = "/media/{internal_req_path}".format(
-        internal_req_path=internal_req_path
-    )
+    if iiif_request.corpus_id not in get_open_access_corpora():
+        scholar = _get_context(request)['scholar']
+        if not scholar:
+            return HttpResponseForbidden()
+
+        role = 'Admin' if scholar.is_admin else scholar.available_corpora.get(iiif_request.corpus_id)
+        if not (role and scholar_has_privilege('Viewer', role)):
+            return HttpResponseForbidden()
+
+    response = HttpResponse(content_type=iiif_request.content_type)
+    response['X-Accel-Redirect'] = iiif_request.x_accel_redirect
     return response
 
 

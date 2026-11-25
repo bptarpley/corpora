@@ -21,7 +21,7 @@ from .utilities import run_neo, parse_date_string, is_valid_long_lat, ensure_neo
 from .field_types.file import File
 from .field_types.gitrepo import GitRepo
 from .content_type import ContentType, ContentTypeGroup, ContentTemplate
-from .content import Content, ContentView
+from .content import Content, ContentView, DELETE_CONTENT_NODE_CYPHER
 from .field import Field
 from .job import Job, JobSite, JobTracker, Task, CompletedTask
 
@@ -2052,16 +2052,16 @@ class Corpus(mongoengine.Document):
             content_only (bool): Delete the content but keep the content type, with an empty index.
         """
         if content_type in self.content_types or not content_only:
-            # Delete Neo4J nodes
+            # Delete Neo4J nodes and the nodes they own (see DELETE_CONTENT_NODE_CYPHER)
             nodes_deleted = 1
             while nodes_deleted > 0:
                 nodes_deleted = run_neo(
                     '''
-                        MATCH (x:{0} {{corpus_id: $corpus_id}})
-                        WITH x LIMIT 5000
-                        DETACH DELETE x
+                        MATCH (c:{0} {{corpus_id: $corpus_id}})
+                        WITH c LIMIT 5000
+                        {1}
                         RETURN count(*)
-                    '''.format(content_type),
+                    '''.format(content_type, DELETE_CONTENT_NODE_CYPHER),
                     {'corpus_id': str(self.id)}
                 )[0][0]
 

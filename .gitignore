@@ -9,3 +9,4 @@ local.docker-compose.yml
 docs/src/site
 docker-compose-docs.yml
 /investigations
+/benchmarks
